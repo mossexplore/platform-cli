@@ -80,6 +80,7 @@ def wait_for_edge_to_close(page: Any) -> None:
 def capture_auth(config_path: Path = CONFIG_PATH) -> dict[str, Any]:
     """打开浏览器等待登录，然后调用用户接口并捕获认证信息。"""
     try:
+        from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
         from playwright.sync_api import sync_playwright
     except ImportError:
         return {
@@ -111,21 +112,49 @@ def capture_auth(config_path: Path = CONFIG_PATH) -> dict[str, Any]:
             page.goto(api_endpoint, wait_until="domcontentloaded", timeout=timeout)
             input("请在浏览器中完成登录，登录成功后按回车键继续...")
 
+            # 刷新控制台以触发页面自身的 /ai/user/info 请求，并立即读取真实
+            # 请求头。这里只捕获 Request，不读取导航 Response，避免响应体失效。
+            try:
+                with page.expect_request(
+                    lambda request: request.url.split("?", 1)[0].rstrip("/")
+                    == user_info_url.rstrip("/"),
+                    timeout=timeout,
+                ) as request_info:
+                    page.reload(wait_until="domcontentloaded", timeout=timeout)
+                captured_headers = request_info.value.all_headers()
+            except PlaywrightTimeoutError:
+                result = {
+                    "success": False,
+                    "message": (
+                        "未捕获到 /ai/user/info 请求，无法从真实请求头中获取 "
+                        "csrftoken。请确认登录后控制台页面能够正常加载。"
+                    ),
+                }
+                print(result["message"])
+                wait_for_edge_to_close(page)
+                return result
+
             # browser_context.request 与浏览器上下文共享 Cookie。直接请求接口，
-            # 避免刷新或跳转页面后，Edge 释放旧导航响应体。
-            cookies = context.cookies(user_info_url)
-            cookie = "; ".join(
-                f"{item['name']}={item['value']}" for item in cookies
+            # 避免读取页面导航响应时，Edge 已经释放响应体。
+            cookie = captured_headers.get("cookie", "")
+            csrftoken = (
+                captured_headers.get("csrftoken")
+                or captured_headers.get("x-csrftoken")
+                or captured_headers.get("x-csrf-token")
             )
-            csrf_cookie = next(
-                (
-                    item
-                    for item in cookies
-                    if item["name"].lower() == "csrftoken"
-                ),
-                None,
-            )
-            csrftoken = csrf_cookie["value"] if csrf_cookie is not None else None
+            if not csrftoken:
+                header_names = ", ".join(sorted(captured_headers))
+                result = {
+                    "success": False,
+                    "message": (
+                        "已捕获 /ai/user/info 请求，但请求头中不存在 csrftoken、"
+                        "x-csrftoken 或 x-csrf-token。实际请求头名称: "
+                        f"{header_names}"
+                    ),
+                }
+                print(result["message"])
+                wait_for_edge_to_close(page)
+                return result
 
             request_headers = {"referer": api_endpoint}
             if cookie:
