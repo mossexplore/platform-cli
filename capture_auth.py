@@ -5,7 +5,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Any
+from typing import Any, Union
 from urllib.parse import urlsplit
 
 
@@ -52,6 +52,53 @@ def build_user_info_url(api_endpoint: str) -> str:
     """从控制台地址提取 origin，并拼接用户信息接口。"""
     parsed = urlsplit(api_endpoint)
     return f"{parsed.scheme}://{parsed.netloc}/ai/user/info"
+
+
+def query_mep_config(
+    request_context: Any,
+    api_endpoint: str,
+    cookie: str,
+    csrftoken: str,
+    timeout: Union[int, float] = 30000,
+) -> dict[str, Any]:
+    """携带认证信息查询 MEP 服务访问类型，并打印原始响应体。"""
+    parsed = urlsplit(api_endpoint)
+    query_url = (
+        f"{parsed.scheme}://{parsed.netloc}"
+        "/ai/backend/mep/config/queryConfig"
+    )
+    headers = {
+        "cookie": cookie,
+        "csrftoken": csrftoken,
+        "content-type": "application/json",
+        "referer": api_endpoint,
+    }
+    payload = {"key": "mep_service_access_type"}
+
+    try:
+        response = request_context.post(
+            query_url,
+            headers=headers,
+            data=payload,
+            timeout=timeout,
+        )
+        response_text = response.text()
+        print(f"queryConfig响应体: {response_text}")
+        if not response.ok:
+            return {
+                "success": False,
+                "message": f"queryConfig请求失败，HTTP {response.status}",
+                "response_body": response_text,
+            }
+        return {
+            "success": True,
+            "response_body": response_text,
+        }
+    except Exception as exc:
+        return {
+            "success": False,
+            "message": f"queryConfig请求失败: {exc}",
+        }
 
 
 def find_username(response_body: Any) -> Any:
@@ -205,12 +252,25 @@ def capture_auth(config_path: Path = CONFIG_PATH) -> dict[str, Any]:
             print(f"csrftoken: {csrftoken}")
             print(f"username: {username}")
 
+            query_result = query_mep_config(
+                request_context=context.request,
+                api_endpoint=api_endpoint,
+                cookie=cookie,
+                csrftoken=csrftoken,
+                timeout=timeout,
+            )
+            if not query_result["success"]:
+                print(query_result["message"])
+
             result = {
-                "success": True,
+                "success": query_result["success"],
                 "cookie": cookie,
                 "csrftoken": csrftoken,
                 "username": username,
+                "query_config": query_result,
             }
+            if not query_result["success"]:
+                result["message"] = query_result["message"]
             wait_for_edge_to_close(page)
             return result
     except Exception as exc:
