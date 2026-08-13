@@ -136,7 +136,12 @@ def capture_auth(config_path: Path = CONFIG_PATH) -> dict[str, Any]:
 
             # browser_context.request 与浏览器上下文共享 Cookie。直接请求接口，
             # 避免读取页面导航响应时，Edge 已经释放响应体。
-            cookie = captured_headers.get("cookie", "")
+            # Cookie 从浏览器上下文读取全部匹配项，不能使用某一次请求头中的
+            # cookie 字段，否则可能只得到该请求实际携带的部分 Cookie。
+            cookies = context.cookies(user_info_url)
+            cookie = "; ".join(
+                f"{item['name']}={item['value']}" for item in cookies
+            )
             csrftoken = (
                 captured_headers.get("csrftoken")
                 or captured_headers.get("x-csrftoken")
