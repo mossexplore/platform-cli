@@ -67,15 +67,24 @@ def find_username(response_body: Any) -> Any:
     return None
 
 
+def wait_for_edge_to_close(page: Any) -> None:
+    """保持脚本和浏览器运行，直到用户主动关闭 Edge 窗口。"""
+    print("认证信息获取完成。Edge 将保持打开，请手动关闭 Edge 以结束程序。")
+    try:
+        page.wait_for_event("close", timeout=0)
+    except Exception:
+        # 用户关闭整个浏览器时，页面对象可能直接失效，这是正常退出流程。
+        pass
+
+
 def capture_auth(config_path: Path = CONFIG_PATH) -> dict[str, Any]:
     """打开浏览器等待登录，然后调用用户接口并捕获认证信息。"""
     try:
-        from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
         from playwright.sync_api import sync_playwright
     except ImportError:
         return {
             "success": False,
-            "message": "未安装playwright，请运行: pip install playwright && playwright install chromium",
+            "message": "未安装playwright，请运行: python -m pip install playwright",
         }
 
     try:
@@ -91,7 +100,8 @@ def capture_auth(config_path: Path = CONFIG_PATH) -> dict[str, Any]:
 
     try:
         with sync_playwright() as playwright:
-            browser = playwright.chromium.launch(headless=False)
+            # 使用 Windows 系统安装的 Microsoft Edge，无需下载 Playwright Chromium。
+            browser = playwright.chromium.launch(channel="msedge", headless=False)
             context = browser.new_context()
             page = context.new_page()
             page.set_default_timeout(timeout)
@@ -101,54 +111,59 @@ def capture_auth(config_path: Path = CONFIG_PATH) -> dict[str, Any]:
             page.goto(api_endpoint, wait_until="domcontentloaded", timeout=timeout)
             input("请在浏览器中完成登录，登录成功后按回车键继续...")
 
-            # 重新加载控制台，让页面自身发起用户信息请求。这样可以保留前端
-            # 为请求追加的 cookie、csrftoken 等请求头。
-            try:
-                with page.expect_response(
-                    lambda item: item.url.split("?", 1)[0].rstrip("/")
-                    == user_info_url.rstrip("/"),
-                    timeout=timeout,
-                ) as response_info:
-                    page.reload(wait_until="domcontentloaded", timeout=timeout)
-                response = response_info.value
-            except PlaywrightTimeoutError:
-                # 某些控制台页面不会在刷新时调用该接口，此时直接访问接口兜底。
-                response = page.goto(
-                    user_info_url,
-                    wait_until="domcontentloaded",
-                    timeout=timeout,
-                )
-            if response is None:
-                return {"success": False, "message": "未收到用户信息接口的响应"}
-
-            request_headers = response.request.all_headers()
-            cookie = request_headers.get("cookie")
-            csrftoken = (
-                request_headers.get("csrftoken")
-                or request_headers.get("x-csrftoken")
-                or request_headers.get("x-csrf-token")
+            # browser_context.request 与浏览器上下文共享 Cookie。直接请求接口，
+            # 避免刷新或跳转页面后，Edge 释放旧导航响应体。
+            cookies = context.cookies(user_info_url)
+            cookie = "; ".join(
+                f"{item['name']}={item['value']}" for item in cookies
             )
+            csrf_cookie = next(
+                (
+                    item
+                    for item in cookies
+                    if item["name"].lower() == "csrftoken"
+                ),
+                None,
+            )
+            csrftoken = csrf_cookie["value"] if csrf_cookie is not None else None
 
-            # 如果服务端把 CSRF token 仅保存在 Cookie 中，也返回该 cookie 的值。
-            if csrftoken is None:
-                csrf_cookie = next(
-                    (
-                        item
-                        for item in context.cookies(user_info_url)
-                        if item["name"].lower() == "csrftoken"
-                    ),
-                    None,
-                )
-                if csrf_cookie is not None:
-                    csrftoken = csrf_cookie["value"]
+            request_headers = {"referer": api_endpoint}
+            if cookie:
+                request_headers["cookie"] = cookie
+            if csrftoken:
+                request_headers["csrftoken"] = csrftoken
 
-            try:
-                response_body = response.json()
-            except Exception as exc:
-                return {
+            response = context.request.get(
+                user_info_url,
+                headers=request_headers,
+                timeout=timeout,
+            )
+            # 在进行任何后续操作前立刻保存响应文本。
+            response_text = response.text()
+            if not response.ok:
+                result = {
                     "success": False,
-                    "message": f"用户信息接口响应体不是有效的 JSON: {exc}",
+                    "message": (
+                        f"用户信息接口请求失败，HTTP {response.status}: "
+                        f"{response_text[:300]}"
+                    ),
                 }
+                print(result["message"])
+                wait_for_edge_to_close(page)
+                return result
+            try:
+                response_body = json.loads(response_text)
+            except json.JSONDecodeError as exc:
+                result = {
+                    "success": False,
+                    "message": (
+                        f"用户信息接口响应体不是有效的 JSON: {exc}; "
+                        f"响应内容: {response_text[:300]}"
+                    ),
+                }
+                print(result["message"])
+                wait_for_edge_to_close(page)
+                return result
 
             username = find_username(response_body)
 
@@ -156,13 +171,14 @@ def capture_auth(config_path: Path = CONFIG_PATH) -> dict[str, Any]:
             print(f"csrftoken: {csrftoken}")
             print(f"username: {username}")
 
-            browser.close()
-            return {
+            result = {
                 "success": True,
                 "cookie": cookie,
                 "csrftoken": csrftoken,
                 "username": username,
             }
+            wait_for_edge_to_close(page)
+            return result
     except Exception as exc:
         return {"success": False, "message": f"浏览器登录或认证信息获取失败: {exc}"}
 
