@@ -1,0 +1,20 @@
+{
+  "current": "dev",
+  "api": {
+    "timeout": 30000,
+    "retry_times": 3,
+    "verify_ssl": true
+  },
+  "profiles": [
+    {
+      "name": "test",
+      "api_endpoint": "https://console-test.cloudtest.cn/dashboard",
+      "output_format": "table"
+    },
+    {
+      "name": "dev",
+      "api_endpoint": "https://console-dev.cloudtest.cn/dashboard",
+      "output_format": "table"
+    }
+  ]
+}
