@@ -1,0 +1,25 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "wisemlops-cli"
+version = "0.1.0"
+description = "CloudTest platform command line client"
+requires-python = ">=3.9"
+dependencies = [
+  "httpx>=0.27,<1",
+  "playwright>=1.40,<2",
+  "rich>=13,<15",
+  "typer>=0.12,<1"
+]
+
+[project.scripts]
+wo = "wisemlops_cli.cli:run"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
