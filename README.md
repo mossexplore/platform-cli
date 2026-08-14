@@ -1,6 +1,6 @@
-# wo CLI
+# ml CLI
 
-`wo` 是 WiseMLOps平台的 Python 命令行客户端。Playwright 仅用于在 Microsoft
+`ml` 是 WiseMLOps平台的 Python 命令行客户端。Playwright 仅用于在 Microsoft
 Edge 中登录；登录成功后，Cookie、CSRF Token、用户名和过期时间会按 profile
 保存到本地。后续业务命令使用 HTTPX 请求接口。
 
@@ -11,7 +11,7 @@ Edge 中登录；登录成功后，Cookie、CSRF Token、用户名和过期时�
 ```powershell
 py -m pip install --upgrade pip
 py -m pip install -e .
-wo --help
+ml --help
 ```
 
 脚本使用系统安装的 Microsoft Edge，不需要运行 `playwright install chromium`。
@@ -21,8 +21,8 @@ wo --help
 默认读取当前目录的 `config.json`。也可以通过全局参数或环境变量指定：
 
 ```powershell
-wo --config C:\path\to\config.json profile show
-$env:WO_CONFIG = "C:\path\to\config.json"
+ml --config C:\path\to\config.json profile show
+$env:ML_CONFIG = "C:\path\to\config.json"
 ```
 
 认证默认有效 30 分钟，由秒数配置：
@@ -35,29 +35,32 @@ $env:WO_CONFIG = "C:\path\to\config.json"
 }
 ```
 
-认证信息保存在用户配置目录的 `wo/credentials.json`，不会写入项目配置或提交到
+认证信息保存在用户配置目录的 `ml/credentials.json`，不会写入项目配置或提交到
 Git。每个 profile 独立保存。命令执行前会检查有效期；过期时自动打开 Edge
 重新登录并覆盖该 profile 的本地认证信息。如果服务端提前返回 401 或 403，也会
 强制刷新并重试一次。
 
+从旧版 `wo` 首次升级时，如果新的认证文件尚不存在，CLI 会自动复制旧的
+`wo/credentials.json` 到 `ml/credentials.json`，原文件仍会保留。
+
 ## 命令
 
 ```powershell
-wo login
-wo login --show-secrets
-wo logout
-wo logout --all
-wo auth status
+ml login
+ml login --show-secrets
+ml logout
+ml logout --all
+ml auth status
 
-wo profile list
-wo profile show
-wo profile use dev
+ml profile list
+ml profile show
+ml profile use dev
 
-wo user info
-wo user info --output json
+ml user info
+ml user info --output json
 
-wo mep config get
-wo mep config get mep_service_access_type --output json
+ml mep config get
+ml mep config get mep_service_access_type --output json
 ```
 
 登录成功后认证信息会立即保存。按照当前浏览器生命周期要求，Edge 会继续保持

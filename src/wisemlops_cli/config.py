@@ -13,7 +13,7 @@ from .models import Profile
 
 
 def default_config_path() -> Path:
-    configured = os.environ.get("WO_CONFIG")
+    configured = os.environ.get("ML_CONFIG") or os.environ.get("WO_CONFIG")
     if configured:
         return Path(configured).expanduser().resolve()
 
@@ -21,17 +21,27 @@ def default_config_path() -> Path:
     if local_config.exists():
         return local_config.resolve()
 
-    return user_config_dir() / "config.json"
+    preferred = user_config_dir() / "config.json"
+    legacy = legacy_user_config_dir() / "config.json"
+    return legacy if not preferred.exists() and legacy.exists() else preferred
 
 
 def user_config_dir() -> Path:
+    return _user_config_dir("ml")
+
+
+def legacy_user_config_dir() -> Path:
+    return _user_config_dir("wo")
+
+
+def _user_config_dir(application_name: str) -> Path:
     if os.name == "nt":
         root = Path(os.environ.get("APPDATA", Path.home() / "AppData" / "Roaming"))
-        return root / "wo"
+        return root / application_name
     if os.sys.platform == "darwin":
-        return Path.home() / "Library" / "Application Support" / "wo"
+        return Path.home() / "Library" / "Application Support" / application_name
     root = Path(os.environ.get("XDG_CONFIG_HOME", Path.home() / ".config"))
-    return root / "wo"
+    return root / application_name
 
 
 class ConfigManager:
@@ -46,7 +56,7 @@ class ConfigManager:
                 value = json.load(file)
         except FileNotFoundError as exc:
             raise ConfigError(
-                f"配置文件不存在: {self.path}。可通过 --config 或 WO_CONFIG 指定。"
+                f"配置文件不存在: {self.path}。可通过 --config 或 ML_CONFIG 指定。"
             ) from exc
         except json.JSONDecodeError as exc:
             raise ConfigError(f"配置文件不是有效的 JSON: {exc}") from exc

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""使用 Playwright 登录 CloudTest 控制台并获取认证信息。"""
+"""使用 Playwright 登录 WiseMLOps平台并获取认证信息。"""
 
 from __future__ import annotations
 

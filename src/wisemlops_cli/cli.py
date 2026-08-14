@@ -1,4 +1,4 @@
-"""wo 命令行入口。"""
+"""ml 命令行入口。"""
 
 from __future__ import annotations
 
@@ -17,9 +17,9 @@ from .runtime import Runtime
 
 
 app = typer.Typer(
-    name="wo",
+    name="ml",
     no_args_is_help=True,
-    help="CloudTest 平台命令行客户端",
+    help="WiseMLOps平台命令行客户端",
 )
 app.command("login")(login)
 app.command("logout")(logout)
@@ -31,7 +31,7 @@ app.add_typer(mep_app, name="mep")
 
 def version_callback(value: bool) -> None:
     if value:
-        typer.echo(f"wo {__version__}")
+        typer.echo(f"ml {__version__}")
         raise typer.Exit()
 
 
@@ -41,12 +41,12 @@ def initialize(
     config: Optional[Path] = typer.Option(
         None,
         "--config",
-        envvar="WO_CONFIG",
+        envvar="ML_CONFIG",
         exists=True,
         dir_okay=False,
         readable=True,
         resolve_path=True,
-        help="config.json 路径，也可使用 WO_CONFIG 环境变量",
+        help="config.json 路径，也可使用 ML_CONFIG 环境变量",
     ),
     version: bool = typer.Option(
         False,
