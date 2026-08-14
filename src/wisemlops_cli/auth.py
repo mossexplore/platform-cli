@@ -4,8 +4,10 @@ from __future__ import annotations
 
 import json
 import shutil
+import time
+from collections import deque
 from pathlib import Path
-from typing import Any, Callable, Optional, Type
+from typing import Any, Deque, Dict, Optional
 
 from .config import ConfigManager
 from .credentials import CredentialStore
@@ -45,10 +47,10 @@ class BrowserAuthenticator:
         user_data_dir: Path,
         browser_channel: str,
         session_probe_timeout_ms: int,
+        login_timeout_ms: int,
         show_secrets: bool = False,
     ) -> Credentials:
         try:
-            from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
             from playwright.sync_api import sync_playwright
         except ImportError as exc:
             raise AuthenticationError(
@@ -65,51 +67,60 @@ class BrowserAuthenticator:
             )
             page = context.pages[0] if context.pages else context.new_page()
             page.set_default_timeout(timeout_ms)
+            captured_headers: Deque[Dict[str, str]] = deque()
+
+            def capture_auth_request(request: Any) -> None:
+                request_url = request.url.split("?", 1)[0].rstrip("/")
+                if request_url != user_info_url.rstrip("/"):
+                    return
+                try:
+                    headers = request.all_headers()
+                except Exception:
+                    return
+                if self._find_csrftoken(headers):
+                    captured_headers.append(headers)
+
+            context.on("request", capture_auth_request)
 
             try:
                 print(f"当前环境: {profile.name}")
                 print(f"Edge Profile: {user_data_dir}")
                 print(f"正在打开: {profile.api_endpoint}")
-                credentials = self._capture_credentials(
+                page.goto(
+                    profile.api_endpoint,
+                    wait_until="domcontentloaded",
+                    timeout=timeout_ms,
+                )
+                credentials = self._wait_for_credentials(
                     context=context,
-                    page=page,
                     profile=profile,
                     user_info_url=user_info_url,
                     ttl_seconds=ttl_seconds,
                     request_timeout_ms=timeout_ms,
-                    capture_timeout_ms=min(
+                    wait_timeout_ms=min(
                         session_probe_timeout_ms,
                         timeout_ms,
                     ),
-                    action=lambda: page.goto(
-                        profile.api_endpoint,
-                        wait_until="domcontentloaded",
-                        timeout=timeout_ms,
-                    ),
-                    timeout_error=PlaywrightTimeoutError,
+                    captured_headers=captured_headers,
                 )
                 reused_session = credentials is not None
 
                 if credentials is None:
                     print("未发现有效的持久登录会话，需要用户完成登录。")
-                    input("请在 Edge 中完成登录，登录成功后按回车键继续...")
-                    credentials = self._capture_credentials(
+                    print("正在等待登录成功，无需按回车...")
+                    credentials = self._wait_for_credentials(
                         context=context,
-                        page=page,
                         profile=profile,
                         user_info_url=user_info_url,
                         ttl_seconds=ttl_seconds,
                         request_timeout_ms=timeout_ms,
-                        capture_timeout_ms=timeout_ms,
-                        action=lambda: page.reload(
-                            wait_until="domcontentloaded",
-                            timeout=timeout_ms,
-                        ),
-                        timeout_error=PlaywrightTimeoutError,
+                        wait_timeout_ms=login_timeout_ms,
+                        captured_headers=captured_headers,
                     )
                 if credentials is None:
                     raise AuthenticationError(
-                        "登录后仍未获取到有效的 Cookie、csrftoken 和用户信息"
+                        f"等待登录超时（{login_timeout_ms // 1000} 秒），仍未获取到"
+                        "有效的 Cookie、csrftoken 和用户信息"
                     )
 
                 self.store.save(credentials)
@@ -134,56 +145,87 @@ class BrowserAuthenticator:
                 )
                 raise
 
-    def _capture_credentials(
+    def _wait_for_credentials(
         self,
         context: Any,
-        page: Any,
         profile: Profile,
         user_info_url: str,
         ttl_seconds: int,
         request_timeout_ms: int,
-        capture_timeout_ms: int,
-        action: Callable[[], Any],
-        timeout_error: Type[Exception],
+        wait_timeout_ms: int,
+        captured_headers: Deque[Dict[str, str]],
     ) -> Optional[Credentials]:
-        try:
-            with page.expect_request(
-                lambda request: request.url.split("?", 1)[0].rstrip("/")
-                == user_info_url.rstrip("/"),
-                timeout=capture_timeout_ms,
-            ) as request_info:
-                action()
-            captured_headers = request_info.value.all_headers()
-        except timeout_error:
-            return None
+        deadline = time.monotonic() + wait_timeout_ms / 1000
+        while time.monotonic() < deadline:
+            while captured_headers:
+                credentials = self._credentials_from_headers(
+                    context=context,
+                    profile=profile,
+                    user_info_url=user_info_url,
+                    ttl_seconds=ttl_seconds,
+                    request_timeout_ms=request_timeout_ms,
+                    captured_headers=captured_headers.popleft(),
+                )
+                if credentials is not None:
+                    return credentials
+
+            open_pages = [page for page in context.pages if not page.is_closed()]
+            if not open_pages:
+                raise AuthenticationError("Edge 已关闭，未能完成登录认证")
+            remaining_ms = int((deadline - time.monotonic()) * 1000)
+            if remaining_ms <= 0:
+                break
+            open_pages[-1].wait_for_timeout(min(250, remaining_ms))
+        return None
+
+    @staticmethod
+    def _find_csrftoken(headers: Dict[str, str]) -> str:
+        normalized = {str(key).lower(): value for key, value in headers.items()}
+        return str(
+            normalized.get("csrftoken")
+            or normalized.get("x-csrftoken")
+            or normalized.get("x-csrf-token")
+            or ""
+        )
+
+    def _credentials_from_headers(
+        self,
+        context: Any,
+        profile: Profile,
+        user_info_url: str,
+        ttl_seconds: int,
+        request_timeout_ms: int,
+        captured_headers: Dict[str, str],
+    ) -> Optional[Credentials]:
 
         cookies = context.cookies(user_info_url)
         cookie = "; ".join(
             f"{item['name']}={item['value']}" for item in cookies
         )
-        csrftoken = (
-            captured_headers.get("csrftoken")
-            or captured_headers.get("x-csrftoken")
-            or captured_headers.get("x-csrf-token")
-        )
+        csrftoken = self._find_csrftoken(captured_headers)
         if not cookie or not csrftoken:
             return None
 
-        response = context.request.get(
-            user_info_url,
-            headers={
-                "cookie": cookie,
-                "csrftoken": csrftoken,
-                "referer": profile.api_endpoint,
-            },
-            timeout=request_timeout_ms,
-        )
-        response_text = response.text()
+        try:
+            response = context.request.get(
+                user_info_url,
+                headers={
+                    "cookie": cookie,
+                    "csrftoken": csrftoken,
+                    "referer": profile.api_endpoint,
+                },
+                timeout=request_timeout_ms,
+            )
+            response_text = response.text()
+        except Exception:
+            return None
         if not response.ok:
             return None
         try:
             username = _find_username(json.loads(response_text))
         except json.JSONDecodeError:
+            return None
+        if not username:
             return None
 
         return Credentials.create(
@@ -223,6 +265,7 @@ class AuthManager:
             user_data_dir=self.config.browser_profile_dir(profile.name),
             browser_channel=self.config.browser_channel,
             session_probe_timeout_ms=self.config.session_probe_timeout_ms,
+            login_timeout_ms=self.config.login_timeout_ms,
         )
 
     def login(self, show_secrets: bool = False) -> Credentials:
@@ -234,6 +277,7 @@ class AuthManager:
             user_data_dir=self.config.browser_profile_dir(profile.name),
             browser_channel=self.config.browser_channel,
             session_probe_timeout_ms=self.config.session_probe_timeout_ms,
+            login_timeout_ms=self.config.login_timeout_ms,
             show_secrets=show_secrets,
         )
 

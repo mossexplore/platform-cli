@@ -104,6 +104,8 @@ class ConfigManager:
             raise ConfigError("browser.channel 必须是 Microsoft Edge 通道")
         if self.session_probe_timeout_ms <= 0:
             raise ConfigError("browser.session_probe_timeout 必须大于 0")
+        if self.login_timeout_ms <= 0:
+            raise ConfigError("browser.login_timeout 必须大于 0")
 
     @property
     def current_name(self) -> str:
@@ -137,6 +139,11 @@ class ConfigManager:
     def session_probe_timeout_ms(self) -> int:
         value = self._data.get("browser", {}).get("session_probe_timeout", 5000)
         return int(value) if isinstance(value, (int, float)) else 5000
+
+    @property
+    def login_timeout_ms(self) -> int:
+        value = self._data.get("browser", {}).get("login_timeout", 300000)
+        return int(value) if isinstance(value, (int, float)) else 300000
 
     @property
     def browser_profile_root(self) -> Path:

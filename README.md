@@ -34,7 +34,8 @@ $env:ML_CONFIG = "C:\path\to\config.json"
   },
   "browser": {
     "channel": "msedge",
-    "session_probe_timeout": 5000
+    "session_probe_timeout": 5000,
+    "login_timeout": 300000
   }
 }
 ```
@@ -51,7 +52,9 @@ ml/browser-profiles/profile-dev
 ml/browser-profiles/profile-test
 ```
 
-认证成功并更新本地认证信息后，Edge 会自动关闭，原业务命令随后继续执行。
+CLI 会自动监听 `/ai/user/info` 请求确认登录结果，用户不需要再按回车。认证成功并
+更新本地认证信息后，Edge 会自动关闭，原业务命令随后继续执行。`login_timeout`
+控制等待用户登录的最长时间，单位为毫秒，默认 5 分钟。
 
 从旧版 `wo` 首次升级时，如果新的认证文件尚不存在，CLI 会自动复制旧的
 `wo/credentials.json` 到 `ml/credentials.json`，原文件仍会保留。

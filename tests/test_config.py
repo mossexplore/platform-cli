@@ -23,6 +23,7 @@ class ConfigManagerTest(unittest.TestCase):
                     "browser": {
                         "channel": "msedge",
                         "session_probe_timeout": 2500,
+                        "login_timeout": 120000,
                         "profile_root": str(Path(self.temporary.name) / "profiles"),
                     },
                     "profiles": [
@@ -52,6 +53,7 @@ class ConfigManagerTest(unittest.TestCase):
         self.assertEqual(manager.auth_ttl_seconds, 60)
         self.assertEqual(manager.browser_channel, "msedge")
         self.assertEqual(manager.session_probe_timeout_ms, 2500)
+        self.assertEqual(manager.login_timeout_ms, 120000)
         self.assertEqual(
             manager.browser_profile_dir("dev"),
             (Path(self.temporary.name) / "profiles").resolve() / "profile-dev",

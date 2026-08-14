@@ -3,8 +3,9 @@ import sys
 import tempfile
 import types
 import unittest
+from collections import deque
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 from wisemlops_cli.auth import AuthManager, BrowserAuthenticator
 from wisemlops_cli.config import ConfigManager
@@ -34,11 +35,18 @@ class FakePage:
     def is_closed(self):
         return False
 
+    def goto(self, *_args, **_kwargs):
+        return None
+
 
 class FakePersistentContext:
     def __init__(self):
         self.pages = [FakePage()]
         self.closed = False
+        self.listeners = {}
+
+    def on(self, event, callback):
+        self.listeners[event] = callback
 
     def close(self):
         self.closed = True
@@ -64,6 +72,35 @@ class FakePlaywrightManager:
 
     def __exit__(self, *_):
         return False
+
+
+class FakeResponse:
+    ok = True
+
+    def text(self):
+        return json.dumps({"data": {"username": "jack"}})
+
+
+class FakeRequestClient:
+    def __init__(self):
+        self.headers = None
+
+    def get(self, _url, headers, timeout):
+        self.headers = headers
+        self.timeout = timeout
+        return FakeResponse()
+
+
+class FakeCredentialContext:
+    def __init__(self):
+        self.request = FakeRequestClient()
+        self.pages = []
+
+    def cookies(self, _url):
+        return [
+            {"name": "session", "value": "complete-session-cookie-value"},
+            {"name": "route", "value": "backend-01"},
+        ]
 
 
 class AuthManagerTest(unittest.TestCase):
@@ -166,7 +203,9 @@ class AuthManagerTest(unittest.TestCase):
         playwright_package = types.ModuleType("playwright")
         playwright_package.sync_api = sync_api
         authenticator = BrowserAuthenticator(self.store)
-        authenticator._capture_credentials = lambda **_: credentials
+        authenticator._wait_for_credentials = Mock(
+            side_effect=[None, credentials]
+        )
         profile_dir = self.config.browser_profile_dir("dev")
 
         with patch.dict(
@@ -176,20 +215,38 @@ class AuthManagerTest(unittest.TestCase):
                 "playwright.sync_api": sync_api,
             },
         ):
-            result = authenticator.login(
-                profile=Profile(
-                    name="dev",
-                    api_endpoint="https://dev.example.com/dashboard",
-                ),
-                timeout_ms=30000,
-                ttl_seconds=1800,
-                user_data_dir=profile_dir,
-                browser_channel="msedge",
-                session_probe_timeout_ms=5000,
-            )
+            with patch(
+                "builtins.input",
+                side_effect=AssertionError("不应等待回车"),
+            ):
+                result = authenticator.login(
+                    profile=Profile(
+                        name="dev",
+                        api_endpoint="https://dev.example.com/dashboard",
+                    ),
+                    timeout_ms=30000,
+                    ttl_seconds=1800,
+                    user_data_dir=profile_dir,
+                    browser_channel="msedge",
+                    session_probe_timeout_ms=5000,
+                    login_timeout_ms=300000,
+                )
 
         self.assertEqual(result.username, "jack")
         self.assertTrue(context.closed)
+        self.assertEqual(authenticator._wait_for_credentials.call_count, 2)
+        self.assertEqual(
+            authenticator._wait_for_credentials.call_args_list[0].kwargs[
+                "wait_timeout_ms"
+            ],
+            5000,
+        )
+        self.assertEqual(
+            authenticator._wait_for_credentials.call_args_list[1].kwargs[
+                "wait_timeout_ms"
+            ],
+            300000,
+        )
         self.assertEqual(
             fake_playwright.launch_arguments,
             {
@@ -197,6 +254,40 @@ class AuthManagerTest(unittest.TestCase):
                 "channel": "msedge",
                 "headless": False,
             },
+        )
+
+    def test_automatic_capture_keeps_full_cookie_and_request_csrftoken(self):
+        context = FakeCredentialContext()
+        authenticator = BrowserAuthenticator(self.store)
+        credentials = authenticator._wait_for_credentials(
+            context=context,
+            profile=Profile(
+                name="dev",
+                api_endpoint="https://dev.example.com/dashboard",
+            ),
+            user_info_url="https://dev.example.com/ai/user/info",
+            ttl_seconds=1800,
+            request_timeout_ms=30000,
+            wait_timeout_ms=1000,
+            captured_headers=deque(
+                [{"CSRFToken": "independent-request-token"}]
+            ),
+        )
+
+        self.assertIsNotNone(credentials)
+        self.assertEqual(
+            credentials.cookie,
+            "session=complete-session-cookie-value; route=backend-01",
+        )
+        self.assertEqual(credentials.csrftoken, "independent-request-token")
+        self.assertEqual(credentials.username, "jack")
+        self.assertEqual(
+            context.request.headers["cookie"],
+            "session=complete-session-cookie-value; route=backend-01",
+        )
+        self.assertEqual(
+            context.request.headers["csrftoken"],
+            "independent-request-token",
         )
 
 
