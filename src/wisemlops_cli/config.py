@@ -6,7 +6,7 @@ import json
 import os
 from pathlib import Path
 from typing import Any, Dict, List, Optional
-from urllib.parse import urlsplit
+from urllib.parse import quote, urlsplit
 
 from .errors import ConfigError
 from .models import Profile
@@ -72,6 +72,8 @@ class ConfigManager:
             raise ConfigError("config.json 中的 api 必须是对象")
         if not isinstance(self._data.get("auth", {}), dict):
             raise ConfigError("config.json 中的 auth 必须是对象")
+        if not isinstance(self._data.get("browser", {}), dict):
+            raise ConfigError("config.json 中的 browser 必须是对象")
         profiles = self._data.get("profiles")
         if not isinstance(profiles, list) or not profiles:
             raise ConfigError("config.json 中的 profiles 必须是非空数组")
@@ -93,6 +95,15 @@ class ConfigManager:
             raise ConfigError(f"profiles 中不存在 current 指定的环境: {current}")
         if self.auth_ttl_seconds <= 0:
             raise ConfigError("auth.expires_in_seconds 必须大于 0")
+        if self.browser_channel not in {
+            "msedge",
+            "msedge-beta",
+            "msedge-dev",
+            "msedge-canary",
+        }:
+            raise ConfigError("browser.channel 必须是 Microsoft Edge 通道")
+        if self.session_probe_timeout_ms <= 0:
+            raise ConfigError("browser.session_probe_timeout 必须大于 0")
 
     @property
     def current_name(self) -> str:
@@ -116,6 +127,28 @@ class ConfigManager:
     def auth_ttl_seconds(self) -> int:
         value = self._data.get("auth", {}).get("expires_in_seconds", 1800)
         return int(value) if isinstance(value, (int, float)) else 1800
+
+    @property
+    def browser_channel(self) -> str:
+        value = self._data.get("browser", {}).get("channel", "msedge")
+        return str(value)
+
+    @property
+    def session_probe_timeout_ms(self) -> int:
+        value = self._data.get("browser", {}).get("session_probe_timeout", 5000)
+        return int(value) if isinstance(value, (int, float)) else 5000
+
+    @property
+    def browser_profile_root(self) -> Path:
+        configured = self._data.get("browser", {}).get("profile_root")
+        if isinstance(configured, str) and configured:
+            return Path(configured).expanduser().resolve()
+        return user_config_dir() / "browser-profiles"
+
+    def browser_profile_dir(self, profile_name: Optional[str] = None) -> Path:
+        name = profile_name or self.current_name
+        directory_name = "profile-" + quote(name, safe="")
+        return self.browser_profile_root / directory_name
 
     def profiles(self) -> List[Profile]:
         return [

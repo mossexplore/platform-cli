@@ -20,6 +20,11 @@ class ConfigManagerTest(unittest.TestCase):
                         "verify_ssl": True,
                     },
                     "auth": {"expires_in_seconds": 60},
+                    "browser": {
+                        "channel": "msedge",
+                        "session_probe_timeout": 2500,
+                        "profile_root": str(Path(self.temporary.name) / "profiles"),
+                    },
                     "profiles": [
                         {
                             "name": "dev",
@@ -45,6 +50,12 @@ class ConfigManagerTest(unittest.TestCase):
         self.assertEqual(manager.current_profile().name, "dev")
         self.assertEqual(manager.current_profile().base_url, "https://dev.example.com")
         self.assertEqual(manager.auth_ttl_seconds, 60)
+        self.assertEqual(manager.browser_channel, "msedge")
+        self.assertEqual(manager.session_probe_timeout_ms, 2500)
+        self.assertEqual(
+            manager.browser_profile_dir("dev"),
+            (Path(self.temporary.name) / "profiles").resolve() / "profile-dev",
+        )
 
     def test_switches_and_persists_profile(self):
         manager = ConfigManager(self.path)

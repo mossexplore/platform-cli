@@ -35,13 +35,23 @@ def logout(
         "--all",
         help="清除所有 profile 的本地认证信息",
     ),
+    forget_browser: bool = typer.Option(
+        False,
+        "--forget-browser",
+        help="同时清除专用 Edge Profile，之后登录可能需要重新输入验证码",
+    ),
 ) -> None:
     """清除当前 profile 的本地认证信息。"""
     try:
         runtime = runtime_from_context(context)
-        runtime.auth.logout(all_profiles=all_profiles)
+        runtime.auth.logout(
+            all_profiles=all_profiles,
+            forget_browser=forget_browser,
+        )
         target = "所有 profile" if all_profiles else runtime.config.current_name
         console.print(f"已清除 {target} 的本地认证信息")
+        if forget_browser:
+            console.print(f"已清除 {target} 的专用 Edge Profile")
     except Exception as exc:
         fail(exc)
 

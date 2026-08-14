@@ -31,14 +31,27 @@ $env:ML_CONFIG = "C:\path\to\config.json"
 {
   "auth": {
     "expires_in_seconds": 1800
+  },
+  "browser": {
+    "channel": "msedge",
+    "session_probe_timeout": 5000
   }
 }
 ```
 
 认证信息保存在用户配置目录的 `ml/credentials.json`，不会写入项目配置或提交到
 Git。每个 profile 独立保存。命令执行前会检查有效期；过期时自动打开 Edge
-重新登录并覆盖该 profile 的本地认证信息。如果服务端提前返回 401 或 403，也会
-强制刷新并重试一次。
+专用 Profile，优先复用已有平台会话，无需重复输入验证码；只有平台会话确实失效
+时才要求用户重新登录。如果服务端提前返回 401 或 403，也会刷新认证并重试一次。
+
+每个环境使用独立的持久化浏览器目录：
+
+```text
+ml/browser-profiles/profile-dev
+ml/browser-profiles/profile-test
+```
+
+认证成功并更新本地认证信息后，Edge 会自动关闭，原业务命令随后继续执行。
 
 从旧版 `wo` 首次升级时，如果新的认证文件尚不存在，CLI 会自动复制旧的
 `wo/credentials.json` 到 `ml/credentials.json`，原文件仍会保留。
@@ -50,6 +63,8 @@ ml login
 ml login --show-secrets
 ml logout
 ml logout --all
+ml logout --forget-browser
+ml logout --all --forget-browser
 ml auth status
 
 ml profile list
@@ -63,8 +78,9 @@ ml mep config get
 ml mep config get mep_service_access_type --output json
 ```
 
-登录成功后认证信息会立即保存。按照当前浏览器生命周期要求，Edge 会继续保持
-打开；手动关闭 Edge 后，登录命令或原业务命令继续执行。
+普通 `logout` 只清除 CLI 的短期认证缓存，保留 Edge 持久会话，方便下次无验证码
+恢复。使用 `--forget-browser` 会同时删除专用 Edge Profile，之后可能需要重新输入
+验证码。
 
 ## 增加新接口
 
