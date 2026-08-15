@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import replace
-from typing import List, Optional, Sequence, Tuple, TypeVar
+from typing import Callable, List, Optional, Sequence, Tuple, TypeVar
 
 import typer
 
@@ -29,24 +29,26 @@ def _credentials_and_catalog(context: typer.Context):
 def _print_selection(selection: BusinessSelection) -> None:
     print_result(
         {
-            "type": selection.type,
-            "department": selection.department_name,
-            "department_id": selection.department_id,
-            "tenant": selection.tenant_name,
-            "tenant_id": selection.tenant_id,
-            "team": selection.team_name or "-",
-            "team_id": selection.team_id or "-",
+            "type（选择维度）": selection.type,
+            "department（部门）": selection.department_name,
+            "tenant（租户）": selection.tenant_name,
+            "team（团队）": selection.team_name or "-",
             "businessId": selection.business_id,
         }
     )
 
 
-def _choose(title: str, values: Sequence[Tuple[str, T]]) -> T:
+def _choose(
+    title: str,
+    values: Sequence[Tuple[str, T]],
+    style_for: Optional[Callable[[T], Optional[str]]] = None,
+) -> T:
     if not values:
         raise BusinessError(f"没有可选择的{title}")
     console.print(f"请选择{title}：")
-    for index, (label, _) in enumerate(values, start=1):
-        console.print(f"  {index}. {label}", markup=False)
+    for index, (label, value) in enumerate(values, start=1):
+        style = style_for(value) if style_for else None
+        console.print(f"  {index}. {label}", style=style, markup=False)
     selected = typer.prompt("请输入序号", type=int)
     if selected < 1 or selected > len(values):
         raise BusinessError(f"{title}序号无效: {selected}")
@@ -155,13 +157,20 @@ def use_business(
             ]
             scopes.extend(
                 (
-                    f"{item.name} [{item.id}] "
-                    f"({'可选' if item.selectable else '禁选: ' + item.status})",
+                    item.name if item.selectable else f"{item.name}（禁选）",
                     item,
                 )
                 for item in tenant_value.teams
             )
-            team_value = _choose("操作范围", scopes)
+            team_value = _choose(
+                "操作范围",
+                scopes,
+                style_for=lambda item: (
+                    "bold blue"
+                    if item is None
+                    else "red" if not item.selectable else None
+                ),
+            )
             if team_value is not None and not team_value.selectable:
                 raise BusinessError(
                     f"团队 {team_value.name!r} 当前状态为 "

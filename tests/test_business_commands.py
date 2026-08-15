@@ -8,6 +8,7 @@ from typer.testing import CliRunner
 
 from wisemlops_cli.business import BusinessStore, parse_business_list
 from wisemlops_cli.cli import app
+from wisemlops_cli.commands.business import console as business_console
 from wisemlops_cli.credentials import CredentialStore
 from wisemlops_cli.models import Credentials
 
@@ -104,7 +105,16 @@ class BusinessCommandTest(unittest.TestCase):
         )
 
         self.assertEqual(result.exit_code, 0, result.output)
-        self.assertIn("businessId", result.output)
+        for field in (
+            "type（选择维度）",
+            "department（部门）",
+            "tenant（租户）",
+            "team（团队）",
+            "businessId",
+        ):
+            self.assertIn(field, result.output)
+        for internal_field in ("department_id", "tenant_id", "team_id"):
+            self.assertNotIn(internal_field, result.output)
         self.assertEqual(
             self.business_store.require_selection("dev", "jack").team_id,
             "available-team",
@@ -115,6 +125,21 @@ class BusinessCommandTest(unittest.TestCase):
             .business_id,
             "mep",
         )
+
+    def test_tenant_selection_prints_only_five_important_fields(self):
+        result = self.invoke(["business", "use", "--tenant", "mep"])
+
+        self.assertEqual(result.exit_code, 0, result.output)
+        self.assertIn("type（选择维度）", result.output)
+        self.assertIn("tenant", result.output)
+        self.assertIn("team（团队）", result.output)
+        self.assertIn("-", result.output)
+        self.assertNotIn("department_id", result.output)
+        self.assertNotIn("tenant_id", result.output)
+        self.assertNotIn("team_id", result.output)
+        selection = self.business_store.require_selection("dev", "jack")
+        self.assertEqual(selection.type, "tenant")
+        self.assertEqual(selection.business_id, "mep")
 
     def test_interactive_selection_reaches_team(self):
         result = self.invoke(
@@ -127,6 +152,41 @@ class BusinessCommandTest(unittest.TestCase):
             self.business_store.require_selection("dev", "jack").team_id,
             "available-team",
         )
+
+    def test_interactive_selection_displays_disabled_team_in_red(self):
+        with patch(
+            "wisemlops_cli.commands.business.console.print",
+            wraps=business_console.print,
+        ) as print_mock:
+            result = self.invoke(
+                ["business", "use"], input_value="1\n1\n1\n"
+            )
+
+        self.assertEqual(result.exit_code, 0, result.output)
+        disabled_call = next(
+            call
+            for call in print_mock.call_args_list
+            if call.args and "禁用团队" in str(call.args[0])
+        )
+        self.assertIn("禁用团队（禁选）", disabled_call.args[0])
+        self.assertNotIn("disabled-team", disabled_call.args[0])
+        self.assertNotIn("disabled", disabled_call.args[0])
+        self.assertEqual(disabled_call.kwargs.get("style"), "red")
+
+        available_call = next(
+            call
+            for call in print_mock.call_args_list
+            if call.args and "可用团队" in str(call.args[0])
+        )
+        self.assertEqual(available_call.args[0].strip(), "2. 可用团队")
+        self.assertIsNone(available_call.kwargs.get("style"))
+
+        tenant_call = next(
+            call
+            for call in print_mock.call_args_list
+            if call.args and "租户级" in str(call.args[0])
+        )
+        self.assertEqual(tenant_call.kwargs.get("style"), "bold blue")
 
     def test_disabled_team_is_rejected(self):
         result = self.invoke(
