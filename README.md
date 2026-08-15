@@ -1,8 +1,8 @@
 # ml CLI
 
 `ml` 是 WiseMLOps平台的 Python 命令行客户端。Playwright 仅用于在 Microsoft
-Edge 中登录；登录成功后，Cookie、CSRF Token、用户名和过期时间会按 profile
-保存到本地。后续业务命令使用 HTTPX 请求接口。
+Edge 中登录；登录成功后，Cookie、CSRF Token、账号、中文名、部门和过期时间会按
+profile 保存到本地。后续业务命令使用 HTTPX 请求接口。
 
 ## 安装
 

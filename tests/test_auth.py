@@ -7,7 +7,7 @@ from collections import deque
 from pathlib import Path
 from unittest.mock import Mock, patch
 
-from wisemlops_cli.auth import AuthManager, BrowserAuthenticator
+from wisemlops_cli.auth import AuthManager, BrowserAuthenticator, _parse_user_info
 from wisemlops_cli.config import ConfigManager
 from wisemlops_cli.credentials import CredentialStore
 from wisemlops_cli.models import Credentials, Profile
@@ -78,7 +78,17 @@ class FakeResponse:
     ok = True
 
     def text(self):
-        return json.dumps({"data": {"username": "jack"}})
+        return json.dumps(
+            {
+                "result": {
+                    "code": 0,
+                    "des": "success",
+                    "username": "123456",
+                    "department": "技术部",
+                    "cnName": "张三",
+                }
+            }
+        )
 
 
 class FakeRequestClient:
@@ -194,6 +204,8 @@ class AuthManagerTest(unittest.TestCase):
             csrftoken="csrf-token",
             username="jack",
             ttl_seconds=1800,
+            cn_name="张三",
+            department="技术部",
         )
         context = FakePersistentContext()
         fake_playwright = FakePlaywright(context)
@@ -219,20 +231,25 @@ class AuthManagerTest(unittest.TestCase):
                 "builtins.input",
                 side_effect=AssertionError("不应等待回车"),
             ):
-                result = authenticator.login(
-                    profile=Profile(
-                        name="dev",
-                        api_endpoint="https://dev.example.com/dashboard",
-                    ),
-                    timeout_ms=30000,
-                    ttl_seconds=1800,
-                    user_data_dir=profile_dir,
-                    browser_channel="msedge",
-                    session_probe_timeout_ms=5000,
-                    login_timeout_ms=300000,
-                )
+                with patch("builtins.print") as print_mock:
+                    result = authenticator.login(
+                        profile=Profile(
+                            name="dev",
+                            api_endpoint="https://dev.example.com/dashboard",
+                        ),
+                        timeout_ms=30000,
+                        ttl_seconds=1800,
+                        user_data_dir=profile_dir,
+                        browser_channel="msedge",
+                        session_probe_timeout_ms=5000,
+                        login_timeout_ms=300000,
+                    )
 
         self.assertEqual(result.username, "jack")
+        print_mock.assert_any_call("正在等待登录成功...")
+        print_mock.assert_any_call("账号: jack")
+        print_mock.assert_any_call("中文名: 张三")
+        print_mock.assert_any_call("部门: 技术部")
         self.assertTrue(context.closed)
         self.assertEqual(authenticator._wait_for_credentials.call_count, 2)
         self.assertEqual(
@@ -280,7 +297,9 @@ class AuthManagerTest(unittest.TestCase):
             "session=complete-session-cookie-value; route=backend-01",
         )
         self.assertEqual(credentials.csrftoken, "independent-request-token")
-        self.assertEqual(credentials.username, "jack")
+        self.assertEqual(credentials.username, "123456")
+        self.assertEqual(credentials.cn_name, "张三")
+        self.assertEqual(credentials.department, "技术部")
         self.assertEqual(
             context.request.headers["cookie"],
             "session=complete-session-cookie-value; route=backend-01",
@@ -288,6 +307,21 @@ class AuthManagerTest(unittest.TestCase):
         self.assertEqual(
             context.request.headers["csrftoken"],
             "independent-request-token",
+        )
+
+    def test_user_info_requires_success_result_code(self):
+        self.assertIsNone(
+            _parse_user_info(
+                {
+                    "result": {
+                        "code": 1,
+                        "des": "failed",
+                        "username": "123456",
+                        "department": "技术部",
+                        "cnName": "张三",
+                    }
+                }
+            )
         )
 
 

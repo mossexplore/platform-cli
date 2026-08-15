@@ -15,16 +15,17 @@ from .errors import AuthenticationError, CredentialError
 from .models import Credentials, Profile
 
 
-def _find_username(response_body: Any) -> str:
+def _parse_user_info(response_body: Any) -> Optional[Dict[str, str]]:
     if not isinstance(response_body, dict):
-        return ""
-    if "username" in response_body:
-        return str(response_body["username"])
-    for wrapper in ("data", "result"):
-        nested = response_body.get(wrapper)
-        if isinstance(nested, dict) and "username" in nested:
-            return str(nested["username"])
-    return ""
+        return None
+    result = response_body.get("result")
+    if not isinstance(result, dict) or result.get("code") != 0:
+        return None
+    return {
+        "username": str(result.get("username") or ""),
+        "cn_name": str(result.get("cnName") or ""),
+        "department": str(result.get("department") or ""),
+    }
 
 
 def _wait_for_edge(page: Any, message: str) -> None:
@@ -107,7 +108,7 @@ class BrowserAuthenticator:
 
                 if credentials is None:
                     print("未发现有效的持久登录会话，需要用户完成登录。")
-                    print("正在等待登录成功，无需按回车...")
+                    print("正在等待登录成功...")
                     credentials = self._wait_for_credentials(
                         context=context,
                         profile=profile,
@@ -126,9 +127,11 @@ class BrowserAuthenticator:
                 self.store.save(credentials)
                 source = "持久 Edge 会话" if reused_session else "用户登录"
                 print(
-                    f"已通过{source}刷新认证信息，有效期 {ttl_seconds} 秒，用户: "
-                    f"{credentials.username or '未知'}"
+                    f"已通过{source}刷新认证信息，有效期 {ttl_seconds} 秒"
                 )
+                print(f"账号: {credentials.username}")
+                print(f"中文名: {credentials.cn_name}")
+                print(f"部门: {credentials.department}")
                 if show_secrets:
                     print(f"cookie: {credentials.cookie}")
                     print(f"csrftoken: {credentials.csrftoken}")
@@ -222,17 +225,19 @@ class BrowserAuthenticator:
         if not response.ok:
             return None
         try:
-            username = _find_username(json.loads(response_text))
+            user_info = _parse_user_info(json.loads(response_text))
         except json.JSONDecodeError:
             return None
-        if not username:
+        if user_info is None:
             return None
 
         return Credentials.create(
             profile=profile.name,
             cookie=cookie,
             csrftoken=csrftoken,
-            username=username,
+            username=user_info["username"],
+            cn_name=user_info["cn_name"],
+            department=user_info["department"],
             ttl_seconds=ttl_seconds,
         )
 

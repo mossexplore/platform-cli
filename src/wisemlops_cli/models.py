@@ -29,6 +29,8 @@ class Credentials:
     username: str
     acquired_at: float
     expires_at: float
+    cn_name: str = ""
+    department: str = ""
 
     @classmethod
     def create(
@@ -38,6 +40,8 @@ class Credentials:
         csrftoken: str,
         username: str,
         ttl_seconds: int,
+        cn_name: str = "",
+        department: str = "",
     ) -> "Credentials":
         acquired_at = time.time()
         return cls(
@@ -47,6 +51,8 @@ class Credentials:
             username=username,
             acquired_at=acquired_at,
             expires_at=acquired_at + ttl_seconds,
+            cn_name=cn_name,
+            department=department,
         )
 
     @classmethod
@@ -58,6 +64,8 @@ class Credentials:
             username=str(value.get("username", "")),
             acquired_at=float(value["acquired_at"]),
             expires_at=float(value["expires_at"]),
+            cn_name=str(value.get("cn_name", "")),
+            department=str(value.get("department", "")),
         )
 
     def to_dict(self) -> Dict[str, Any]:
