@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import time
 from dataclasses import asdict, dataclass
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 from urllib.parse import urlsplit
 
 
@@ -13,6 +13,7 @@ class Profile:
     name: str
     api_endpoint: str
     output_format: str = "table"
+    verify_ssl: Optional[bool] = None
 
     @property
     def base_url(self) -> str:

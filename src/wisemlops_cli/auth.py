@@ -248,12 +248,12 @@ class AuthManager:
         credentials = self.store.load(profile.name)
 
         if force_refresh:
-            print(f"正在刷新 profile {profile.name!r} 的认证信息...")
+            print(f"正在刷新环境 {profile.name!r} 的认证信息...")
         elif credentials is None:
-            print(f"profile {profile.name!r} 尚未登录，将打开 Edge 获取认证信息。")
+            print(f"环境 {profile.name!r} 尚未登录，将打开 Edge 获取认证信息。")
         elif credentials.is_expired():
             print(
-                f"profile {profile.name!r} 的认证信息已过期，将打开 Edge 重新获取。"
+                f"环境 {profile.name!r} 的认证信息已过期，将打开 Edge 重新获取。"
             )
         else:
             return credentials
@@ -302,5 +302,5 @@ class AuthManager:
     def status(self) -> Credentials:
         credentials = self.store.load(self.config.current_name)
         if credentials is None:
-            raise CredentialError(f"profile {self.config.current_name!r} 尚未登录")
+            raise CredentialError(f"环境 {self.config.current_name!r} 尚未登录")
         return credentials

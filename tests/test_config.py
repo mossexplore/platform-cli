@@ -31,6 +31,7 @@ class ConfigManagerTest(unittest.TestCase):
                             "name": "dev",
                             "api_endpoint": "https://dev.example.com/dashboard",
                             "output_format": "json",
+                            "verify_ssl": False,
                         },
                         {
                             "name": "test",
@@ -50,6 +51,8 @@ class ConfigManagerTest(unittest.TestCase):
         manager = ConfigManager(self.path)
         self.assertEqual(manager.current_profile().name, "dev")
         self.assertEqual(manager.current_profile().base_url, "https://dev.example.com")
+        self.assertFalse(manager.current_profile().verify_ssl)
+        self.assertFalse(manager.verify_ssl)
         self.assertEqual(manager.auth_ttl_seconds, 60)
         self.assertEqual(manager.browser_channel, "msedge")
         self.assertEqual(manager.session_probe_timeout_ms, 2500)
@@ -64,6 +67,7 @@ class ConfigManagerTest(unittest.TestCase):
         manager.use_profile("test")
         reloaded = ConfigManager(self.path)
         self.assertEqual(reloaded.current_name, "test")
+        self.assertTrue(reloaded.verify_ssl)
 
 
 if __name__ == "__main__":

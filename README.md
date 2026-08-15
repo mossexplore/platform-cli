@@ -21,7 +21,7 @@ ml --help
 默认读取当前目录的 `config.json`。也可以通过全局参数或环境变量指定：
 
 ```powershell
-ml --config C:\path\to\config.json profile show
+ml --config C:\path\to\config.json env show
 $env:ML_CONFIG = "C:\path\to\config.json"
 ```
 
@@ -56,6 +56,32 @@ CLI 会自动监听 `/ai/user/info` 请求确认登录结果，用户不需要�
 更新本地认证信息后，Edge 会自动关闭，原业务命令随后继续执行。`login_timeout`
 控制等待用户登录的最长时间，单位为毫秒，默认 5 分钟。
 
+`api.verify_ssl` 是所有环境的默认 HTTPS 证书校验设置。某个可信的内部环境需要
+单独关闭校验时，可在对应的 `profiles` 项中覆盖；其他环境继续继承全局设置：
+
+```json
+{
+  "api": {
+    "verify_ssl": true
+  },
+  "profiles": [
+    {
+      "name": "internal",
+      "api_endpoint": "https://10.0.0.1/dashboard",
+      "output_format": "table",
+      "verify_ssl": false
+    },
+    {
+      "name": "dev",
+      "api_endpoint": "https://console-dev.cloudtest.cn/dashboard",
+      "output_format": "table"
+    }
+  ]
+}
+```
+
+关闭证书校验只应用于显式配置的环境，并且只建议用于完全可信的内部网络。
+
 从旧版 `wo` 首次升级时，如果新的认证文件尚不存在，CLI 会自动复制旧的
 `wo/credentials.json` 到 `ml/credentials.json`，原文件仍会保留。
 
@@ -70,9 +96,9 @@ ml logout --forget-browser
 ml logout --all --forget-browser
 ml auth status
 
-ml profile list
-ml profile show
-ml profile use dev
+ml env list
+ml env show
+ml env use dev
 
 ml user info
 ml user info --output json

@@ -74,6 +74,11 @@ class ConfigManager:
             raise ConfigError("config.json 中的 auth 必须是对象")
         if not isinstance(self._data.get("browser", {}), dict):
             raise ConfigError("config.json 中的 browser 必须是对象")
+        if not isinstance(
+            self._data.get("api", {}).get("verify_ssl", True),
+            bool,
+        ):
+            raise ConfigError("api.verify_ssl 必须是布尔值")
         profiles = self._data.get("profiles")
         if not isinstance(profiles, list) or not profiles:
             raise ConfigError("config.json 中的 profiles 必须是非空数组")
@@ -90,6 +95,8 @@ class ConfigManager:
                 raise ConfigError(f"profile.name 重复: {name}")
             if not parsed or parsed.scheme not in {"http", "https"} or not parsed.netloc:
                 raise ConfigError(f"profile {name!r} 的 api_endpoint 无效")
+            if "verify_ssl" in item and not isinstance(item["verify_ssl"], bool):
+                raise ConfigError(f"profile {name!r} 的 verify_ssl 必须是布尔值")
             names.add(name)
         if current not in names:
             raise ConfigError(f"profiles 中不存在 current 指定的环境: {current}")
@@ -123,6 +130,11 @@ class ConfigManager:
 
     @property
     def verify_ssl(self) -> bool:
+        return self.verify_ssl_for(self.current_profile())
+
+    def verify_ssl_for(self, profile: Profile) -> bool:
+        if profile.verify_ssl is not None:
+            return profile.verify_ssl
         return bool(self._data.get("api", {}).get("verify_ssl", True))
 
     @property
@@ -163,6 +175,7 @@ class ConfigManager:
                 name=item["name"],
                 api_endpoint=item["api_endpoint"],
                 output_format=item.get("output_format", "table"),
+                verify_ssl=item.get("verify_ssl"),
             )
             for item in self._data["profiles"]
         ]

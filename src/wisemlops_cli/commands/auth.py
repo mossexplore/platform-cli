@@ -21,7 +21,7 @@ def login(
         help="登录成功后显示完整 Cookie 和 CSRF Token",
     ),
 ) -> None:
-    """打开 Edge 登录并刷新当前 profile 的本地认证信息。"""
+    """打开 Edge 登录并刷新当前环境的本地认证信息。"""
     try:
         runtime_from_context(context).auth.login(show_secrets=show_secrets)
     except Exception as exc:
@@ -33,7 +33,7 @@ def logout(
     all_profiles: bool = typer.Option(
         False,
         "--all",
-        help="清除所有 profile 的本地认证信息",
+        help="清除所有环境的本地认证信息",
     ),
     forget_browser: bool = typer.Option(
         False,
@@ -41,14 +41,14 @@ def logout(
         help="同时清除专用 Edge Profile，之后登录可能需要重新输入验证码",
     ),
 ) -> None:
-    """清除当前 profile 的本地认证信息。"""
+    """清除当前环境的本地认证信息。"""
     try:
         runtime = runtime_from_context(context)
         runtime.auth.logout(
             all_profiles=all_profiles,
             forget_browser=forget_browser,
         )
-        target = "所有 profile" if all_profiles else runtime.config.current_name
+        target = "所有环境" if all_profiles else runtime.config.current_name
         console.print(f"已清除 {target} 的本地认证信息")
         if forget_browser:
             console.print(f"已清除 {target} 的专用 Edge Profile")
@@ -58,7 +58,7 @@ def logout(
 
 @auth_app.command("status")
 def status(context: typer.Context) -> None:
-    """显示当前 profile 的认证有效期，不显示敏感值。"""
+    """显示当前环境的认证有效期，不显示敏感值。"""
     try:
         credentials = runtime_from_context(context).auth.status()
         print_result(
