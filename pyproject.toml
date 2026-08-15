@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "wisemlops-cli"
-version = "0.3.2"
+version = "0.3.3"
 description = "WiseMLOps platform command line client"
 requires-python = ">=3.9"
 dependencies = [
@@ -19,9 +19,6 @@ ml = "wisemlops_cli.cli:run"
 
 [tool.setuptools.packages.find]
 where = ["src"]
-
-[tool.setuptools.package-data]
-wisemlops_cli = ["resources/*.json"]
 
 [tool.pytest.ini_options]
 pythonpath = ["src"]

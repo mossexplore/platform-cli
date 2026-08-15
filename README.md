@@ -18,9 +18,10 @@ ml --help
 
 ## 配置
 
+项目根目录的 `config.json` 是默认配置的唯一来源，构建 Wheel 时会自动放入安装包。
 安装后首次执行 `ml login`、`ml env show` 等业务命令时，如果用户配置不存在，CLI
-会自动从安装包创建 `%APPDATA%\ml\config.json`，用户无需手工复制配置。当前目录
-存在 `config.json` 时优先使用当前目录配置，也可以通过全局参数或环境变量指定：
+会自动创建 `%APPDATA%\ml\config.json`，用户无需手工复制配置。当前目录存在
+`config.json` 时优先使用当前目录配置，也可以通过全局参数或环境变量指定：
 
 ```powershell
 ml --config C:\path\to\config.json env show

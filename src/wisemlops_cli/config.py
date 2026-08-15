@@ -34,13 +34,17 @@ def default_config_path() -> Path:
 def _install_packaged_config(destination: Path) -> None:
     """首次运行时将安装包内的默认配置复制到用户配置目录。"""
     try:
-        template = (
-            resources.files("wisemlops_cli")
-            .joinpath("resources/config.json")
-            .read_text(encoding="utf-8")
-        )
+        template = resources.files("wisemlops_cli").joinpath(
+            "config.json"
+        ).read_text(encoding="utf-8")
     except (FileNotFoundError, ModuleNotFoundError) as exc:
-        raise ConfigError("安装包中缺少默认配置模板，请重新安装 wisemlops-cli") from exc
+        source_config = Path(__file__).resolve().parents[2] / "config.json"
+        try:
+            template = source_config.read_text(encoding="utf-8")
+        except FileNotFoundError:
+            raise ConfigError(
+                "安装包中缺少 config.json，请重新安装 wisemlops-cli"
+            ) from exc
 
     destination.parent.mkdir(parents=True, exist_ok=True)
     temporary = destination.with_name(
