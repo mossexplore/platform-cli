@@ -88,19 +88,51 @@ class BusinessStoreTest(unittest.TestCase):
         self.assertEqual(catalog[0].name, "顶层中文名称")
 
     def test_department_name_does_not_fall_back_to_settle_tenant(self):
+        with self.assertRaisesRegex(BusinessError, "没有有效的租户信息"):
+            parse_business_list(
+                [
+                    {
+                        "cn": "",
+                        "value": "service-a",
+                        "settleTenant": "department-a",
+                        "settleTenantName": json.dumps(
+                            {"cn": "", "en": ""}
+                        ),
+                        "teamList": [],
+                    }
+                ]
+            )
+
+    def test_department_grouping_does_not_use_settle_tenant(self):
         catalog = parse_business_list(
             [
                 {
-                    "cn": "",
+                    "cn": "服务A",
                     "value": "service-a",
-                    "settleTenant": "department-a",
-                    "settleTenantName": json.dumps({"cn": "", "en": ""}),
+                    "settleTenant": "same-value",
+                    "settleTenantName": json.dumps({"cn": "部门A"}),
                     "teamList": [],
-                }
+                },
+                {
+                    "cn": "服务B",
+                    "value": "service-b",
+                    "settleTenant": "same-value",
+                    "settleTenantName": json.dumps({"cn": "部门B"}),
+                    "teamList": [],
+                },
+                {
+                    "cn": "服务C",
+                    "value": "service-c",
+                    "settleTenantName": json.dumps({"cn": "部门C"}),
+                    "teamList": [],
+                },
             ]
         )
 
-        self.assertEqual(catalog[0].name, "")
+        self.assertEqual(
+            [(item.id, item.name) for item in catalog],
+            [("部门A", "部门A"), ("部门B", "部门B"), ("部门C", "部门C")],
+        )
 
     def test_refresh_uses_browser_tenant_and_can_select_team(self):
         selection = self.store.refresh(

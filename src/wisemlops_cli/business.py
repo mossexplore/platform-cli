@@ -151,17 +151,17 @@ def parse_business_list(raw_value: Any) -> Tuple[Department, ...]:
     for item in value:
         if not isinstance(item, dict):
             continue
-        department_id = str(item.get("settleTenant") or "").strip()
+        department_name = _localized_name(
+            item.get("settleTenantName"),
+            str(item.get("cn") or ""),
+        ).strip()
         tenant_id = str(item.get("value") or "").strip()
-        if not department_id or not tenant_id:
+        if not department_name or not tenant_id:
             continue
         department = grouped.setdefault(
-            department_id,
+            department_name,
             {
-                "name": _localized_name(
-                    item.get("settleTenantName"),
-                    str(item.get("cn") or ""),
-                ),
+                "name": department_name,
                 "tenants": [],
             },
         )

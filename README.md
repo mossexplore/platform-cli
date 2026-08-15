@@ -65,6 +65,8 @@ CLI 会自动监听 `/ai/user/info` 请求确认登录结果，用户不需要�
 
 业务目录和当前选择按环境保存在用户配置目录的 `ml/business.json`。业务命令要求
 至少选择租户，不能只选择部门；团队只有 `teamStatus` 为 `available` 时才允许选择。
+部门名称和分组键依次取 `settleTenantName.cn`、`settleTenantName.en`、顶层 `cn`，
+不使用 `settleTenant`。
 团队级选择使用 `teamList[].businessId` 作为请求头 `ai-businessId` 的值：
 
 ```powershell
