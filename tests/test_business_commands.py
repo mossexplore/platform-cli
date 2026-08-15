@@ -153,6 +153,12 @@ class BusinessCommandTest(unittest.TestCase):
             if "云平台部" in line
         )
         self.assertEqual(department_line.strip(), "1. 云平台部")
+        tenant_line = next(
+            line
+            for line in result.output.splitlines()
+            if "测试MEP平台" in line and "租户级" not in line
+        )
+        self.assertEqual(tenant_line.strip(), "1. 测试MEP平台")
         self.assertIn("请选择团队：", result.output)
         self.assertNotIn("请选择操作范围：", result.output)
         self.assertIn("可用团队", result.output)

@@ -152,10 +152,7 @@ def use_business(
             )
             tenant_value = _choose(
                 "租户",
-                [
-                    (f"{item.name} [{item.id}]", item)
-                    for item in department_value.tenants
-                ],
+                [(item.name, item) for item in department_value.tenants],
             )
             scopes: List[Tuple[str, Optional[Team]]] = [
                 (f"{tenant_value.name}（租户级）", None)
