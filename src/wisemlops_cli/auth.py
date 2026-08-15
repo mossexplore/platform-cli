@@ -10,6 +10,7 @@ from dataclasses import replace
 from pathlib import Path
 from typing import Any, Deque, Dict, Optional
 
+from .business import BusinessStore, parse_business_list
 from .config import ConfigManager
 from .credentials import CredentialStore
 from .errors import AuthenticationError, CredentialError
@@ -38,8 +39,13 @@ def _wait_for_edge(page: Any, message: str) -> None:
 
 
 class BrowserAuthenticator:
-    def __init__(self, store: CredentialStore):
+    def __init__(
+        self,
+        store: CredentialStore,
+        business_store: Optional[BusinessStore] = None,
+    ):
         self.store = store
+        self.business_store = business_store
 
     def login(
         self,
@@ -127,7 +133,12 @@ class BrowserAuthenticator:
 
                 credentials = replace(
                     credentials,
-                    business_id=self._read_business_id(context),
+                    business_id=self._read_local_storage(
+                        context, "ai-businessId"
+                    ),
+                )
+                business_warning = self._refresh_business_catalog(
+                    context, profile, credentials
                 )
                 self.store.save(credentials)
                 source = "持久 Edge 会话" if reused_session else "用户登录"
@@ -138,6 +149,8 @@ class BrowserAuthenticator:
                 print(f"中文名: {credentials.cn_name}")
                 print(f"部门: {credentials.department}")
                 print(f"租户: {credentials.business_id}")
+                if business_warning:
+                    print(f"警告: {business_warning}")
                 if show_secrets:
                     print(f"cookie: {credentials.cookie}")
                     print(f"csrftoken: {credentials.csrftoken}")
@@ -155,18 +168,45 @@ class BrowserAuthenticator:
                 raise
 
     @staticmethod
-    def _read_business_id(context: Any) -> str:
+    def _read_local_storage(context: Any, key: str) -> str:
         for page in reversed(context.pages):
             if page.is_closed():
                 continue
             try:
-                business_id = page.evaluate(
-                    "() => localStorage.getItem('ai-businessId')"
+                value = page.evaluate(
+                    f"() => localStorage.getItem({json.dumps(key)})"
                 )
             except Exception:
                 continue
-            if business_id is not None:
-                return str(business_id)
+            if value is not None:
+                return str(value)
+        return ""
+
+    def _refresh_business_catalog(
+        self,
+        context: Any,
+        profile: Profile,
+        credentials: Credentials,
+    ) -> str:
+        if self.business_store is None:
+            return ""
+        raw_business_list = self._read_local_storage(
+            context, "ai-businessList"
+        )
+        if not raw_business_list:
+            return (
+                "未读取到 ai-businessList，请运行 ml business refresh 后重试"
+            )
+        try:
+            departments = parse_business_list(raw_business_list)
+            self.business_store.refresh(
+                profile=profile.name,
+                username=credentials.username,
+                departments=departments,
+                browser_business_id=credentials.business_id,
+            )
+        except Exception as exc:
+            return f"业务目录刷新失败: {exc}"
         return ""
 
     def _wait_for_credentials(
@@ -264,10 +304,15 @@ class BrowserAuthenticator:
 
 
 class AuthManager:
-    def __init__(self, config: ConfigManager, store: CredentialStore):
+    def __init__(
+        self,
+        config: ConfigManager,
+        store: CredentialStore,
+        business_store: Optional[BusinessStore] = None,
+    ):
         self.config = config
         self.store = store
-        self.browser = BrowserAuthenticator(store)
+        self.browser = BrowserAuthenticator(store, business_store)
 
     def ensure_credentials(self, force_refresh: bool = False) -> Credentials:
         profile = self.config.current_profile()

@@ -1,0 +1,114 @@
+import json
+import tempfile
+import unittest
+from pathlib import Path
+
+from wisemlops_cli.business import BusinessStore, parse_business_list
+from wisemlops_cli.errors import BusinessError
+
+
+def business_list(team_status="available"):
+    return [
+        {
+            "cn": "测试MEP平台",
+            "en": "mep",
+            "value": "mep",
+            "settleTenant": "WiseCloudBigData",
+            "settleTenantName": json.dumps(
+                {"en": "WiseCloud&BigData Platform", "cn": "云平台部"}
+            ),
+            "serviceIdList": [
+                {"serviceId": "com.ab.wisemlopsmepservice"}
+            ],
+            "teamList": [
+                {
+                    "businessId": "mep",
+                    "teamId": "asdasd",
+                    "name": json.dumps(
+                        {"en": "sadasda(asdasd)", "cn": "asdasda"}
+                    ),
+                    "cn": "asdasda",
+                    "key": "mep-asdasd",
+                    "teamStatus": team_status,
+                },
+                {
+                    "businessId": "mep",
+                    "teamId": "blocked",
+                    "cn": "禁用团队",
+                    "key": "mep-blocked",
+                    "teamStatus": "disabled",
+                },
+            ],
+        },
+        {
+            "cn": "另一个服务",
+            "value": "other",
+            "settleTenant": "WiseCloudBigData",
+            "settleTenantName": json.dumps({"cn": "云平台部"}),
+            "teamList": [],
+        },
+    ]
+
+
+class BusinessStoreTest(unittest.TestCase):
+    def setUp(self):
+        self.temporary = tempfile.TemporaryDirectory()
+        self.store = BusinessStore(
+            Path(self.temporary.name) / "business.json"
+        )
+        self.catalog = parse_business_list(json.dumps(business_list()))
+
+    def tearDown(self):
+        self.temporary.cleanup()
+
+    def test_parses_and_groups_three_level_catalog(self):
+        self.assertEqual(len(self.catalog), 1)
+        department = self.catalog[0]
+        self.assertEqual(department.name, "云平台部")
+        self.assertEqual([item.id for item in department.tenants], ["mep", "other"])
+        tenant = department.tenants[0]
+        self.assertEqual(tenant.service_ids, ("com.ab.wisemlopsmepservice",))
+        self.assertEqual(tenant.teams[0].name, "asdasda")
+        self.assertTrue(tenant.teams[0].selectable)
+        self.assertFalse(tenant.teams[1].selectable)
+
+    def test_refresh_uses_browser_tenant_and_can_select_team(self):
+        selection = self.store.refresh(
+            "dev", "jack", self.catalog, browser_business_id="mep"
+        )
+        self.assertEqual(selection.type, "tenant")
+        selected_team = self.store.select(
+            "dev", "jack", tenant_id="mep", team_id="asdasd"
+        )
+        self.assertEqual(selected_team.type, "team")
+        self.assertEqual(selected_team.effective_business_id, "mep-asdasd")
+
+    def test_unavailable_team_cannot_be_selected(self):
+        self.store.refresh("dev", "jack", self.catalog)
+        with self.assertRaisesRegex(BusinessError, "不可选择"):
+            self.store.select(
+                "dev", "jack", tenant_id="mep", team_id="blocked"
+            )
+
+    def test_refresh_invalidates_team_that_becomes_unavailable(self):
+        self.store.refresh("dev", "jack", self.catalog)
+        self.store.select("dev", "jack", tenant_id="mep", team_id="asdasd")
+        changed = parse_business_list(
+            json.dumps(business_list(team_status="disabled"))
+        )
+        self.assertIsNone(self.store.refresh("dev", "jack", changed))
+        with self.assertRaisesRegex(BusinessError, "尚未选择"):
+            self.store.require_selection("dev", "jack")
+
+    def test_catalog_is_bound_to_login_account(self):
+        self.store.refresh("dev", "jack", self.catalog)
+        with self.assertRaisesRegex(BusinessError, "其他账号"):
+            self.store.catalog("dev", "alice")
+
+    def test_invalid_business_list_is_rejected(self):
+        with self.assertRaisesRegex(BusinessError, "有效的 JSON"):
+            parse_business_list("not-json")
+
+
+if __name__ == "__main__":
+    unittest.main()

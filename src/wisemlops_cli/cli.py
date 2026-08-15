@@ -9,6 +9,7 @@ import typer
 
 from . import __version__
 from .commands.auth import auth_app, login, logout
+from .commands.business import business_app
 from .commands.common import fail
 from .commands.env import env_app
 from .commands.mep import mep_app
@@ -24,6 +25,7 @@ app = typer.Typer(
 app.command("login")(login)
 app.command("logout")(logout)
 app.add_typer(auth_app, name="auth")
+app.add_typer(business_app, name="business")
 app.add_typer(env_app, name="env")
 app.add_typer(user_app, name="user")
 app.add_typer(mep_app, name="mep")

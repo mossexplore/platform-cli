@@ -19,3 +19,7 @@ class AuthenticationError(MlError):
 
 class ApiError(MlError):
     """接口请求错误。"""
+
+
+class BusinessError(MlError):
+    """部门、租户或团队上下文错误。"""

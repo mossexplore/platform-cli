@@ -58,9 +58,28 @@ ml/browser-profiles/profile-test
 ```
 
 CLI 会自动监听 `/ai/user/info` 请求确认登录结果，用户不需要再按回车。认证成功并
-从当前页面的 `localStorage` 读取 `ai-businessId`，打印并保存为租户信息。更新本地
-认证信息后，Edge 会自动关闭，原业务命令随后继续执行。`login_timeout`
+从当前页面的 `localStorage` 读取 `ai-businessId` 和 `ai-businessList`，打印租户并
+缓存部门、租户、团队目录。更新本地认证信息后，Edge 会自动关闭，原业务命令随后
+继续执行。`login_timeout`
 控制等待用户登录的最长时间，单位为毫秒，默认 5 分钟。
+
+业务目录和当前选择按环境保存在用户配置目录的 `ml/business.json`。业务命令要求
+至少选择租户，不能只选择部门；团队只有 `teamStatus` 为 `available` 时才允许选择。
+团队级选择使用 `team.key` 作为请求头 `ai-businessId` 的值：
+
+```powershell
+ml business list
+ml business use
+ml business use --tenant mep
+ml business use --tenant mep --team asdasd
+ml business show
+ml business refresh
+```
+
+`ml business use` 不带参数时按“部门 → 租户 → 租户级或团队级”的顺序交互选择。
+`ml business refresh` 会打开持久化 Edge Profile，重新读取浏览器中的业务目录并自动
+关闭 Edge。已选团队被删除或变为非 `available` 状态后，当前选择会失效，必须重新
+选择。所有平台业务请求都会统一携带当前选择对应的 `ai-businessId` 请求头。
 
 `api.verify_ssl` 是所有环境的默认 HTTPS 证书校验设置。某个可信的内部环境需要
 单独关闭校验时，可在对应的 `profiles` 项中覆盖；其他环境继续继承全局设置：

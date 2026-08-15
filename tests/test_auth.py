@@ -8,6 +8,7 @@ from pathlib import Path
 from unittest.mock import Mock, patch
 
 from wisemlops_cli.auth import AuthManager, BrowserAuthenticator, _parse_user_info
+from wisemlops_cli.business import BusinessStore
 from wisemlops_cli.config import ConfigManager
 from wisemlops_cli.credentials import CredentialStore
 from wisemlops_cli.models import Credentials, Profile
@@ -28,7 +29,22 @@ class FakeBrowserAuthenticator:
 class FakePage:
     def __init__(self):
         self.default_timeout = None
-        self.business_id = "tenant-001"
+        self.local_storage = {
+            "ai-businessId": "mep",
+            "ai-businessList": json.dumps(
+                [
+                    {
+                        "cn": "测试MEP平台",
+                        "value": "mep",
+                        "settleTenant": "WiseCloudBigData",
+                        "settleTenantName": json.dumps(
+                            {"cn": "云平台部", "en": "Cloud"}
+                        ),
+                        "teamList": [],
+                    }
+                ]
+            ),
+        }
 
     def set_default_timeout(self, timeout):
         self.default_timeout = timeout
@@ -40,8 +56,9 @@ class FakePage:
         return None
 
     def evaluate(self, expression):
-        if expression == "() => localStorage.getItem('ai-businessId')":
-            return self.business_id
+        for key, value in self.local_storage.items():
+            if key in expression:
+                return value
         raise AssertionError(f"非预期脚本: {expression}")
 
 
@@ -220,7 +237,10 @@ class AuthManagerTest(unittest.TestCase):
         sync_api.sync_playwright = lambda: FakePlaywrightManager(fake_playwright)
         playwright_package = types.ModuleType("playwright")
         playwright_package.sync_api = sync_api
-        authenticator = BrowserAuthenticator(self.store)
+        business_store = BusinessStore(
+            Path(self.temporary.name) / "business.json"
+        )
+        authenticator = BrowserAuthenticator(self.store, business_store)
         authenticator._wait_for_credentials = Mock(
             side_effect=[None, credentials]
         )
@@ -252,13 +272,17 @@ class AuthManagerTest(unittest.TestCase):
                     )
 
         self.assertEqual(result.username, "jack")
-        self.assertEqual(result.business_id, "tenant-001")
-        self.assertEqual(self.store.load("dev").business_id, "tenant-001")
+        self.assertEqual(result.business_id, "mep")
+        self.assertEqual(self.store.load("dev").business_id, "mep")
+        self.assertEqual(
+            business_store.require_selection("dev", "jack").tenant_id,
+            "mep",
+        )
         print_mock.assert_any_call("正在等待登录成功...")
         print_mock.assert_any_call("账号: jack")
         print_mock.assert_any_call("中文名: 张三")
         print_mock.assert_any_call("部门: 技术部")
-        print_mock.assert_any_call("租户: tenant-001")
+        print_mock.assert_any_call("租户: mep")
         self.assertTrue(context.closed)
         self.assertEqual(authenticator._wait_for_credentials.call_count, 2)
         self.assertEqual(

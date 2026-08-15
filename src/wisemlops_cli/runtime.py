@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Any, Callable, Optional
 
 from .auth import AuthManager
+from .business import BusinessStore
 from .client import PlatformClient
 from .config import ConfigManager
 from .credentials import CredentialStore
@@ -17,10 +18,12 @@ class Runtime:
         self,
         config_path: Optional[Path] = None,
         credential_path: Optional[Path] = None,
+        business_path: Optional[Path] = None,
     ):
         self.config = ConfigManager(config_path)
         self.credentials = CredentialStore(credential_path)
-        self.auth = AuthManager(self.config, self.credentials)
+        self.business = BusinessStore(business_path)
+        self.auth = AuthManager(self.config, self.credentials, self.business)
 
     def authenticated_call(
         self,
@@ -29,6 +32,9 @@ class Runtime:
         for attempt in range(2):
             credentials = self.auth.ensure_credentials(force_refresh=attempt == 1)
             profile = self.config.current_profile()
+            selection = self.business.require_selection(
+                profile.name, credentials.username
+            )
             try:
                 with PlatformClient(
                     profile=profile,
@@ -36,6 +42,7 @@ class Runtime:
                     timeout_ms=self.config.timeout_ms,
                     retry_times=self.config.retry_times,
                     verify_ssl=self.config.verify_ssl,
+                    business_selection=selection,
                 ) as client:
                     return operation(client)
             except AuthenticationError:

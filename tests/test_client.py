@@ -3,6 +3,7 @@ import unittest
 import httpx
 
 from wisemlops_cli.client import PlatformClient
+from wisemlops_cli.business import BusinessSelection
 from wisemlops_cli.errors import AuthenticationError
 from wisemlops_cli.models import Credentials, Profile
 
@@ -25,12 +26,23 @@ class PlatformClientTest(unittest.TestCase):
             retry_times=3,
             verify_ssl=True,
             transport=httpx.MockTransport(handler),
+            business_selection=BusinessSelection(
+                type="team",
+                department_id="WiseCloudBigData",
+                department_name="云平台部",
+                tenant_id="mep",
+                tenant_name="测试MEP平台",
+                team_id="asdasd",
+                team_name="asdasda",
+                effective_business_id="mep-asdasd",
+            ),
         )
 
     def test_sends_complete_authentication_headers(self):
         def handler(request):
             self.assertEqual(request.headers["cookie"], "session=abc; token=xyz")
             self.assertEqual(request.headers["csrftoken"], "csrf-value")
+            self.assertEqual(request.headers["ai-businessId"], "mep-asdasd")
             return httpx.Response(200, json={"username": "jack"})
 
         with self.create_client(handler) as client:

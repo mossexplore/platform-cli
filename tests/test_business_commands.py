@@ -1,0 +1,161 @@
+import json
+import tempfile
+import unittest
+from pathlib import Path
+from unittest.mock import patch
+
+from typer.testing import CliRunner
+
+from wisemlops_cli.business import BusinessStore, parse_business_list
+from wisemlops_cli.cli import app
+from wisemlops_cli.credentials import CredentialStore
+from wisemlops_cli.models import Credentials
+
+
+class BusinessCommandTest(unittest.TestCase):
+    def setUp(self):
+        self.temporary = tempfile.TemporaryDirectory()
+        self.root = Path(self.temporary.name)
+        self.config_path = self.root / "config.json"
+        self.config_path.write_text(
+            json.dumps(
+                {
+                    "current": "dev",
+                    "profiles": [
+                        {
+                            "name": "dev",
+                            "api_endpoint": "https://dev.example.com/dashboard",
+                        }
+                    ],
+                }
+            ),
+            encoding="utf-8",
+        )
+        CredentialStore(self.root / "credentials.json").save(
+            Credentials.create(
+                profile="dev",
+                cookie="session=abc",
+                csrftoken="csrf",
+                username="jack",
+                ttl_seconds=1800,
+            )
+        )
+        self.business_store = BusinessStore(self.root / "business.json")
+        self.business_store.refresh(
+            "dev",
+            "jack",
+            parse_business_list(
+                [
+                    {
+                        "cn": "测试MEP平台",
+                        "value": "mep",
+                        "settleTenant": "cloud",
+                        "settleTenantName": json.dumps({"cn": "云平台部"}),
+                        "teamList": [
+                            {
+                                "teamId": "available-team",
+                                "cn": "可用团队",
+                                "key": "mep-available-team",
+                                "teamStatus": "available",
+                            },
+                            {
+                                "teamId": "disabled-team",
+                                "cn": "禁用团队",
+                                "key": "mep-disabled-team",
+                                "teamStatus": "disabled",
+                            },
+                        ],
+                    }
+                ]
+            ),
+            browser_business_id="mep",
+        )
+        self.runner = CliRunner()
+
+    def tearDown(self):
+        self.temporary.cleanup()
+
+    def invoke(self, arguments, input_value=None):
+        with patch(
+            "wisemlops_cli.credentials.user_config_dir",
+            return_value=self.root,
+        ), patch(
+            "wisemlops_cli.business.user_config_dir",
+            return_value=self.root,
+        ):
+            return self.runner.invoke(
+                app,
+                ["--config", str(self.config_path), *arguments],
+                input=input_value,
+            )
+
+    def test_uses_available_team_by_id(self):
+        result = self.invoke(
+            [
+                "business",
+                "use",
+                "--tenant",
+                "mep",
+                "--team",
+                "available-team",
+            ]
+        )
+
+        self.assertEqual(result.exit_code, 0, result.output)
+        self.assertIn("mep-available-team", result.output)
+        self.assertEqual(
+            self.business_store.require_selection("dev", "jack").team_id,
+            "available-team",
+        )
+        self.assertEqual(
+            CredentialStore(self.root / "credentials.json")
+            .load("dev")
+            .business_id,
+            "mep-available-team",
+        )
+
+    def test_interactive_selection_reaches_team(self):
+        result = self.invoke(
+            ["business", "use"], input_value="1\n1\n2\n"
+        )
+
+        self.assertEqual(result.exit_code, 0, result.output)
+        self.assertIn("可用团队", result.output)
+        self.assertEqual(
+            self.business_store.require_selection("dev", "jack").team_id,
+            "available-team",
+        )
+
+    def test_disabled_team_is_rejected(self):
+        result = self.invoke(
+            [
+                "business",
+                "use",
+                "--tenant",
+                "mep",
+                "--team",
+                "disabled-team",
+            ]
+        )
+
+        self.assertEqual(result.exit_code, 1, result.output)
+        self.assertIn("不可选择", result.output)
+
+    def test_department_only_is_rejected(self):
+        result = self.invoke(
+            ["business", "use", "--department", "cloud"]
+        )
+
+        self.assertEqual(result.exit_code, 1, result.output)
+        self.assertIn("不能仅选择部门或团队", result.output)
+
+    def test_list_displays_disabled_team(self):
+        result = self.invoke(["business", "list"])
+
+        self.assertEqual(result.exit_code, 0, result.output)
+        self.assertIn("禁用团队", result.output)
+        self.assertIn("禁选: disabled", result.output)
+
+
+if __name__ == "__main__":
+    unittest.main()

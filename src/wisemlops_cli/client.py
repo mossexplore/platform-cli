@@ -6,6 +6,7 @@ from typing import Any, Dict, Optional
 
 import httpx
 
+from .business import BusinessSelection
 from .errors import ApiError, AuthenticationError
 from .models import Credentials, Profile
 
@@ -19,19 +20,25 @@ class PlatformClient:
         retry_times: int,
         verify_ssl: bool,
         transport: Optional[httpx.BaseTransport] = None,
+        business_selection: Optional[BusinessSelection] = None,
     ):
         selected_transport = transport or httpx.HTTPTransport(
             retries=retry_times,
             verify=verify_ssl,
         )
+        headers = {
+            "cookie": credentials.cookie,
+            "csrftoken": credentials.csrftoken,
+            "content-type": "application/json",
+            "referer": profile.api_endpoint,
+        }
+        if business_selection is not None:
+            headers["ai-businessId"] = (
+                business_selection.effective_business_id
+            )
         self._client = httpx.Client(
             base_url=profile.base_url,
-            headers={
-                "cookie": credentials.cookie,
-                "csrftoken": credentials.csrftoken,
-                "content-type": "application/json",
-                "referer": profile.api_endpoint,
-            },
+            headers=headers,
             timeout=httpx.Timeout(timeout_ms / 1000),
             transport=selected_transport,
             follow_redirects=False,
