@@ -1,0 +1,28 @@
+{
+  "current": "dev",
+  "api": {
+    "timeout": 30000,
+    "retry_times": 3,
+    "verify_ssl": true
+  },
+  "auth": {
+    "expires_in_seconds": 1800
+  },
+  "browser": {
+    "channel": "msedge",
+    "session_probe_timeout": 5000,
+    "login_timeout": 300000
+  },
+  "profiles": [
+    {
+      "name": "test",
+      "api_endpoint": "https://console-test.cloudtest.cn/dashboard",
+      "output_format": "table"
+    },
+    {
+      "name": "dev",
+      "api_endpoint": "https://console-dev.cloudtest.cn/dashboard",
+      "output_format": "table"
+    }
+  ]
+}

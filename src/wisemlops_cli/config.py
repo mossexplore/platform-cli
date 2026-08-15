@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+from importlib import resources
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 from urllib.parse import quote, urlsplit
@@ -23,7 +24,30 @@ def default_config_path() -> Path:
 
     preferred = user_config_dir() / "config.json"
     legacy = legacy_user_config_dir() / "config.json"
-    return legacy if not preferred.exists() and legacy.exists() else preferred
+    if not preferred.exists() and legacy.exists():
+        return legacy
+    if not preferred.exists():
+        _install_default_config(preferred)
+    return preferred
+
+
+def _install_default_config(destination: Path) -> None:
+    """首次运行时将安装包内的默认配置复制到用户配置目录。"""
+    try:
+        template = (
+            resources.files("wisemlops_cli")
+            .joinpath("resources/default_config.json")
+            .read_text(encoding="utf-8")
+        )
+    except (FileNotFoundError, ModuleNotFoundError) as exc:
+        raise ConfigError("安装包中缺少默认配置模板，请重新安装 wisemlops-cli") from exc
+
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    temporary = destination.with_name(
+        f".{destination.name}.{os.getpid()}.tmp"
+    )
+    temporary.write_text(template, encoding="utf-8")
+    temporary.replace(destination)
 
 
 def user_config_dir() -> Path:

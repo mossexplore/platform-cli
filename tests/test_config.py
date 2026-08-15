@@ -1,9 +1,15 @@
 import json
+import os
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
-from wisemlops_cli.config import ConfigManager
+from wisemlops_cli.config import (
+    ConfigManager,
+    _install_default_config,
+    default_config_path,
+)
 
 
 class ConfigManagerTest(unittest.TestCase):
@@ -68,6 +74,43 @@ class ConfigManagerTest(unittest.TestCase):
         reloaded = ConfigManager(self.path)
         self.assertEqual(reloaded.current_name, "test")
         self.assertTrue(reloaded.verify_ssl)
+
+    def test_installs_packaged_default_config(self):
+        destination = Path(self.temporary.name) / "ml" / "config.json"
+
+        _install_default_config(destination)
+
+        self.assertTrue(destination.exists())
+        manager = ConfigManager(destination)
+        self.assertEqual(manager.current_name, "dev")
+        self.assertEqual(
+            manager.current_profile().api_endpoint,
+            "https://console-dev.cloudtest.cn/dashboard",
+        )
+
+    def test_default_path_bootstraps_user_config(self):
+        root = Path(self.temporary.name)
+        with patch.dict(
+            os.environ,
+            {"ML_CONFIG": "", "WO_CONFIG": ""},
+        ):
+            with patch(
+                "wisemlops_cli.config.Path.cwd",
+                return_value=root / "working-directory",
+            ):
+                with patch(
+                    "wisemlops_cli.config.user_config_dir",
+                    return_value=root / "ml",
+                ):
+                    with patch(
+                        "wisemlops_cli.config.legacy_user_config_dir",
+                        return_value=root / "wo",
+                    ):
+                        path = default_config_path()
+
+        self.assertEqual(path, root / "ml" / "config.json")
+        self.assertTrue(path.exists())
+        self.assertEqual(ConfigManager(path).current_name, "dev")
 
 
 if __name__ == "__main__":
