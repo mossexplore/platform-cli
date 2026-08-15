@@ -147,6 +147,14 @@ class BusinessCommandTest(unittest.TestCase):
         )
 
         self.assertEqual(result.exit_code, 0, result.output)
+        department_line = next(
+            line
+            for line in result.output.splitlines()
+            if "云平台部" in line
+        )
+        self.assertEqual(department_line.strip(), "1. 云平台部")
+        self.assertIn("请选择团队：", result.output)
+        self.assertNotIn("请选择操作范围：", result.output)
         self.assertIn("可用团队", result.output)
         self.assertEqual(
             self.business_store.require_selection("dev", "jack").team_id,

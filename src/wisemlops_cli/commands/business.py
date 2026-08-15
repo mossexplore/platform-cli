@@ -148,7 +148,7 @@ def use_business(
                 )
             department_value = _choose(
                 "部门",
-                [(f"{item.name} [{item.id}]", item) for item in catalog],
+                [(item.name, item) for item in catalog],
             )
             tenant_value = _choose(
                 "租户",
@@ -168,7 +168,7 @@ def use_business(
                 for item in tenant_value.teams
             )
             team_value = _choose(
-                "操作范围",
+                "团队",
                 scopes,
                 style_for=lambda item: (
                     "bold blue"
