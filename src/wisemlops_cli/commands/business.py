@@ -48,7 +48,12 @@ def _choose(
     console.print(f"请选择{title}：")
     for index, (label, value) in enumerate(values, start=1):
         style = style_for(value) if style_for else None
-        console.print(f"  {index}. {label}", style=style, markup=False)
+        console.print(
+            f"  {index}. {label}",
+            style=style,
+            markup=False,
+            highlight=False,
+        )
     selected = typer.prompt("请输入序号", type=int)
     if selected < 1 or selected > len(values):
         raise BusinessError(f"{title}序号无效: {selected}")
