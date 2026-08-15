@@ -27,16 +27,16 @@ def default_config_path() -> Path:
     if not preferred.exists() and legacy.exists():
         return legacy
     if not preferred.exists():
-        _install_default_config(preferred)
+        _install_packaged_config(preferred)
     return preferred
 
 
-def _install_default_config(destination: Path) -> None:
+def _install_packaged_config(destination: Path) -> None:
     """首次运行时将安装包内的默认配置复制到用户配置目录。"""
     try:
         template = (
             resources.files("wisemlops_cli")
-            .joinpath("resources/default_config.json")
+            .joinpath("resources/config.json")
             .read_text(encoding="utf-8")
         )
     except (FileNotFoundError, ModuleNotFoundError) as exc:

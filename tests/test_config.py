@@ -7,7 +7,7 @@ from unittest.mock import patch
 
 from wisemlops_cli.config import (
     ConfigManager,
-    _install_default_config,
+    _install_packaged_config,
     default_config_path,
 )
 
@@ -75,10 +75,10 @@ class ConfigManagerTest(unittest.TestCase):
         self.assertEqual(reloaded.current_name, "test")
         self.assertTrue(reloaded.verify_ssl)
 
-    def test_installs_packaged_default_config(self):
+    def test_installs_packaged_config(self):
         destination = Path(self.temporary.name) / "ml" / "config.json"
 
-        _install_default_config(destination)
+        _install_packaged_config(destination)
 
         self.assertTrue(destination.exists())
         manager = ConfigManager(destination)
