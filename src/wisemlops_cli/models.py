@@ -31,6 +31,7 @@ class Credentials:
     expires_at: float
     cn_name: str = ""
     department: str = ""
+    business_id: str = ""
 
     @classmethod
     def create(
@@ -42,6 +43,7 @@ class Credentials:
         ttl_seconds: int,
         cn_name: str = "",
         department: str = "",
+        business_id: str = "",
     ) -> "Credentials":
         acquired_at = time.time()
         return cls(
@@ -53,6 +55,7 @@ class Credentials:
             expires_at=acquired_at + ttl_seconds,
             cn_name=cn_name,
             department=department,
+            business_id=business_id,
         )
 
     @classmethod
@@ -66,6 +69,7 @@ class Credentials:
             expires_at=float(value["expires_at"]),
             cn_name=str(value.get("cn_name", "")),
             department=str(value.get("department", "")),
+            business_id=str(value.get("business_id", "")),
         )
 
     def to_dict(self) -> Dict[str, Any]:

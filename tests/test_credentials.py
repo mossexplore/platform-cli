@@ -22,12 +22,14 @@ class CredentialStoreTest(unittest.TestCase):
             csrftoken="csrf-value",
             username="jack",
             ttl_seconds=1800,
+            business_id="tenant-001",
         )
         self.store.save(credentials)
         loaded = self.store.load("dev")
         self.assertIsNotNone(loaded)
         self.assertEqual(loaded.cookie, credentials.cookie)
         self.assertEqual(loaded.csrftoken, credentials.csrftoken)
+        self.assertEqual(loaded.business_id, "tenant-001")
         self.assertFalse(loaded.is_expired(now=credentials.acquired_at + 1799))
         self.assertTrue(loaded.is_expired(now=credentials.acquired_at + 1800))
 

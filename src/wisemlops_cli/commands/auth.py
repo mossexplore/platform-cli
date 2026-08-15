@@ -67,6 +67,7 @@ def status(context: typer.Context) -> None:
                 "username": credentials.username,
                 "cn_name": credentials.cn_name,
                 "department": credentials.department,
+                "business_id": credentials.business_id,
                 "status": "expired" if credentials.is_expired() else "valid",
                 "remaining_seconds": credentials.remaining_seconds(),
                 "acquired_at": datetime.fromtimestamp(

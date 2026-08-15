@@ -6,6 +6,7 @@ import json
 import shutil
 import time
 from collections import deque
+from dataclasses import replace
 from pathlib import Path
 from typing import Any, Deque, Dict, Optional
 
@@ -124,6 +125,10 @@ class BrowserAuthenticator:
                         "有效的 Cookie、csrftoken 和用户信息"
                     )
 
+                credentials = replace(
+                    credentials,
+                    business_id=self._read_business_id(context),
+                )
                 self.store.save(credentials)
                 source = "持久 Edge 会话" if reused_session else "用户登录"
                 print(
@@ -132,6 +137,7 @@ class BrowserAuthenticator:
                 print(f"账号: {credentials.username}")
                 print(f"中文名: {credentials.cn_name}")
                 print(f"部门: {credentials.department}")
+                print(f"租户: {credentials.business_id}")
                 if show_secrets:
                     print(f"cookie: {credentials.cookie}")
                     print(f"csrftoken: {credentials.csrftoken}")
@@ -147,6 +153,21 @@ class BrowserAuthenticator:
                     "Edge 将保持打开；请检查页面，完成后手动关闭 Edge。",
                 )
                 raise
+
+    @staticmethod
+    def _read_business_id(context: Any) -> str:
+        for page in reversed(context.pages):
+            if page.is_closed():
+                continue
+            try:
+                business_id = page.evaluate(
+                    "() => localStorage.getItem('ai-businessId')"
+                )
+            except Exception:
+                continue
+            if business_id is not None:
+                return str(business_id)
+        return ""
 
     def _wait_for_credentials(
         self,

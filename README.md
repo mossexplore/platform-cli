@@ -58,7 +58,8 @@ ml/browser-profiles/profile-test
 ```
 
 CLI 会自动监听 `/ai/user/info` 请求确认登录结果，用户不需要再按回车。认证成功并
-更新本地认证信息后，Edge 会自动关闭，原业务命令随后继续执行。`login_timeout`
+从当前页面的 `localStorage` 读取 `ai-businessId`，打印并保存为租户信息。更新本地
+认证信息后，Edge 会自动关闭，原业务命令随后继续执行。`login_timeout`
 控制等待用户登录的最长时间，单位为毫秒，默认 5 分钟。
 
 `api.verify_ssl` 是所有环境的默认 HTTPS 证书校验设置。某个可信的内部环境需要

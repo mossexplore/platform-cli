@@ -28,6 +28,7 @@ class FakeBrowserAuthenticator:
 class FakePage:
     def __init__(self):
         self.default_timeout = None
+        self.business_id = "tenant-001"
 
     def set_default_timeout(self, timeout):
         self.default_timeout = timeout
@@ -37,6 +38,11 @@ class FakePage:
 
     def goto(self, *_args, **_kwargs):
         return None
+
+    def evaluate(self, expression):
+        if expression == "() => localStorage.getItem('ai-businessId')":
+            return self.business_id
+        raise AssertionError(f"非预期脚本: {expression}")
 
 
 class FakePersistentContext:
@@ -246,10 +252,13 @@ class AuthManagerTest(unittest.TestCase):
                     )
 
         self.assertEqual(result.username, "jack")
+        self.assertEqual(result.business_id, "tenant-001")
+        self.assertEqual(self.store.load("dev").business_id, "tenant-001")
         print_mock.assert_any_call("正在等待登录成功...")
         print_mock.assert_any_call("账号: jack")
         print_mock.assert_any_call("中文名: 张三")
         print_mock.assert_any_call("部门: 技术部")
+        print_mock.assert_any_call("租户: tenant-001")
         self.assertTrue(context.closed)
         self.assertEqual(authenticator._wait_for_credentials.call_count, 2)
         self.assertEqual(
