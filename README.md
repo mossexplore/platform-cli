@@ -19,9 +19,11 @@ ml --help
 ## 配置
 
 项目根目录的 `config.json` 是默认配置的唯一来源，构建 Wheel 时会自动放入安装包。
-安装后首次执行 `ml login`、`ml env show` 等业务命令时，如果用户配置不存在，CLI
-会自动创建 `%APPDATA%\ml\config.json`，用户无需手工复制配置。当前目录存在
-`config.json` 时优先使用当前目录配置，也可以通过全局参数或环境变量指定：
+安装后首次执行 `ml login`、`ml env show` 等业务命令时，CLI 会将安装包内的默认配置
+强制写入 `%APPDATA%\ml\config.json`。安装新版本或默认配置发生变化后，首次执行命令
+也会再次覆盖该文件；同一版本的后续命令不会重复覆盖。升级前如需保留自定义环境，
+请先备份该文件。当前目录存在 `config.json` 时优先使用当前目录配置，也可以通过全局
+参数或环境变量指定：
 
 ```powershell
 ml --config C:\path\to\config.json env show
@@ -84,9 +86,6 @@ CLI 会自动监听 `/ai/user/info` 请求确认登录结果，用户不需要�
 ```
 
 关闭证书校验只应用于显式配置的环境，并且只建议用于完全可信的内部网络。
-
-从旧版 `wo` 首次升级时，如果新的认证文件尚不存在，CLI 会自动复制旧的
-`wo/credentials.json` 到 `ml/credentials.json`，原文件仍会保留。
 
 ## 命令
 

@@ -4,48 +4,51 @@ from __future__ import annotations
 
 import json
 import os
+from hashlib import sha256
 from importlib import resources
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 from urllib.parse import quote, urlsplit
 
+from . import __version__
 from .errors import ConfigError
 from .models import Profile
 
 
 def default_config_path() -> Path:
-    configured = os.environ.get("ML_CONFIG") or os.environ.get("WO_CONFIG")
+    configured = os.environ.get("ML_CONFIG")
     if configured:
         return Path(configured).expanduser().resolve()
+
+    preferred = user_config_dir() / "config.json"
+    _sync_packaged_config(preferred)
 
     local_config = Path.cwd() / "config.json"
     if local_config.exists():
         return local_config.resolve()
 
-    preferred = user_config_dir() / "config.json"
-    legacy = legacy_user_config_dir() / "config.json"
-    if not preferred.exists() and legacy.exists():
-        return legacy
-    if not preferred.exists():
-        _install_packaged_config(preferred)
     return preferred
 
 
-def _install_packaged_config(destination: Path) -> None:
-    """首次运行时将安装包内的默认配置复制到用户配置目录。"""
+def _packaged_config_text() -> str:
+    """读取当前安装包携带的默认配置。"""
     try:
-        template = resources.files("wisemlops_cli").joinpath(
+        return resources.files("wisemlops_cli").joinpath(
             "config.json"
         ).read_text(encoding="utf-8")
     except (FileNotFoundError, ModuleNotFoundError) as exc:
         source_config = Path(__file__).resolve().parents[2] / "config.json"
         try:
-            template = source_config.read_text(encoding="utf-8")
+            return source_config.read_text(encoding="utf-8")
         except FileNotFoundError:
             raise ConfigError(
                 "安装包中缺少 config.json，请重新安装 wisemlops-cli"
             ) from exc
 
+
+def _install_packaged_config(destination: Path, template: Optional[str] = None) -> None:
+    """将安装包内的默认配置覆盖到用户配置目录。"""
+    template = template if template is not None else _packaged_config_text()
     destination.parent.mkdir(parents=True, exist_ok=True)
     temporary = destination.with_name(
         f".{destination.name}.{os.getpid()}.tmp"
@@ -54,12 +57,31 @@ def _install_packaged_config(destination: Path) -> None:
     temporary.replace(destination)
 
 
+def _config_marker_path(destination: Path) -> Path:
+    return destination.with_name(f".{destination.name}.installed")
+
+
+def _sync_packaged_config(destination: Path) -> None:
+    """新版本或默认配置变化后，首次运行时强制覆盖用户配置。"""
+    template = _packaged_config_text()
+    signature = f"{__version__}:{sha256(template.encode('utf-8')).hexdigest()}"
+    marker = _config_marker_path(destination)
+    try:
+        installed_signature = marker.read_text(encoding="utf-8").strip()
+    except FileNotFoundError:
+        installed_signature = ""
+
+    if destination.exists() and installed_signature == signature:
+        return
+
+    _install_packaged_config(destination, template)
+    temporary = marker.with_name(f".{marker.name}.{os.getpid()}.tmp")
+    temporary.write_text(signature + "\n", encoding="utf-8")
+    temporary.replace(marker)
+
+
 def user_config_dir() -> Path:
     return _user_config_dir("ml")
-
-
-def legacy_user_config_dir() -> Path:
-    return _user_config_dir("wo")
 
 
 def _user_config_dir(application_name: str) -> Path:

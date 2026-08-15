@@ -46,26 +46,5 @@ class CredentialStoreTest(unittest.TestCase):
         self.assertIsNone(self.store.load("dev"))
         self.assertIsNotNone(self.store.load("test"))
 
-    def test_migrates_legacy_credentials_without_deleting_source(self):
-        legacy_path = Path(self.temporary.name) / "wo" / "credentials.json"
-        new_path = Path(self.temporary.name) / "ml" / "credentials.json"
-        legacy_store = CredentialStore(legacy_path)
-        legacy_store.save(
-            Credentials.create(
-                profile="dev",
-                cookie="legacy-cookie",
-                csrftoken="legacy-csrf",
-                username="jack",
-                ttl_seconds=1800,
-            )
-        )
-
-        migrated_store = CredentialStore(new_path, legacy_path=legacy_path)
-
-        self.assertEqual(migrated_store.load("dev").cookie, "legacy-cookie")
-        self.assertTrue(new_path.exists())
-        self.assertTrue(legacy_path.exists())
-
-
 if __name__ == "__main__":
     unittest.main()

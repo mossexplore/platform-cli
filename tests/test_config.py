@@ -8,6 +8,7 @@ from unittest.mock import patch
 from wisemlops_cli.config import (
     ConfigManager,
     _install_packaged_config,
+    _sync_packaged_config,
     default_config_path,
 )
 
@@ -92,7 +93,7 @@ class ConfigManagerTest(unittest.TestCase):
         root = Path(self.temporary.name)
         with patch.dict(
             os.environ,
-            {"ML_CONFIG": "", "WO_CONFIG": ""},
+            {"ML_CONFIG": ""},
         ):
             with patch(
                 "wisemlops_cli.config.Path.cwd",
@@ -102,15 +103,29 @@ class ConfigManagerTest(unittest.TestCase):
                     "wisemlops_cli.config.user_config_dir",
                     return_value=root / "ml",
                 ):
-                    with patch(
-                        "wisemlops_cli.config.legacy_user_config_dir",
-                        return_value=root / "wo",
-                    ):
-                        path = default_config_path()
+                    path = default_config_path()
 
         self.assertEqual(path, root / "ml" / "config.json")
         self.assertTrue(path.exists())
         self.assertEqual(ConfigManager(path).current_name, "dev")
+
+    def test_new_install_overwrites_config_once(self):
+        destination = Path(self.temporary.name) / "ml" / "config.json"
+        destination.parent.mkdir(parents=True)
+        destination.write_text('{"current": "old"}\n', encoding="utf-8")
+
+        _sync_packaged_config(destination)
+
+        self.assertEqual(ConfigManager(destination).current_name, "dev")
+        manager = ConfigManager(destination)
+        manager.use_profile("test")
+
+        _sync_packaged_config(destination)
+        self.assertEqual(ConfigManager(destination).current_name, "test")
+
+        with patch("wisemlops_cli.config.__version__", "0.3.5"):
+            _sync_packaged_config(destination)
+        self.assertEqual(ConfigManager(destination).current_name, "dev")
 
 
 if __name__ == "__main__":
