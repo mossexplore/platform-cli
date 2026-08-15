@@ -159,7 +159,8 @@ def parse_business_list(raw_value: Any) -> Tuple[Department, ...]:
             department_id,
             {
                 "name": _localized_name(
-                    item.get("settleTenantName"), department_id
+                    item.get("settleTenantName"),
+                    str(item.get("cn") or ""),
                 ),
                 "tenants": [],
             },

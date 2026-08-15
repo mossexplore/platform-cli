@@ -72,6 +72,36 @@ class BusinessStoreTest(unittest.TestCase):
         self.assertTrue(tenant.teams[0].selectable)
         self.assertFalse(tenant.teams[1].selectable)
 
+    def test_department_name_falls_back_to_top_level_cn(self):
+        catalog = parse_business_list(
+            [
+                {
+                    "cn": "顶层中文名称",
+                    "value": "service-a",
+                    "settleTenant": "department-a",
+                    "settleTenantName": json.dumps({"cn": "", "en": ""}),
+                    "teamList": [],
+                }
+            ]
+        )
+
+        self.assertEqual(catalog[0].name, "顶层中文名称")
+
+    def test_department_name_does_not_fall_back_to_settle_tenant(self):
+        catalog = parse_business_list(
+            [
+                {
+                    "cn": "",
+                    "value": "service-a",
+                    "settleTenant": "department-a",
+                    "settleTenantName": json.dumps({"cn": "", "en": ""}),
+                    "teamList": [],
+                }
+            ]
+        )
+
+        self.assertEqual(catalog[0].name, "")
+
     def test_refresh_uses_browser_tenant_and_can_select_team(self):
         selection = self.store.refresh(
             "dev", "jack", self.catalog, browser_business_id="mep"

@@ -50,11 +50,11 @@ class CliEnvironmentCommandTest(unittest.TestCase):
         self.assertNotEqual(result.exit_code, 0)
         self.assertIn("No such command", result.output)
 
-    def test_version_is_0_3_7(self):
+    def test_version_is_0_3_8(self):
         result = self.runner.invoke(app, ["--version"])
 
         self.assertEqual(result.exit_code, 0, result.output)
-        self.assertIn("ml 0.3.7", result.output)
+        self.assertIn("ml 0.3.8", result.output)
 
 
 if __name__ == "__main__":
