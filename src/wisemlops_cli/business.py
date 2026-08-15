@@ -32,8 +32,17 @@ class Team:
             key=str(value.get("key", "")),
             name=str(value.get("name", "")),
             status=str(value.get("status", "")),
-            business_id=str(value.get("business_id", "")),
+            business_id=str(value.get("businessId") or ""),
         )
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "id": self.id,
+            "key": self.key,
+            "name": self.name,
+            "status": self.status,
+            "businessId": self.business_id,
+        }
 
 
 @dataclass(frozen=True)
@@ -52,6 +61,14 @@ class Tenant:
             teams=tuple(Team.from_dict(item) for item in value.get("teams", [])),
         )
 
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "id": self.id,
+            "name": self.name,
+            "service_ids": list(self.service_ids),
+            "teams": [item.to_dict() for item in self.teams],
+        }
+
 
 @dataclass(frozen=True)
 class Department:
@@ -69,6 +86,13 @@ class Department:
             ),
         )
 
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "id": self.id,
+            "name": self.name,
+            "tenants": [item.to_dict() for item in self.tenants],
+        }
+
 
 @dataclass(frozen=True)
 class BusinessSelection:
@@ -77,7 +101,7 @@ class BusinessSelection:
     department_name: str
     tenant_id: str
     tenant_name: str
-    effective_business_id: str
+    business_id: str
     team_id: str = ""
     team_name: str = ""
 
@@ -89,13 +113,15 @@ class BusinessSelection:
             department_name=str(value.get("department_name", "")),
             tenant_id=str(value.get("tenant_id", "")),
             tenant_name=str(value.get("tenant_name", "")),
-            effective_business_id=str(value.get("effective_business_id", "")),
+            business_id=str(value.get("businessId") or ""),
             team_id=str(value.get("team_id", "")),
             team_name=str(value.get("team_name", "")),
         )
 
     def to_dict(self) -> Dict[str, Any]:
-        return asdict(self)
+        value = asdict(self)
+        value["businessId"] = value.pop("business_id")
+        return value
 
 
 def _localized_name(value: Any, fallback: str) -> str:
@@ -158,7 +184,7 @@ def parse_business_list(raw_value: Any) -> Tuple[Department, ...]:
                     or _localized_name(team_value.get("name"), team_id),
                     status=str(team_value.get("teamStatus") or "").strip(),
                     business_id=str(
-                        team_value.get("businessId") or tenant_id
+                        team_value.get("businessId") or ""
                     ).strip(),
                 )
             )
@@ -197,7 +223,7 @@ class BusinessStore:
         departments: Sequence[Department],
         browser_business_id: str = "",
     ) -> Optional[BusinessSelection]:
-        data = self._read()
+        data = self._read(reset_incompatible=True)
         old_entry = data.get("profiles", {}).get(profile, {})
         old_selection = (
             self._selection_from_entry(old_entry)
@@ -214,7 +240,7 @@ class BusinessStore:
         data.setdefault("profiles", {})[profile] = {
             "username": username,
             "updated_at": time.time(),
-            "catalog": [asdict(item) for item in catalog],
+            "catalog": [item.to_dict() for item in catalog],
             "selected": selection.to_dict() if selection else None,
         }
         self._write(data)
@@ -243,7 +269,7 @@ class BusinessStore:
         )
 
     def updated_at(self, profile: str) -> float:
-        data = self._read()
+        data = self._read(reset_incompatible=True)
         entry = data.get("profiles", {}).get(profile, {})
         if not isinstance(entry, dict):
             return 0.0
@@ -383,7 +409,7 @@ class BusinessStore:
                 department_name=department.name,
                 tenant_id=tenant.id,
                 tenant_name=tenant.name,
-                effective_business_id=tenant.id,
+                business_id=tenant.id,
             )
         team = next(
             (
@@ -399,8 +425,10 @@ class BusinessStore:
             raise BusinessError(
                 f"团队 {team.name!r} 当前状态为 {team.status!r}，不可选择"
             )
-        if not team.key:
-            raise BusinessError(f"团队 {team.name!r} 缺少 key，无法选择")
+        if not team.business_id:
+            raise BusinessError(
+                f"团队 {team.name!r} 缺少 businessId，无法选择"
+            )
         return BusinessSelection(
             type="team",
             department_id=department.id,
@@ -409,12 +437,12 @@ class BusinessStore:
             tenant_name=tenant.name,
             team_id=team.id,
             team_name=team.name,
-            effective_business_id=team.key,
+            business_id=team.business_id,
         )
 
-    def _read(self) -> Dict[str, Any]:
+    def _read(self, reset_incompatible: bool = False) -> Dict[str, Any]:
         if not self.path.exists():
-            return {"version": 1, "profiles": {}}
+            return {"version": 2, "profiles": {}}
         try:
             with self.path.open("r", encoding="utf-8") as file:
                 value = json.load(file)
@@ -422,6 +450,13 @@ class BusinessStore:
             raise BusinessError(f"业务上下文文件已损坏: {self.path}") from exc
         if not isinstance(value, dict):
             raise BusinessError(f"业务上下文文件格式错误: {self.path}")
+        if value.get("version") != 2:
+            if reset_incompatible:
+                return {"version": 2, "profiles": {}}
+            raise BusinessError(
+                "business.json 版本不兼容，请运行 ml login 或 "
+                "ml business refresh 重新生成"
+            )
         return value
 
     def _write(self, data: Dict[str, Any]) -> None:

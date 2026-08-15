@@ -36,7 +36,7 @@ def _print_selection(selection: BusinessSelection) -> None:
             "tenant_id": selection.tenant_id,
             "team": selection.team_name or "-",
             "team_id": selection.team_id or "-",
-            "business_id": selection.effective_business_id,
+            "businessId": selection.business_id,
         }
     )
 
@@ -181,7 +181,7 @@ def use_business(
         runtime.credentials.save(
             replace(
                 credentials,
-                business_id=selection.effective_business_id,
+                business_id=selection.business_id,
             )
         )
         console.print("当前业务上下文已切换：")

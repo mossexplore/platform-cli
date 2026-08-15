@@ -81,7 +81,46 @@ class BusinessStoreTest(unittest.TestCase):
             "dev", "jack", tenant_id="mep", team_id="asdasd"
         )
         self.assertEqual(selected_team.type, "team")
-        self.assertEqual(selected_team.effective_business_id, "mep-asdasd")
+        self.assertEqual(selected_team.business_id, "mep")
+        stored = json.loads(self.store.path.read_text(encoding="utf-8"))
+        self.assertNotIn(
+            "effective_business_id", stored["profiles"]["dev"]["selected"]
+        )
+        self.assertEqual(
+            stored["profiles"]["dev"]["selected"]["businessId"], "mep"
+        )
+        self.assertNotIn("effective_business_id", json.dumps(stored))
+        self.assertNotIn('"business_id"', json.dumps(stored))
+
+    def test_incompatible_file_is_rejected_and_refresh_rebuilds_it(self):
+        self.store.path.write_text(
+            json.dumps(
+                {
+                    "version": 1,
+                    "profiles": {
+                        "dev": {
+                            "selected": {
+                                "effective_business_id": "mep-asdasd"
+                            }
+                        }
+                    },
+                }
+            ),
+            encoding="utf-8",
+        )
+
+        with self.assertRaisesRegex(BusinessError, "版本不兼容"):
+            self.store.catalog("dev", "jack")
+        self.assertEqual(self.store.updated_at("dev"), 0)
+        self.assertIn(
+            "effective_business_id",
+            self.store.path.read_text(encoding="utf-8"),
+        )
+
+        self.store.refresh("dev", "jack", self.catalog, "mep")
+        rebuilt = self.store.path.read_text(encoding="utf-8")
+        self.assertNotIn("effective_business_id", rebuilt)
+        self.assertIn('"businessId": "mep"', rebuilt)
 
     def test_unavailable_team_cannot_be_selected(self):
         self.store.refresh("dev", "jack", self.catalog)

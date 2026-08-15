@@ -54,12 +54,14 @@ class BusinessCommandTest(unittest.TestCase):
                         "teamList": [
                             {
                                 "teamId": "available-team",
+                                "businessId": "mep",
                                 "cn": "可用团队",
                                 "key": "mep-available-team",
                                 "teamStatus": "available",
                             },
                             {
                                 "teamId": "disabled-team",
+                                "businessId": "mep",
                                 "cn": "禁用团队",
                                 "key": "mep-disabled-team",
                                 "teamStatus": "disabled",
@@ -102,7 +104,7 @@ class BusinessCommandTest(unittest.TestCase):
         )
 
         self.assertEqual(result.exit_code, 0, result.output)
-        self.assertIn("mep-available-team", result.output)
+        self.assertIn("businessId", result.output)
         self.assertEqual(
             self.business_store.require_selection("dev", "jack").team_id,
             "available-team",
@@ -111,7 +113,7 @@ class BusinessCommandTest(unittest.TestCase):
             CredentialStore(self.root / "credentials.json")
             .load("dev")
             .business_id,
-            "mep-available-team",
+            "mep",
         )
 
     def test_interactive_selection_reaches_team(self):

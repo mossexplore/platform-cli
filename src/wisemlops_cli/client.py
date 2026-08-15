@@ -33,9 +33,7 @@ class PlatformClient:
             "referer": profile.api_endpoint,
         }
         if business_selection is not None:
-            headers["ai-businessId"] = (
-                business_selection.effective_business_id
-            )
+            headers["ai-businessId"] = business_selection.business_id
         self._client = httpx.Client(
             base_url=profile.base_url,
             headers=headers,

@@ -34,7 +34,7 @@ class PlatformClientTest(unittest.TestCase):
                 tenant_name="测试MEP平台",
                 team_id="asdasd",
                 team_name="asdasda",
-                effective_business_id="mep-asdasd",
+                business_id="mep",
             ),
         )
 
@@ -42,7 +42,7 @@ class PlatformClientTest(unittest.TestCase):
         def handler(request):
             self.assertEqual(request.headers["cookie"], "session=abc; token=xyz")
             self.assertEqual(request.headers["csrftoken"], "csrf-value")
-            self.assertEqual(request.headers["ai-businessId"], "mep-asdasd")
+            self.assertEqual(request.headers["ai-businessId"], "mep")
             return httpx.Response(200, json={"username": "jack"})
 
         with self.create_client(handler) as client:
