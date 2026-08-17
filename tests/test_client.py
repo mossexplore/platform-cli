@@ -49,6 +49,24 @@ class PlatformClientTest(unittest.TestCase):
             result = client.request("GET", "/ai/user/info")
         self.assertEqual(result["username"], "jack")
 
+    def test_sends_query_parameters_without_truncation(self):
+        def handler(request):
+            self.assertEqual(request.url.params["businessId"], "mep")
+            self.assertEqual(request.url.params["projectName"], "测试 实验")
+            self.assertEqual(request.url.params["pageIndex"], "2")
+            return httpx.Response(200, json={"result": {"code": 0}})
+
+        with self.create_client(handler) as client:
+            client.request(
+                "GET",
+                "/ai/backend/experiment/project/list",
+                params={
+                    "businessId": client.business_id,
+                    "projectName": "测试 实验",
+                    "pageIndex": 2,
+                },
+            )
+
     def test_authentication_status_triggers_refresh_signal(self):
         def handler(_):
             return httpx.Response(401, json={"message": "expired"})

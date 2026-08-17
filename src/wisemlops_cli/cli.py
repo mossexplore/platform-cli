@@ -13,6 +13,7 @@ from .commands.business import business_app
 from .commands.common import fail
 from .commands.env import env_app
 from .commands.mep import mep_app
+from .commands.offline import offline_app
 from .commands.user import user_app
 from .runtime import Runtime
 
@@ -29,6 +30,7 @@ app.add_typer(business_app, name="business")
 app.add_typer(env_app, name="env")
 app.add_typer(user_app, name="user")
 app.add_typer(mep_app, name="mep")
+app.add_typer(offline_app, name="offline")
 
 
 def version_callback(value: bool) -> None:

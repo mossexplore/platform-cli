@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Mapping, Optional
 
 import httpx
 
@@ -34,6 +34,7 @@ class PlatformClient:
         }
         if business_selection is not None:
             headers["ai-businessId"] = business_selection.business_id
+        self._business_selection = business_selection
         self._client = httpx.Client(
             base_url=profile.base_url,
             headers=headers,
@@ -51,14 +52,27 @@ class PlatformClient:
     def close(self) -> None:
         self._client.close()
 
+    @property
+    def business_id(self) -> str:
+        """返回当前已校验业务上下文中的 businessId。"""
+        if self._business_selection is None:
+            return ""
+        return self._business_selection.business_id
+
     def request(
         self,
         method: str,
         path: str,
         json_body: Optional[Dict[str, Any]] = None,
+        params: Optional[Mapping[str, Any]] = None,
     ) -> Any:
         try:
-            response = self._client.request(method, path, json=json_body)
+            response = self._client.request(
+                method,
+                path,
+                json=json_body,
+                params=params,
+            )
         except httpx.HTTPError as exc:
             raise ApiError(f"请求失败: {exc}") from exc
 

@@ -7,7 +7,7 @@
 | 项目名称 | WiseMLOps Python CLI |
 | Python 包名 | `wisemlops-cli` |
 | 命令名 | `ml` |
-| 当前代码版本 | `0.3.16` |
+| 当前代码版本 | `0.3.17` |
 | 目标平台 | Windows 优先，兼容 macOS/Linux 的基础路径逻辑 |
 | 文档整理日期 | 2026-08-16 |
 | 代码仓库 | `mossexplore/platform-cli` |
@@ -114,9 +114,12 @@ ml
 │   └── refresh
 ├── user
 │   └── info [--output table|json]
-└── mep
-    └── config
-        └── get [key] [--output table|json]
+├── mep
+│   └── config
+│       └── get [key] [--output table|json]
+└── offline
+    └── experiment
+        └── list [查询条件] [--output table|json]
 ```
 
 全局参数：
@@ -518,6 +521,36 @@ ml mep config get mep_service_access_type --output json
 
 默认 key 为 `mep_service_access_type`，输出接口完整 JSON 响应体。
 
+#### 离线实验列表
+
+```http
+GET /ai/backend/experiment/project/list
+```
+
+命令：
+
+```text
+ml offline experiment list
+ml offline experiment list --page 2 --page-size 20
+ml offline experiment list --name test --create-user a123456
+ml offline experiment list --output json
+```
+
+查询参数映射：
+
+| CLI 参数 | 接口参数 | 默认值 | 说明 |
+| --- | --- | --- | --- |
+| 当前业务上下文 | `businessId` | 无 | 必传，从已校验的 `ml business use` 选择结果获取 |
+| `--page` | `pageIndex` | `1` | 开始页码，最小为 1 |
+| `--page-size` | `pageSize` | `10` | 每页记录数，最小为 1 |
+| `--name` / `--project-name` | `projectName` | 不传 | 实验名称模糊查询 |
+| `--description` | `description` | 不传 | 描述模糊查询 |
+| `--create-user` | `createUser` | 不传 | 创建者模糊查询 |
+| `--update-user` | `updateUser` | 不传 | 修改者模糊查询 |
+| `--team-id` | `teamId` | 不传 | 团队筛选；不会从当前团队选择中自动填充 |
+
+默认表格仅展示实验名称、描述、创建者、修改者、创建时间、更新时间、运行配置模板。JSON 输出包含 `pageIndex`、`pageSize`、`count`、`total` 和经过字段筛选的 `items`。业务响应必须满足 `result.code == 0` 且 `result.data` 为数组。
+
 ## 10. 本地目录与存储
 
 ### 10.1 用户配置根目录
@@ -528,7 +561,7 @@ ml mep config get mep_service_access_type --output json
 | macOS | `~/Library/Application Support/ml` |
 | Linux | `${XDG_CONFIG_HOME:-~/.config}/ml` |
 
-### 10.2 当前代码状态（0.3.16）
+### 10.2 当前代码状态（0.3.17）
 
 ```text
 ml/
@@ -608,13 +641,13 @@ scripts\windows\build-release.cmd
 产物示例：
 
 ```text
-dist\wisemlops_cli-0.3.16-py3-none-any.whl
+dist\wisemlops_cli-0.3.17-py3-none-any.whl
 ```
 
 安装者执行：
 
 ```powershell
-py -m pip install --upgrade .\dist\wisemlops_cli-0.3.16-py3-none-any.whl
+py -m pip install --upgrade .\dist\wisemlops_cli-0.3.17-py3-none-any.whl
 ml --version
 ```
 
@@ -631,7 +664,7 @@ ml --version
 ```powershell
 py -m pip install --user pipx
 py -m pipx ensurepath
-pipx install .\dist\wisemlops_cli-0.3.16-py3-none-any.whl
+pipx install .\dist\wisemlops_cli-0.3.17-py3-none-any.whl
 ```
 
 重新打开 CMD 后，应能在任意目录执行：
@@ -817,6 +850,7 @@ spec:
 | `0.3.14` | 新增 Windows 一键构建、离线/联网发布和免管理员安装脚本 |
 | `0.3.15` | 修复 Windows PowerShell 5.1 参数绑定阶段无法解析发布目录的问题 |
 | `0.3.16` | 完成 PowerShell 5.1/7.x 兼容审计，修复变量解析并增加版本与命令预检 |
+| `0.3.17` | 新增离线实验分页列表查询，支持模糊筛选及 table/json 输出 |
 | 后续待实现 | `business.json`、`credentials.json` 随环境存放 |
 
 ## 16. 决策记录与废弃行为
