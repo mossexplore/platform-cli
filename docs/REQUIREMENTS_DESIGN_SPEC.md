@@ -7,7 +7,7 @@
 | 项目名称 | WiseMLOps Python CLI |
 | Python 包名 | `wisemlops-cli` |
 | 命令名 | `ml` |
-| 当前代码版本 | `0.3.17` |
+| 当前代码版本 | `0.3.18` |
 | 目标平台 | Windows 优先，兼容 macOS/Linux 的基础路径逻辑 |
 | 文档整理日期 | 2026-08-16 |
 | 代码仓库 | `mossexplore/platform-cli` |
@@ -551,6 +551,12 @@ ml offline experiment list --output json
 
 默认表格仅展示实验名称、描述、创建者、修改者、创建时间、更新时间、运行配置模板。JSON 输出包含 `pageIndex`、`pageSize`、`count`、`total` 和经过字段筛选的 `items`。业务响应必须满足 `result.code == 0` 且 `result.data` 为数组。
 
+离线实验列表请求除统一请求头外，还必须携带以下请求头：
+
+```text
+businessid: <当前租户或团队 businessId>
+```
+
 ## 10. 本地目录与存储
 
 ### 10.1 用户配置根目录
@@ -561,7 +567,7 @@ ml offline experiment list --output json
 | macOS | `~/Library/Application Support/ml` |
 | Linux | `${XDG_CONFIG_HOME:-~/.config}/ml` |
 
-### 10.2 当前代码状态（0.3.17）
+### 10.2 当前代码状态（0.3.18）
 
 ```text
 ml/
@@ -641,13 +647,13 @@ scripts\windows\build-release.cmd
 产物示例：
 
 ```text
-dist\wisemlops_cli-0.3.17-py3-none-any.whl
+dist\wisemlops_cli-0.3.18-py3-none-any.whl
 ```
 
 安装者执行：
 
 ```powershell
-py -m pip install --upgrade .\dist\wisemlops_cli-0.3.17-py3-none-any.whl
+py -m pip install --upgrade .\dist\wisemlops_cli-0.3.18-py3-none-any.whl
 ml --version
 ```
 
@@ -664,7 +670,7 @@ ml --version
 ```powershell
 py -m pip install --user pipx
 py -m pipx ensurepath
-pipx install .\dist\wisemlops_cli-0.3.17-py3-none-any.whl
+pipx install .\dist\wisemlops_cli-0.3.18-py3-none-any.whl
 ```
 
 重新打开 CMD 后，应能在任意目录执行：
@@ -851,6 +857,7 @@ spec:
 | `0.3.15` | 修复 Windows PowerShell 5.1 参数绑定阶段无法解析发布目录的问题 |
 | `0.3.16` | 完成 PowerShell 5.1/7.x 兼容审计，修复变量解析并增加版本与命令预检 |
 | `0.3.17` | 新增离线实验分页列表查询，支持模糊筛选及 table/json 输出 |
+| `0.3.18` | 离线实验列表请求增加必需的 `businessid` 请求头 |
 | 后续待实现 | `business.json`、`credentials.json` 随环境存放 |
 
 ## 16. 决策记录与废弃行为

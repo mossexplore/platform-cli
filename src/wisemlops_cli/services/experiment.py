@@ -65,6 +65,7 @@ class ExperimentService:
             "GET",
             "/ai/backend/experiment/project/list",
             params=params,
+            headers={"businessid": self.client.business_id},
         )
         return self._parse_list_response(payload, page_index, page_size)
 

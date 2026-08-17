@@ -11,8 +11,8 @@ class FakeClient:
         self.business_id = business_id
         self.calls = []
 
-    def request(self, method, path, json_body=None, params=None):
-        self.calls.append((method, path, json_body, params))
+    def request(self, method, path, json_body=None, params=None, headers=None):
+        self.calls.append((method, path, json_body, params, headers))
         return self.response
 
 
@@ -63,6 +63,7 @@ class ExperimentServiceTest(unittest.TestCase):
                         "projectName": "test",
                         "createUser": "a123",
                     },
+                    {"businessid": "mep"},
                 )
             ],
         )

@@ -54,6 +54,7 @@ class PlatformClientTest(unittest.TestCase):
             self.assertEqual(request.url.params["businessId"], "mep")
             self.assertEqual(request.url.params["projectName"], "测试 实验")
             self.assertEqual(request.url.params["pageIndex"], "2")
+            self.assertEqual(request.headers["businessid"], "mep")
             return httpx.Response(200, json={"result": {"code": 0}})
 
         with self.create_client(handler) as client:
@@ -65,6 +66,7 @@ class PlatformClientTest(unittest.TestCase):
                     "projectName": "测试 实验",
                     "pageIndex": 2,
                 },
+                headers={"businessid": client.business_id},
             )
 
     def test_authentication_status_triggers_refresh_signal(self):

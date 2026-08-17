@@ -65,6 +65,7 @@ class PlatformClient:
         path: str,
         json_body: Optional[Dict[str, Any]] = None,
         params: Optional[Mapping[str, Any]] = None,
+        headers: Optional[Mapping[str, str]] = None,
     ) -> Any:
         try:
             response = self._client.request(
@@ -72,6 +73,7 @@ class PlatformClient:
                 path,
                 json=json_body,
                 params=params,
+                headers=headers,
             )
         except httpx.HTTPError as exc:
             raise ApiError(f"请求失败: {exc}") from exc
