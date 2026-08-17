@@ -7,7 +7,7 @@
 | 项目名称 | WiseMLOps Python CLI |
 | Python 包名 | `wisemlops-cli` |
 | 命令名 | `ml` |
-| 当前代码版本 | `0.3.18` |
+| 当前代码版本 | `0.3.19` |
 | 目标平台 | Windows 优先，兼容 macOS/Linux 的基础路径逻辑 |
 | 文档整理日期 | 2026-08-16 |
 | 代码仓库 | `mossexplore/platform-cli` |
@@ -119,7 +119,8 @@ ml
 │       └── get [key] [--output table|json]
 └── offline
     └── experiment
-        └── list [查询条件] [--output table|json]
+        ├── list [查询条件] [--output table|json]
+        └── clone <PROJECT_ID> --name <NEW_NAME> [--yes] [--dry-run]
 ```
 
 全局参数：
@@ -549,13 +550,33 @@ ml offline experiment list --output json
 | `--update-user` | `updateUser` | 不传 | 修改者模糊查询 |
 | `--team-id` | `teamId` | 不传 | 团队筛选；不会从当前团队选择中自动填充 |
 
-默认表格仅展示实验名称、描述、创建者、修改者、创建时间、更新时间、运行配置模板。JSON 输出包含 `pageIndex`、`pageSize`、`count`、`total` 和经过字段筛选的 `items`。业务响应必须满足 `result.code == 0` 且 `result.data` 为数组。
+默认表格第一列展示 `projectId`，随后展示实验名称、描述、创建者、修改者、创建时间、更新时间、运行配置模板。JSON 输出包含 `pageIndex`、`pageSize`、`count`、`total` 和经过字段筛选的 `items`。业务响应必须满足 `result.code == 0` 且 `result.data` 为数组。
 
 离线实验列表请求除统一请求头外，还必须携带以下请求头：
 
 ```text
 businessid: <当前租户或团队 businessId>
 ```
+
+#### 离线实验克隆
+
+```text
+ml offline experiment clone <PROJECT_ID> --name <NEW_NAME>
+ml offline experiment clone <PROJECT_ID> --name <NEW_NAME> --yes
+ml offline experiment clone <PROJECT_ID> --name <NEW_NAME> --dry-run
+ml offline experiment clone <PROJECT_ID> --name <NEW_NAME> --output json
+```
+
+克隆是同步的两阶段操作：
+
+1. `GET /ai/backend/experiment/project/{projectId}?businessId=<当前 businessId>` 查询源实验详情。
+2. `POST /ai/backend/experiment/project` 创建克隆实验。
+
+两个请求都携带统一认证请求头和 `businessid`。CLI 校验详情中的 `projectId` 与查询值一致，且详情及创建请求中的 `businessId` 与当前业务上下文一致。
+
+创建请求的 `meta.uuid` 每次命令随机生成一次；认证重试时复用同一个 UUID。`projectId` 固定为空字符串，`projectName` 使用 `--name`，`createUser` 和 `updateUser` 使用当前登录账号。描述、区域、子数据域、关联服务、团队、集群和运行配置模板字段来自源实验详情，不复制时间、原创建者/修改者及 `runtimeConfigInfo`。
+
+默认执行前展示源实验、新名称、配置模板、业务上下文和团队并要求确认；`--yes` 跳过确认，`--dry-run` 仅展示创建请求且不执行 POST。
 
 ## 10. 本地目录与存储
 
@@ -567,7 +588,7 @@ businessid: <当前租户或团队 businessId>
 | macOS | `~/Library/Application Support/ml` |
 | Linux | `${XDG_CONFIG_HOME:-~/.config}/ml` |
 
-### 10.2 当前代码状态（0.3.18）
+### 10.2 当前代码状态（0.3.19）
 
 ```text
 ml/
@@ -647,13 +668,13 @@ scripts\windows\build-release.cmd
 产物示例：
 
 ```text
-dist\wisemlops_cli-0.3.18-py3-none-any.whl
+dist\wisemlops_cli-0.3.19-py3-none-any.whl
 ```
 
 安装者执行：
 
 ```powershell
-py -m pip install --upgrade .\dist\wisemlops_cli-0.3.18-py3-none-any.whl
+py -m pip install --upgrade .\dist\wisemlops_cli-0.3.19-py3-none-any.whl
 ml --version
 ```
 
@@ -670,7 +691,7 @@ ml --version
 ```powershell
 py -m pip install --user pipx
 py -m pipx ensurepath
-pipx install .\dist\wisemlops_cli-0.3.18-py3-none-any.whl
+pipx install .\dist\wisemlops_cli-0.3.19-py3-none-any.whl
 ```
 
 重新打开 CMD 后，应能在任意目录执行：
@@ -858,6 +879,7 @@ spec:
 | `0.3.16` | 完成 PowerShell 5.1/7.x 兼容审计，修复变量解析并增加版本与命令预检 |
 | `0.3.17` | 新增离线实验分页列表查询，支持模糊筛选及 table/json 输出 |
 | `0.3.18` | 离线实验列表请求增加必需的 `businessid` 请求头 |
+| `0.3.19` | 列表首列展示 `projectId`，新增同步两阶段离线实验克隆命令 |
 | 后续待实现 | `business.json`、`credentials.json` 随环境存放 |
 
 ## 16. 决策记录与废弃行为

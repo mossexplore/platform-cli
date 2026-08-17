@@ -50,11 +50,11 @@ class CliEnvironmentCommandTest(unittest.TestCase):
         self.assertNotEqual(result.exit_code, 0)
         self.assertIn("No such command", result.output)
 
-    def test_version_is_0_3_18(self):
+    def test_version_is_0_3_19(self):
         result = self.runner.invoke(app, ["--version"])
 
         self.assertEqual(result.exit_code, 0, result.output)
-        self.assertIn("ml 0.3.18", result.output)
+        self.assertIn("ml 0.3.19", result.output)
 
     def test_offline_experiment_list_command_is_available(self):
         result = self.runner.invoke(
@@ -72,6 +72,24 @@ class CliEnvironmentCommandTest(unittest.TestCase):
         self.assertEqual(result.exit_code, 0, result.output)
         self.assertIn("--page-size", result.output)
         self.assertIn("--team-id", result.output)
+
+    def test_offline_experiment_clone_command_is_available(self):
+        result = self.runner.invoke(
+            app,
+            [
+                "--config",
+                str(self.config_path),
+                "offline",
+                "experiment",
+                "clone",
+                "--help",
+            ],
+        )
+
+        self.assertEqual(result.exit_code, 0, result.output)
+        self.assertIn("--name", result.output)
+        self.assertIn("--dry-run", result.output)
+        self.assertIn("--yes", result.output)
 
 
 if __name__ == "__main__":

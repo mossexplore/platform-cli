@@ -34,6 +34,7 @@ class PlatformClient:
         }
         if business_selection is not None:
             headers["ai-businessId"] = business_selection.business_id
+        self._username = credentials.username
         self._business_selection = business_selection
         self._client = httpx.Client(
             base_url=profile.base_url,
@@ -58,6 +59,11 @@ class PlatformClient:
         if self._business_selection is None:
             return ""
         return self._business_selection.business_id
+
+    @property
+    def username(self) -> str:
+        """返回当前认证信息中的登录账号。"""
+        return self._username
 
     def request(
         self,

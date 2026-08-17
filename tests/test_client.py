@@ -46,6 +46,7 @@ class PlatformClientTest(unittest.TestCase):
             return httpx.Response(200, json={"username": "jack"})
 
         with self.create_client(handler) as client:
+            self.assertEqual(client.username, "jack")
             result = client.request("GET", "/ai/user/info")
         self.assertEqual(result["username"], "jack")
 
