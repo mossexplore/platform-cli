@@ -7,7 +7,7 @@
 | 项目名称 | WiseMLOps Python CLI |
 | Python 包名 | `wisemlops-cli` |
 | 命令名 | `ml` |
-| 当前代码版本 | `0.3.19` |
+| 当前代码版本 | `0.3.20` |
 | 目标平台 | Windows 优先，兼容 macOS/Linux 的基础路径逻辑 |
 | 文档整理日期 | 2026-08-16 |
 | 代码仓库 | `mossexplore/platform-cli` |
@@ -217,7 +217,7 @@ https://console-dev.cloudtest.cn/dashboard
 }
 ```
 
-IP address mismatch 表示访问 IP 与证书的域名/SAN 不匹配。`verify_ssl: false` 只应用于显式配置的环境，且仅建议用于可信内部网络。
+IP address mismatch 或 `ERR_CERT_COMMON_NAME_INVALID` 表示访问地址与证书的域名/SAN 不匹配。`verify_ssl: false` 只应用于显式配置的环境，并同时关闭该环境 HTTP 接口和 Playwright 持久化 Edge 上下文的 HTTPS 证书校验；仅建议用于可信内部网络。
 
 ## 6. Microsoft Edge 登录与认证
 
@@ -588,7 +588,7 @@ ml offline experiment clone <PROJECT_ID> --name <NEW_NAME> --output json
 | macOS | `~/Library/Application Support/ml` |
 | Linux | `${XDG_CONFIG_HOME:-~/.config}/ml` |
 
-### 10.2 当前代码状态（0.3.19）
+### 10.2 当前代码状态（0.3.20）
 
 ```text
 ml/
@@ -668,13 +668,13 @@ scripts\windows\build-release.cmd
 产物示例：
 
 ```text
-dist\wisemlops_cli-0.3.19-py3-none-any.whl
+dist\wisemlops_cli-0.3.20-py3-none-any.whl
 ```
 
 安装者执行：
 
 ```powershell
-py -m pip install --upgrade .\dist\wisemlops_cli-0.3.19-py3-none-any.whl
+py -m pip install --upgrade .\dist\wisemlops_cli-0.3.20-py3-none-any.whl
 ml --version
 ```
 
@@ -691,7 +691,7 @@ ml --version
 ```powershell
 py -m pip install --user pipx
 py -m pipx ensurepath
-pipx install .\dist\wisemlops_cli-0.3.19-py3-none-any.whl
+pipx install .\dist\wisemlops_cli-0.3.20-py3-none-any.whl
 ```
 
 重新打开 CMD 后，应能在任意目录执行：
@@ -880,6 +880,7 @@ spec:
 | `0.3.17` | 新增离线实验分页列表查询，支持模糊筛选及 table/json 输出 |
 | `0.3.18` | 离线实验列表请求增加必需的 `businessid` 请求头 |
 | `0.3.19` | 列表首列展示 `projectId`，新增同步两阶段离线实验克隆命令 |
+| `0.3.20` | 环境级 `verify_ssl: false` 同时应用于 Playwright 持久化 Edge 登录 |
 | 后续待实现 | `business.json`、`credentials.json` 随环境存放 |
 
 ## 16. 决策记录与废弃行为

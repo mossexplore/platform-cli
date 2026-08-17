@@ -19,9 +19,11 @@ class FakeBrowserAuthenticator:
         self.credentials = credentials
         self.store = store
         self.calls = 0
+        self.last_kwargs = None
 
-    def login(self, **_):
+    def login(self, **kwargs):
         self.calls += 1
+        self.last_kwargs = kwargs
         self.store.save(self.credentials)
         return self.credentials
 
@@ -190,7 +192,29 @@ class AuthManagerTest(unittest.TestCase):
 
         self.assertEqual(result.cookie, "new-cookie")
         self.assertEqual(fake_browser.calls, 1)
+        self.assertTrue(fake_browser.last_kwargs["verify_ssl"])
         self.assertEqual(self.store.load("dev").cookie, "new-cookie")
+
+    def test_profile_can_disable_playwright_https_verification(self):
+        credentials = Credentials.create(
+            profile="dev",
+            cookie="valid-cookie",
+            csrftoken="valid-csrf",
+            username="jack",
+            ttl_seconds=1800,
+        )
+        manager = AuthManager(self.config, self.store)
+        fake_browser = FakeBrowserAuthenticator(credentials, self.store)
+        manager.browser = fake_browser
+
+        with patch.object(
+            self.config,
+            "verify_ssl_for",
+            return_value=False,
+        ):
+            manager.login()
+
+        self.assertFalse(fake_browser.last_kwargs["verify_ssl"])
 
     def test_valid_credentials_are_reused(self):
         valid = Credentials.create(
@@ -269,6 +293,7 @@ class AuthManagerTest(unittest.TestCase):
                         browser_channel="msedge",
                         session_probe_timeout_ms=5000,
                         login_timeout_ms=300000,
+                        verify_ssl=False,
                     )
 
         self.assertEqual(result.username, "jack")
@@ -303,6 +328,7 @@ class AuthManagerTest(unittest.TestCase):
                 "user_data_dir": str(profile_dir),
                 "channel": "msedge",
                 "headless": False,
+                "ignore_https_errors": True,
             },
         )
 

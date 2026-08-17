@@ -56,6 +56,7 @@ class BrowserAuthenticator:
         browser_channel: str,
         session_probe_timeout_ms: int,
         login_timeout_ms: int,
+        verify_ssl: bool = True,
         show_secrets: bool = False,
     ) -> Credentials:
         try:
@@ -72,6 +73,7 @@ class BrowserAuthenticator:
                 user_data_dir=str(user_data_dir),
                 channel=browser_channel,
                 headless=False,
+                ignore_https_errors=not verify_ssl,
             )
             page = context.pages[0] if context.pages else context.new_page()
             page.set_default_timeout(timeout_ms)
@@ -337,6 +339,7 @@ class AuthManager:
             browser_channel=self.config.browser_channel,
             session_probe_timeout_ms=self.config.session_probe_timeout_ms,
             login_timeout_ms=self.config.login_timeout_ms,
+            verify_ssl=self.config.verify_ssl_for(profile),
         )
 
     def login(self, show_secrets: bool = False) -> Credentials:
@@ -349,6 +352,7 @@ class AuthManager:
             browser_channel=self.config.browser_channel,
             session_probe_timeout_ms=self.config.session_probe_timeout_ms,
             login_timeout_ms=self.config.login_timeout_ms,
+            verify_ssl=self.config.verify_ssl_for(profile),
             show_secrets=show_secrets,
         )
 
