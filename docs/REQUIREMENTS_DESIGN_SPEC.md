@@ -7,7 +7,7 @@
 | 项目名称 | WiseMLOps Python CLI |
 | Python 包名 | `wisemlops-cli` |
 | 命令名 | `ml` |
-| 当前代码版本 | `0.3.21` |
+| 当前代码版本 | `0.3.22` |
 | 目标平台 | Windows 优先，兼容 macOS/Linux 的基础路径逻辑 |
 | 文档整理日期 | 2026-08-16 |
 | 代码仓库 | `mossexplore/platform-cli` |
@@ -293,15 +293,15 @@ GET <base_url>/ai/user/info
 仅当 `result.code == 0` 时视为登录成功。成功后打印：
 
 ```text
-┌──────┬─────┐
-│ 字段 │ 值  │
-├──────┼─────┤
-│ 环境 │ dev │
-└──────┴─────┘
-账号: 123456
-中文名: 张三
-部门: 技术部
-租户: <ai-businessId>
+┌────────┬─────────────────┐
+│ 字段   │ 值              │
+├────────┼─────────────────┤
+│ 环境   │ dev             │
+│ 账号   │ 123456          │
+│ 中文名 │ 张三            │
+│ 部门   │ 技术部          │
+│ 租户   │ <ai-businessId> │
+└────────┴─────────────────┘
 ```
 
 默认不打印敏感值。`ml login --show-secrets` 才额外打印完整 Cookie 和 CSRF Token。
@@ -600,7 +600,7 @@ ml offline experiment clone <PROJECT_ID> --name <NEW_NAME> --output json
 | macOS | `~/Library/Application Support/ml` |
 | Linux | `${XDG_CONFIG_HOME:-~/.config}/ml` |
 
-### 10.2 当前代码状态（0.3.21）
+### 10.2 当前代码状态（0.3.22）
 
 ```text
 ml/
@@ -680,13 +680,13 @@ scripts\windows\build-release.cmd
 产物示例：
 
 ```text
-dist\wisemlops_cli-0.3.21-py3-none-any.whl
+dist\wisemlops_cli-0.3.22-py3-none-any.whl
 ```
 
 安装者执行：
 
 ```powershell
-py -m pip install --upgrade .\dist\wisemlops_cli-0.3.21-py3-none-any.whl
+py -m pip install --upgrade .\dist\wisemlops_cli-0.3.22-py3-none-any.whl
 ml --version
 ```
 
@@ -703,7 +703,7 @@ ml --version
 ```powershell
 py -m pip install --user pipx
 py -m pipx ensurepath
-pipx install .\dist\wisemlops_cli-0.3.21-py3-none-any.whl
+pipx install .\dist\wisemlops_cli-0.3.22-py3-none-any.whl
 ```
 
 重新打开 CMD 后，应能在任意目录执行：
@@ -894,6 +894,7 @@ spec:
 | `0.3.19` | 列表首列展示 `projectId`，新增同步两阶段离线实验克隆命令 |
 | `0.3.20` | 环境级 `verify_ssl: false` 同时应用于 Playwright 持久化 Edge 登录 |
 | `0.3.21` | 登录成功后轮询等待业务目录，保存后以表格展示当前环境再关闭 Edge |
+| `0.3.22` | 登录成功后在同一表格展示环境、账号、中文名、部门和租户 |
 | 后续待实现 | `business.json`、`credentials.json` 随环境存放 |
 
 ## 16. 决策记录与废弃行为

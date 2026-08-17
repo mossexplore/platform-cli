@@ -152,11 +152,15 @@ class BrowserAuthenticator:
                 print(
                     f"已通过{source}刷新认证信息，有效期 {ttl_seconds} 秒"
                 )
-                print_result({"环境": profile.name})
-                print(f"账号: {credentials.username}")
-                print(f"中文名: {credentials.cn_name}")
-                print(f"部门: {credentials.department}")
-                print(f"租户: {credentials.business_id}")
+                print_result(
+                    {
+                        "环境": profile.name,
+                        "账号": credentials.username,
+                        "中文名": credentials.cn_name,
+                        "部门": credentials.department,
+                        "租户": credentials.business_id,
+                    }
+                )
                 if business_warning:
                     print(f"警告: {business_warning}")
                 if show_secrets:

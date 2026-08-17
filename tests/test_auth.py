@@ -319,11 +319,15 @@ class AuthManagerTest(unittest.TestCase):
             "mep",
         )
         print_mock.assert_any_call("正在等待登录成功...")
-        result_printer.assert_called_once_with({"环境": "dev"})
-        print_mock.assert_any_call("账号: jack")
-        print_mock.assert_any_call("中文名: 张三")
-        print_mock.assert_any_call("部门: 技术部")
-        print_mock.assert_any_call("租户: mep")
+        result_printer.assert_called_once_with(
+            {
+                "环境": "dev",
+                "账号": "jack",
+                "中文名": "张三",
+                "部门": "技术部",
+                "租户": "mep",
+            }
+        )
         print_mock.assert_any_call(
             "正在等待业务目录加载完成（最多 30 秒）..."
         )
