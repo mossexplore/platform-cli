@@ -16,6 +16,43 @@ ml --help
 
 脚本使用系统安装的 Microsoft Edge，不需要运行 `playwright install chromium`。
 
+### Windows 一键发布与安装
+
+发布人员在 Windows 项目根目录执行：
+
+```cmd
+scripts\windows\build-release.cmd
+```
+
+默认生成包含全部 Python 依赖的离线发布包：
+
+```text
+release\wisemlops-cli-<版本>-windows-<架构>-py<版本>-offline.zip
+```
+
+如需生成体积更小、安装时联网下载依赖的发布包：
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass `
+  -File .\scripts\windows\build-release.ps1 -Online
+```
+
+将 ZIP 发给用户。用户完整解压后双击 `install.cmd` 即可，无需管理员权限。安装器会：
+
+1. 校验发布包 SHA-256。
+2. 检查 Python 3.9+ 和 Microsoft Edge。
+3. 在 `%LOCALAPPDATA%\Programs\WiseMLOpsCLI` 创建独立虚拟环境。
+4. 安装或升级 CLI，不污染其他 Python 项目。
+5. 将 `ml` 启动目录加入当前用户 `PATH`。
+6. 执行 `ml --version` 验证安装。
+
+离线包中的部分依赖与 Python 小版本和 Windows 架构绑定，因此文件名会标记构建使用
+的 Python，例如 `py311`。用户必须使用相同的 Python 主次版本和架构；安装器会在
+安装前校验并给出明确提示。联网包不受该限制，只要求 Python 3.9 或更高版本。
+
+安装后重新打开 CMD 或 PowerShell，即可在任意目录执行 `ml`。详细说明见
+[`scripts/windows/INSTALL.md`](scripts/windows/INSTALL.md)。
+
 ## 配置
 
 项目根目录的 `config.json` 是默认配置的唯一来源，构建 Wheel 时会自动放入安装包。
