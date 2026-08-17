@@ -163,6 +163,8 @@ class ConfigManager:
             raise ConfigError("browser.session_probe_timeout 必须大于 0")
         if self.login_timeout_ms <= 0:
             raise ConfigError("browser.login_timeout 必须大于 0")
+        if self.business_catalog_timeout_ms <= 0:
+            raise ConfigError("browser.business_catalog_timeout 必须大于 0")
 
     @property
     def current_name(self) -> str:
@@ -206,6 +208,13 @@ class ConfigManager:
     def login_timeout_ms(self) -> int:
         value = self._data.get("browser", {}).get("login_timeout", 300000)
         return int(value) if isinstance(value, (int, float)) else 300000
+
+    @property
+    def business_catalog_timeout_ms(self) -> int:
+        value = self._data.get("browser", {}).get(
+            "business_catalog_timeout", 30000
+        )
+        return int(value) if isinstance(value, (int, float)) else 30000
 
     @property
     def browser_profile_root(self) -> Path:

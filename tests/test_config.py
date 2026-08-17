@@ -31,6 +31,7 @@ class ConfigManagerTest(unittest.TestCase):
                         "channel": "msedge",
                         "session_probe_timeout": 2500,
                         "login_timeout": 120000,
+                        "business_catalog_timeout": 15000,
                         "profile_root": str(Path(self.temporary.name) / "profiles"),
                     },
                     "profiles": [
@@ -64,6 +65,7 @@ class ConfigManagerTest(unittest.TestCase):
         self.assertEqual(manager.browser_channel, "msedge")
         self.assertEqual(manager.session_probe_timeout_ms, 2500)
         self.assertEqual(manager.login_timeout_ms, 120000)
+        self.assertEqual(manager.business_catalog_timeout_ms, 15000)
         self.assertEqual(
             manager.browser_profile_dir("dev"),
             (Path(self.temporary.name) / "profiles").resolve() / "profile-dev",
@@ -123,7 +125,7 @@ class ConfigManagerTest(unittest.TestCase):
         _sync_packaged_config(destination)
         self.assertEqual(ConfigManager(destination).current_name, "test")
 
-        with patch("wisemlops_cli.config.__version__", "0.3.21"):
+        with patch("wisemlops_cli.config.__version__", "0.3.22"):
             _sync_packaged_config(destination)
         self.assertEqual(ConfigManager(destination).current_name, "dev")
 

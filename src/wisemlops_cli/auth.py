@@ -15,6 +15,7 @@ from .config import ConfigManager
 from .credentials import CredentialStore
 from .errors import AuthenticationError, CredentialError
 from .models import Credentials, Profile
+from .output import print_result
 
 
 def _parse_user_info(response_body: Any) -> Optional[Dict[str, str]]:
@@ -56,6 +57,7 @@ class BrowserAuthenticator:
         browser_channel: str,
         session_probe_timeout_ms: int,
         login_timeout_ms: int,
+        business_catalog_timeout_ms: int = 30000,
         verify_ssl: bool = True,
         show_secrets: bool = False,
     ) -> Credentials:
@@ -133,20 +135,24 @@ class BrowserAuthenticator:
                         "有效的 Cookie、csrftoken 和用户信息"
                     )
 
+                business_warning = self._refresh_business_catalog(
+                    context,
+                    profile,
+                    credentials,
+                    business_catalog_timeout_ms,
+                )
                 credentials = replace(
                     credentials,
                     business_id=self._read_local_storage(
                         context, "ai-businessId"
                     ),
                 )
-                business_warning = self._refresh_business_catalog(
-                    context, profile, credentials
-                )
                 self.store.save(credentials)
                 source = "持久 Edge 会话" if reused_session else "用户登录"
                 print(
                     f"已通过{source}刷新认证信息，有效期 {ttl_seconds} 秒"
                 )
+                print_result({"环境": profile.name})
                 print(f"账号: {credentials.username}")
                 print(f"中文名: {credentials.cn_name}")
                 print(f"部门: {credentials.department}")
@@ -189,27 +195,54 @@ class BrowserAuthenticator:
         context: Any,
         profile: Profile,
         credentials: Credentials,
+        wait_timeout_ms: int,
     ) -> str:
         if self.business_store is None:
             return ""
-        raw_business_list = self._read_local_storage(
-            context, "ai-businessList"
+        print(
+            "正在等待业务目录加载完成"
+            f"（最多 {wait_timeout_ms // 1000} 秒）..."
         )
-        if not raw_business_list:
-            return (
-                "未读取到 ai-businessList，请运行 ml business refresh 后重试"
+        deadline = time.monotonic() + wait_timeout_ms / 1000
+        last_error = ""
+
+        while time.monotonic() < deadline:
+            raw_business_list = self._read_local_storage(
+                context, "ai-businessList"
             )
-        try:
-            departments = parse_business_list(raw_business_list)
-            self.business_store.refresh(
-                profile=profile.name,
-                username=credentials.username,
-                departments=departments,
-                browser_business_id=credentials.business_id,
-            )
-        except Exception as exc:
-            return f"业务目录刷新失败: {exc}"
-        return ""
+            if raw_business_list:
+                try:
+                    departments = parse_business_list(raw_business_list)
+                    print(
+                        "已读取并解析 ai-businessList，"
+                        f"共 {len(departments)} 个部门"
+                    )
+                    self.business_store.refresh(
+                        profile=profile.name,
+                        username=credentials.username,
+                        departments=departments,
+                        browser_business_id=self._read_local_storage(
+                            context, "ai-businessId"
+                        ),
+                    )
+                    print("业务目录已保存到本地")
+                    return ""
+                except Exception as exc:
+                    last_error = str(exc)
+
+            open_pages = [
+                page for page in context.pages if not page.is_closed()
+            ]
+            if not open_pages:
+                return "Edge 已关闭，未能读取 ai-businessList"
+            remaining_ms = int((deadline - time.monotonic()) * 1000)
+            if remaining_ms <= 0:
+                break
+            open_pages[-1].wait_for_timeout(min(250, remaining_ms))
+
+        if last_error:
+            return f"等待 ai-businessList 超时，最后一次解析失败: {last_error}"
+        return "等待 ai-businessList 超时，请运行 ml business refresh 后重试"
 
     def _wait_for_credentials(
         self,
@@ -339,6 +372,7 @@ class AuthManager:
             browser_channel=self.config.browser_channel,
             session_probe_timeout_ms=self.config.session_probe_timeout_ms,
             login_timeout_ms=self.config.login_timeout_ms,
+            business_catalog_timeout_ms=self.config.business_catalog_timeout_ms,
             verify_ssl=self.config.verify_ssl_for(profile),
         )
 
@@ -352,6 +386,7 @@ class AuthManager:
             browser_channel=self.config.browser_channel,
             session_probe_timeout_ms=self.config.session_probe_timeout_ms,
             login_timeout_ms=self.config.login_timeout_ms,
+            business_catalog_timeout_ms=self.config.business_catalog_timeout_ms,
             verify_ssl=self.config.verify_ssl_for(profile),
             show_secrets=show_secrets,
         )

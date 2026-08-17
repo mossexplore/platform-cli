@@ -80,7 +80,8 @@ $env:ML_CONFIG = "C:\path\to\config.json"
   "browser": {
     "channel": "msedge",
     "session_probe_timeout": 5000,
-    "login_timeout": 300000
+    "login_timeout": 300000,
+    "business_catalog_timeout": 30000
   }
 }
 ```
@@ -97,11 +98,11 @@ ml/browser-profiles/profile-dev
 ml/browser-profiles/profile-test
 ```
 
-CLI 会自动监听 `/ai/user/info` 请求确认登录结果，用户不需要再按回车。认证成功并
-从当前页面的 `localStorage` 读取 `ai-businessId` 和 `ai-businessList`，打印租户并
-缓存部门、租户、团队目录。更新本地认证信息后，Edge 会自动关闭，原业务命令随后
-继续执行。`login_timeout`
-控制等待用户登录的最长时间，单位为毫秒，默认 5 分钟。
+CLI 会自动监听 `/ai/user/info` 请求确认登录结果，用户不需要再按回车。认证成功后
+会轮询当前页面的 `localStorage`，最多等待 `business_catalog_timeout` 毫秒，直到
+`ai-businessList` 可读取并成功解析；随后打印读取和保存日志，缓存部门、租户、团队
+目录，并用表格展示当前环境。更新本地认证信息后，Edge 才会自动关闭。`login_timeout`
+控制等待用户登录的最长时间，单位为毫秒，默认 5 分钟；业务目录默认最多等待 30 秒。
 
 业务目录和当前选择按环境保存在用户配置目录的 `ml/business.json`。业务命令要求
 至少选择租户，不能只选择部门；团队只有 `teamStatus` 为 `available` 时才允许选择。

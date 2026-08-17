@@ -7,7 +7,7 @@
 | 项目名称 | WiseMLOps Python CLI |
 | Python 包名 | `wisemlops-cli` |
 | 命令名 | `ml` |
-| 当前代码版本 | `0.3.20` |
+| 当前代码版本 | `0.3.21` |
 | 目标平台 | Windows 优先，兼容 macOS/Linux 的基础路径逻辑 |
 | 文档整理日期 | 2026-08-16 |
 | 代码仓库 | `mossexplore/platform-cli` |
@@ -151,7 +151,8 @@ ML_CONFIG=<path>     通过环境变量指定 config.json
   "browser": {
     "channel": "msedge",
     "session_probe_timeout": 5000,
-    "login_timeout": 300000
+    "login_timeout": 300000,
+    "business_catalog_timeout": 30000
   },
   "profiles": [
     {
@@ -180,6 +181,7 @@ ML_CONFIG=<path>     通过环境变量指定 config.json
 | `browser.channel` | Edge 通道，默认 `msedge` |
 | `browser.session_probe_timeout` | 探测已有 Edge 会话的超时，毫秒 |
 | `browser.login_timeout` | 等待用户完成登录的超时，毫秒 |
+| `browser.business_catalog_timeout` | 登录成功后等待 `ai-businessList` 的超时，默认 30000 毫秒 |
 | `profile.api_endpoint` | 管理台入口地址 |
 | `profile.output_format` | 默认输出格式，`table` 或 `json` |
 | `profile.verify_ssl` | 可选；覆盖当前环境的全局 SSL 设置 |
@@ -291,6 +293,11 @@ GET <base_url>/ai/user/info
 仅当 `result.code == 0` 时视为登录成功。成功后打印：
 
 ```text
+┌──────┬─────┐
+│ 字段 │ 值  │
+├──────┼─────┤
+│ 环境 │ dev │
+└──────┴─────┘
 账号: 123456
 中文名: 张三
 部门: 技术部
@@ -310,6 +317,11 @@ localStorage.getItem('ai-businessList')
 
 - `ai-businessId`：当前浏览器租户/团队业务标识。
 - `ai-businessList`：部门、租户和团队原始目录。
+
+认证成功后每 250 毫秒轮询一次 `ai-businessList`，最多等待
+`browser.business_catalog_timeout`。读取并解析成功后先打印日志，再写入
+`business.json`，最后才自动关闭 Edge；这避免 `/ai/user/info` 已成功但前端尚未
+完成业务目录异步加载时产生空目录。
 
 这些值由对应环境的持久化 Edge Profile 保存。Chromium/Edge 的 Local Storage 底层通常位于该 Profile 的 `Local Storage/leveldb`，属于浏览器内部格式，不应由 CLI 直接解析文件；必须通过 Playwright 页面上下文读取。
 
@@ -588,7 +600,7 @@ ml offline experiment clone <PROJECT_ID> --name <NEW_NAME> --output json
 | macOS | `~/Library/Application Support/ml` |
 | Linux | `${XDG_CONFIG_HOME:-~/.config}/ml` |
 
-### 10.2 当前代码状态（0.3.20）
+### 10.2 当前代码状态（0.3.21）
 
 ```text
 ml/
@@ -668,13 +680,13 @@ scripts\windows\build-release.cmd
 产物示例：
 
 ```text
-dist\wisemlops_cli-0.3.20-py3-none-any.whl
+dist\wisemlops_cli-0.3.21-py3-none-any.whl
 ```
 
 安装者执行：
 
 ```powershell
-py -m pip install --upgrade .\dist\wisemlops_cli-0.3.20-py3-none-any.whl
+py -m pip install --upgrade .\dist\wisemlops_cli-0.3.21-py3-none-any.whl
 ml --version
 ```
 
@@ -691,7 +703,7 @@ ml --version
 ```powershell
 py -m pip install --user pipx
 py -m pipx ensurepath
-pipx install .\dist\wisemlops_cli-0.3.20-py3-none-any.whl
+pipx install .\dist\wisemlops_cli-0.3.21-py3-none-any.whl
 ```
 
 重新打开 CMD 后，应能在任意目录执行：
@@ -881,6 +893,7 @@ spec:
 | `0.3.18` | 离线实验列表请求增加必需的 `businessid` 请求头 |
 | `0.3.19` | 列表首列展示 `projectId`，新增同步两阶段离线实验克隆命令 |
 | `0.3.20` | 环境级 `verify_ssl: false` 同时应用于 Playwright 持久化 Edge 登录 |
+| `0.3.21` | 登录成功后轮询等待业务目录，保存后以表格展示当前环境再关闭 Edge |
 | 后续待实现 | `business.json`、`credentials.json` 随环境存放 |
 
 ## 16. 决策记录与废弃行为

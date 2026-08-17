@@ -31,6 +31,8 @@ class FakeBrowserAuthenticator:
 class FakePage:
     def __init__(self):
         self.default_timeout = None
+        self.business_list_reads_before_ready = 0
+        self.wait_for_timeout_calls = []
         self.local_storage = {
             "ai-businessId": "mep",
             "ai-businessList": json.dumps(
@@ -58,10 +60,19 @@ class FakePage:
         return None
 
     def evaluate(self, expression):
+        if (
+            "ai-businessList" in expression
+            and self.business_list_reads_before_ready > 0
+        ):
+            self.business_list_reads_before_ready -= 1
+            return None
         for key, value in self.local_storage.items():
             if key in expression:
                 return value
         raise AssertionError(f"非预期脚本: {expression}")
+
+    def wait_for_timeout(self, timeout):
+        self.wait_for_timeout_calls.append(timeout)
 
 
 class FakePersistentContext:
@@ -255,6 +266,7 @@ class AuthManagerTest(unittest.TestCase):
             department="技术部",
         )
         context = FakePersistentContext()
+        context.pages[0].business_list_reads_before_ready = 2
         fake_playwright = FakePlaywright(context)
         sync_api = types.ModuleType("playwright.sync_api")
         sync_api.TimeoutError = TimeoutError
@@ -281,7 +293,9 @@ class AuthManagerTest(unittest.TestCase):
                 "builtins.input",
                 side_effect=AssertionError("不应等待回车"),
             ):
-                with patch("builtins.print") as print_mock:
+                with patch("builtins.print") as print_mock, patch(
+                    "wisemlops_cli.auth.print_result"
+                ) as result_printer:
                     result = authenticator.login(
                         profile=Profile(
                             name="dev",
@@ -293,6 +307,7 @@ class AuthManagerTest(unittest.TestCase):
                         browser_channel="msedge",
                         session_probe_timeout_ms=5000,
                         login_timeout_ms=300000,
+                        business_catalog_timeout_ms=30000,
                         verify_ssl=False,
                     )
 
@@ -304,10 +319,19 @@ class AuthManagerTest(unittest.TestCase):
             "mep",
         )
         print_mock.assert_any_call("正在等待登录成功...")
+        result_printer.assert_called_once_with({"环境": "dev"})
         print_mock.assert_any_call("账号: jack")
         print_mock.assert_any_call("中文名: 张三")
         print_mock.assert_any_call("部门: 技术部")
         print_mock.assert_any_call("租户: mep")
+        print_mock.assert_any_call(
+            "正在等待业务目录加载完成（最多 30 秒）..."
+        )
+        print_mock.assert_any_call(
+            "已读取并解析 ai-businessList，共 1 个部门"
+        )
+        print_mock.assert_any_call("业务目录已保存到本地")
+        self.assertEqual(len(context.pages[0].wait_for_timeout_calls), 2)
         self.assertTrue(context.closed)
         self.assertEqual(authenticator._wait_for_credentials.call_count, 2)
         self.assertEqual(
