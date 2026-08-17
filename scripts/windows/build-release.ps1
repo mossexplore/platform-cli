@@ -1,3 +1,5 @@
+#requires -Version 5.1
+
 [CmdletBinding()]
 param(
     [string]$OutputDirectory = "",
@@ -26,6 +28,14 @@ function Find-Python {
     throw "Python was not found. Install Python 3.9 or newer first."
 }
 
+function Assert-RequiredCommand {
+    param([Parameter(Mandatory = $true)][string]$Name)
+
+    if (-not (Get-Command $Name -ErrorAction SilentlyContinue)) {
+        throw "Required PowerShell command is not available: $Name"
+    }
+}
+
 function Invoke-CheckedPython {
     param([Parameter(Mandatory = $true)][string[]]$Arguments)
 
@@ -33,8 +43,16 @@ function Invoke-CheckedPython {
     $Prefix = @($script:PythonPrefix)
     & $Command @Prefix @Arguments
     if ($LASTEXITCODE -ne 0) {
-        throw "Python command failed with exit code $LASTEXITCODE."
+        throw "Python command failed with exit code $($LASTEXITCODE)."
     }
+}
+
+foreach ($RequiredCommand in @(
+    "Compress-Archive",
+    "ConvertTo-Json",
+    "Get-FileHash"
+)) {
+    Assert-RequiredCommand -Name $RequiredCommand
 }
 
 $RepositoryRoot = (Resolve-Path (Join-Path $ScriptDirectory "..\..")).Path

@@ -46,6 +46,9 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass `
 5. 将 `ml` 启动目录加入当前用户 `PATH`。
 6. 执行 `ml --version` 验证安装。
 
+构建与安装脚本最低要求 Windows PowerShell 5.1，并兼容 Windows 上的 PowerShell
+7.x。脚本会在执行前检查版本和所需 PowerShell 命令，环境不满足时直接给出错误。
+
 离线包中的部分依赖与 Python 小版本和 Windows 架构绑定，因此文件名会标记构建使用
 的 Python，例如 `py311`。用户必须使用相同的 Python 主次版本和架构；安装器会在
 安装前校验并给出明确提示。联网包不受该限制，只要求 Python 3.9 或更高版本。

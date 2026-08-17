@@ -7,7 +7,7 @@
 | 项目名称 | WiseMLOps Python CLI |
 | Python 包名 | `wisemlops-cli` |
 | 命令名 | `ml` |
-| 当前代码版本 | `0.3.15` |
+| 当前代码版本 | `0.3.16` |
 | 目标平台 | Windows 优先，兼容 macOS/Linux 的基础路径逻辑 |
 | 文档整理日期 | 2026-08-16 |
 | 代码仓库 | `mossexplore/platform-cli` |
@@ -528,7 +528,7 @@ ml mep config get mep_service_access_type --output json
 | macOS | `~/Library/Application Support/ml` |
 | Linux | `${XDG_CONFIG_HOME:-~/.config}/ml` |
 
-### 10.2 当前代码状态（0.3.15）
+### 10.2 当前代码状态（0.3.16）
 
 ```text
 ml/
@@ -577,6 +577,7 @@ ml/
 
 ### 11.1 运行条件
 
+- Windows PowerShell 5.1 或 PowerShell 7.x（Windows）。
 - Python 3.9 或更高版本。
 - 系统已安装 Microsoft Edge。
 - Python 依赖：`httpx`、`playwright`、`rich`、`typer`。
@@ -607,13 +608,13 @@ scripts\windows\build-release.cmd
 产物示例：
 
 ```text
-dist\wisemlops_cli-0.3.15-py3-none-any.whl
+dist\wisemlops_cli-0.3.16-py3-none-any.whl
 ```
 
 安装者执行：
 
 ```powershell
-py -m pip install --upgrade .\dist\wisemlops_cli-0.3.15-py3-none-any.whl
+py -m pip install --upgrade .\dist\wisemlops_cli-0.3.16-py3-none-any.whl
 ml --version
 ```
 
@@ -630,7 +631,7 @@ ml --version
 ```powershell
 py -m pip install --user pipx
 py -m pipx ensurepath
-pipx install .\dist\wisemlops_cli-0.3.15-py3-none-any.whl
+pipx install .\dist\wisemlops_cli-0.3.16-py3-none-any.whl
 ```
 
 重新打开 CMD 后，应能在任意目录执行：
@@ -646,13 +647,14 @@ ml login
 
 用户完整解压发布 ZIP 后双击 `install.cmd`。安装器默认：
 
-1. 校验 `CHECKSUMS.sha256`。
-2. 检查 Python 3.9+ 和 Microsoft Edge。
-3. 在 `%LOCALAPPDATA%\Programs\WiseMLOpsCLI\venv` 创建独立虚拟环境。
-4. 自动识别离线 `packages/`；存在时禁止联网并从本地安装依赖，不存在时联网解析依赖。
-5. 创建 `%LOCALAPPDATA%\Programs\WiseMLOpsCLI\bin\ml.cmd`。
-6. 将上述 `bin` 目录加入当前用户 `PATH`。
-7. 调用虚拟环境中的 `ml --version` 验证安装。
+1. 校验 PowerShell 5.1+ 及所需 cmdlet。
+2. 校验 `CHECKSUMS.sha256`。
+3. 检查 Python 3.9+ 和 Microsoft Edge。
+4. 在 `%LOCALAPPDATA%\Programs\WiseMLOpsCLI\venv` 创建独立虚拟环境。
+5. 自动识别离线 `packages/`；存在时禁止联网并从本地安装依赖，不存在时联网解析依赖。
+6. 创建 `%LOCALAPPDATA%\Programs\WiseMLOpsCLI\bin\ml.cmd`。
+7. 将上述 `bin` 目录加入当前用户 `PATH`。
+8. 调用虚拟环境中的 `ml --version` 验证安装。
 
 整个过程不要求管理员权限。升级时解压新版本并再次运行 `install.cmd`；使用 `-Force`
 可删除并重建 CLI 虚拟环境，但不会删除 `%APPDATA%\ml` 下的配置、认证缓存或 Edge
@@ -814,6 +816,7 @@ spec:
 | `0.3.13` | 租户只显示名称 |
 | `0.3.14` | 新增 Windows 一键构建、离线/联网发布和免管理员安装脚本 |
 | `0.3.15` | 修复 Windows PowerShell 5.1 参数绑定阶段无法解析发布目录的问题 |
+| `0.3.16` | 完成 PowerShell 5.1/7.x 兼容审计，修复变量解析并增加版本与命令预检 |
 | 后续待实现 | `business.json`、`credentials.json` 随环境存放 |
 
 ## 16. 决策记录与废弃行为

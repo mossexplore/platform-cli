@@ -46,6 +46,7 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\install.ps1 `
 ## 安装要求
 
 - Windows 10 或 Windows 11。
+- Windows PowerShell 5.1 或 PowerShell 7.x。
 - Python 3.9 或更高版本。
 - Microsoft Edge。
 - 联网包安装时需要能够访问 Python 包下载源。

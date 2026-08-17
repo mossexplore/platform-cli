@@ -1,3 +1,4 @@
+import re
 import unittest
 from pathlib import Path
 
@@ -24,6 +25,7 @@ class WindowsPackagingScriptTest(unittest.TestCase):
         )
 
         self.assertIn("[switch]$Online", script)
+        self.assertTrue(script.startswith("#requires -Version 5.1\n"))
         self.assertIn('[string]$OutputDirectory = ""', script)
         self.assertIn(
             "$ScriptDirectory = Split-Path -Parent $MyInvocation.MyCommand.Path",
@@ -36,15 +38,25 @@ class WindowsPackagingScriptTest(unittest.TestCase):
         self.assertIn('"release.json"', script)
         self.assertIn("struct.calcsize('P')*8", script)
         self.assertIn("Compress-Archive", script)
+        self.assertIn("Assert-RequiredCommand -Name $RequiredCommand", script)
 
     def test_installer_uses_isolated_environment_and_user_path(self):
         script = (self.windows_scripts / "install.ps1").read_text(
             encoding="utf-8"
         )
 
+        self.assertTrue(script.startswith("#requires -Version 5.1\n"))
+        self.assertIn('[string]$InstallDirectory = ""', script)
+        self.assertIn(
+            "$ScriptDirectory = Split-Path -Parent $MyInvocation.MyCommand.Path",
+            script,
+        )
+        self.assertNotIn("Join-Path $PSScriptRoot", script)
         self.assertIn('"-m", "venv"', script)
         self.assertIn('"--no-index"', script)
         self.assertIn('"CHECKSUMS.sha256"', script)
+        self.assertIn("$($LASTEXITCODE): $Command", script)
+        self.assertNotIn("$LASTEXITCODE: $Command", script)
         self.assertIn("$PythonArchitecture -ne $RequiredArchitecture", script)
         self.assertIn('"Microsoft\\Edge\\Application\\msedge.exe"', script)
         self.assertIn(
@@ -52,6 +64,24 @@ class WindowsPackagingScriptTest(unittest.TestCase):
             script,
         )
         self.assertIn('Invoke-Checked -Command $VirtualEnvironmentMl', script)
+
+    def test_scripts_avoid_newer_or_ambiguous_powershell_syntax(self):
+        ambiguous_variable = re.compile(
+            r'\$(?!(?:env|script|global|local|private):)'
+            r'[A-Za-z_][A-Za-z0-9_]*:'
+        )
+        powershell_7_only_tokens = ("??", "?.", "&&", "||")
+
+        for path in self.windows_scripts.glob("*.ps1"):
+            script = path.read_text(encoding="utf-8")
+            for line_number, line in enumerate(script.splitlines(), start=1):
+                if '"' in line and ambiguous_variable.search(line):
+                    self.fail(
+                        f"{path.name}:{line_number} contains an ambiguous "
+                        "variable followed by a colon"
+                    )
+            for token in powershell_7_only_tokens:
+                self.assertNotIn(token, script, f"{path.name}: {token}")
 
 
 if __name__ == "__main__":

@@ -1,12 +1,19 @@
+#requires -Version 5.1
+
 [CmdletBinding()]
 param(
-    [string]$InstallDirectory = (Join-Path $env:LOCALAPPDATA "Programs\WiseMLOpsCLI"),
+    [string]$InstallDirectory = "",
     [switch]$Force,
     [switch]$SkipEdgeCheck
 )
 
 $ErrorActionPreference = "Stop"
 Set-StrictMode -Version Latest
+
+$ScriptDirectory = Split-Path -Parent $MyInvocation.MyCommand.Path
+if ([string]::IsNullOrWhiteSpace($ScriptDirectory)) {
+    throw "Unable to determine the directory containing install.ps1."
+}
 
 function Find-Python {
     if (Get-Command py.exe -ErrorAction SilentlyContinue) {
@@ -18,6 +25,14 @@ function Find-Python {
     throw "Python was not found. Install Python 3.9 or newer from https://www.python.org/downloads/windows/."
 }
 
+function Assert-RequiredCommand {
+    param([Parameter(Mandatory = $true)][string]$Name)
+
+    if (-not (Get-Command $Name -ErrorAction SilentlyContinue)) {
+        throw "Required PowerShell command is not available: $Name"
+    }
+}
+
 function Invoke-Checked {
     param(
         [Parameter(Mandatory = $true)][string]$Command,
@@ -26,7 +41,7 @@ function Invoke-Checked {
 
     & $Command @Arguments
     if ($LASTEXITCODE -ne 0) {
-        throw "Command failed with exit code $LASTEXITCODE: $Command"
+        throw "Command failed with exit code $($LASTEXITCODE): $Command"
     }
 }
 
@@ -97,8 +112,18 @@ if ($env:OS -ne "Windows_NT") {
 if (-not $env:LOCALAPPDATA) {
     throw "LOCALAPPDATA is not available for the current Windows user."
 }
+if ([string]::IsNullOrWhiteSpace($InstallDirectory)) {
+    $InstallDirectory = Join-Path $env:LOCALAPPDATA "Programs\WiseMLOpsCLI"
+}
 
-$BundleDirectory = $PSScriptRoot
+foreach ($RequiredCommand in @(
+    "ConvertFrom-Json",
+    "Get-FileHash"
+)) {
+    Assert-RequiredCommand -Name $RequiredCommand
+}
+
+$BundleDirectory = $ScriptDirectory
 Write-Host "[1/7] Verifying release package..." -ForegroundColor Cyan
 Test-ReleaseChecksums -BundleDirectory $BundleDirectory
 
