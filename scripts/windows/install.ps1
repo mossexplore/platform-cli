@@ -3,6 +3,8 @@
 [CmdletBinding()]
 param(
     [string]$InstallDirectory = "",
+    [string]$IndexUrl = "",
+    [string]$Cert = "",
     [switch]$Force,
     [switch]$SkipEdgeCheck
 )
@@ -160,6 +162,7 @@ if ($LASTEXITCODE -ne 0 -or $PythonArchitecture -notin @("x86", "x64", "arm64"))
 Write-Host "  Python $PythonVersionText ($PythonArchitecture)"
 
 $ReleaseMetadataPath = Join-Path $BundleDirectory "release.json"
+$ReleaseMetadata = $null
 if (Test-Path -LiteralPath $ReleaseMetadataPath -PathType Leaf) {
     $ReleaseMetadata = Get-Content -LiteralPath $ReleaseMetadataPath -Raw | ConvertFrom-Json
     if ($ReleaseMetadata.mode -eq "offline") {
@@ -185,6 +188,30 @@ if (Test-Path -LiteralPath $ReleaseMetadataPath -PathType Leaf) {
             )
         }
     }
+}
+
+$EffectiveIndexUrl = ""
+$IndexSource = "pip configuration/default"
+if (-not [string]::IsNullOrWhiteSpace($IndexUrl)) {
+    $IndexUri = $null
+    if (-not [Uri]::TryCreate($IndexUrl, [UriKind]::Absolute, [ref]$IndexUri)) {
+        throw "IndexUrl must be an absolute URL."
+    }
+    if (-not [string]::IsNullOrWhiteSpace($IndexUri.UserInfo)) {
+        throw "IndexUrl must not contain credentials. Use PIP_INDEX_URL for authenticated sources."
+    }
+    $EffectiveIndexUrl = $IndexUrl
+    $IndexSource = $IndexUrl
+} elseif (-not [string]::IsNullOrWhiteSpace($env:PIP_INDEX_URL)) {
+    # Let pip consume the environment variable directly so credentials are not
+    # copied into the command line or printed by this installer.
+    $IndexSource = "PIP_INDEX_URL environment variable"
+} elseif (
+    $null -ne $ReleaseMetadata -and
+    $null -ne $ReleaseMetadata.PSObject.Properties["index_url"]
+) {
+    $EffectiveIndexUrl = [string]$ReleaseMetadata.index_url
+    $IndexSource = $EffectiveIndexUrl
 }
 
 Write-Host "[3/7] Checking Microsoft Edge..." -ForegroundColor Cyan
@@ -226,12 +253,24 @@ if (Test-Path -LiteralPath $PackagesDirectory -PathType Container) {
         $WheelPath
     )
 } else {
-    Invoke-Checked -Command $VirtualEnvironmentPython -Arguments @(
+    $InstallArguments = @(
         "-m", "pip", "install",
         "--upgrade",
-        "--force-reinstall",
-        $WheelPath
+        "--force-reinstall"
     )
+    if (-not [string]::IsNullOrWhiteSpace($EffectiveIndexUrl)) {
+        $InstallArguments += @("--index-url", $EffectiveIndexUrl)
+    }
+    if (-not [string]::IsNullOrWhiteSpace($Cert)) {
+        $ResolvedCert = [System.IO.Path]::GetFullPath($Cert)
+        if (-not (Test-Path -LiteralPath $ResolvedCert -PathType Leaf)) {
+            throw "The pip certificate file does not exist: $ResolvedCert"
+        }
+        $InstallArguments += @("--cert", $ResolvedCert)
+    }
+    $InstallArguments += $WheelPath
+    Write-Host "  Python package index: $IndexSource"
+    Invoke-Checked -Command $VirtualEnvironmentPython -Arguments $InstallArguments
 }
 
 Write-Host "[6/7] Registering the ml command..." -ForegroundColor Cyan

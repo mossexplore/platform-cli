@@ -4,6 +4,8 @@
 param(
     [string]$OutputDirectory = "",
     [switch]$Online,
+    [switch]$Offline,
+    [string]$IndexUrl = "",
     [switch]$Force
 )
 
@@ -47,6 +49,13 @@ function Invoke-CheckedPython {
     }
 }
 
+function Get-PipIndexArguments {
+    if ([string]::IsNullOrWhiteSpace($script:IndexUrl)) {
+        return @()
+    }
+    return @("--index-url", $script:IndexUrl)
+}
+
 foreach ($RequiredCommand in @(
     "Compress-Archive",
     "ConvertTo-Json",
@@ -56,6 +65,19 @@ foreach ($RequiredCommand in @(
 }
 
 $RepositoryRoot = (Resolve-Path (Join-Path $ScriptDirectory "..\..")).Path
+if ($Online -and $Offline) {
+    throw "Use either -Online or -Offline, not both. Online is the default."
+}
+if (-not [string]::IsNullOrWhiteSpace($IndexUrl)) {
+    $IndexUri = $null
+    if (-not [Uri]::TryCreate($IndexUrl, [UriKind]::Absolute, [ref]$IndexUri)) {
+        throw "IndexUrl must be an absolute URL."
+    }
+    if (-not [string]::IsNullOrWhiteSpace($IndexUri.UserInfo)) {
+        throw "IndexUrl must not contain credentials. Configure pip authentication separately."
+    }
+}
+$script:IndexUrl = $IndexUrl
 $PyProjectPath = Join-Path $RepositoryRoot "pyproject.toml"
 $VersionMatch = Select-String -Path $PyProjectPath -Pattern '^version\s*=\s*"([^"]+)"$'
 if (-not $VersionMatch -or $VersionMatch.Matches.Count -ne 1) {
@@ -90,8 +112,12 @@ $Architecture = (& $PythonCommand @ArchitectureArguments | Select-Object -Last 1
 if ($LASTEXITCODE -ne 0 -or $Architecture -notin @("x86", "x64", "arm64")) {
     throw "Unable to determine the Python interpreter architecture."
 }
-$PackageMode = if ($Online) { "online" } else { "offline" }
-$BundleName = "wisemlops-cli-$Version-windows-$Architecture-$PythonTag-$PackageMode"
+$PackageMode = if ($Offline) { "offline" } else { "online" }
+if ($PackageMode -eq "online") {
+    $BundleName = "wisemlops-cli-$Version-windows-py3-online"
+} else {
+    $BundleName = "wisemlops-cli-$Version-windows-$Architecture-$PythonTag-offline"
+}
 $ResolvedOutputDirectory = [System.IO.Path]::GetFullPath($OutputDirectory)
 $BundleDirectory = Join-Path $ResolvedOutputDirectory $BundleName
 $ArchivePath = Join-Path $ResolvedOutputDirectory "$BundleName.zip"
@@ -119,13 +145,16 @@ try {
     New-Item -ItemType Directory -Path $BundleDirectory -Force | Out-Null
 
     Write-Host "[1/5] Preparing Python build tools..." -ForegroundColor Cyan
-    Invoke-CheckedPython -Arguments @("-m", "pip", "install", "--upgrade", "build")
+    $BuildToolArguments = @("-m", "pip", "install", "--upgrade")
+    $BuildToolArguments += @(Get-PipIndexArguments)
+    $BuildToolArguments += @("build", "setuptools>=68")
+    Invoke-CheckedPython -Arguments $BuildToolArguments
 
     Write-Host "[2/5] Building wisemlops-cli $Version..." -ForegroundColor Cyan
     Push-Location $RepositoryRoot
     try {
         Invoke-CheckedPython -Arguments @(
-            "-m", "build", "--wheel", "--outdir", $WheelDirectory
+            "-m", "build", "--wheel", "--no-isolation", "--outdir", $WheelDirectory
         )
     } finally {
         Pop-Location
@@ -153,22 +182,30 @@ try {
         python_minor = $PythonVersion.Minor
         python_version = $PythonVersionText
     }
+    if ($PackageMode -eq "online" -and -not [string]::IsNullOrWhiteSpace($IndexUrl)) {
+        $ReleaseMetadata["index_url"] = $IndexUrl
+    }
     $ReleaseMetadata | ConvertTo-Json | Set-Content `
         -LiteralPath (Join-Path $BundleDirectory "release.json") `
         -Encoding UTF8
 
-    if (-not $Online) {
+    if ($PackageMode -eq "offline") {
         Write-Host "[4/5] Downloading offline dependencies..." -ForegroundColor Cyan
         $PackagesDirectory = Join-Path $BundleDirectory "packages"
         New-Item -ItemType Directory -Path $PackagesDirectory -Force | Out-Null
-        Invoke-CheckedPython -Arguments @(
+        $DownloadArguments = @(
             "-m", "pip", "download",
             "--only-binary=:all:",
-            "--dest", $PackagesDirectory,
-            $WheelPath
+            "--dest", $PackagesDirectory
         )
+        $DownloadArguments += @(Get-PipIndexArguments)
+        $DownloadArguments += $WheelPath
+        Invoke-CheckedPython -Arguments $DownloadArguments
     } else {
         Write-Host "[4/5] Online package selected; dependencies will be downloaded during installation." -ForegroundColor Yellow
+        if (-not [string]::IsNullOrWhiteSpace($IndexUrl)) {
+            Write-Host "  Default Python package index: $IndexUrl"
+        }
     }
 
     Write-Host "[5/5] Writing checksums and ZIP archive..." -ForegroundColor Cyan

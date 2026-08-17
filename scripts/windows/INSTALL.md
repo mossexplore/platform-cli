@@ -36,6 +36,30 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\install.ps1
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\install.ps1 -Force
 ```
 
+使用指定的企业内部 Python 包源：
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\install.ps1 `
+  -IndexUrl "https://pypi.company.example/simple"
+```
+
+如果发布人员已经把企业源写入联网发布包，双击 `install.cmd` 即可，无需用户传参。
+包源选择顺序为显式 `-IndexUrl`、`PIP_INDEX_URL` 环境变量、发布包预设值、用户 pip
+配置或 pip 默认源。使用环境变量时，安装器不会把其中可能存在的凭据打印或复制到
+命令行。脚本不会自动回退到公网附加源。
+
+企业源使用私有 CA 时，优先把企业根证书安装到 Windows 信任存储；也可以指定 PEM
+证书链文件：
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\install.ps1 `
+  -IndexUrl "https://pypi.company.example/simple" `
+  -Cert "C:\Certificates\company-ca.pem"
+```
+
+不要把用户名、密码或令牌写入发布包中的源地址。需要认证时，应使用企业统一的 pip
+配置或由安全环境变量提供认证信息。
+
 自定义安装目录：
 
 ```powershell
@@ -49,12 +73,13 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\install.ps1 `
 - Windows PowerShell 5.1 或 PowerShell 7.x。
 - Python 3.9 或更高版本。
 - Microsoft Edge。
-- 联网包安装时需要能够访问 Python 包下载源。
+- 联网包安装时需要能够访问 Python 包下载源，内部源需包含全部直接及传递依赖。
 - 离线包已经包含 Python 依赖，不需要在安装时访问包下载源。
 
 离线包文件名中的 `py311` 等标记表示对应 Python 3.11。部分依赖与 Python 小版本和
 Windows 架构绑定，因此用户 Python 主次版本必须与离线包一致。安装器会自动校验。
-联网包只要求 Python 3.9 或更高版本。
+联网包只要求 Python 3.9 或更高版本；同一个 `windows-py3-online.zip` 可供 Python
+3.12 和 3.13 用户安装，依赖会按实际解释器版本下载。
 
 ## Tab 补全
 

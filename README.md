@@ -24,18 +24,25 @@ ml --help
 scripts\windows\build-release.cmd
 ```
 
-默认生成包含全部 Python 依赖的离线发布包：
+默认生成一个安装时下载依赖的联网发布包，可供 Python 3.12、3.13 等受支持版本使用：
 
 ```text
-release\wisemlops-cli-<版本>-windows-<架构>-py<版本>-offline.zip
+release\wisemlops-cli-<版本>-windows-py3-online.zip
 ```
 
-如需生成体积更小、安装时联网下载依赖的发布包：
+企业内部有 Python 包源时，建议由发布人员将不含凭据的源地址写入发布包：
 
 ```powershell
 powershell.exe -NoProfile -ExecutionPolicy Bypass `
-  -File .\scripts\windows\build-release.ps1 -Online
+  -File .\scripts\windows\build-release.ps1 `
+  -IndexUrl "https://pypi.company.example/simple" -Force
 ```
+
+安装器会自动使用该地址，用户双击 `install.cmd` 即可。源地址不能包含用户名、密码或
+令牌；认证可通过 `PIP_INDEX_URL` 等安全环境变量提供，并优先于包内预设地址。若发布包未预设源，
+也可在安装时执行 `install.cmd -IndexUrl "https://pypi.company.example/simple"`。
+
+如需生成与构建机 Python 小版本、架构绑定的离线包，显式传入 `-Offline`。
 
 将 ZIP 发给用户。用户完整解压后双击 `install.cmd` 即可，无需管理员权限。安装器会：
 
@@ -49,9 +56,10 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass `
 构建与安装脚本最低要求 Windows PowerShell 5.1，并兼容 Windows 上的 PowerShell
 7.x。脚本会在执行前检查版本和所需 PowerShell 命令，环境不满足时直接给出错误。
 
-离线包中的部分依赖与 Python 小版本和 Windows 架构绑定，因此文件名会标记构建使用
-的 Python，例如 `py311`。用户必须使用相同的 Python 主次版本和架构；安装器会在
-安装前校验并给出明确提示。联网包不受该限制，只要求 Python 3.9 或更高版本。
+联网包只携带通用的项目 Wheel，安装时由所选 Python 从包源获取匹配的依赖，因此同一
+个包可用于 Python 3.12 和 3.13，不受构建机 Python 小版本限制。企业内部源必须包含
+项目依赖及其传递依赖对应的 Windows Wheel。脚本不会使用 `--extra-index-url` 回退公网，
+避免依赖混淆。离线包中的依赖仍与 Python 小版本和 Windows 架构绑定。
 
 安装后重新打开 CMD 或 PowerShell，即可在任意目录执行 `ml`。详细说明见
 [`scripts/windows/INSTALL.md`](scripts/windows/INSTALL.md)。

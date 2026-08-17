@@ -7,7 +7,7 @@
 | 项目名称 | WiseMLOps Python CLI |
 | Python 包名 | `wisemlops-cli` |
 | 命令名 | `ml` |
-| 当前代码版本 | `0.3.22` |
+| 当前代码版本 | `0.3.23` |
 | 目标平台 | Windows 优先，兼容 macOS/Linux 的基础路径逻辑 |
 | 文档整理日期 | 2026-08-16 |
 | 代码仓库 | `mossexplore/platform-cli` |
@@ -600,7 +600,7 @@ ml offline experiment clone <PROJECT_ID> --name <NEW_NAME> --output json
 | macOS | `~/Library/Application Support/ml` |
 | Linux | `${XDG_CONFIG_HOME:-~/.config}/ml` |
 
-### 10.2 当前代码状态（0.3.22）
+### 10.2 当前代码状态（0.3.23）
 
 ```text
 ml/
@@ -669,24 +669,27 @@ py -m build --wheel
 scripts\windows\build-release.cmd
 ```
 
-脚本默认构建包含全部 Python 依赖、安装时无需访问包下载源的离线 ZIP。使用
-`build-release.ps1 -Online` 可以生成更小的联网安装包。发布 ZIP 同时包含 Wheel、
-安装脚本、安装说明和 SHA-256 校验文件。
+脚本默认构建只携带项目通用 Wheel、安装时从 Python 包源下载依赖的联网 ZIP：
+`wisemlops-cli-<版本>-windows-py3-online.zip`。同一个联网包可用于 Python 3.12 和
+3.13。使用 `build-release.ps1 -IndexUrl <企业源>` 可把不含凭据的默认企业源写入
+`release.json`，用户双击安装即可；使用 `-Offline` 才生成离线包。发布 ZIP 同时包含
+Wheel、安装脚本、安装说明和 SHA-256 校验文件。
 
 离线包文件名和 `release.json` 必须记录构建 Python 主次版本与 Windows 架构；安装器
-要求用户环境与其一致。联网包只校验 Python 3.9+，由 pip 在线解析适配当前解释器的
-依赖。
+要求用户环境与其一致。联网包只校验 Python 3.9+，由 pip 从显式 `-IndexUrl`、
+`PIP_INDEX_URL`、包内预设源或用户 pip 配置中选择包源并解析适配当前解释器的依赖，
+不通过 `--extra-index-url` 回退公网。
 
 产物示例：
 
 ```text
-dist\wisemlops_cli-0.3.22-py3-none-any.whl
+dist\wisemlops_cli-0.3.23-py3-none-any.whl
 ```
 
 安装者执行：
 
 ```powershell
-py -m pip install --upgrade .\dist\wisemlops_cli-0.3.22-py3-none-any.whl
+py -m pip install --upgrade .\dist\wisemlops_cli-0.3.23-py3-none-any.whl
 ml --version
 ```
 
@@ -703,7 +706,7 @@ ml --version
 ```powershell
 py -m pip install --user pipx
 py -m pipx ensurepath
-pipx install .\dist\wisemlops_cli-0.3.22-py3-none-any.whl
+pipx install .\dist\wisemlops_cli-0.3.23-py3-none-any.whl
 ```
 
 重新打开 CMD 后，应能在任意目录执行：
@@ -895,6 +898,7 @@ spec:
 | `0.3.20` | 环境级 `verify_ssl: false` 同时应用于 Playwright 持久化 Edge 登录 |
 | `0.3.21` | 登录成功后轮询等待业务目录，保存后以表格展示当前环境再关闭 Edge |
 | `0.3.22` | 登录成功后在同一表格展示环境、账号、中文名、部门和租户 |
+| `0.3.23` | Windows 默认生成单一联网包，支持企业内部 Python 包源和 Python 3.12/3.13 安装 |
 | 后续待实现 | `business.json`、`credentials.json` 随环境存放 |
 
 ## 16. 决策记录与废弃行为

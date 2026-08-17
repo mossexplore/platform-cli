@@ -25,6 +25,8 @@ class WindowsPackagingScriptTest(unittest.TestCase):
         )
 
         self.assertIn("[switch]$Online", script)
+        self.assertIn("[switch]$Offline", script)
+        self.assertIn('[string]$IndexUrl = ""', script)
         self.assertTrue(script.startswith("#requires -Version 5.1\n"))
         self.assertIn('[string]$OutputDirectory = ""', script)
         self.assertIn(
@@ -36,6 +38,9 @@ class WindowsPackagingScriptTest(unittest.TestCase):
         self.assertIn('"--only-binary=:all:"', script)
         self.assertIn('"CHECKSUMS.sha256"', script)
         self.assertIn('"release.json"', script)
+        self.assertIn('-windows-py3-online"', script)
+        self.assertIn('$ReleaseMetadata["index_url"] = $IndexUrl', script)
+        self.assertIn('"--no-isolation"', script)
         self.assertIn("struct.calcsize('P')*8", script)
         self.assertIn("Compress-Archive", script)
         self.assertIn("Assert-RequiredCommand -Name $RequiredCommand", script)
@@ -47,6 +52,8 @@ class WindowsPackagingScriptTest(unittest.TestCase):
 
         self.assertTrue(script.startswith("#requires -Version 5.1\n"))
         self.assertIn('[string]$InstallDirectory = ""', script)
+        self.assertIn('[string]$IndexUrl = ""', script)
+        self.assertIn('[string]$Cert = ""', script)
         self.assertIn(
             "$ScriptDirectory = Split-Path -Parent $MyInvocation.MyCommand.Path",
             script,
@@ -54,6 +61,9 @@ class WindowsPackagingScriptTest(unittest.TestCase):
         self.assertNotIn("Join-Path $PSScriptRoot", script)
         self.assertIn('"-m", "venv"', script)
         self.assertIn('"--no-index"', script)
+        self.assertIn('@("--index-url", $EffectiveIndexUrl)', script)
+        self.assertIn('@("--cert", $ResolvedCert)', script)
+        self.assertIn('$env:PIP_INDEX_URL', script)
         self.assertIn('"CHECKSUMS.sha256"', script)
         self.assertIn("$($LASTEXITCODE): $Command", script)
         self.assertNotIn("$LASTEXITCODE: $Command", script)
