@@ -7,7 +7,7 @@
 | 项目名称 | WiseMLOps Python CLI |
 | Python 包名 | `wisemlops-cli` |
 | 命令名 | `ml` |
-| 当前代码版本 | `0.3.14` |
+| 当前代码版本 | `0.3.15` |
 | 目标平台 | Windows 优先，兼容 macOS/Linux 的基础路径逻辑 |
 | 文档整理日期 | 2026-08-16 |
 | 代码仓库 | `mossexplore/platform-cli` |
@@ -528,7 +528,7 @@ ml mep config get mep_service_access_type --output json
 | macOS | `~/Library/Application Support/ml` |
 | Linux | `${XDG_CONFIG_HOME:-~/.config}/ml` |
 
-### 10.2 当前代码状态（0.3.14）
+### 10.2 当前代码状态（0.3.15）
 
 ```text
 ml/
@@ -607,13 +607,13 @@ scripts\windows\build-release.cmd
 产物示例：
 
 ```text
-dist\wisemlops_cli-0.3.14-py3-none-any.whl
+dist\wisemlops_cli-0.3.15-py3-none-any.whl
 ```
 
 安装者执行：
 
 ```powershell
-py -m pip install --upgrade .\dist\wisemlops_cli-0.3.14-py3-none-any.whl
+py -m pip install --upgrade .\dist\wisemlops_cli-0.3.15-py3-none-any.whl
 ml --version
 ```
 
@@ -630,7 +630,7 @@ ml --version
 ```powershell
 py -m pip install --user pipx
 py -m pipx ensurepath
-pipx install .\dist\wisemlops_cli-0.3.14-py3-none-any.whl
+pipx install .\dist\wisemlops_cli-0.3.15-py3-none-any.whl
 ```
 
 重新打开 CMD 后，应能在任意目录执行：
@@ -813,6 +813,7 @@ spec:
 | `0.3.12` | 部门只显示名称，提示改为“请选择团队” |
 | `0.3.13` | 租户只显示名称 |
 | `0.3.14` | 新增 Windows 一键构建、离线/联网发布和免管理员安装脚本 |
+| `0.3.15` | 修复 Windows PowerShell 5.1 参数绑定阶段无法解析发布目录的问题 |
 | 后续待实现 | `business.json`、`credentials.json` 随环境存放 |
 
 ## 16. 决策记录与废弃行为

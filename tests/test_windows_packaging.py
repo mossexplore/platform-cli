@@ -24,6 +24,12 @@ class WindowsPackagingScriptTest(unittest.TestCase):
         )
 
         self.assertIn("[switch]$Online", script)
+        self.assertIn('[string]$OutputDirectory = ""', script)
+        self.assertIn(
+            "$ScriptDirectory = Split-Path -Parent $MyInvocation.MyCommand.Path",
+            script,
+        )
+        self.assertNotIn("Join-Path $PSScriptRoot", script)
         self.assertIn('"-m", "pip", "download"', script)
         self.assertIn('"--only-binary=:all:"', script)
         self.assertIn('"CHECKSUMS.sha256"', script)

@@ -1,12 +1,20 @@
 [CmdletBinding()]
 param(
-    [string]$OutputDirectory = (Join-Path $PSScriptRoot "..\..\release"),
+    [string]$OutputDirectory = "",
     [switch]$Online,
     [switch]$Force
 )
 
 $ErrorActionPreference = "Stop"
 Set-StrictMode -Version Latest
+
+$ScriptDirectory = Split-Path -Parent $MyInvocation.MyCommand.Path
+if ([string]::IsNullOrWhiteSpace($ScriptDirectory)) {
+    throw "Unable to determine the directory containing build-release.ps1."
+}
+if ([string]::IsNullOrWhiteSpace($OutputDirectory)) {
+    $OutputDirectory = Join-Path $ScriptDirectory "..\..\release"
+}
 
 function Find-Python {
     if (Get-Command py.exe -ErrorAction SilentlyContinue) {
@@ -29,7 +37,7 @@ function Invoke-CheckedPython {
     }
 }
 
-$RepositoryRoot = (Resolve-Path (Join-Path $PSScriptRoot "..\..")).Path
+$RepositoryRoot = (Resolve-Path (Join-Path $ScriptDirectory "..\..")).Path
 $PyProjectPath = Join-Path $RepositoryRoot "pyproject.toml"
 $VersionMatch = Select-String -Path $PyProjectPath -Pattern '^version\s*=\s*"([^"]+)"$'
 if (-not $VersionMatch -or $VersionMatch.Matches.Count -ne 1) {
@@ -114,7 +122,7 @@ try {
 
     Write-Host "[3/5] Copying installer files..." -ForegroundColor Cyan
     foreach ($FileName in @("install.cmd", "install.ps1", "INSTALL.md")) {
-        Copy-Item -LiteralPath (Join-Path $PSScriptRoot $FileName) `
+        Copy-Item -LiteralPath (Join-Path $ScriptDirectory $FileName) `
             -Destination (Join-Path $BundleDirectory $FileName)
     }
     $ReleaseMetadata = [ordered]@{
