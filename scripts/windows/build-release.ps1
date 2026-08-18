@@ -168,10 +168,12 @@ try {
     Copy-Item -LiteralPath $Wheels[0].FullName -Destination $WheelPath
 
     Write-Host "[3/5] Copying installer files..." -ForegroundColor Cyan
-    foreach ($FileName in @("install.cmd", "install.ps1", "INSTALL.md")) {
+    foreach ($FileName in @("install.cmd", "install.ps1")) {
         Copy-Item -LiteralPath (Join-Path $ScriptDirectory $FileName) `
             -Destination (Join-Path $BundleDirectory $FileName)
     }
+    Copy-Item -LiteralPath (Join-Path $RepositoryRoot "docs" "CLI Windows安装说明.md") `
+        -Destination (Join-Path $BundleDirectory "CLI Windows安装说明.md")
     $ReleaseMetadata = [ordered]@{
         package = "wisemlops-cli"
         version = $Version

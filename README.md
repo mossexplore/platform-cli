@@ -62,7 +62,7 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass `
 避免依赖混淆。离线包中的依赖仍与 Python 小版本和 Windows 架构绑定。
 
 安装后重新打开 CMD 或 PowerShell，即可在任意目录执行 `ml`。详细说明见
-[`scripts/windows/INSTALL.md`](scripts/windows/INSTALL.md)。
+[`docs/CLI Windows安装说明.md`](docs/CLI Windows安装说明.md)。
 
 ## 配置
 

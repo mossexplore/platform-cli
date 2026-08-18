@@ -15,9 +15,10 @@ class WindowsPackagingScriptTest(unittest.TestCase):
             "build-release.ps1",
             "install.cmd",
             "install.ps1",
-            "INSTALL.md",
         ):
             self.assertTrue((self.windows_scripts / name).is_file(), name)
+        doc = self.root / "docs" / "CLI Windows安装说明.md"
+        self.assertTrue(doc.is_file(), doc)
 
     def test_build_script_supports_offline_and_online_bundles(self):
         script = (self.windows_scripts / "build-release.ps1").read_text(
