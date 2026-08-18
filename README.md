@@ -1,12 +1,37 @@
 # ml CLI
 
-`ml` 是 WiseMLOps平台的 Python 命令行客户端。Playwright 仅用于在 Microsoft
-Edge 中登录；登录成功后，Cookie、CSRF Token、账号、中文名、部门和过期时间会按
-profile 保存到本地。后续业务命令使用 HTTPX 请求接口。
+> WiseMLOps 平台的官方 Python 命令行客户端。
+
+`ml` 是 [WiseMLOps](https://github.com/mossexplore/platform-cli) 平台的命令行客户端（要求 Python 3.9+）。它基于 [Typer](https://typer.tiangolo.com/) 构建，使用 [Playwright](https://playwright.dev/) 在 Microsoft Edge 中完成登录；登录成功后，Cookie、CSRF Token、账号、中文名、部门和过期时间会按 profile 保存到本地，后续业务命令使用 [HTTPX](https://www.python-httpx.org/) 请求平台接口。
+
+![Python](https://img.shields.io/badge/python-3.9%2B-blue)
+![License](https://img.shields.io/badge/license-MIT-green)
+
+## 特性
+
+- **统一登录与多环境**：通过 Microsoft Edge 持久化 Profile 登录，认证信息按 profile 本地保存，支持多环境快速切换。
+- **业务上下文管理**：交互式选择租户 / 团队 / 部门，所有平台请求统一携带对应的业务请求头。
+- **零污染安装**：Windows 一键安装包在用户目录创建独立虚拟环境，不污染其他 Python 项目。
+- **多级别配置**：支持默认配置、当前目录配置、命令行参数与环境变量多级覆盖。
+
+## 目录
+
+- [安装](#安装)
+  - [Windows 一键发布与安装](#windows-一键发布与安装)
+- [配置](#配置)
+- [命令](#命令)
+- [增加新接口](#增加新接口)
+- [贡献](#贡献)
+- [许可证](#许可证)
+- [问题反馈](#问题反馈)
 
 ## 安装
 
-需要 Python 3.9 或更高版本。Windows PowerShell：
+需要 Python 3.9 或更高版本，建议使用虚拟环境。
+
+### 从源码安装（开发）
+
+Windows PowerShell：
 
 ```powershell
 py -m pip install --upgrade pip
@@ -14,7 +39,7 @@ py -m pip install -e .
 ml --help
 ```
 
-脚本使用系统安装的 Microsoft Edge，不需要运行 `playwright install chromium`。
+脚本使用系统已安装的 Microsoft Edge，不需要运行 `playwright install chromium`。
 
 ### Windows 一键发布与安装
 
@@ -122,7 +147,7 @@ CLI 会自动监听 `/ai/user/info` 请求确认登录结果，用户不需要�
 ml business list
 ml business use
 ml business use --tenant mep
-ml business use --tenant mep --team asdasd
+ml business use --tenant mep --team my-team
 ml business show
 ml business refresh
 ```
@@ -198,3 +223,29 @@ commands/mep.py -> services/mep.py -> client.py
 
 如果后端提供 OpenAPI，可以把生成的 Python Client 放在独立的 `generated/`
 目录，service 层负责适配生成代码，命令层结构无需改变。
+
+## 贡献
+
+欢迎通过 Issue 和 Pull Request 参与贡献。
+
+1. Fork 本仓库并创建特性分支：`git checkout -b feature/your-feature`。
+2. 在虚拟环境中安装开发依赖（见[安装](#安装)），确保测试通过：
+   ```powershell
+   py -m pytest
+   ```
+3. 提交信息请遵循 [Conventional Commits](https://www.conventionalcommits.org/) 规范，例如 `feat:`、`fix:`、`docs:`。
+4. 向 `main` 分支提交 Pull Request，并在描述中说明改动动机与测试方式。
+
+提交 Issue 前请先检索已有问题，避免重复。
+
+## 许可证
+
+本项目基于 [MIT 许可证](LICENSE) 开源。详见 [LICENSE](LICENSE) 文件。
+
+## 问题反馈
+
+如遇到问题或有功能建议，请在本仓库的 [Issues](https://github.com/mossexplore/platform-cli/issues) 中反馈。提交时请尽量包含：
+
+- 复现步骤；
+- 期望行为与实际行为；
+- 运行环境（`ml --version` 输出与操作系统版本）。
