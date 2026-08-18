@@ -1,6 +1,6 @@
 # 命令行参考使用指南
 
-`ml` 是 **WiseMLOps 平台** 的 Python 命令行客户端（包名 `wisemlops-cli`，当前版本 `0.3.23`）。
+`ml` 是 **WiseMLOps 平台** 的 Python 命令行客户端（包名 `wisemlops-cli`，当前版本 `0.3.24`）。
 本文档是每一个 `ml` 子命令、参数、配置项与退出行为的完整参考。
 
 > 阅读前提：首次使用请先完成 `ml login`。所有业务命令（除 `login`/`logout`/`env`/`auth status` 外）都要求已登录且已选择租户或团队（见 `ml business use`）。
@@ -50,6 +50,8 @@ ml - WiseMLOps平台命令行客户端
 | `ml business refresh` | 打开 Edge 刷新当前环境的业务目录 |
 | `ml user info` | 查询当前登录用户信息 |
 | `ml mep config get <key>` | 查询一个 MEP 配置项 |
+| `ml mtp swanboard project list` | 分页查询训练看板项目 |
+| `ml mtp swanboard experiment inspect <experiment_id>` | 查询实验的完整训练看板数据 |
 | `ml offline experiment list` | 分页查询离线实验 |
 | `ml offline experiment trial list <project_id>` | 分页查询一个离线实验下的 trial |
 | `ml offline experiment clone <project_id>` | 克隆一个离线实验（仅修改名称） |
@@ -323,6 +325,40 @@ ml mep config get [KEY] [OPTIONS]
 ```bash
 ml mep config get
 ml mep config get mep_service_access_type -o json
+```
+
+---
+
+## `ml mtp swanboard`
+
+训练看板项目、实验和实验数据查询。所有命令使用当前业务上下文的 `businessId`，并统一携带认证信息和 `businessid` 请求头。
+
+```text
+ml mtp swanboard project list [OPTIONS]
+ml mtp swanboard project namespace list PROJECT_ID [OPTIONS]
+ml mtp swanboard project experiment list PROJECT_ID NAMESPACE_ID [OPTIONS]
+
+ml mtp swanboard experiment feature list EXPERIMENT_ID [OPTIONS]
+ml mtp swanboard experiment environment get EXPERIMENT_ID [OPTIONS]
+ml mtp swanboard experiment metrics EXPERIMENT_ID [OPTIONS]
+ml mtp swanboard experiment config list EXPERIMENT_ID [OPTIONS]
+ml mtp swanboard experiment inspect EXPERIMENT_ID [OPTIONS]
+```
+
+项目列表支持 `--page`、`--page-size`、`--team-id`、`--creator`；特性列表支持 `--page`、`--page-size`。所有命令支持 `--output` / `-o` 输出 table 或 json。
+
+`metrics` 默认查询 `loss` 和 `accuracy`，可通过重复传递 `--tag` 指定指标。表格将最大值、最小值和平均值格式化为四位小数。
+
+`environment get` 展示 Python 版本、系统硬件 CPU、系统硬件 Memory 和 Python 库名称；Python 库数组在表格中按换行显示。`inspect` 一次输出实验特性、环境、指标和配置四个区块。
+
+### 示例
+
+```bash
+ml mtp swanboard project list --page 1 --page-size 20
+ml mtp swanboard project namespace list <PROJECT_ID>
+ml mtp swanboard project experiment list <PROJECT_ID> <NAMESPACE_ID>
+ml mtp swanboard experiment inspect <EXPERIMENT_ID>
+ml mtp swanboard experiment metrics <EXPERIMENT_ID> --tag loss
 ```
 
 ---

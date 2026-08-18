@@ -50,11 +50,11 @@ class CliEnvironmentCommandTest(unittest.TestCase):
         self.assertNotEqual(result.exit_code, 0)
         self.assertIn("No such command", result.output)
 
-    def test_version_is_0_3_23(self):
+    def test_version_is_0_3_24(self):
         result = self.runner.invoke(app, ["--version"])
 
         self.assertEqual(result.exit_code, 0, result.output)
-        self.assertIn("ml 0.3.23", result.output)
+        self.assertIn("ml 0.3.24", result.output)
 
     def test_offline_experiment_list_command_is_available(self):
         result = self.runner.invoke(
@@ -90,6 +90,24 @@ class CliEnvironmentCommandTest(unittest.TestCase):
         self.assertIn("--name", result.output)
         self.assertIn("--dry-run", result.output)
         self.assertIn("--yes", result.output)
+
+    def test_mtp_swanboard_commands_are_available(self):
+        result = self.runner.invoke(
+            app,
+            [
+                "--config",
+                str(self.config_path),
+                "mtp",
+                "swanboard",
+                "experiment",
+                "environment",
+                "get",
+                "--help",
+            ],
+        )
+
+        self.assertEqual(result.exit_code, 0, result.output)
+        self.assertIn("EXPERIMENT_ID", result.output)
 
     def test_offline_experiment_trial_list_command_is_available(self):
         result = self.runner.invoke(
