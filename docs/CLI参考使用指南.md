@@ -1,4 +1,4 @@
-# CLI Reference
+# 命令行参考使用指南
 
 `ml` 是 **WiseMLOps 平台** 的 Python 命令行客户端（包名 `wisemlops-cli`，当前版本 `0.3.23`）。
 本文档是每一个 `ml` 子命令、参数、配置项与退出行为的完整参考。
@@ -12,14 +12,14 @@
 ```text
 ml - WiseMLOps平台命令行客户端
 
-Usage: ml [OPTIONS] COMMAND [ARGS]...
+用法：ml [OPTIONS] COMMAND [ARGS]...
 
-Options:
+选项：
   --config PATH      config.json 路径，也可使用 ML_CONFIG 环境变量
   --version          显示版本
   -h, --help         显示帮助信息并退出
 
-Commands:
+命令：
   login              打开 Edge 登录并刷新当前环境的本地认证信息
   logout             清除当前环境的本地认证信息
   auth               查看认证状态
@@ -74,13 +74,13 @@ Commands:
 
 打开 Microsoft Edge（专用 Profile）完成平台登录，并将 Cookie、CSRF Token、账号、中文名、部门与过期时间按环境保存到本地。登录成功后默认不打印敏感值。
 
-### Synopsis
+### 命令格式
 
 ```text
 ml login [OPTIONS]
 ```
 
-### Flags
+### 选项
 
 | 选项 | 默认值 | 说明 |
 | --- | --- | --- |
@@ -106,13 +106,13 @@ ml login --show-secrets
 
 清除当前环境的本地短期认证缓存（不影响 Edge 持久会话，方便下次无验证码恢复）。
 
-### Synopsis
+### 命令格式
 
 ```text
 ml logout [OPTIONS]
 ```
 
-### Flags
+### 选项
 
 | 选项 | 默认值 | 说明 |
 | --- | --- | --- |
@@ -134,7 +134,7 @@ ml logout --all --forget-browser
 
 显示当前环境的认证有效期与基础信息，不打印任何敏感值。
 
-### Synopsis
+### 命令格式
 
 ```text
 ml auth status
