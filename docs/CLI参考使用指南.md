@@ -470,6 +470,6 @@ ml offline experiment clone abc123 --name "训练-副本" --dry-run
 
 ## 参见
 
-- [项目 README](../../README.md) — 安装、Windows 一键发布与安装、配置说明
-- [Windows 安装说明](../../scripts/windows/INSTALL.md) — `install.cmd` 详细步骤
+- [项目 README](../README.md) — 安装、Windows 一键发布与安装、配置说明
+- [Windows 安装说明](../scripts/windows/INSTALL.md) — `install.cmd` 详细步骤
 - [需求与设计规格](./REQUIREMENTS_DESIGN_SPEC.md) — 详细功能设计文档
