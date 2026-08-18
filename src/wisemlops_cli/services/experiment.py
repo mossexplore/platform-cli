@@ -20,6 +20,17 @@ EXPERIMENT_FIELDS = (
     "configName",
 )
 
+TRIAL_FIELDS = (
+    "experimentName",
+    "experimentType",
+    "creator",
+    "updater",
+    "createTime",
+    "updateTime",
+    "cronIntervalStartFlag",
+    "description",
+)
+
 
 class ExperimentService:
     def __init__(self, client: PlatformClient):
@@ -70,6 +81,55 @@ class ExperimentService:
             headers={"businessid": self.client.business_id},
         )
         return self._parse_list_response(payload, page_index, page_size)
+
+    def list_trials(
+        self,
+        project_id: str,
+        page_index: int = 1,
+        page_size: int = 10,
+        experiment_name: Optional[str] = None,
+        experiment_type: Optional[str] = None,
+        creator: Optional[str] = None,
+        updater: Optional[str] = None,
+        aimodule: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """分页查询指定离线实验下的全部 trial。"""
+        selected_project_id = project_id.strip()
+        if not selected_project_id:
+            raise ValueError("projectId 不能为空")
+        if page_index < 1:
+            raise ValueError("page 必须大于等于 1")
+        if page_size < 1:
+            raise ValueError("page-size 必须大于等于 1")
+        self._require_business_selection()
+
+        params: Dict[str, Any] = {
+            "businessId": self.client.business_id,
+            "pageIndex": page_index,
+            "pageSize": page_size,
+            "projectId": selected_project_id,
+        }
+        optional_params = {
+            "experimentNameRef": experiment_name,
+            "experimentType": experiment_type,
+            "creator": creator,
+            "updater": updater,
+            "aimodule": aimodule,
+        }
+        params.update(
+            {
+                key: value
+                for key, value in optional_params.items()
+                if value is not None
+            }
+        )
+        payload = self.client.request(
+            "GET",
+            "/ai/backend/experiment",
+            params=params,
+            headers={"businessid": self.client.business_id},
+        )
+        return self._parse_trial_list_response(payload, page_index, page_size)
 
     def get_project(self, project_id: str) -> Dict[str, Any]:
         """按 projectId 查询当前业务上下文中的实验详情。"""
@@ -197,6 +257,31 @@ class ExperimentService:
             if not isinstance(item, dict):
                 continue
             items.append({field: item.get(field, "") for field in EXPERIMENT_FIELDS})
+
+        return {
+            "pageIndex": page_index,
+            "pageSize": page_size,
+            "count": result.get("count", len(items)),
+            "total": result.get("total", len(items)),
+            "items": items,
+        }
+
+    @staticmethod
+    def _parse_trial_list_response(
+        payload: Any,
+        page_index: int,
+        page_size: int,
+    ) -> Dict[str, Any]:
+        result = ExperimentService._result(payload, "查询离线实验 trial")
+        data = result.get("data")
+        if not isinstance(data, list):
+            raise ApiError("离线实验 trial 列表响应中的 result.data 不是数组")
+
+        items: List[Dict[str, Any]] = []
+        for item in data:
+            if not isinstance(item, dict):
+                continue
+            items.append({field: item.get(field, "") for field in TRIAL_FIELDS})
 
         return {
             "pageIndex": page_index,

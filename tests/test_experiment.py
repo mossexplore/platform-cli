@@ -5,6 +5,7 @@ from unittest.mock import Mock, patch
 from wisemlops_cli.commands.offline import (
     _clone_result,
     _table_items,
+    _trial_table_items,
     clone_experiment,
 )
 from wisemlops_cli.errors import ApiError, BusinessError
@@ -104,6 +105,131 @@ class ExperimentServiceTest(unittest.TestCase):
             client.calls[0][3],
             {"businessId": "default", "pageIndex": 1, "pageSize": 10},
         )
+
+    def trial_response(self):
+        return {
+            "result": {
+                "code": 0,
+                "des": "ok",
+                "data": [
+                    {
+                        "experimentId": "trial-id",
+                        "experimentName": "trial-0818",
+                        "experimentType": "batch",
+                        "creator": "a123456",
+                        "updater": "a654321",
+                        "createTime": "2026-08-18T10:37:56.000Z",
+                        "updateTime": "2026-08-18T11:00:00.000Z",
+                        "cronIntervalStartFlag": True,
+                        "description": "测试 trial",
+                    }
+                ],
+                "count": 1,
+                "total": 21,
+            }
+        }
+
+    def test_list_trials_uses_required_and_supplied_query_parameters(self):
+        client = FakeClient(self.trial_response(), business_id="mep")
+
+        result = ExperimentService(client).list_trials(
+            "project-id",
+            page_index=2,
+            page_size=20,
+            experiment_name="trial",
+            experiment_type="batch",
+            creator="a123",
+            updater="a456",
+            aimodule="test_dev",
+        )
+
+        self.assertEqual(
+            client.calls,
+            [
+                (
+                    "GET",
+                    "/ai/backend/experiment",
+                    None,
+                    {
+                        "businessId": "mep",
+                        "pageIndex": 2,
+                        "pageSize": 20,
+                        "projectId": "project-id",
+                        "experimentNameRef": "trial",
+                        "experimentType": "batch",
+                        "creator": "a123",
+                        "updater": "a456",
+                        "aimodule": "test_dev",
+                    },
+                    {"businessid": "mep"},
+                )
+            ],
+        )
+        self.assertEqual(result["total"], 21)
+        self.assertEqual(
+            list(result["items"][0]),
+            [
+                "experimentName",
+                "experimentType",
+                "creator",
+                "updater",
+                "createTime",
+                "updateTime",
+                "cronIntervalStartFlag",
+                "description",
+            ],
+        )
+
+    def test_list_trials_omits_optional_filters_by_default(self):
+        client = FakeClient(self.trial_response())
+
+        ExperimentService(client).list_trials("project-id")
+
+        self.assertEqual(
+            client.calls[0][3],
+            {
+                "businessId": "default",
+                "pageIndex": 1,
+                "pageSize": 10,
+                "projectId": "project-id",
+            },
+        )
+
+    def test_trial_table_uses_requested_labels_and_values(self):
+        client = FakeClient(self.trial_response())
+        rows = _trial_table_items(
+            ExperimentService(client).list_trials("project-id")
+        )
+
+        self.assertEqual(
+            list(rows[0]),
+            [
+                "trial名称",
+                "类型",
+                "创建者",
+                "修改者",
+                "创建时间",
+                "更新时间",
+                "调度状态",
+                "描述",
+            ],
+        )
+        self.assertEqual(rows[0]["类型"], "批式")
+        self.assertEqual(rows[0]["调度状态"], "调度开启")
+
+    def test_trial_table_renders_non_batch_and_schedule_statuses(self):
+        rows = _trial_table_items(
+            {
+                "items": [
+                    {"experimentType": "stream", "cronIntervalStartFlag": False},
+                    {"experimentType": "stream", "cronIntervalStartFlag": None},
+                ]
+            }
+        )
+
+        self.assertEqual(rows[0]["类型"], "流式")
+        self.assertEqual(rows[0]["调度状态"], "调度停止")
+        self.assertEqual(rows[1]["调度状态"], "-")
 
     def test_table_displays_project_id_as_first_column(self):
         client = FakeClient(self.successful_response())

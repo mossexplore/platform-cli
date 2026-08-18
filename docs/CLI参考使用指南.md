@@ -51,6 +51,7 @@ ml - WiseMLOps平台命令行客户端
 | `ml user info` | 查询当前登录用户信息 |
 | `ml mep config get <key>` | 查询一个 MEP 配置项 |
 | `ml offline experiment list` | 分页查询离线实验 |
+| `ml offline experiment trial list <project_id>` | 分页查询一个离线实验下的 trial |
 | `ml offline experiment clone <project_id>` | 克隆一个离线实验（仅修改名称） |
 
 ---
@@ -351,6 +352,28 @@ ml offline experiment list [OPTIONS]
 
 > 表格列为：`projectId`、`实验名称`、`描述`、`创建者`、`修改者`、`创建时间`、`更新时间`、`运行配置模板`。
 
+### `ml offline experiment trial list`
+
+分页查询指定离线实验下的 trial。
+
+```text
+ml offline experiment trial list [PROJECT_ID] [OPTIONS]
+```
+
+| 参数/选项 | 默认值 | 说明 |
+| --- | --- | --- |
+| `PROJECT_ID` | （必填） | 离线实验 `projectId` |
+| `--page` | `1` | 开始页码（≥ 1） |
+| `--page-size` | `10` | 每页记录数（≥ 1） |
+| `--name` | `None` | 按 trial 名称模糊查询 |
+| `--type` | `None` | 按 trial 类型模糊查询 |
+| `--creator` | `None` | 按创建者模糊查询 |
+| `--updater` | `None` | 按修改者模糊查询 |
+| `--ai-module` | `None` | 按 AI 模块模糊查询 |
+| `--output`, `-o` | 当前环境 `output_format`（`table`） | 输出格式：`table` 或 `json` |
+
+> 表格仅展示：`trial名称`、`类型`、`创建者`、`修改者`、`创建时间`、`更新时间`、`调度状态`、`描述`。其中 `batch` 显示为“批式”，其他类型显示为“流式”；调度状态的 `true` 显示为“调度开启”、`false` 显示为“调度停止”，其他值显示为 `-`。
+
 ### `ml offline experiment clone`
 
 查询源实验详情并同步克隆，**仅修改实验名称**（其余字段如 `businessId`、`teamId`、`configId` 等保持原样）。
@@ -377,6 +400,7 @@ ml offline experiment clone [PROJECT_ID] [OPTIONS]
 
 ```bash
 ml offline experiment list --page 1 --page-size 20 --name "训练"
+ml offline experiment trial list abc123 --type batch --page-size 20
 ml offline experiment clone abc123 --name "训练-副本"
 ml offline experiment clone abc123 --name "训练-副本" -y
 ml offline experiment clone abc123 --name "训练-副本" --dry-run

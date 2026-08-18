@@ -91,6 +91,24 @@ class CliEnvironmentCommandTest(unittest.TestCase):
         self.assertIn("--dry-run", result.output)
         self.assertIn("--yes", result.output)
 
+    def test_offline_experiment_trial_list_command_is_available(self):
+        result = self.runner.invoke(
+            app,
+            [
+                "--config",
+                str(self.config_path),
+                "offline",
+                "experiment",
+                "trial",
+                "list",
+                "--help",
+            ],
+        )
+
+        self.assertEqual(result.exit_code, 0, result.output)
+        self.assertIn("PROJECT_ID", result.output)
+        self.assertIn("--ai-module", result.output)
+
 
 if __name__ == "__main__":
     unittest.main()

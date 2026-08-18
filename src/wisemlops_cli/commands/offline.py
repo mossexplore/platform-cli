@@ -14,7 +14,9 @@ from .common import fail, runtime_from_context
 
 offline_app = typer.Typer(no_args_is_help=True, help="离线业务管理")
 experiment_app = typer.Typer(no_args_is_help=True, help="离线实验管理")
+trial_app = typer.Typer(no_args_is_help=True, help="离线实验 trial 管理")
 offline_app.add_typer(experiment_app, name="experiment")
+experiment_app.add_typer(trial_app, name="trial")
 
 TABLE_COLUMNS = (
     ("projectId", "projectId"),
@@ -31,6 +33,34 @@ TABLE_COLUMNS = (
 def _table_items(result: Dict[str, Any]) -> List[Dict[str, Any]]:
     return [
         {title: item.get(field) or "-" for title, field in TABLE_COLUMNS}
+        for item in result["items"]
+    ]
+
+
+def _trial_type(value: Any) -> str:
+    return "批式" if value == "batch" else "流式"
+
+
+def _schedule_status(value: Any) -> str:
+    if value is True:
+        return "调度开启"
+    if value is False:
+        return "调度停止"
+    return "-"
+
+
+def _trial_table_items(result: Dict[str, Any]) -> List[Dict[str, Any]]:
+    return [
+        {
+            "trial名称": item.get("experimentName") or "-",
+            "类型": _trial_type(item.get("experimentType")),
+            "创建者": item.get("creator") or "-",
+            "修改者": item.get("updater") or "-",
+            "创建时间": item.get("createTime") or "-",
+            "更新时间": item.get("updateTime") or "-",
+            "调度状态": _schedule_status(item.get("cronIntervalStartFlag")),
+            "描述": item.get("description") or "-",
+        }
         for item in result["items"]
     ]
 
@@ -117,6 +147,55 @@ def list_experiments(
         )
         selected = output or runtime.config.current_profile().output_format
         rendered = result if selected.lower() == "json" else _table_items(result)
+        print_result(rendered, selected)
+    except Exception as exc:
+        fail(exc)
+
+
+@trial_app.command("list")
+def list_trials(
+    context: typer.Context,
+    project_id: str = typer.Argument(..., help="离线实验 projectId"),
+    page: int = typer.Option(1, "--page", min=1, help="开始页码"),
+    page_size: int = typer.Option(10, "--page-size", min=1, help="每页记录数"),
+    experiment_name: Optional[str] = typer.Option(
+        None, "--name", help="按 trial 名称模糊查询"
+    ),
+    experiment_type: Optional[str] = typer.Option(
+        None, "--type", help="按 trial 类型模糊查询"
+    ),
+    creator: Optional[str] = typer.Option(
+        None, "--creator", help="按创建者模糊查询"
+    ),
+    updater: Optional[str] = typer.Option(
+        None, "--updater", help="按修改者模糊查询"
+    ),
+    aimodule: Optional[str] = typer.Option(
+        None, "--ai-module", help="按 AI 模块模糊查询"
+    ),
+    output: Optional[str] = typer.Option(
+        None, "--output", "-o", help="输出格式: table 或 json"
+    ),
+) -> None:
+    """分页查询某个离线实验下的 trial。"""
+    try:
+        runtime = runtime_from_context(context)
+        result = runtime.authenticated_call(
+            lambda client: ExperimentService(client).list_trials(
+                project_id=project_id,
+                page_index=page,
+                page_size=page_size,
+                experiment_name=experiment_name,
+                experiment_type=experiment_type,
+                creator=creator,
+                updater=updater,
+                aimodule=aimodule,
+            )
+        )
+        selected = output or runtime.config.current_profile().output_format
+        rendered = (
+            result if selected.lower() == "json" else _trial_table_items(result)
+        )
         print_result(rendered, selected)
     except Exception as exc:
         fail(exc)
