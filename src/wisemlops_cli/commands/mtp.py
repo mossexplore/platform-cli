@@ -100,7 +100,13 @@ def list_projects(
         selected = _selected_output(runtime, output)
         rendered = result if selected.lower() == "json" else _items(
             result,
-            [("项目名称", "name"), ("项目描述", "description"), ("创建者", "creator"), ("创建时间", "createTime")],
+            [
+                ("项目id", "projectId"),
+                ("项目名称", "name"),
+                ("项目描述", "description"),
+                ("创建者", "creator"),
+                ("创建时间", "createTime"),
+            ],
         )
         print_result(rendered, selected)
     except Exception as exc:
@@ -123,7 +129,13 @@ def list_namespaces(
         selected = _selected_output(runtime, output)
         rendered = result if selected.lower() == "json" else _items(
             result,
-            [("项目空间id", "namespaceId"), ("实验id", "projectId"), ("描述", "description"), ("创建时间", "createTime")],
+            [
+                ("项目空间id", "namespaceId"),
+                ("实验id", "projectId"),
+                ("实验名称", "namespaceName"),
+                ("描述", "description"),
+                ("创建时间", "createTime"),
+            ],
         )
         print_result(rendered, selected)
     except Exception as exc:

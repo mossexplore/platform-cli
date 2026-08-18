@@ -345,7 +345,7 @@ ml mtp swanboard experiment config list EXPERIMENT_ID [OPTIONS]
 ml mtp swanboard experiment inspect EXPERIMENT_ID [OPTIONS]
 ```
 
-项目列表支持 `--page`、`--page-size`、`--team-id`、`--creator`；特性列表支持 `--page`、`--page-size`。所有命令支持 `--output` / `-o` 输出 table 或 json。
+项目列表支持 `--page`、`--page-size`、`--team-id`、`--creator`，表格依次展示项目 id、项目名称、项目描述、创建者和创建时间；项目空间列表在实验 id 后展示实验名称（`namespaceName`）；特性列表支持 `--page`、`--page-size`。所有命令支持 `--output` / `-o` 输出 table 或 json。
 
 `metrics` 默认查询 `loss` 和 `accuracy`，可通过重复传递 `--tag` 指定指标。表格将最大值、最小值和平均值格式化为四位小数。
 
@@ -354,11 +354,30 @@ ml mtp swanboard experiment inspect EXPERIMENT_ID [OPTIONS]
 ### 示例
 
 ```bash
-ml mtp swanboard project list --page 1 --page-size 20
-ml mtp swanboard project namespace list <PROJECT_ID>
-ml mtp swanboard project experiment list <PROJECT_ID> <NAMESPACE_ID>
-ml mtp swanboard experiment inspect <EXPERIMENT_ID>
-ml mtp swanboard experiment metrics <EXPERIMENT_ID> --tag loss
+# 查询训练看板项目；支持分页、团队和创建者筛选
+ml mtp swanboard project list --page 1 --page-size 10
+ml mtp swanboard project list --page 2 --page-size 20 --team-id team-a --creator a123456
+
+# 查询项目下全部项目空间
+ml mtp swanboard project namespace list dbbe11c4-5217-408e-89fb-8a8c148b32fd
+
+# 查询项目空间下全部实验
+ml mtp swanboard project experiment list \
+  dbbe11c4-5217-408e-89fb-8a8c148b32fd \
+  76a30af2-8955-4a8b-b547-dc6c13cf2039
+
+# 分别查询实验数据
+ml mtp swanboard experiment feature list 1b115cc7-6627-4fd0-a2f1-a020b4d83bce --page 1 --page-size 10
+ml mtp swanboard experiment environment get 1b115cc7-6627-4fd0-a2f1-a020b4d83bce
+ml mtp swanboard experiment metrics 1b115cc7-6627-4fd0-a2f1-a020b4d83bce
+ml mtp swanboard experiment metrics 1b115cc7-6627-4fd0-a2f1-a020b4d83bce --tag loss
+ml mtp swanboard experiment config list 1b115cc7-6627-4fd0-a2f1-a020b4d83bce
+
+# 一次性查询特性、环境、loss/accuracy 指标和配置
+ml mtp swanboard experiment inspect 1b115cc7-6627-4fd0-a2f1-a020b4d83bce
+
+# 获取可供脚本消费的 JSON
+ml mtp swanboard experiment inspect 1b115cc7-6627-4fd0-a2f1-a020b4d83bce --output json
 ```
 
 ---

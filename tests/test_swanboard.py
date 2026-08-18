@@ -3,6 +3,7 @@ import unittest
 from wisemlops_cli.commands.mtp import (
     _config_items,
     _environment_item,
+    _items,
     _metric_items,
 )
 from wisemlops_cli.errors import ApiError
@@ -111,6 +112,36 @@ class SwanBoardServiceTest(unittest.TestCase):
 
 
 class SwanBoardOutputTest(unittest.TestCase):
+    def test_project_table_puts_project_id_before_project_name(self):
+        rows = _items(
+            {"items": [{"projectId": "project-id", "name": "board"}]},
+            [("项目id", "projectId"), ("项目名称", "name")],
+        )
+
+        self.assertEqual(list(rows[0]), ["项目id", "项目名称"])
+        self.assertEqual(rows[0]["项目id"], "project-id")
+
+    def test_namespace_table_puts_name_after_project_id(self):
+        rows = _items(
+            {
+                "items": [
+                    {
+                        "namespaceId": "namespace-id",
+                        "projectId": "project-id",
+                        "namespaceName": "namespace-name",
+                    }
+                ]
+            },
+            [
+                ("项目空间id", "namespaceId"),
+                ("实验id", "projectId"),
+                ("实验名称", "namespaceName"),
+            ],
+        )
+
+        self.assertEqual(list(rows[0]), ["项目空间id", "实验id", "实验名称"])
+        self.assertEqual(rows[0]["实验名称"], "namespace-name")
+
     def test_environment_output_uses_required_fields(self):
         result = _environment_item(
             {"python": "3.9.18", "cpu": {"brand": "Intel"}, "memory": "122", "requirements": ["anyio==4.4.0", "httpx==0.27"]}
