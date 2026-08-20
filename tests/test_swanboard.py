@@ -104,6 +104,13 @@ class SwanBoardServiceTest(unittest.TestCase):
         self.assertEqual(client.calls[2][1], "/ai/backend/mtp/swanboard/tag/experiment/experiment/loss/stats")
         self.assertEqual(client.calls[3][1], "/ai/backend/mtp/swanboard/experiment/experiment/config")
 
+    def test_empty_environment_list_is_treated_as_no_environment_data(self):
+        client = FakeClient({"result": {"code": 0, "data": []}})
+
+        result = SwanBoardService(client).get_environment("experiment")
+
+        self.assertEqual(result, {})
+
     def test_rejects_failed_response(self):
         client = FakeClient({"result": {"code": 1001, "des": "无权限", "data": []}})
 

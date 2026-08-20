@@ -125,7 +125,7 @@ class ConfigManagerTest(unittest.TestCase):
         _sync_packaged_config(destination)
         self.assertEqual(ConfigManager(destination).current_name, "test")
 
-        with patch("wisemlops_cli.config.__version__", "0.3.25"):
+        with patch("wisemlops_cli.config.__version__", "0.3.26"):
             _sync_packaged_config(destination)
         self.assertEqual(ConfigManager(destination).current_name, "dev")
 

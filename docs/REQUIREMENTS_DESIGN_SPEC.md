@@ -7,7 +7,7 @@
 | 项目名称 | WiseMLOps Python CLI |
 | Python 包名 | `wisemlops-cli` |
 | 命令名 | `ml` |
-| 当前代码版本 | `0.3.24` |
+| 当前代码版本 | `0.3.25` |
 | 目标平台 | Windows 优先，兼容 macOS/Linux 的基础路径逻辑 |
 | 文档整理日期 | 2026-08-16 |
 | 代码仓库 | `mossexplore/platform-cli` |
@@ -600,7 +600,7 @@ ml offline experiment clone <PROJECT_ID> --name <NEW_NAME> --output json
 | macOS | `~/Library/Application Support/ml` |
 | Linux | `${XDG_CONFIG_HOME:-~/.config}/ml` |
 
-### 10.2 当前代码状态（0.3.24）
+### 10.2 当前代码状态（0.3.25）
 
 ```text
 ml/
@@ -900,6 +900,7 @@ spec:
 | `0.3.22` | 登录成功后在同一表格展示环境、账号、中文名、部门和租户 |
 | `0.3.23` | Windows 默认生成单一联网包，支持企业内部 Python 包源和 Python 3.12/3.13 安装 |
 | `0.3.24` | 新增 MTP 训练看板项目、实验及实验数据查询命令 |
+| `0.3.25` | 训练看板实验环境接口兼容空数组响应 |
 | 后续待实现 | `business.json`、`credentials.json` 随环境存放 |
 
 ## 16. 决策记录与废弃行为

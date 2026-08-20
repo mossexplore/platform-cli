@@ -120,7 +120,13 @@ class SwanBoardService:
             },
             headers={"businessid": self.client.business_id},
         )
-        return self._data(payload, "查询训练看板实验环境", dict)
+        result = self._result(payload, "查询训练看板实验环境")
+        data = result.get("data")
+        if data == []:
+            return {}
+        if not isinstance(data, dict):
+            raise ApiError("查询训练看板实验环境响应中的 result.data 格式错误")
+        return data
 
     def get_metric_stats(self, experiment_id: str, tag: str) -> Dict[str, Any]:
         selected_experiment_id = self._identifier(experiment_id, "experimentId")
