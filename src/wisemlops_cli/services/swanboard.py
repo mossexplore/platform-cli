@@ -152,7 +152,11 @@ class SwanBoardService:
             params={"businessId": self.client.business_id},
             headers={"businessid": self.client.business_id},
         )
-        return self._data(payload, "查询训练看板实验配置", dict)
+        result = self._result(payload, "查询训练看板实验配置")
+        data = result.get("data", {})
+        if not isinstance(data, dict):
+            raise ApiError("查询训练看板实验配置响应中的 result.data 格式错误")
+        return data
 
     def inspect_experiment(self, experiment_id: str) -> Dict[str, Any]:
         """查询实验的特性、环境、默认指标和配置。"""

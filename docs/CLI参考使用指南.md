@@ -1,6 +1,6 @@
 # 命令行参考使用指南
 
-`ml` 是 **WiseMLOps 平台** 的 Python 命令行客户端（包名 `wisemlops-cli`，当前版本 `0.3.25`）。
+`ml` 是 **WiseMLOps 平台** 的 Python 命令行客户端（包名 `wisemlops-cli`，当前版本 `0.3.26`）。
 本文档是每一个 `ml` 子命令、参数、配置项与退出行为的完整参考。
 
 > 阅读前提：首次使用请先完成 `ml login`。所有业务命令（除 `login`/`logout`/`env`/`auth status` 外）都要求已登录且已选择租户或团队（见 `ml business use`）。

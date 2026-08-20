@@ -111,6 +111,13 @@ class SwanBoardServiceTest(unittest.TestCase):
 
         self.assertEqual(result, {})
 
+    def test_missing_config_data_is_treated_as_no_configuration(self):
+        client = FakeClient({"result": {"code": 0, "des": "success"}})
+
+        result = SwanBoardService(client).get_config("experiment")
+
+        self.assertEqual(result, {})
+
     def test_rejects_failed_response(self):
         client = FakeClient({"result": {"code": 1001, "des": "无权限", "data": []}})
 
