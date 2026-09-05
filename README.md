@@ -211,6 +211,36 @@ ml mep config get mep_service_access_type --output json
 恢复。使用 `--forget-browser` 会同时删除专用 Edge Profile，之后可能需要重新输入
 验证码。
 
+## 训练任务与执行实例查询
+
+```powershell
+ml train list
+ml train list --name wiserec --page 2 --page-size 20
+ml train list --output json
+ml train instance list f3483dc5-4525-4e50-8af7-a4117541f1dc
+ml train instance list f3483dc5-4525-4e50-8af7-a4117541f1dc -o json
+```
+
+训练任务列表默认查询第 1 页、每页 10 条，`--name` 按任务名称模糊查询。
+业务 ID 自动取当前环境的业务选择；未选择时先执行 `ml business use`。
+除名称和分页参数外，列表请求的其他筛选字段固定使用管理台默认值。
+
+执行实例命令接受完整任务 ID，自动逐页查找当前业务下的任务，再使用任务记录
+返回的 `businessId` 和 `taskType` 查询实例；无需预先运行列表命令。
+任务较多时查找会产生多次请求。实例固定返回第 1 页、每页 10 条，按 `createTime`
+升序排列，暂不开放分页和排序参数；超过 10 条时表格会提示未展示全部实例。
+
+表格展示空值为 `-`，数值零保留。大小按 1024 进制转换：零显示 `0B`，不足 1G
+显示两位小数的 `M`，其余显示两位小数的 `G`。毫秒时间戳统一按上海时间
+（Asia/Shanghai，UTC+08:00）显示为 `YYYY-MM-DD HH:mm:ss`。
+执行时长、内存和状态保留接口原值，不推测单位或状态中文含义；结束时间按
+管理台字段映射使用 `statusTime`。
+
+`--output json`（或 `-o json`）返回 `count`、`pageIndex`、`pageSize`、`items`，
+其中 `items` 保留完整原始记录，包括任务业务 ID、实例 `jobId`、空值、字节数和
+毫秒时间戳。登录提示发送到标准错误，不混入 JSON 标准输出。未指定输出格式时
+使用当前环境的 `output_format`。接口失败或任务不存在时命令以非零状态退出。
+
 ## 增加新接口
 
 通用认证、超时、重试和错误处理位于 `PlatformClient`。业务接口按领域放在

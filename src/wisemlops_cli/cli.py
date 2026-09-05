@@ -15,6 +15,7 @@ from .commands.env import env_app
 from .commands.mep import mep_app
 from .commands.mtp import mtp_app
 from .commands.offline import offline_app
+from .commands.train import train_app
 from .commands.user import user_app
 from .runtime import Runtime
 
@@ -33,6 +34,7 @@ app.add_typer(user_app, name="user")
 app.add_typer(mep_app, name="mep")
 app.add_typer(mtp_app, name="mtp")
 app.add_typer(offline_app, name="offline")
+app.add_typer(train_app, name="train")
 
 
 def version_callback(value: bool) -> None:
