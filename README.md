@@ -156,7 +156,8 @@ ml business refresh
 `ml business refresh` 会打开持久化 Edge Profile，重新读取浏览器中的业务目录并自动
 关闭 Edge。已选团队被删除或变为非 `available` 状态后，当前选择会失效，必须重新
 选择。旧版 `business.json` 不做迁移，登录或刷新时会直接根据浏览器缓存重新生成。
-所有平台业务请求都会统一携带当前选择对应的 `ai-businessId` 请求头。
+所有平台业务请求都会统一携带当前选择对应的 `ai-businessId` 和 `businessid`
+请求头，由统一客户端自动添加，新增业务接口无需逐个补充。
 
 `api.verify_ssl` 是所有环境的默认 HTTPS 证书校验设置。某个可信的内部环境需要
 单独关闭校验时，可在对应的 `profiles` 项中覆盖；其他环境继续继承全局设置：
