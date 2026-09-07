@@ -40,6 +40,22 @@ def download_filename(disposition: str, job_id: str) -> str:
     return filename
 
 
+def download_error_details(error: BaseException) -> str:
+    """保留异常链的诊断信息，避免在错误中重复暴露签名地址。"""
+    details = []
+    seen = set()
+    current: Optional[BaseException] = error
+    while current is not None and id(current) not in seen:
+        seen.add(id(current))
+        message = re.sub(r"https?://[^\s<>'\"]+", "<下载地址>", str(current))
+        prefix = "日志下载失败" if not details else "底层原因"
+        details.append(f"{prefix} ({type(current).__name__})：{message or '无详细消息'}")
+        current = current.__cause__ or (
+            current.__context__ if not current.__suppress_context__ else None
+        )
+    return "\n".join(details)
+
+
 def download_file(
     url: str, job_id: str, destination: Optional[Path] = None,
     *, progress: Optional[Callable[[int, Optional[int]], None]] = None,
@@ -93,9 +109,8 @@ def download_file(
                     # 同目录硬链接使完整文件一次性可见，目标竞争创建时也绝不覆盖。
                     os.link(temporary, target)
                     return target, received
-    except httpx.HTTPError:
-        # 异常通常包含签名 URL，不向用户回显。
-        raise ApiError("日志下载失败：网络连接、证书校验、超时或传输异常，请重试") from None
+    except httpx.HTTPError as exc:
+        raise ApiError(download_error_details(exc)) from None
     except OSError as exc:
         raise ApiError(f"日志保存失败：{exc.strerror}") from None
     finally:

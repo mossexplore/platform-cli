@@ -1,5 +1,6 @@
 import inspect
 import json
+import ssl
 import tempfile
 import unittest
 from pathlib import Path
@@ -59,6 +60,29 @@ class LogServiceTest(unittest.TestCase):
 
 
 class DownloaderTest(unittest.TestCase):
+    def test_network_error_reports_type_message_and_underlying_cause(self):
+        def handler(request):
+            try:
+                raise ssl.SSLCertVerificationError("certificate verify failed: unable to get local issuer certificate")
+            except ssl.SSLCertVerificationError as cause:
+                raise httpx.ConnectError("TLS connection failed", request=request) from cause
+        with self.assertRaises(ApiError) as caught:
+            download_file("https://files.example/log", "j", self.path,
+                          transport=httpx.MockTransport(handler))
+        message = str(caught.exception)
+        self.assertIn("ConnectError", message)
+        self.assertIn("TLS connection failed", message)
+        self.assertIn("SSLCertVerificationError", message)
+        self.assertIn("unable to get local issuer certificate", message)
+        self.assertEqual(list(self.path.parent.iterdir()), [])
+
+    def test_connection_error_without_cause_is_preserved(self):
+        def handler(request):
+            raise httpx.ConnectError("[Errno 61] Connection refused", request=request)
+        with self.assertRaisesRegex(ApiError, "ConnectError.*Connection refused"):
+            download_file("https://files.example/log", "j", self.path,
+                          transport=httpx.MockTransport(handler))
+
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
         self.addCleanup(self.tmp.cleanup)
@@ -125,6 +149,8 @@ class DownloaderTest(unittest.TestCase):
                     download_file("https://files.example/log?signature=secret", "j", self.path,
                                   transport=httpx.MockTransport(handler))
                 self.assertNotIn("signature=secret", str(caught.exception))
+                if "ReadError" in str(caught.exception):
+                    self.assertIn("<下载地址>", str(caught.exception))
                 self.assertEqual(list(self.path.parent.iterdir()), [])
 
 
