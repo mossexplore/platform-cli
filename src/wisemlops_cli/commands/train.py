@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import sys
+import time
 from contextlib import redirect_stdout
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, Optional
@@ -40,6 +41,7 @@ HISTORY_COLUMNS = (
     ("状态", "status"), ("集群", "poolName"), ("节点数", "infraSize"),
     ("执行时长", "runningTime"), ("大小", "fileSize"),
     ("检查时间", "checkTime"), ("开始时间", "createTime"), ("结束时间", "statusTime"),
+    ("触发方式", "actionType"), ("存储桶", "bucketName"),
 )
 TIME_FIELDS = {"updateTime", "latestRunTime", "checkTime", "createTime", "statusTime"}
 # 现代上海时间固定 UTC+08:00，避免 Windows 额外依赖系统 IANA 时区数据库。
@@ -75,8 +77,17 @@ def render_page(
     table = Table(show_header=True, header_style="bold cyan")
     for title, _ in columns:
         table.add_column(title, overflow="fold", min_width=1)
+    now_ms = int(time.time() * 1000)
     for item in result["items"]:
-        table.add_row(*(Text(display_value(field, item.get(field))) for _, field in columns))
+        cells = []
+        for _, field in columns:
+            if task is not None and history_task_id is None and field == "runningTime":
+                start = item.get("createTime")
+                rendered = "-" if start is None or start == "" else f"{max(0, int((now_ms - start) // 60000))}分钟"
+            else:
+                rendered = display_value(field, item.get(field))
+            cells.append(Text(rendered))
+        table.add_row(*cells)
     console.print(table)
     if not result["items"]:
         empty_message = "暂无执行实例" if task is not None else "暂无训练任务"

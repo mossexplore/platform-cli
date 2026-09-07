@@ -237,7 +237,11 @@ ml train instance list f3483dc5-4525-4e50-8af7-a4117541f1dc -o json
 执行实例表格依次展示：算法id、算法名称、CPU、GPU、内存、状态、执行节点、
 集群、触发方式、开始时间、执行时长、存储桶。执行节点取 `hostIp`，触发方式取
 `actionType`，开始时间取 `createTime`，存储桶取 `bucketName`。
-执行时长、内存、状态和触发方式保留接口原值，不推测单位或中文含义。
+执行实例的执行时长按查询结果展示时的当前时间减去 `createTime` 计算，以整分钟
+显示，舍去不足一分钟的部分（例如 85 秒显示 `1分钟`）；开始时间为空时显示 `-`，
+不足一分钟或开始时间晚于当前时间时显示 `0分钟`。
+同一表格使用同一个当前时间。内存、状态和触发方式保留接口原值，不推测单位或中文含义。
+执行记录的执行时长及 JSON 中的 `runningTime` 仍保留接口原值。
 
 `--output json`（或 `-o json`）返回 `count`、`pageIndex`、`pageSize`、`items`，
 其中 `items` 保留完整原始记录，包括任务业务 ID、实例 `jobId`、空值、字节数和
@@ -257,7 +261,8 @@ ml train history list 31835f9d-7464-429c-844b-3e393be2a4a0 -o json
 字符串 `latestFlag="true"` 和空状态筛选，暂不开放分页、排序或筛选参数。
 
 表格依次展示：算法id、算法名称、CPU、GPU、内存、状态、集群、节点数、执行时长、
-大小、检查时间、开始时间、结束时间。三个时间字段分别取 `checkTime`、`createTime`、
+大小、检查时间、开始时间、结束时间、触发方式、存储桶。触发方式取 `actionType`，
+存储桶取 `bucketName`。三个时间字段分别取 `checkTime`、`createTime`、
 `statusTime`，沿用上海时区及上述大小、空值展示规则。空列表显示“暂无执行记录”，
 不据此判断任务不存在；总数超过 10 条时提示只展示第一页。
 JSON 继续使用 `count`、`pageIndex`、`pageSize`、`items`，保留完整原始记录。
