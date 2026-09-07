@@ -60,6 +60,14 @@ class LogServiceTest(unittest.TestCase):
 
 
 class DownloaderTest(unittest.TestCase):
+    def test_download_disables_certificate_verification(self):
+        real_client = httpx.Client
+        with patch("wisemlops_cli.downloads.httpx.Client", wraps=real_client) as client:
+            download_file("https://files.example/log", "j", self.path,
+                          transport=httpx.MockTransport(lambda r: self.response()))
+        self.assertIs(client.call_args.kwargs["verify"], False)
+        self.assertEqual(self.path.read_bytes(), b"log bytes")
+
     def test_network_error_reports_type_message_and_underlying_cause(self):
         def handler(request):
             try:

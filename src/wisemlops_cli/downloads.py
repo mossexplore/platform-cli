@@ -65,7 +65,7 @@ def download_file(
     current = https_url(url)
     temporary = None
     try:
-        with httpx.Client(verify=True, timeout=60, follow_redirects=False,
+        with httpx.Client(verify=False, timeout=60, follow_redirects=False,
                           transport=transport, headers={"Accept-Encoding": "identity"}) as client:
             for redirect in range(6):
                 client.cookies.clear()
