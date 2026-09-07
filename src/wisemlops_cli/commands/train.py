@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import sys
 import time
-import os
 from contextlib import redirect_stdout
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -128,8 +127,6 @@ def download_logs(
     try:
         if file is not None:
             file = file.expanduser().absolute()
-            if os.path.lexists(file):
-                raise ValueError(f"目标文件已存在：{file}")
             if not file.parent.is_dir():
                 raise ValueError(f"目标目录不存在：{file.parent}")
         runtime = runtime_from_context(context)

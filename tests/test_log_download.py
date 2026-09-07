@@ -119,7 +119,9 @@ class DownloaderTest(unittest.TestCase):
     def test_default_filename_and_traversal(self):
         self.assertEqual(download_filename('attachment; filename="../../logs.zip"', "j"), "logs.zip")
         self.assertEqual(download_filename("attachment; filename*=UTF-8''%E6%97%A5%E5%BF%97.zip", "j"), "日志.zip")
-        self.assertEqual(download_filename("", "j"), "j-logs")
+        self.assertEqual(download_filename("", "j"), "j-logs.zip")
+        self.assertEqual(download_filename('attachment; filename="train.log"', "j"), "train.log.zip")
+        self.assertEqual(download_filename('attachment; filename="train.ZIP"', "j"), "train.ZIP")
         with patch("wisemlops_cli.downloads.Path", wraps=Path) as paths:
             paths.side_effect = lambda value: self.path.parent / value
             target, _ = download_file("https://files.example/log", "j", transport=httpx.MockTransport(
@@ -129,16 +131,20 @@ class DownloaderTest(unittest.TestCase):
 
     def test_existing_file_and_race_never_overwrite(self):
         self.path.write_bytes(b"original")
-        with self.assertRaises(ApiError):
-            download_file("https://files.example/log", "j", self.path,
-                          transport=httpx.MockTransport(lambda r: self.response()))
+        self.path.with_name("log (1).zip").write_bytes(b"previous")
+        saved, _ = download_file("https://files.example/log", "j", self.path,
+                                 transport=httpx.MockTransport(lambda r: self.response()))
+        self.assertEqual(saved.name, "log (2).zip")
+        self.assertEqual(saved.read_bytes(), b"log bytes")
+        self.assertEqual(self.path.with_name("log (1).zip").read_bytes(), b"previous")
         self.assertEqual(self.path.read_bytes(), b"original")
         other = self.path.parent / "race.log"
         def race(done, total):
             other.write_bytes(b"competing")
-        with self.assertRaises(ApiError):
-            download_file("https://files.example/log", "j", other, progress=race,
-                          transport=httpx.MockTransport(lambda r: self.response()))
+        saved, _ = download_file("https://files.example/log", "j", other, progress=race,
+                                 transport=httpx.MockTransport(lambda r: self.response()))
+        self.assertEqual(saved.name, "race (1).log")
+        self.assertEqual(saved.read_bytes(), b"log bytes")
         self.assertEqual(other.read_bytes(), b"competing")
         self.assertFalse(list(self.path.parent.glob("*.part")))
 
@@ -184,5 +190,5 @@ class DownloadCommandTest(unittest.TestCase):
                 self.assertIn("认证提示", result.stderr)
                 path.write_text("existing")
                 result = runner.invoke(app, ["train", "history", "logs", "download", "t", "j", "--file", str(path)])
-                self.assertNotEqual(result.exit_code, 0)
-                self.assertEqual(download.call_count, 1)
+                self.assertEqual(result.exit_code, 0, result.output)
+                self.assertEqual(download.call_count, 2)

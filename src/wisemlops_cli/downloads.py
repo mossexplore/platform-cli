@@ -37,6 +37,8 @@ def download_filename(disposition: str, job_id: str) -> str:
         *(f"LPT{i}" for i in range(1, 10)),
     }:
         filename = "_" + filename
+    if not filename.lower().endswith(".zip"):
+        filename += ".zip"
     return filename
 
 
@@ -84,8 +86,6 @@ def download_file(
                         download_filename(response.headers.get("content-disposition", ""), job_id)
                     )
                     target = target.expanduser().absolute()
-                    if os.path.lexists(target):
-                        raise ApiError(f"目标文件已存在：{target}")
                     if not target.parent.is_dir():
                         raise ApiError(f"目标目录不存在：{target.parent}")
                     length = response.headers.get("content-length", "")
@@ -107,8 +107,15 @@ def download_file(
                         output.flush()
                         os.fsync(output.fileno())
                     # 同目录硬链接使完整文件一次性可见，目标竞争创建时也绝不覆盖。
-                    os.link(temporary, target)
-                    return target, received
+                    candidate = target
+                    number = 0
+                    while True:
+                        try:
+                            os.link(temporary, candidate)
+                            return candidate, received
+                        except FileExistsError:
+                            number += 1
+                            candidate = target.with_name(f"{target.stem} ({number}){target.suffix}")
     except httpx.HTTPError as exc:
         raise ApiError(download_error_details(exc)) from None
     except OSError as exc:
