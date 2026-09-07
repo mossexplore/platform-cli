@@ -81,15 +81,19 @@ def render_page(
         console.print(f"任务 ID：{history_task_id}", markup=False)
         columns = HISTORY_COLUMNS
     table = Table(show_header=True, header_style="bold cyan")
-    for title, _ in columns:
-        table.add_column(title, overflow="fold", min_width=1)
+    for title, field in columns:
+        if field == "jobId":
+            table.add_column(title, width=36, min_width=36, max_width=36,
+                             no_wrap=True, overflow="ignore")
+        else:
+            table.add_column(title, overflow="fold", min_width=1)
     now_ms = int(time.time() * 1000)
     for item in result["items"]:
         cells = []
         for _, field in columns:
             if task is not None and history_task_id is None and field == "runningTime":
                 start = item.get("createTime")
-                rendered = "-" if start is None or start == "" else f"{max(0, int((now_ms - start) // 60000))}分钟"
+                rendered = "-" if start is None or start == "" else f"{max(0, int((now_ms - start) // 60000))}min"
             else:
                 rendered = display_value(field, item.get(field))
             cells.append(Text(rendered))

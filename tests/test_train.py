@@ -176,8 +176,8 @@ class TrainOutputTest(unittest.TestCase):
                      if isinstance(call.args[0], Table))
         duration = next(column for column in table.columns if column.header == "执行时长")
         self.assertEqual([cell.plain for cell in duration._cells],
-                         ["1分钟", "-", "-", "-", "0分钟", f"{now_ms // 60000}分钟",
-                          "0分钟", "1分钟"])
+                         ["1min", "-", "-", "-", "0min", f"{now_ms // 60000}min",
+                          "0min", "1min"])
         clock.assert_called_once_with()
         self.assertEqual(items[0]["runningTime"], 999)
 
