@@ -16,40 +16,35 @@ from wisemlops_cli.services.train import TrainService
 import test_client
 
 
-JOB = {"jobId": "j", "taskId": "t", "businessId": "record-business", "taskName": "任务 & name"}
-
-
 class LogServiceTest(unittest.TestCase):
-    def test_record_mapping_encoded_query_and_headers(self):
+    def test_direct_user_ids_encoded_query_and_headers(self):
         requests = []
         def handler(request):
             requests.append(request)
-            if request.method == "POST":
-                self.assertEqual(json.loads(request.content)["taskId"], "t")
-                return httpx.Response(200, json={"result": {"code": 0, "count": 1, "jobs": [JOB]}})
+            self.assertEqual(request.method, "GET")
             self.assertEqual(request.url.path, "/ai/backend/mtp/traintask/downloadLogUrl")
             self.assertEqual(dict(request.url.params), {
-                "jobId": "j", "taskId": "t", "businessId": "record-business",
-                "target": "任务 & name", "isApplicantPromise": "true",
+                "jobId": "job & id", "taskId": " task-id ", "businessId": "mep",
+                "isApplicantPromise": "true",
             })
-            self.assertEqual(request.headers["businessid"], "record-business")
+            self.assertEqual(request.headers["businessid"], "mep")
             return httpx.Response(200, json={"result": {"code": 0, "des": "success", "url": "https://files.example/log"}})
         with test_client.PlatformClientTest().create_client(handler) as client:
-            self.assertEqual(TrainService(client).get_log_url("t", "j"), "https://files.example/log")
-        self.assertEqual(len(requests), 2)
+            self.assertEqual(TrainService(client).get_log_url(" task-id ", "job & id"), "https://files.example/log")
+        self.assertEqual(len(requests), 1)
 
-    def test_invalid_records_stop_before_url_request(self):
-        for records in ([], [dict(JOB, taskId="other")], [dict(JOB, businessId=None)],
-                        [dict(JOB, taskName="")], [JOB, JOB]):
-            with self.subTest(records=records):
-                calls = []
-                def request(*args, **kwargs):
-                    calls.append(args)
-                    return {"result": {"code": 0, "count": len(records), "jobs": records}}
-                client = SimpleNamespace(business_id="b", request=request)
-                with self.assertRaises(ApiError):
-                    TrainService(client).get_log_url("t", "j")
-                self.assertEqual(len(calls), 1)
+    def test_invalid_ids_are_forwarded_and_server_error_is_reported(self):
+        for task_id, job_id in (("missing-task", "missing-job"), ("", "")):
+            calls = []
+            def request(*args, **kwargs):
+                calls.append(kwargs)
+                return {"result": {"code": 1234, "des": "记录不存在"}}
+            client = SimpleNamespace(business_id="b", request=request)
+            with self.assertRaisesRegex(ApiError, "code=1234，des=记录不存在"):
+                TrainService(client).get_log_url(task_id, job_id)
+            self.assertEqual(len(calls), 1)
+            self.assertEqual(calls[0]["params"]["taskId"], task_id)
+            self.assertEqual(calls[0]["params"]["jobId"], job_id)
 
     def test_url_requires_exact_success_and_https(self):
         results = [{"code": 1, "des": "denied"}, {"code": 0, "des": "ok", "url": "https://host/log"},
@@ -57,7 +52,7 @@ class LogServiceTest(unittest.TestCase):
         results += [{"code": 0, "des": "success", "url": url} for url in
                     (None, "", "http://host/log", "https://", "https://user:password@host/log")]
         for result in results:
-            responses = iter([{"result": {"code": 0, "count": 1, "jobs": [JOB]}}, {"result": result}])
+            responses = iter([{"result": result}])
             client = SimpleNamespace(business_id="b", request=lambda *a, **kw: next(responses))
             with self.subTest(result=result), self.assertRaisesRegex(ApiError, "code=.*des="):
                 TrainService(client).get_log_url("t", "j")
@@ -150,7 +145,8 @@ class DownloadCommandTest(unittest.TestCase):
                 result = runner.invoke(app, ["train", "history", "logs", "download", "t", "j", "--file", str(path)])
                 self.assertEqual(result.exit_code, 0, result.output)
                 self.assertEqual(json.loads(result.stdout), {"taskId": "t", "jobId": "j", "path": str(path), "bytes": 12, "status": "downloaded"})
-                self.assertNotIn("signature=secret", result.stdout + result.stderr)
+                self.assertIn("https://files.example/log?signature=secret", result.stderr)
+                self.assertNotIn("signature=secret", result.stdout)
                 self.assertIn("认证提示", result.stderr)
                 path.write_text("existing")
                 result = runner.invoke(app, ["train", "history", "logs", "download", "t", "j", "--file", str(path)])

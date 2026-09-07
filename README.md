@@ -234,7 +234,7 @@ ml train instance list f3483dc5-4525-4e50-8af7-a4117541f1dc -o json
 表格展示空值为 `-`，数值零保留。大小按 1024 进制转换：零显示 `0B`，不足 1G
 显示两位小数的 `M`，其余显示两位小数的 `G`。毫秒时间戳统一按上海时间
 （Asia/Shanghai，UTC+08:00）显示为 `YYYY-MM-DD HH:mm:ss`。
-执行实例表格依次展示：算法id、算法名称、CPU、GPU、内存、状态、执行节点、
+执行实例表格依次展示：作业ID（`jobId`）、算法名称、CPU、GPU、内存、状态、执行节点、
 集群、触发方式、开始时间、执行时长、存储桶。执行节点取 `hostIp`，触发方式取
 `actionType`，开始时间取 `createTime`，存储桶取 `bucketName`。
 执行实例的执行时长按查询结果展示时的当前时间减去 `createTime` 计算，以整分钟
@@ -260,7 +260,7 @@ ml train history list 31835f9d-7464-429c-844b-3e393be2a4a0 -o json
 查询固定第 1 页、每页 10 条，按 `createTime` 倒序，使用 `source="history"`、
 字符串 `latestFlag="true"` 和空状态筛选，暂不开放分页、排序或筛选参数。
 
-表格依次展示：执行记录 ID（`jobId`）、算法id、算法名称、CPU、GPU、内存、状态、集群、节点数、执行时长、
+表格依次展示：作业ID（`jobId`）、算法名称、CPU、GPU、内存、状态、集群、节点数、执行时长、
 大小、检查时间、开始时间、结束时间、触发方式、存储桶。触发方式取 `actionType`，
 存储桶取 `bucketName`。三个时间字段分别取 `checkTime`、`createTime`、
 `statusTime`，沿用上海时区及上述大小、空值展示规则。空列表显示“暂无执行记录”，
@@ -275,10 +275,9 @@ ml train history logs download <task-id> <job-id> --file ./logs/train.log
 ml train history logs download <task-id> <job-id> --file ./logs/train.log -o json
 ```
 
-从执行记录表格首列复制 `jobId`。命令在该任务第一页 10 条执行记录中精确查找
-`jobId`，校验所属任务，并使用记录的 `jobId`、`taskId`、`businessId`、`taskName`
-获取下载地址。未找到记录或缺少必要字段时直接报错；不扫描其他页，也不猜测业务 ID。
-获取地址时 `businessid` 请求头取记录的业务 ID，`target` 取记录的任务名称，
+命令直接将用户输入的 `jobId`、`taskId` 传给下载地址接口，不预先查询执行记录，
+不进行 ID 有效性或归属校验，也不受执行记录第一页 10 条限制。
+`businessId` 参数和 `businessid` 请求头使用当前业务选择，不再发送 `target`。
 `isApplicantPromise` 固定发送 `true`。仅在 `code=0`、`des=success` 且 URL 为有效
 HTTPS 地址时开始下载，否则显示错误码及描述。
 
@@ -290,7 +289,8 @@ CLI 直接流式下载，不需要打开浏览器。下载及最多 5 次 HTTPS 
 
 下载进度发送到标准错误。完成摘要包含 `taskId`、`jobId`、绝对保存路径 `path`、
 实际字节数 `bytes` 和 `status=downloaded`；`-o json` 仅在标准输出打印 JSON 摘要，
-不打印可能含签名的下载地址。HTTP 错误、超时、连接中断或本地写入失败时非零退出。
+获取有效地址后，下载开始前在标准错误完整打印 URL（包含查询参数），便于复制使用。
+ID 有误时显示接口返回的 `code` 和 `des`。HTTP 错误、超时、连接中断或本地写入失败时非零退出。
 
 ## 增加新接口
 

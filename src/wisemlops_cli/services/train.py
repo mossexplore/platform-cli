@@ -103,27 +103,13 @@ class TrainService:
         return self._page(self._result(payload), "jobs", 1, 10)
 
     def get_log_url(self, task_id: str, job_id: str) -> str:
-        task_id, job_id = task_id.strip(), job_id.strip()
-        if not task_id or not job_id:
-            raise ValueError("taskId 和 jobId 不能为空")
-        matches = [job for job in self.list_history(task_id)["items"]
-                   if job.get("jobId") == job_id]
-        if not matches:
-            raise ApiError("当前返回的执行记录中未找到该 jobId；目前仅查询第一页 10 条")
-        if len(matches) != 1:
-            raise ApiError("执行记录中的 jobId 重复，无法定位下载记录")
-        job = matches[0]
-        if job.get("taskId") != task_id:
-            raise ApiError("执行记录 taskId 与查询任务不一致")
-        for field in ("businessId", "taskName"):
-            if not isinstance(job.get(field), str) or not job[field].strip():
-                raise ApiError(f"执行记录缺少有效的 {field}")
+        """直接提交用户 ID，由下载地址接口验证其有效性。"""
         payload = self.client.request(
             "GET", "/ai/backend/mtp/traintask/downloadLogUrl",
-            params={"jobId": job["jobId"], "taskId": job["taskId"],
-                    "businessId": job["businessId"], "target": job["taskName"],
+            params={"jobId": job_id, "taskId": task_id,
+                    "businessId": self.client.business_id,
                     "isApplicantPromise": "true"},
-            headers={"businessid": job["businessId"]},
+            headers={"businessid": self.client.business_id},
         )
         result = payload.get("result") if isinstance(payload, dict) else None
         if not isinstance(result, dict):

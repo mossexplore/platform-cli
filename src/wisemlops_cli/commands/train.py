@@ -35,15 +35,14 @@ TASK_COLUMNS = (
     ("最新执行时间", "latestRunTime"), ("大小", "fileSize"), ("描述", "description"),
 )
 INSTANCE_COLUMNS = (
-    ("算法id", "algorithmId"), ("算法名称", "algorithmName"),
+    ("作业ID", "jobId"), ("算法名称", "algorithmName"),
     ("CPU", "cpuSize"), ("GPU", "gpuSize"), ("内存", "memorySize"),
     ("状态", "status"), ("执行节点", "hostIp"), ("集群", "poolName"),
     ("触发方式", "actionType"), ("开始时间", "createTime"),
     ("执行时长", "runningTime"), ("存储桶", "bucketName"),
 )
 HISTORY_COLUMNS = (
-    ("执行记录 ID", "jobId"),
-    ("算法id", "algorithmId"), ("算法名称", "algorithmName"),
+    ("作业ID", "jobId"), ("算法名称", "algorithmName"),
     ("CPU", "cpuSize"), ("GPU", "gpuSize"), ("内存", "memorySize"),
     ("状态", "status"), ("集群", "poolName"), ("节点数", "infraSize"),
     ("执行时长", "runningTime"), ("大小", "fileSize"),
@@ -123,9 +122,6 @@ def download_logs(
 ) -> None:
     """获取日志地址并下载；发送 isApplicantPromise=true，不覆盖已有文件。"""
     try:
-        task_id, job_id = task_id.strip(), job_id.strip()
-        if not task_id or not job_id:
-            raise ValueError("taskId 和 jobId 不能为空")
         if file is not None:
             file = file.expanduser().absolute()
             if os.path.lexists(file):
@@ -138,6 +134,7 @@ def download_logs(
             url = runtime.authenticated_call(
                 lambda client: TrainService(client).get_log_url(task_id, job_id)
             )
+        print(f"下载地址：{url}", file=sys.stderr, flush=True)
         with Progress(TextColumn("下载日志"), BarColumn(), DownloadColumn(),
                       console=error_console) as progress:
             progress_id = progress.add_task("logs", total=None)

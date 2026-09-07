@@ -199,19 +199,18 @@ class TrainOutputTest(unittest.TestCase):
         table = next(call.args[0] for call in output.print.call_args_list
                      if isinstance(call.args[0], Table))
         self.assertEqual([column.header for column in table.columns], [
-            "执行记录 ID",
-            "算法id", "算法名称", "CPU", "GPU", "内存", "状态", "集群",
+            "作业ID", "算法名称", "CPU", "GPU", "内存", "状态", "集群",
             "节点数", "执行时长", "大小", "检查时间", "开始时间", "结束时间",
             "触发方式", "存储桶",
         ])
         self.assertEqual([column._cells[0].plain for column in table.columns], [
             "job-id",
-            "algo-id", "algo-name", "32", "0", "256", "CANCELED", "pool",
+            "algo-name", "32", "0", "256", "CANCELED", "pool",
             "1", "11", "93.20M", *(["2026-07-31 11:01:30"] * 3),
             "manual", "history-bucket",
         ])
         self.assertEqual([column._cells[1].plain for column in table.columns],
-                         ["-", "-", "-", "-", "0", "-", "-", "-", "-", "-", "0B", "-", "-", "-", "-", "-"])
+                         ["-", "-", "-", "0", "-", "-", "-", "-", "-", "0B", "-", "-", "-", "-", "-"])
         output.print.assert_any_call("任务 ID：task-id", markup=False)
         output.print.assert_any_call("当前仅展示第 1 页 10 条，暂不支持翻页；按开始时间倒序排列。")
 
@@ -276,7 +275,7 @@ class TrainOutputTest(unittest.TestCase):
 
     def test_table_formats_records_without_mutating_them(self):
         task = {"taskId": "task-id", "taskName": "[bold]literal"}
-        item = {"algorithmId": "algorithm-id", "algorithmName": "algorithm",
+        item = {"jobId": "instance-job-id", "algorithmId": "algorithm-id", "algorithmName": "algorithm",
                 "gpuSize": 0, "fileSize": 145755572, "createTime": 1785466890000,
                 "hostIp": "10.0.0.1", "actionType": "manual", "bucketName": "train-bucket"}
         stream = io.StringIO()
@@ -284,9 +283,9 @@ class TrainOutputTest(unittest.TestCase):
             render_page({"count": 1, "pageIndex": 1, "pageSize": 10, "items": [item]},
                         "table", task)
         self.assertNotIn("139.00M", stream.getvalue())
-        for value in ("10.0.0.1", "manual", "train-bucket"):
+        for value in ("作业ID", "instance-job-id", "10.0.0.1", "manual", "train-bucket"):
             self.assertIn(value, stream.getvalue())
-        for removed in ("节点数", "检查时间", "结束时间", "大小"):
+        for removed in ("算法id", "algorithm-id", "节点数", "检查时间", "结束时间", "大小"):
             self.assertNotIn(removed, stream.getvalue())
         self.assertIn("2026-07-31 11:01:30", stream.getvalue())
         self.assertEqual(item["fileSize"], 145755572)
