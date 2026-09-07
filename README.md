@@ -260,12 +260,37 @@ ml train history list 31835f9d-7464-429c-844b-3e393be2a4a0 -o json
 查询固定第 1 页、每页 10 条，按 `createTime` 倒序，使用 `source="history"`、
 字符串 `latestFlag="true"` 和空状态筛选，暂不开放分页、排序或筛选参数。
 
-表格依次展示：算法id、算法名称、CPU、GPU、内存、状态、集群、节点数、执行时长、
+表格依次展示：执行记录 ID（`jobId`）、算法id、算法名称、CPU、GPU、内存、状态、集群、节点数、执行时长、
 大小、检查时间、开始时间、结束时间、触发方式、存储桶。触发方式取 `actionType`，
 存储桶取 `bucketName`。三个时间字段分别取 `checkTime`、`createTime`、
 `statusTime`，沿用上海时区及上述大小、空值展示规则。空列表显示“暂无执行记录”，
 不据此判断任务不存在；总数超过 10 条时提示只展示第一页。
 JSON 继续使用 `count`、`pageIndex`、`pageSize`、`items`，保留完整原始记录。
+
+### 下载执行记录日志
+
+```powershell
+ml train history logs download <task-id> <job-id>
+ml train history logs download <task-id> <job-id> --file ./logs/train.log
+ml train history logs download <task-id> <job-id> --file ./logs/train.log -o json
+```
+
+从执行记录表格首列复制 `jobId`。命令在该任务第一页 10 条执行记录中精确查找
+`jobId`，校验所属任务，并使用记录的 `jobId`、`taskId`、`businessId`、`taskName`
+获取下载地址。未找到记录或缺少必要字段时直接报错；不扫描其他页，也不猜测业务 ID。
+获取地址时 `businessid` 请求头取记录的业务 ID，`target` 取记录的任务名称，
+`isApplicantPromise` 固定发送 `true`。仅在 `code=0`、`des=success` 且 URL 为有效
+HTTPS 地址时开始下载，否则显示错误码及描述。
+
+CLI 直接流式下载，不需要打开浏览器。下载及最多 5 次 HTTPS 跳转使用独立客户端，
+不携带平台认证或业务请求头，并校验 HTTPS 证书。默认使用响应提供的文件名（移除
+目录成分），缺省使用 `<job-id>-logs`；也可用 `--file` 指定路径，父目录须已存在。
+文件原样保存，不自动解压，不覆盖已有文件。下载先写入同目录临时文件，完整接收后
+通过硬链接发布最终文件并移除临时文件；目标文件系统须支持硬链接。
+
+下载进度发送到标准错误。完成摘要包含 `taskId`、`jobId`、绝对保存路径 `path`、
+实际字节数 `bytes` 和 `status=downloaded`；`-o json` 仅在标准输出打印 JSON 摘要，
+不打印可能含签名的下载地址。HTTP 错误、超时、连接中断或本地写入失败时非零退出。
 
 ## 增加新接口
 

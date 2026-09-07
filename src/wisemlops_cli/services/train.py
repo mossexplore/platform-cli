@@ -6,6 +6,7 @@ from typing import Any, Dict, Optional
 
 from ..client import PlatformClient
 from ..errors import ApiError, BusinessError
+from ..downloads import https_url
 
 
 class TrainService:
@@ -100,6 +101,41 @@ class TrainService:
             },
         )
         return self._page(self._result(payload), "jobs", 1, 10)
+
+    def get_log_url(self, task_id: str, job_id: str) -> str:
+        task_id, job_id = task_id.strip(), job_id.strip()
+        if not task_id or not job_id:
+            raise ValueError("taskId 和 jobId 不能为空")
+        matches = [job for job in self.list_history(task_id)["items"]
+                   if job.get("jobId") == job_id]
+        if not matches:
+            raise ApiError("当前返回的执行记录中未找到该 jobId；目前仅查询第一页 10 条")
+        if len(matches) != 1:
+            raise ApiError("执行记录中的 jobId 重复，无法定位下载记录")
+        job = matches[0]
+        if job.get("taskId") != task_id:
+            raise ApiError("执行记录 taskId 与查询任务不一致")
+        for field in ("businessId", "taskName"):
+            if not isinstance(job.get(field), str) or not job[field].strip():
+                raise ApiError(f"执行记录缺少有效的 {field}")
+        payload = self.client.request(
+            "GET", "/ai/backend/mtp/traintask/downloadLogUrl",
+            params={"jobId": job["jobId"], "taskId": job["taskId"],
+                    "businessId": job["businessId"], "target": job["taskName"],
+                    "isApplicantPromise": "true"},
+            headers={"businessid": job["businessId"]},
+        )
+        result = payload.get("result") if isinstance(payload, dict) else None
+        if not isinstance(result, dict):
+            raise ApiError("无法获取下载日志地址：响应缺少 result")
+        summary = f"code={result.get('code')}，des={result.get('des')}"
+        if type(result.get("code")) is not int or result["code"] != 0 or result.get("des") != "success":
+            raise ApiError(f"无法获取下载日志地址：{summary}")
+        try:
+            https_url(result.get("url"))
+        except ApiError as exc:
+            raise ApiError(f"无法获取下载日志地址：{summary}；{exc}") from None
+        return result["url"]
 
     @staticmethod
     def _result(payload: Any) -> Dict[str, Any]:

@@ -4,15 +4,19 @@ from __future__ import annotations
 
 import sys
 import time
+import os
 from contextlib import redirect_stdout
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 from typing import Any, Dict, Optional
 
 import typer
 from rich.table import Table
 from rich.text import Text
+from rich.progress import Progress, BarColumn, DownloadColumn, TextColumn
 
-from ..output import console, print_result
+from ..output import console, error_console, print_result
+from ..downloads import download_file
 from ..services.train import TrainService
 from .common import fail, runtime_from_context
 
@@ -22,6 +26,8 @@ instance_app = typer.Typer(no_args_is_help=True, help="训练任务执行实例�
 train_app.add_typer(instance_app, name="instance")
 history_app = typer.Typer(no_args_is_help=True, help="训练任务执行记录查询")
 train_app.add_typer(history_app, name="history")
+logs_app = typer.Typer(no_args_is_help=True, help="执行记录日志下载")
+history_app.add_typer(logs_app, name="logs")
 
 TASK_COLUMNS = (
     ("任务 ID", "taskId"), ("任务名称", "taskName"), ("任务类型", "taskType"),
@@ -36,6 +42,7 @@ INSTANCE_COLUMNS = (
     ("执行时长", "runningTime"), ("存储桶", "bucketName"),
 )
 HISTORY_COLUMNS = (
+    ("执行记录 ID", "jobId"),
     ("算法id", "algorithmId"), ("算法名称", "algorithmName"),
     ("CPU", "cpuSize"), ("GPU", "gpuSize"), ("内存", "memorySize"),
     ("状态", "status"), ("集群", "poolName"), ("节点数", "infraSize"),
@@ -104,6 +111,44 @@ def selected_output(runtime: Any, output: Optional[str]) -> str:
     if selected not in {"table", "json"}:
         raise ValueError("output 仅支持 table 或 json")
     return selected
+
+
+@logs_app.command("download")
+def download_logs(
+    context: typer.Context,
+    task_id: str = typer.Argument(..., help="所属训练任务 ID"),
+    job_id: str = typer.Argument(..., help="执行记录 ID"),
+    file: Optional[Path] = typer.Option(None, "--file", help="本地保存路径，目录须已存在"),
+    output: Optional[str] = typer.Option(None, "--output", "-o", help="结果摘要格式: table 或 json"),
+) -> None:
+    """获取日志地址并下载；发送 isApplicantPromise=true，不覆盖已有文件。"""
+    try:
+        task_id, job_id = task_id.strip(), job_id.strip()
+        if not task_id or not job_id:
+            raise ValueError("taskId 和 jobId 不能为空")
+        if file is not None:
+            file = file.expanduser().absolute()
+            if os.path.lexists(file):
+                raise ValueError(f"目标文件已存在：{file}")
+            if not file.parent.is_dir():
+                raise ValueError(f"目标目录不存在：{file.parent}")
+        runtime = runtime_from_context(context)
+        selected = selected_output(runtime, output)
+        with redirect_stdout(sys.stderr):
+            url = runtime.authenticated_call(
+                lambda client: TrainService(client).get_log_url(task_id, job_id)
+            )
+        with Progress(TextColumn("下载日志"), BarColumn(), DownloadColumn(),
+                      console=error_console) as progress:
+            progress_id = progress.add_task("logs", total=None)
+            path, size = download_file(
+                url, job_id, file,
+                progress=lambda done, total: progress.update(progress_id, completed=done, total=total),
+            )
+        print_result({"taskId": task_id, "jobId": job_id, "path": str(path),
+                      "bytes": size, "status": "downloaded"}, selected)
+    except Exception as exc:
+        fail(exc)
 
 
 @history_app.command("list")
