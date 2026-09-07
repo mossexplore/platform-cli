@@ -234,13 +234,33 @@ ml train instance list f3483dc5-4525-4e50-8af7-a4117541f1dc -o json
 表格展示空值为 `-`，数值零保留。大小按 1024 进制转换：零显示 `0B`，不足 1G
 显示两位小数的 `M`，其余显示两位小数的 `G`。毫秒时间戳统一按上海时间
 （Asia/Shanghai，UTC+08:00）显示为 `YYYY-MM-DD HH:mm:ss`。
-执行时长、内存和状态保留接口原值，不推测单位或状态中文含义；结束时间按
-管理台字段映射使用 `statusTime`。
+执行实例表格依次展示：算法id、算法名称、CPU、GPU、内存、状态、执行节点、
+集群、触发方式、开始时间、执行时长、存储桶。执行节点取 `hostIp`，触发方式取
+`actionType`，开始时间取 `createTime`，存储桶取 `bucketName`。
+执行时长、内存、状态和触发方式保留接口原值，不推测单位或中文含义。
 
 `--output json`（或 `-o json`）返回 `count`、`pageIndex`、`pageSize`、`items`，
 其中 `items` 保留完整原始记录，包括任务业务 ID、实例 `jobId`、空值、字节数和
 毫秒时间戳。登录提示发送到标准错误，不混入 JSON 标准输出。未指定输出格式时
 使用当前环境的 `output_format`。接口失败或任务不存在时命令以非零状态退出。
+
+### 训练任务执行记录
+
+```powershell
+ml train history list 31835f9d-7464-429c-844b-3e393be2a4a0
+ml train history list 31835f9d-7464-429c-844b-3e393be2a4a0 -o json
+```
+
+执行记录直接使用任务 ID 查询，不预先扫描训练任务列表。请求头统一携带当前业务的
+`businessid` 和 `ai-businessId`，请求体不额外添加业务 ID 或任务类型。
+查询固定第 1 页、每页 10 条，按 `createTime` 倒序，使用 `source="history"`、
+字符串 `latestFlag="true"` 和空状态筛选，暂不开放分页、排序或筛选参数。
+
+表格依次展示：算法id、算法名称、CPU、GPU、内存、状态、集群、节点数、执行时长、
+大小、检查时间、开始时间、结束时间。三个时间字段分别取 `checkTime`、`createTime`、
+`statusTime`，沿用上海时区及上述大小、空值展示规则。空列表显示“暂无执行记录”，
+不据此判断任务不存在；总数超过 10 条时提示只展示第一页。
+JSON 继续使用 `count`、`pageIndex`、`pageSize`、`items`，保留完整原始记录。
 
 ## 增加新接口
 

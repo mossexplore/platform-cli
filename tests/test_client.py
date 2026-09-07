@@ -70,12 +70,14 @@ class PlatformClientTest(unittest.TestCase):
             UserService(client).info()
             MepService(client).query_config("test-key")
             TrainService(client).list_tasks()
+            TrainService(client).list_history("task-id")
             TrainService(client).list_instances({
                 "taskId": "task-id", "businessId": "mep", "taskType": "train",
             })
         self.assertEqual(paths, [
             "/ai/user/info", "/ai/backend/mep/config/queryConfig",
             "/ai/backend/modelDev/modelTrain/list",
+            "/ai/backend/mtp/traintask/queryScheduleTaskList",
             "/ai/backend/mtp/traintask/queryJobInstanceByTaskId",
         ])
 

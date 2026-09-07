@@ -19,6 +19,8 @@ from .common import fail, runtime_from_context
 train_app = typer.Typer(no_args_is_help=True, help="训练任务查询")
 instance_app = typer.Typer(no_args_is_help=True, help="训练任务执行实例查询")
 train_app.add_typer(instance_app, name="instance")
+history_app = typer.Typer(no_args_is_help=True, help="训练任务执行记录查询")
+train_app.add_typer(history_app, name="history")
 
 TASK_COLUMNS = (
     ("任务 ID", "taskId"), ("任务名称", "taskName"), ("任务类型", "taskType"),
@@ -26,7 +28,14 @@ TASK_COLUMNS = (
     ("最新执行时间", "latestRunTime"), ("大小", "fileSize"), ("描述", "description"),
 )
 INSTANCE_COLUMNS = (
-    ("算法 ID", "algorithmId"), ("算法名称", "algorithmName"),
+    ("算法id", "algorithmId"), ("算法名称", "algorithmName"),
+    ("CPU", "cpuSize"), ("GPU", "gpuSize"), ("内存", "memorySize"),
+    ("状态", "status"), ("执行节点", "hostIp"), ("集群", "poolName"),
+    ("触发方式", "actionType"), ("开始时间", "createTime"),
+    ("执行时长", "runningTime"), ("存储桶", "bucketName"),
+)
+HISTORY_COLUMNS = (
+    ("算法id", "algorithmId"), ("算法名称", "algorithmName"),
     ("CPU", "cpuSize"), ("GPU", "gpuSize"), ("内存", "memorySize"),
     ("状态", "status"), ("集群", "poolName"), ("节点数", "infraSize"),
     ("执行时长", "runningTime"), ("大小", "fileSize"),
@@ -50,13 +59,19 @@ def display_value(field: str, value: Any) -> str:
     return str(value)
 
 
-def render_page(result: Dict[str, Any], output: str, task: Optional[Dict[str, Any]] = None) -> None:
+def render_page(
+    result: Dict[str, Any], output: str, task: Optional[Dict[str, Any]] = None,
+    *, history_task_id: Optional[str] = None,
+) -> None:
     if output == "json":
         print_result(result, output)
         return
     if task is not None:
         console.print(f"任务：{display_value('taskName', task.get('taskName'))} · {task['taskId']}", markup=False)
     columns = INSTANCE_COLUMNS if task is not None else TASK_COLUMNS
+    if history_task_id is not None:
+        console.print(f"任务 ID：{history_task_id}", markup=False)
+        columns = HISTORY_COLUMNS
     table = Table(show_header=True, header_style="bold cyan")
     for title, _ in columns:
         table.add_column(title, overflow="fold", min_width=1)
@@ -64,11 +79,13 @@ def render_page(result: Dict[str, Any], output: str, task: Optional[Dict[str, An
         table.add_row(*(Text(display_value(field, item.get(field))) for _, field in columns))
     console.print(table)
     if not result["items"]:
-        console.print("暂无执行实例" if task is not None else "暂无训练任务")
+        empty_message = "暂无执行实例" if task is not None else "暂无训练任务"
+        console.print("暂无执行记录" if history_task_id is not None else empty_message)
     console.print(f"第 {result['pageIndex']} 页 · 每页 {result['pageSize']} 条 · 共 {result['count']} 条")
     console.print("时间：Asia/Shanghai (UTC+08:00)")
-    if task is not None and result["count"] > 10:
-        console.print("当前仅展示第 1 页 10 条，暂不支持翻页；按开始时间升序排列。")
+    if (task is not None or history_task_id is not None) and result["count"] > 10:
+        order = "倒序" if history_task_id is not None else "升序"
+        console.print(f"当前仅展示第 1 页 10 条，暂不支持翻页；按开始时间{order}排列。")
 
 
 def selected_output(runtime: Any, output: Optional[str]) -> str:
@@ -76,6 +93,28 @@ def selected_output(runtime: Any, output: Optional[str]) -> str:
     if selected not in {"table", "json"}:
         raise ValueError("output 仅支持 table 或 json")
     return selected
+
+
+@history_app.command("list")
+def list_history(
+    context: typer.Context,
+    task_id: str = typer.Argument(..., help="训练任务的完整 taskId"),
+    output: Optional[str] = typer.Option(None, "--output", "-o", help="输出格式: table 或 json"),
+) -> None:
+    """直接查询执行记录；固定第 1 页 10 条，开始时间倒序。"""
+    try:
+        task_id = task_id.strip()
+        if not task_id:
+            raise ValueError("taskId 不能为空")
+        runtime = runtime_from_context(context)
+        selected = selected_output(runtime, output)
+        with redirect_stdout(sys.stderr):
+            result = runtime.authenticated_call(
+                lambda client: TrainService(client).list_history(task_id)
+            )
+        render_page(result, selected, history_task_id=task_id)
+    except Exception as exc:
+        fail(exc)
 
 
 @train_app.command("list")

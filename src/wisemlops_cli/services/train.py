@@ -84,6 +84,23 @@ class TrainService:
         )
         return self._page(self._result(payload), "jobs", 1, 10)
 
+    def list_history(self, task_id: str) -> Dict[str, Any]:
+        """直接查询任务执行记录，固定第一页，按创建时间倒序。"""
+        task_id = task_id.strip()
+        if not task_id:
+            raise ValueError("taskId 不能为空")
+        if not self.client.business_id:
+            raise BusinessError("尚未选择租户或团队，请运行 ml business use")
+        payload = self.client.request(
+            "POST", "/ai/backend/mtp/traintask/queryScheduleTaskList",
+            json_body={
+                "pageIndex": 1, "pageSize": 10, "sortField": "createTime",
+                "sortOrder": "descend", "taskId": task_id, "source": "history",
+                "latestFlag": "true", "status": [],
+            },
+        )
+        return self._page(self._result(payload), "jobs", 1, 10)
+
     @staticmethod
     def _result(payload: Any) -> Dict[str, Any]:
         if not isinstance(payload, dict) or not isinstance(payload.get("result"), dict):

@@ -32,6 +32,35 @@ class FakeClient:
 
 
 class TrainServiceTest(unittest.TestCase):
+    def test_history_request_is_direct_and_preserves_raw_jobs(self):
+        job = {"jobId": "j", "fileSize": 97726898, "createTime": 1788598922000,
+               "extra": None}
+        client = FakeClient({"result": {"code": 0, "count": 1, "jobs": [job]}})
+        result = TrainService(client).list_history(" task-id ")
+        self.assertEqual(client.calls, [(
+            "POST", "/ai/backend/mtp/traintask/queryScheduleTaskList",
+            {"pageIndex": 1, "pageSize": 10, "sortField": "createTime",
+             "sortOrder": "descend", "taskId": "task-id", "source": "history",
+             "latestFlag": "true", "status": []},
+        )])
+        self.assertEqual(result, {"count": 1, "pageIndex": 1, "pageSize": 10, "items": [job]})
+
+    def test_history_requires_task_and_business(self):
+        client = FakeClient(business_id="")
+        with self.assertRaises(ValueError):
+            TrainService(client).list_history(" ")
+        with self.assertRaises(BusinessError):
+            TrainService(client).list_history("t")
+        self.assertEqual(client.calls, [])
+
+    def test_history_rejects_errors_and_invalid_response(self):
+        for response in ({"result": {"code": 1, "des": "无权限"}},
+                         {"result": {"code": 0, "count": 0}},
+                         {"result": {"code": 0, "count": 1, "jobs": [None]}},
+                         {"result": {"code": 0, "jobs": []}}):
+            with self.subTest(response=response), self.assertRaises(ApiError):
+                TrainService(FakeClient(response)).list_history("t")
+
     def test_complete_default_request_and_raw_records(self):
         record = {"taskId": "id", "fileSize": 0, "extra": {"a": None}}
         client = FakeClient(tasks([record]))
@@ -125,6 +154,69 @@ class TrainServiceTest(unittest.TestCase):
 
 
 class TrainOutputTest(unittest.TestCase):
+    def test_history_table_columns_values_and_pagination(self):
+        from rich.table import Table
+
+        item = {"algorithmId": "algo-id", "algorithmName": "algo-name",
+                "cpuSize": 32, "gpuSize": 0, "memorySize": 256,
+                "status": "CANCELED", "poolName": "pool", "infraSize": 1,
+                "runningTime": 11, "fileSize": 97726898,
+                "checkTime": 1785466890000, "createTime": 1785466890000,
+                "statusTime": 1785466890000}
+        with patch("wisemlops_cli.commands.train.console") as output:
+            render_page({"count": 11, "pageIndex": 1, "pageSize": 10,
+                         "items": [item, {"gpuSize": 0, "fileSize": 0,
+                                          "algorithmId": None, "algorithmName": ""}]},
+                        "table", history_task_id="task-id")
+        table = next(call.args[0] for call in output.print.call_args_list
+                     if isinstance(call.args[0], Table))
+        self.assertEqual([column.header for column in table.columns], [
+            "算法id", "算法名称", "CPU", "GPU", "内存", "状态", "集群",
+            "节点数", "执行时长", "大小", "检查时间", "开始时间", "结束时间",
+        ])
+        self.assertEqual([column._cells[0].plain for column in table.columns], [
+            "algo-id", "algo-name", "32", "0", "256", "CANCELED", "pool",
+            "1", "11", "93.20M", *(["2026-07-31 11:01:30"] * 3),
+        ])
+        self.assertEqual([column._cells[1].plain for column in table.columns],
+                         ["-", "-", "-", "0", "-", "-", "-", "-", "-", "0B", "-", "-", "-"])
+        output.print.assert_any_call("任务 ID：task-id", markup=False)
+        output.print.assert_any_call("当前仅展示第 1 页 10 条，暂不支持翻页；按开始时间倒序排列。")
+
+    def test_history_cli_json_and_empty_results(self):
+        job = {"jobId": "j", "fileSize": 97726898, "checkTime": None}
+        client = FakeClient({"result": {"code": 0, "count": 1, "jobs": [job]}})
+        result = self.invoke(client, ["train", "history", "list", "t", "-o", "json"])
+        self.assertEqual(result.exit_code, 0, result.output)
+        self.assertEqual(json.loads(result.stdout), {
+            "count": 1, "pageIndex": 1, "pageSize": 10, "items": [job],
+        })
+        self.assertEqual(len(client.calls), 1)
+        self.assertIn("正在刷新认证", result.stderr)
+        for output_format in ("table", "json"):
+            client = FakeClient({"result": {"code": 0, "count": 0, "jobs": []}})
+            result = self.invoke(client, ["train", "history", "list", "t"], output_format)
+            self.assertEqual(result.exit_code, 0, result.output)
+            if output_format == "table":
+                self.assertIn("暂无执行记录", result.stdout)
+                self.assertNotIn("暂不支持翻页", result.stdout)
+            else:
+                self.assertEqual(json.loads(result.stdout)["items"], [])
+
+    def test_history_cli_error_and_fixed_options(self):
+        result = self.invoke(FakeClient({"result": {"code": 1, "des": "无权限"}}),
+                             ["train", "history", "list", "t", "-o", "json"])
+        self.assertEqual(result.exit_code, 1)
+        self.assertEqual(result.stdout, "")
+        self.assertIn("无权限", result.stderr)
+        for args in (["train", "history", "list"],
+                     ["train", "history", "list", " "],
+                     ["train", "history", "list", "t", "--page", "2"],
+                     ["train", "history", "list", "t", "--status", "CANCELED"]):
+            client = FakeClient()
+            self.assertNotEqual(self.invoke(client, args).exit_code, 0)
+            self.assertEqual(client.calls, [])
+
     def test_size_zero_null_and_boundaries(self):
         for value, expected in ((None, "-"), ("", "-"), (0, "0B"), (1, "0.00M"),
                                 (1024 ** 3 - 1, "1024.00M"), (1024 ** 3, "1.00G"),
@@ -153,12 +245,17 @@ class TrainOutputTest(unittest.TestCase):
     def test_table_formats_records_without_mutating_them(self):
         task = {"taskId": "task-id", "taskName": "[bold]literal"}
         item = {"algorithmId": "algorithm-id", "algorithmName": "algorithm",
-                "gpuSize": 0, "fileSize": 145755572, "checkTime": 1785466890000}
+                "gpuSize": 0, "fileSize": 145755572, "createTime": 1785466890000,
+                "hostIp": "10.0.0.1", "actionType": "manual", "bucketName": "train-bucket"}
         stream = io.StringIO()
         with patch("wisemlops_cli.commands.train.console", Console(file=stream, width=240)):
             render_page({"count": 1, "pageIndex": 1, "pageSize": 10, "items": [item]},
                         "table", task)
-        self.assertIn("139.00M", stream.getvalue())
+        self.assertNotIn("139.00M", stream.getvalue())
+        for value in ("10.0.0.1", "manual", "train-bucket"):
+            self.assertIn(value, stream.getvalue())
+        for removed in ("节点数", "检查时间", "结束时间", "大小"):
+            self.assertNotIn(removed, stream.getvalue())
         self.assertIn("2026-07-31 11:01:30", stream.getvalue())
         self.assertEqual(item["fileSize"], 145755572)
 
