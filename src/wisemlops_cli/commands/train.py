@@ -121,10 +121,9 @@ def selected_output(runtime: Any, output: Optional[str]) -> str:
 def update_config(
     context: typer.Context,
     task_id: str = typer.Argument(..., help="训练任务 ID"),
-    name: str = typer.Option(..., "--name", help="任务名称，必须手动传入"),
     customize_config: str = typer.Option(..., "--customize-config", help="自定义参数，按字符串原样传递"),
 ) -> None:
-    """直接更新训练任务自定义参数。"""
+    """获取训练任务详情，保留完整 taskInfo 后更新自定义参数。"""
     try:
         if not task_id.strip():
             raise ValueError("taskId 不能为空")
@@ -133,7 +132,7 @@ def update_config(
         def update(client):
             profile = runtime.config.current_profile()
             username = runtime.business.username(profile.name, client.username)
-            TrainService(client).update_config(task_id, customize_config, username, name)
+            TrainService(client).update_config(task_id, customize_config, username)
 
         with redirect_stdout(sys.stderr):
             runtime.authenticated_call(update)

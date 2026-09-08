@@ -99,7 +99,7 @@ ml - WiseMLOps平台命令行客户端
 | `ml train instance list TASK_ID` | 查询执行实例，固定第一页 10 条 |
 | `ml train history list TASK_ID` | 查询执行记录，固定第一页 10 条 |
 | `ml train history logs download TASK_ID JOB_ID` | 下载执行记录日志 |
-| `ml train config update TASK_ID --name NAME --customize-config VALUE` | 更新训练任务自定义参数 |
+| `ml train config update TASK_ID --customize-config VALUE` | 更新训练任务自定义参数 |
 | `ml featureset wide list` | 分页查询宽表特征集 |
 | `ml featureset model list` | 分页查询模型特征集 |
 | `ml featureset wide config SET_ID` | 查询宽表特征集配置，固定 JSON 输出 |
@@ -560,24 +560,29 @@ ml offline experiment clone abc123 --name "训练-副本" --dry-run
 
 ### `ml train config update`
 
-直接更新指定训练任务的自定义参数，不预先查询任务列表，执行命令即提交更新。
+先查询训练任务详情，再更新自定义参数，执行命令即提交更新。任务名称从详情读取，不再提供 `--name`。
 使用前须完成当前环境登录及业务选择（`ml login`、`ml business use`）。
 业务 ID 和请求头 `businessid` 来自当前环境 `business.json` 的 `selected.businessId`，
 修改人 `updateUser` 必须读取同一环境的 `username`，不从其他环境或认证文件补全。
 缺少业务选择、缺少用户名或账号不匹配时不提交更新，并提示登录或刷新业务信息。
 
 ```powershell
-ml train config update a9a49cc3-9dd1-4ef8-a4f5-4ebd11b42c6d --name "a5555" --customize-config "96999"
-ml train config update a9a49cc3-9dd1-4ef8-a4f5-4ebd11b42c6d --name "a5555" --customize-config "0096999"
+ml train config update a9a49cc3-9dd1-4ef8-a4f5-4ebd11b42c6d --customize-config "96999"
+ml train config update a9a49cc3-9dd1-4ef8-a4f5-4ebd11b42c6d --customize-config "0096999"
 ```
 
 | 参数或选项 | 必填 | 说明 |
 | --- | --- | --- |
 | `TASK_ID` | 是 | 对应 `data.id`，不允许空白 ID |
-| `--name NAME` | 是 | 用户手动传入的任务名称，对应 `data.name`，按字符串原样传递，不自动查询或推断 |
 | `--customize-config VALUE` | 是 | 对应 `data.taskInfo.parameter.customizeConfig`，原样传递字符串；不转换为数字或 JSON，保留前导零和空格；空字符串也原样提交 |
 
-请求使用当前 `api_endpoint`，POST 到 `/ai/backend/modelDev/modelTrain/updateNew`，
+请求使用当前 `api_endpoint`。先 POST 到 `/ai/backend/modelDev/modelTrain/detailNew`，
+请求体为 `{"data":{"id":"用户输入的任务 ID","businessId":"当前业务 ID","teamId":""}}`。
+详情响应必须满足 `code=0` 且 `des=success`；否则停止，不发送更新。
+更新请求的 `data.name` 取详情的 `result.data.name`，`data.taskInfo` 完整复制
+`result.data.taskInfo`，仅替换其中的 `parameter.customizeConfig` 和修改人 `updateUser`。
+其他嵌套字段全部保留；parameter 缺失或为 null 时创建对象，其他非对象值报错。
+随后 POST 到 `/ai/backend/modelDev/modelTrain/updateNew`，
 `creator`、`modifier` 固定为空字符串。仅当 `result.code` 为数字 `0` 且
 `result.des` 为 `success` 时，标准输出打印：
 
