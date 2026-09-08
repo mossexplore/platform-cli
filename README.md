@@ -317,6 +317,17 @@ ml featureset wide list -o json
 JSON 输出包含 `count`、`pageIndex`、`pageSize`、`items`，保留记录原始字段和时间。
 更多说明见 [CLI 参考使用指南](docs/CLI参考使用指南.md#特征集列表)。
 
+查询特征集配置：
+
+```bash
+ml featureset wide config SET_ID
+ml featureset model config SET_ID
+```
+
+两个入口均直接按 ID 查询，固定打印解析后的配置 JSON，不受环境的表格输出设置影响。
+仅当接口返回 `code=0` 且 `des=success` 时解析 `featureJson`；输出保留中文和完整配置内容，
+去除外层字符串包装引入的多余转义，真实内容所需的 JSON 转义仍保留。
+
 ## 增加新接口
 
 通用认证、超时、重试和错误处理位于 `PlatformClient`。业务接口按领域放在

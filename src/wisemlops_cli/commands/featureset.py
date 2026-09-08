@@ -83,3 +83,24 @@ def list_sets(
         render_page(result, selected)
     except Exception as exc:
         fail(exc)
+
+
+@wide_app.command("config")
+@model_app.command("config")
+def get_config(
+    context: typer.Context,
+    set_id: str = typer.Argument(..., help="特征集 ID"),
+) -> None:
+    """查询特征集配置，固定输出解析后的 JSON 对象。"""
+    try:
+        set_id = set_id.strip()
+        if not set_id:
+            raise ValueError("特征集 ID 不能为空")
+        runtime = runtime_from_context(context)
+        with redirect_stdout(sys.stderr):
+            config = runtime.authenticated_call(
+                lambda client: FeatureSetService(client).get_config(set_id)
+            )
+        print_result(config, "json")
+    except Exception as exc:
+        fail(exc)

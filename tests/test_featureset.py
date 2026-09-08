@@ -23,6 +23,10 @@ def response(items=None, count=0):
     return {"result": {"code": 0, "featureSetInfoList": items or [], "totalCount": count}}
 
 
+def config_response(config):
+    return {"result": {"code": 0, "des": "success", "featureJson": json.dumps(config)}}
+
+
 class FakeClient:
     def __init__(self, payload=None, business_id="selected-business"):
         self.business_id = business_id
@@ -35,6 +39,56 @@ class FakeClient:
 
 
 class FeatureSetServiceTest(unittest.TestCase):
+    def test_config_request_and_business_header(self):
+        config = {"features": [], "table_configs": {}, "feature_set_name": "test_hash", "version": "latest"}
+
+        def handler(request):
+            self.assertEqual(request.method, "POST")
+            self.assertEqual(str(request.url),
+                             "https://dev.example.com/ai/backend/dpp/proxy/featureStore/featureset/config")
+            self.assertEqual(request.headers.get_list("businessid"), ["chosen"])
+            self.assertEqual(json.loads(request.content), {"businessId": "chosen", "setId": "set-id"})
+            return httpx.Response(200, json=config_response(config))
+
+        selection = BusinessSelection(
+            type="team", department_id="d", department_name="D", tenant_id="t",
+            tenant_name="T", team_id="team", team_name="Team", business_id="chosen",
+        )
+        with PlatformClient(
+            Profile("dev", "https://dev.example.com/dashboard"),
+            Credentials.create("dev", "session=a", "csrf", "jack", 1800),
+            30000, 0, True, transport=httpx.MockTransport(handler), business_selection=selection,
+        ) as client:
+            self.assertEqual(FeatureSetService(client).get_config(" set-id "), config)
+
+    def test_config_requires_id_and_business_before_request(self):
+        for set_id, business_id, error in ((" ", "chosen", ValueError),
+                                          ("id", "", BusinessError), ("id", " ", BusinessError)):
+            client = FakeClient(business_id=business_id)
+            with self.subTest(set_id=set_id, business_id=business_id), self.assertRaises(error):
+                FeatureSetService(client).get_config(set_id)
+            self.assertEqual(client.calls, [])
+
+    def test_config_rejects_bad_status_and_invalid_json(self):
+        invalid = [[], {}, {"result": []}]
+        for field, values in {
+            "code": [None, False, "0", 0.0, 1],
+            "des": [None, "Success", " success", "failed"],
+            "featureJson": [None, {}, "", " ", "broken", r'{"name":"bad\_escape"}',
+                            "[]", "null", '"string"', "1", "true", '{"value":NaN}',
+                            '{"value":Infinity}'],
+        }.items():
+            missing = config_response({})
+            del missing["result"][field]
+            invalid.append(missing)
+            for value in values:
+                payload = config_response({})
+                payload["result"][field] = value
+                invalid.append(payload)
+        for payload in invalid:
+            with self.subTest(payload=payload), self.assertRaises(ApiError):
+                FeatureSetService(FakeClient(payload)).get_config("id")
+
     def test_request_uses_environment_host_and_same_business_in_header_and_body(self):
         for kind in ("wide", "model"):
             with self.subTest(kind=kind):
@@ -104,6 +158,55 @@ class FeatureSetServiceTest(unittest.TestCase):
 
 
 class FeatureSetCommandTest(unittest.TestCase):
+    def test_config_both_entries_print_decoded_json_with_original_values(self):
+        config = {"features": [{"name": "中文特征", "enabled": True, "default": None}],
+                  "table_configs": {}, "feature_set_name": "test_hash_239features",
+                  "path": "C:\\data\\file", "regex": r"\d+", "quoted": 'say "hello"',
+                  "multiline": "first\nsecond", "version": "latest"}
+        for kind in ("wide", "model"):
+            for output in ("table", "json"):
+                client = FakeClient(config_response(config))
+                result = self.invoke(client, [kind, "config", " set-id "], output)
+                self.assertEqual(result.exit_code, 0, result.output)
+                self.assertEqual(json.loads(result.stdout), config)
+                self.assertIn("中文特征", result.stdout)
+                self.assertIn('"feature_set_name": "test_hash_239features"', result.stdout)
+                self.assertIn("正在刷新认证", result.stderr)
+                self.assertEqual(client.calls, [(
+                    "POST", "/ai/backend/dpp/proxy/featureStore/featureset/config",
+                    {"businessId": "selected-business", "setId": "set-id"},
+                )])
+
+    def test_config_empty_object_and_no_extra_escaping(self):
+        for config in ({}, {"features": [], "table_configs": {}, "feature_set_name": "test_hash"}):
+            result = self.invoke(FakeClient(config_response(config)), ["wide", "config", "id"])
+            self.assertEqual(result.exit_code, 0, result.output)
+            self.assertEqual(json.loads(result.stdout), config)
+            self.assertNotIn("\\", result.stdout)
+
+    def test_config_bad_ids_and_missing_business(self):
+        for args in (["model", "config"], ["wide", "config", " "],
+                     ["wide", "config", "id", "--output", "table"]):
+            client = FakeClient()
+            result = self.invoke(client, args)
+            self.assertNotEqual(result.exit_code, 0)
+            self.assertEqual(client.calls, [])
+        client = FakeClient(business_id="")
+        result = self.invoke(client, ["model", "config", "id"])
+        self.assertEqual(result.exit_code, 1)
+        self.assertIn("ml business use", result.stderr)
+        self.assertEqual(client.calls, [])
+
+    def test_config_failure_does_not_print_configuration(self):
+        payload = config_response({"secret": "not-for-output"})
+        payload["result"]["des"] = "denied"
+        result = self.invoke(FakeClient(payload), ["model", "config", "id"])
+        self.assertEqual(result.exit_code, 1)
+        self.assertEqual(result.stdout, "")
+        self.assertIn("code=0", result.stderr)
+        self.assertIn("des=denied", result.stderr)
+        self.assertNotIn("not-for-output", result.stderr)
+
     def invoke(self, client, args, configured_output="table"):
         def authenticated(operation):
             print("正在刷新认证", flush=True)

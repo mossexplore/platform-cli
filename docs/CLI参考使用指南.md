@@ -566,6 +566,47 @@ JSON 输出结构为 `{"count": 0, "pageIndex": 1, "pageSize": 10, "items": []}`
 
 ---
 
+## 特征集配置查询
+
+```bash
+ml featureset wide config SET_ID
+ml featureset model config SET_ID
+ml featureset wide config 6743499e-15ec-496c-b510-ee9bf65f395e
+```
+
+`SET_ID` 为必填参数，去除首尾空白后不能为空。两个入口共用
+`POST /ai/backend/dpp/proxy/featureStore/featureset/config`，直接根据 ID 查询，不预先请求列表。
+请求体仅包含当前环境所选业务的 `businessId` 和指定的 `setId`，不发送 `setType`。
+复用当前环境域名、认证和业务选择，请求头 `businessid` 与请求体一致；
+没有有效业务选择时提示执行 `ml business use`。
+
+仅当 `result.code` 为整数 `0` 且 `result.des` 严格等于 `success` 时响应成功。
+`featureJson` 必须是非空 JSON 字符串，且解析后为对象；合法空对象 `{}` 正常输出。
+缺失字段、非法 JSON 或非对象配置会报错。配置字符串只解析一次，不删除反斜杠或修复非法转义。
+
+配置命令固定输出格式化 JSON，无需也不接受 `--output`，不受环境 `output_format` 影响。
+仅打印解析后的配置对象，不包含 `version`、`meta`、`result` 等响应包装；
+配置对象自身的 `version` 等字段完整保留。例如：
+
+```json
+{
+  "features": [],
+  "table_configs": {},
+  "feature_set_name": "test_hash_239features",
+  "version": "latest"
+}
+```
+
+中文直接显示，嵌套结构、数组顺序和数据类型保持原样。普通下划线显示为 `_`，
+不带多余转义；路径、正则表达式、引号或换行等内容所需的合法 JSON 转义仍会保留。
+认证提示和错误写入 stderr，标准输出可直接重定向保存：
+
+```bash
+ml featureset model config SET_ID > featureset-config.json
+```
+
+---
+
 ## 退出码
 
 | 退出码 | 含义 |
