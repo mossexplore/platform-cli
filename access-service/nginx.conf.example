@@ -1,0 +1,18 @@
+# 放入 nginx 的 http {} 内（例如 /etc/nginx/conf.d/cli-access.conf）。
+limit_req_zone $binary_remote_addr zone=cli_access_limit:10m rate=5r/s;
+server {
+    listen 443 ssl;
+    server_name permissions.example.com;
+    ssl_certificate /etc/nginx/certs/fullchain.pem;
+    ssl_certificate_key /etc/nginx/certs/privkey.pem;
+    client_max_body_size 32k;
+    location / {
+        limit_req zone=cli_access_limit burst=10 nodelay;
+        limit_req_status 429;
+        proxy_pass http://127.0.0.1:8008;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Forwarded-For $remote_addr;
+        proxy_read_timeout 30s;
+    }
+}

@@ -8,6 +8,7 @@ from typing import Optional
 import typer
 
 from . import __version__
+from .commands.access import access_app
 from .commands.auth import auth_app, login, logout
 from .commands.business import business_app
 from .commands.common import fail
@@ -29,6 +30,7 @@ app = typer.Typer(
 app.command("login")(login)
 app.command("logout")(logout)
 app.add_typer(auth_app, name="auth")
+app.add_typer(access_app, name="access")
 app.add_typer(business_app, name="business")
 app.add_typer(env_app, name="env")
 app.add_typer(user_app, name="user")

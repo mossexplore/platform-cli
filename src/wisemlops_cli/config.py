@@ -11,6 +11,7 @@ from typing import Any, Dict, List, Optional
 from urllib.parse import quote, urlsplit
 
 from . import __version__
+from .access import validate_settings
 from .errors import ConfigError
 from .models import Profile
 
@@ -74,6 +75,16 @@ def _sync_packaged_config(destination: Path) -> None:
     if destination.exists() and installed_signature == signature:
         return
 
+    # 升级默认配置时保留已部署的权限服务配置，避免升级意外取消检查。
+    if destination.exists():
+        try:
+            previous = json.loads(destination.read_text(encoding="utf-8"))
+            if "access_control" in previous:
+                updated = json.loads(template)
+                updated["access_control"] = previous["access_control"]
+                template = json.dumps(updated, ensure_ascii=False, indent=2) + "\n"
+        except (ValueError, TypeError):
+            raise ConfigError("已有配置损坏，无法安全保留权限设置，请修复 config.json") from None
     _install_packaged_config(destination, template)
     temporary = marker.with_name(f".{marker.name}.{os.getpid()}.tmp")
     temporary.write_text(signature + "\n", encoding="utf-8")
@@ -115,6 +126,7 @@ class ConfigManager:
         return value
 
     def _validate(self) -> None:
+        validate_settings(self._data.get("access_control"))
         current = self._data.get("current")
         if not isinstance(current, str) or not current:
             raise ConfigError("config.json 中的 current 必须是非空字符串")
@@ -165,6 +177,10 @@ class ConfigManager:
             raise ConfigError("browser.login_timeout 必须大于 0")
         if self.business_catalog_timeout_ms <= 0:
             raise ConfigError("browser.business_catalog_timeout 必须大于 0")
+
+    @property
+    def access_control(self) -> Dict[str, Any]:
+        return validate_settings(self._data.get("access_control"))
 
     @property
     def current_name(self) -> str:

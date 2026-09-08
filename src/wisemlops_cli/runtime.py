@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Any, Callable, Optional
 
 from .auth import AuthManager
+from .access import check_access
 from .business import BusinessStore
 from .client import PlatformClient
 from .config import ConfigManager
@@ -36,6 +37,7 @@ class Runtime:
                 profile.name, credentials.username
             )
             try:
+                check_access(self.config.access_control, profile, credentials, selection)
                 with PlatformClient(
                     profile=profile,
                     credentials=credentials,

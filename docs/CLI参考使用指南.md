@@ -883,3 +883,43 @@ AGENTS.md 要求时间适合人类阅读、首列 ID 固定 36 宽且不换行/�
 - [项目 README](../README.md) — 安装、Windows 一键发布与安装、配置说明
 - [Windows 安装说明](../scripts/windows/INSTALL.md) — `install.cmd` 详细步骤
 - [需求与设计规格](./REQUIREMENTS_DESIGN_SPEC.md) — 详细功能设计文档
+
+## 在线访问授权：`ml access status`
+
+用于实时检查当前登录账号是否获准在当前环境使用 CLI 业务功能。权限管理页面和离线部署说明见 [权限服务说明](../access-service/README.md)。
+
+使用前提：管理员已部署权限服务、创建平台账号及环境授权，并在 CLI `config.json` 顶层配置：
+
+```json
+"access_control": {
+  "enabled": true,
+  "url": "https://permissions.internal:8008",
+  "timeout_seconds": 15
+}
+```
+
+权限服务地址支持 HTTP 或 HTTPS 源地址。可信内网使用 HTTP 时，服务配置 `COOKIE_SECURE=false` 并清空两个 TLS 路径。`enabled` 是布尔值（对象存在时默认 true），`timeout_seconds` 为 1–120 秒（默认 15）。没有该对象时兼容旧版不执行在线检查；生产分发需由管理员启用，配置升级会保留既有设置。客户端配置可被本地修改，此机制不替代业务平台或网关的权限校验。
+
+```bash
+ml login
+ml business use
+ml access status
+# 也可明确指定配置
+ml --config ./config.json access status
+```
+
+该命令无位置参数和专有选项，支持通用 `--config`。调用权限接口时，`businessid` 取当前环境 `business.json` 的 `selected.businessId`；账号由权限服务调用平台 `/ai/user/info` 验证，不使用手填账号做身份凭证。
+
+成功输出：`当前账号已获当前环境访问授权。` 未启用时输出配置提示；未授权、停用、过期、身份不一致或网络异常时打印具体类别的错误并返回非零退出码。未登录或未选择业务时，按原有登录和业务选择流程完成初始化。
+
+启用后，业务查询、更新、获取日志下载地址等命令会在执行前自动进行相同检查；拒绝或故障均停止业务调用。每条业务命令重新检查，撤销对下一条命令生效。帮助、版本、登录退出、环境选择和本地业务上下文操作不依赖在线授权，以免阻塞初始化。
+
+权限服务采用 HTTPS 时仍校验证书，不沿用日志下载的 `verify_ssl: false`。内网 CA 可通过 CLI 进程的 `SSL_CERT_FILE` 指向包含企业 CA 的信任证书包。
+
+### 调用日志与多环境授权
+
+管理员可在「访问授权」一次为同一账号勾选多个环境；切换环境后 CLI 按当前环境检查授权。
+每次在线检查由权限服务写入 MySQL，并可在「CLI 调用日志」按账号、环境、命令、授权结果、时间查询。
+新版 CLI 仅上报命令名称，例如 `ml train list`，不记录位置参数、密码、Cookie 或自定义参数内容。
+该日志表示命令发起时的授权检查，不表示业务执行结果；帮助、登录和本地配置等未经过检查的操作不在记录范围内。
+旧客户端在新服务上仍可检查权限，但日志命令显示 `unknown`，需更新 CLI 后才能显示命令名。

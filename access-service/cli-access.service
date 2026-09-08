@@ -1,0 +1,23 @@
+[Unit]
+Description=CLI access management
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=cli-access
+Group=cli-access
+WorkingDirectory=/opt/cli-access
+EnvironmentFile=/etc/cli-access/env
+Environment=PYTHONDONTWRITEBYTECODE=1
+ExecStart=/opt/cli-access/.venv/bin/python -m app.serve
+Restart=on-failure
+RestartSec=5
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+UMask=0077
+
+[Install]
+WantedBy=multi-user.target
