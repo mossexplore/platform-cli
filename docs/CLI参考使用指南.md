@@ -526,6 +526,46 @@ ml offline experiment clone abc123 --name "训练-副本" --dry-run
 
 ---
 
+## 特征集列表
+
+对应 Web 的“样本工程 → 特征集 → 宽表特征集 / 模型特征集”：
+
+```bash
+ml featureset wide list
+ml featureset model list
+ml featureset wide list --name test --page 2 --page-size 20
+ml featureset model list --output json
+```
+
+| 参数 | 默认值 | 说明 |
+| --- | --- | --- |
+| `--name` | 空字符串 | 按特征集名称查询，匹配规则由服务端决定 |
+| `--page` | `1` | 页码，正整数 |
+| `--page-size` | `10` | 每页条数，正整数 |
+| `--output` / `-o` | 环境的 `output_format` | `table` 或 `json` |
+
+两个入口分别固定 `setType=wide` 和 `setType=model`，每次只请求指定的一页，
+不会自动遍历所有数据。接口为当前环境域名下的
+`POST /ai/backend/dpp/proxy/featureStore/featureset/names`。
+请求体的 `businessId` 与请求头 `businessid` 均取当前环境 `business.json` 中
+已校验的 `selected.businessId`；未选择业务时提示执行 `ml business use`，不回退到 `default`。
+`teamId`、`scene`、`subscene`、`operator`、`modifier`、`tagIdList` 均固定为空字符串，
+即使选择团队也不填入 `teamId`，暂不支持通过选项修改这些字段。
+
+表格列顺序为：特征集 ID、特征集名称、特征集类型、场景、创建者、创建时间、修改者、修改时间。
+记录保持服务端顺序，类型显示响应原值。缺失字段、`null` 和空字符串显示 `-`。
+带时区的 ISO 时间转换为北京时间 `Asia/Shanghai (UTC+08:00)`，格式为 `YYYY-MM-DD HH:mm:ss`；
+例如 `2026-09-08T03:30:58.000+00:00` 显示为 `2026-09-08 11:30:58`。
+非空时间无法解析或缺少时区时保留原值，并向 stderr 输出提示。
+页尾展示当前页、每页条数和总记录数，合法空列表显示“暂无特征集”。
+
+JSON 输出结构为 `{"count": 0, "pageIndex": 1, "pageSize": 10, "items": []}`，
+`count` 对应接口的 `totalCount`，`items` 对应 `featureSetInfoList`。
+记录保留原始时间、空值和额外字段；认证提示写入 stderr，不混入 JSON 标准输出。
+业务错误或缺失、无效的列表/总数字段会报错，不会被当作空列表。
+
+---
+
 ## 退出码
 
 | 退出码 | 含义 |

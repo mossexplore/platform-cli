@@ -301,6 +301,22 @@ ID 有误时显示接口返回的 `code` 和 `des`。HTTP 错误、超时、连�
 `SSLCertVerificationError`，便于区分证书问题、连接失败和传输异常。
 错误消息内的 URL 替换为 `<下载地址>`；下载前打印的完整 URL 不受影响。
 
+## 特征集列表
+
+查询“样本工程 → 特征集”下的宽表或模型特征集：
+
+```bash
+ml featureset wide list
+ml featureset model list --name test --page 2 --page-size 10
+ml featureset wide list -o json
+```
+
+默认查询第 1 页、每页 10 条；`--name` 传入服务端名称查询条件。
+使用当前环境所选业务，请先运行 `ml business use`。其他查询字段固定为接口默认值。
+表格展示八列，空值显示 `-`，时间按北京时间（UTC+08:00）展示；
+JSON 输出包含 `count`、`pageIndex`、`pageSize`、`items`，保留记录原始字段和时间。
+更多说明见 [CLI 参考使用指南](docs/CLI参考使用指南.md#特征集列表)。
+
 ## 增加新接口
 
 通用认证、超时、重试和错误处理位于 `PlatformClient`。业务接口按领域放在

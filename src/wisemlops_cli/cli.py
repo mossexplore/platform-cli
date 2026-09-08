@@ -12,6 +12,7 @@ from .commands.auth import auth_app, login, logout
 from .commands.business import business_app
 from .commands.common import fail
 from .commands.env import env_app
+from .commands.featureset import featureset_app
 from .commands.mep import mep_app
 from .commands.mtp import mtp_app
 from .commands.offline import offline_app
@@ -35,6 +36,7 @@ app.add_typer(mep_app, name="mep")
 app.add_typer(mtp_app, name="mtp")
 app.add_typer(offline_app, name="offline")
 app.add_typer(train_app, name="train")
+app.add_typer(featureset_app, name="featureset")
 
 
 def version_callback(value: bool) -> None:
