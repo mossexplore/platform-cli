@@ -102,6 +102,28 @@ class TrainService:
         )
         return self._page(self._result(payload), "jobs", 1, 10)
 
+    def update_config(self, task_id: str, customize_config: str, update_user: str) -> None:
+        if not task_id.strip():
+            raise ValueError("taskId 不能为空")
+        if not self.client.business_id:
+            raise BusinessError("尚未选择租户或团队，请运行 ml business use")
+        if not update_user.strip():
+            raise BusinessError("当前环境 business.json 缺少 username，请运行 ml login 或 ml business refresh")
+        payload = self.client.request(
+            "POST", "/ai/backend/modelDev/modelTrain/updateNew",
+            json_body={"data": {
+                "id": task_id, "businessId": self.client.business_id,
+                "creator": "", "modifier": "",
+                "taskInfo": {"parameter": {"customizeConfig": customize_config},
+                             "updateUser": update_user},
+            }},
+        )
+        result = payload.get("result") if isinstance(payload, dict) else None
+        if not isinstance(result, dict):
+            raise ApiError("更新训练任务自定义参数失败：响应缺少 result")
+        if type(result.get("code")) is not int or result["code"] != 0 or result.get("des") != "success":
+            raise ApiError(f"更新训练任务自定义参数失败：code={result.get('code')}，des={result.get('des')}")
+
     def get_log_url(self, task_id: str, job_id: str) -> str:
         """直接提交用户 ID，由下载地址接口验证其有效性。"""
         payload = self.client.request(

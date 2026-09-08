@@ -27,6 +27,8 @@ history_app = typer.Typer(no_args_is_help=True, help="训练任务执行记录�
 train_app.add_typer(history_app, name="history")
 logs_app = typer.Typer(no_args_is_help=True, help="执行记录日志下载")
 history_app.add_typer(logs_app, name="logs")
+config_app = typer.Typer(no_args_is_help=True, help="训练任务自定义参数管理")
+train_app.add_typer(config_app, name="config")
 
 TASK_COLUMNS = (
     ("任务 ID", "taskId"), ("任务名称", "taskName"), ("任务类型", "taskType"),
@@ -113,6 +115,30 @@ def selected_output(runtime: Any, output: Optional[str]) -> str:
     if selected not in {"table", "json"}:
         raise ValueError("output 仅支持 table 或 json")
     return selected
+
+
+@config_app.command("update")
+def update_config(
+    context: typer.Context,
+    task_id: str = typer.Argument(..., help="训练任务 ID"),
+    customize_config: str = typer.Option(..., "--customize-config", help="自定义参数，按字符串原样传递"),
+) -> None:
+    """直接更新训练任务自定义参数。"""
+    try:
+        if not task_id.strip():
+            raise ValueError("taskId 不能为空")
+        runtime = runtime_from_context(context)
+
+        def update(client):
+            profile = runtime.config.current_profile()
+            username = runtime.business.username(profile.name, client.username)
+            TrainService(client).update_config(task_id, customize_config, username)
+
+        with redirect_stdout(sys.stderr):
+            runtime.authenticated_call(update)
+        typer.echo("更新训练任务自定义参数")
+    except Exception as exc:
+        fail(exc)
 
 
 @logs_app.command("download")

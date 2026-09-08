@@ -269,6 +269,13 @@ class BusinessStore:
             self._selection_from_entry(entry),
         )
 
+    def username(self, profile: str, authenticated_username: str = "") -> str:
+        """读取当前环境业务文件中的账号，不以认证文件补全缺失值。"""
+        value = self._entry(profile, authenticated_username).get("username")
+        if not isinstance(value, str) or not value.strip():
+            raise BusinessError("当前环境 business.json 缺少 username，请运行 ml login 或 ml business refresh")
+        return value
+
     def updated_at(self, profile: str) -> float:
         data = self._read(reset_incompatible=True)
         entry = data.get("profiles", {}).get(profile, {})
