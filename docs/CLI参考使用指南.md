@@ -925,3 +925,40 @@ ml --config ./config.json access status
 新版 CLI 仅上报命令名称，例如 `ml train list`，不记录位置参数、密码、Cookie 或自定义参数内容。
 该日志表示命令发起时的授权检查，不表示业务执行结果；帮助、登录和本地配置等未经过检查的操作不在记录范围内。
 旧客户端在新服务上仍可检查权限，但日志命令显示 `unknown`，需更新 CLI 后才能显示命令名。
+
+## 执行训练任务：`ml train start <task-id>`
+
+立即执行指定训练任务。使用前需完成 `ml login` 和 `ml business use`；如启用了在线权限检查，当前用户还须获准访问当前环境。
+
+| 参数 | 必填 | 说明 |
+|---|---|---|
+| `task-id` | 是 | 训练任务 ID，直接提交给执行接口；不预先查询列表，不要求本地校验 UUID 格式 |
+
+```bash
+ml train start aaaa83b8-5669-43a7-a62c-97ccf877e732
+ml --config ./config.json train start aaaa83b8-5669-43a7-a62c-97ccf877e732
+```
+
+无专有选项；输入命令即发起执行，不再二次确认。输出固定为文本，不受环境默认 JSON 输出设置影响。
+
+调用 `POST /ai/backend/modelDev/modelTrain/startScheduleTask`，接口基础地址沿用当前环境 `api_endpoint` 的构造规则。
+请求头 `businessid` 来自当前环境 `business.json` 的 `selected.businessId`，认证信息复用当前登录。
+请求体包含 `version="1.0"`、每次请求新生成的 `meta.uuid` 以及 `data.taskId`。
+权限服务日志记录命令名称 `ml train start`，不包含 task-id。
+
+仅当 `result.code` 为整数 `0` 且 `result.des` 为 `success` 时，输出：
+
+```text
+训练任务执行成功，jobId：8e348580-e889-4d1a-80d3-8d52b17a7004
+```
+
+若成功响应没有有效 jobId，输出“训练任务执行成功，但接口未返回有效 jobId，请查询执行记录确认。”。
+业务失败显示接口的 code 和 des，退出码为非零。执行成功表示接口接受本次执行操作，不表示训练已经完成。
+
+对于提交后的超时、传输错误、认证拒绝或其他无法确认结果的 HTTP 错误，不自动重发执行请求，先查询：
+
+```bash
+ml train history list aaaa83b8-5669-43a7-a62c-97ccf877e732
+```
+
+执行接口发出之前，权限检查发生登录失效时仍可按既有机制重新登录。底层只允许原有连接建立阶段的重试，不对已发送的执行请求自动重放。

@@ -1,18 +1,42 @@
-"""训练任务与执行实例的只读接口。"""
+"""训练任务管理与执行记录接口。"""
 
 from __future__ import annotations
 
 from copy import deepcopy
+from uuid import uuid4
 from typing import Any, Dict, Optional
 
 from ..client import PlatformClient
-from ..errors import ApiError, BusinessError
+from ..errors import ApiError, BusinessError, AuthenticationError
 from ..downloads import https_url
 
 
 class TrainService:
     def __init__(self, client: PlatformClient):
         self.client = client
+
+    def start(self, task_id: str) -> Optional[str]:
+        """直接启动任务；提交后不触发公共运行时的认证重试。"""
+        task_id = task_id.strip()
+        if not task_id:
+            raise ValueError("taskId 不能为空")
+        if not self.client.business_id:
+            raise BusinessError("尚未选择租户或团队，请运行 ml business use")
+        try:
+            payload = self.client.request(
+                "POST", "/ai/backend/modelDev/modelTrain/startScheduleTask",
+                json_body={"version": "1.0", "meta": {"uuid": str(uuid4())},
+                           "data": {"taskId": task_id}},
+            )
+        except (ApiError, AuthenticationError) as exc:
+            raise ApiError(
+                f"训练任务执行请求未能确认结果：{exc}；未自动重试，"
+                "请先查询执行记录确认，避免重复启动任务"
+            ) from exc
+        result = self._config_result(payload, "训练任务执行")
+        data = result.get("data")
+        job_id = data.get("jobId") if isinstance(data, dict) else None
+        return job_id if isinstance(job_id, str) and job_id.strip() else None
 
     def list_tasks(
         self, page_index: int = 1, page_size: int = 10,

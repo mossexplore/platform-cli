@@ -1,4 +1,4 @@
-"""训练任务查询命令及表格展示。"""
+"""训练任务管理命令及表格展示。"""
 
 from __future__ import annotations
 
@@ -20,7 +20,7 @@ from ..services.train import TrainService
 from .common import fail, runtime_from_context
 
 
-train_app = typer.Typer(no_args_is_help=True, help="训练任务查询")
+train_app = typer.Typer(no_args_is_help=True, help="训练任务查询与执行管理")
 instance_app = typer.Typer(no_args_is_help=True, help="训练任务执行实例查询")
 train_app.add_typer(instance_app, name="instance")
 history_app = typer.Typer(no_args_is_help=True, help="训练任务执行记录查询")
@@ -115,6 +115,26 @@ def selected_output(runtime: Any, output: Optional[str]) -> str:
     if selected not in {"table", "json"}:
         raise ValueError("output 仅支持 table 或 json")
     return selected
+
+
+@train_app.command("start")
+def start_task(
+    context: typer.Context,
+    task_id: str = typer.Argument(..., help="要执行的训练任务 ID"),
+) -> None:
+    """立即执行指定训练任务，返回作业 ID；不预先查询任务列表。"""
+    try:
+        if not task_id.strip():
+            raise ValueError("taskId 不能为空")
+        runtime = runtime_from_context(context)
+        with redirect_stdout(sys.stderr):
+            job_id = runtime.authenticated_call(lambda client: TrainService(client).start(task_id))
+        if job_id is None:
+            typer.echo("训练任务执行成功，但接口未返回有效 jobId，请查询执行记录确认。")
+        else:
+            typer.echo(f"训练任务执行成功，jobId：{job_id}")
+    except Exception as exc:
+        fail(exc)
 
 
 @config_app.command("update")
