@@ -886,6 +886,8 @@ AGENTS.md 要求时间适合人类阅读、首列 ID 固定 36 宽且不换行/�
 
 ## 在线访问授权：`ml access status`
 
+默认 `config.json` 已包含 `access_control`：`enabled` 为 `false`、`url` 为空、`timeout_seconds` 为 `15`。启用时填写实际权限服务地址，并将 `enabled` 改为 `true`。
+
 用于实时检查当前登录账号是否获准在当前环境使用 CLI 业务功能。权限管理页面和离线部署说明见 [权限服务说明](../access-service/README.md)。
 
 使用前提：管理员已部署权限服务、创建平台账号及环境授权，并在 CLI `config.json` 顶层配置：
