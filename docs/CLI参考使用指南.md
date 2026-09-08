@@ -587,7 +587,7 @@ ml train config update a9a49cc3-9dd1-4ef8-a4f5-4ebd11b42c6d --customize-config "
 `result.des` 为 `success` 时，标准输出打印：
 
 ```text
-更新训练任务自定义参数
+更新训练任务自定义参数成功！
 ```
 
 否则显示 `更新训练任务自定义参数失败：code=...，des=...` 并非零退出。

@@ -136,7 +136,7 @@ def update_config(
 
         with redirect_stdout(sys.stderr):
             runtime.authenticated_call(update)
-        typer.echo("更新训练任务自定义参数")
+        typer.echo("更新训练任务自定义参数成功！")
     except Exception as exc:
         fail(exc)
 

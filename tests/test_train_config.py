@@ -59,7 +59,7 @@ class TrainConfigCommandTest(unittest.TestCase):
                 return httpx.Response(200, json={"result": {"code": 0, "des": "success"}})
             result = self.invoke(["task-id", "--customize-config", value], handler)
             self.assertEqual(result.exit_code, 0, result.output)
-            self.assertEqual(result.stdout, "更新训练任务自定义参数\n")
+            self.assertEqual(result.stdout, "更新训练任务自定义参数成功！\n")
         self.assertEqual(len(calls), 6)
 
     def test_missing_or_wrong_business_username_never_falls_back_to_credentials(self):
