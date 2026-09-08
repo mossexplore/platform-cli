@@ -39,11 +39,11 @@ class TrainConfigCommandTest(unittest.TestCase):
                 self.assertEqual(request.method, "POST")
                 self.assertEqual(request.headers["businessid"], "mep")
                 self.assertEqual(json.loads(request.content), {"data": {
-                    "id": "task-id", "businessId": "mep", "creator": "", "modifier": "",
+                    "id": "task-id", "businessId": "mep", "name": "任务 a5555", "creator": "", "modifier": "",
                     "taskInfo": {"parameter": {"customizeConfig": value}, "updateUser": "jack"},
                 }})
                 return httpx.Response(200, json={"result": {"code": 0, "des": "success"}})
-            result = self.invoke(["task-id", "--customize-config", value], handler)
+            result = self.invoke(["task-id", "--name", "任务 a5555", "--customize-config", value], handler)
             self.assertEqual(result.exit_code, 0, result.output)
             self.assertEqual(result.stdout, "更新训练任务自定义参数\n")
         self.assertEqual(len(calls), 3)
@@ -54,13 +54,15 @@ class TrainConfigCommandTest(unittest.TestCase):
             data["profiles"]["dev"]["username"] = username
             self.fixture.business_path.write_text(json.dumps(data))
             calls = []
-            result = self.invoke(["t", "--customize-config", "v"], lambda r: calls.append(r))
+            result = self.invoke(["t", "--name", "任务 a5555", "--customize-config", "v"], lambda r: calls.append(r))
             self.assertNotEqual(result.exit_code, 0)
             self.assertEqual(calls, [])
             self.assertEqual(result.stdout, "")
 
     def test_invalid_args_and_missing_selection_do_not_send(self):
-        for args in (["t"], ["--customize-config", "v"], [" ", "--customize-config", "v"]):
+        for args in (["t", "--name", "n"], ["--name", "n", "--customize-config", "v"],
+                     [" ", "--name", "n", "--customize-config", "v"],
+                     ["t", "--customize-config", "v"]):
             calls = []
             result = self.invoke(args, lambda r: calls.append(r))
             self.assertNotEqual(result.exit_code, 0)
@@ -69,7 +71,7 @@ class TrainConfigCommandTest(unittest.TestCase):
         data["profiles"]["dev"]["selected"] = None
         self.fixture.business_path.write_text(json.dumps(data))
         calls = []
-        result = self.invoke(["t", "--customize-config", "v"], lambda r: calls.append(r))
+        result = self.invoke(["t", "--name", "任务 a5555", "--customize-config", "v"], lambda r: calls.append(r))
         self.assertNotEqual(result.exit_code, 0)
         self.assertEqual(calls, [])
         self.assertIn("ml business use", result.stderr)
@@ -79,7 +81,7 @@ class TrainConfigCommandTest(unittest.TestCase):
                         {"result": {"code": 0, "des": "failed"}},
                         {"result": {"code": False, "des": "success"}},
                         {"result": {"code": "0", "des": "success"}}):
-            result = self.invoke(["t", "--customize-config", "v"],
+            result = self.invoke(["t", "--name", "任务 a5555", "--customize-config", "v"],
                                  lambda r: httpx.Response(200, json=payload))
             self.assertNotEqual(result.exit_code, 0)
             self.assertEqual(result.stdout, "")
@@ -92,7 +94,7 @@ class TrainConfigCommandTest(unittest.TestCase):
         def handler(request):
             calls.append(request)
             raise httpx.ReadTimeout("response lost")
-        result = self.invoke(["t", "--customize-config", "v"], handler)
+        result = self.invoke(["t", "--name", "任务 a5555", "--customize-config", "v"], handler)
         self.assertNotEqual(result.exit_code, 0)
         self.assertEqual(len(calls), 1)
         self.assertEqual(result.stdout, "")

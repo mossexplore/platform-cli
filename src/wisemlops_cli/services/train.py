@@ -102,7 +102,7 @@ class TrainService:
         )
         return self._page(self._result(payload), "jobs", 1, 10)
 
-    def update_config(self, task_id: str, customize_config: str, update_user: str) -> None:
+    def update_config(self, task_id: str, customize_config: str, update_user: str, name: str) -> None:
         if not task_id.strip():
             raise ValueError("taskId 不能为空")
         if not self.client.business_id:
@@ -112,7 +112,7 @@ class TrainService:
         payload = self.client.request(
             "POST", "/ai/backend/modelDev/modelTrain/updateNew",
             json_body={"data": {
-                "id": task_id, "businessId": self.client.business_id,
+                "id": task_id, "businessId": self.client.business_id, "name": name,
                 "creator": "", "modifier": "",
                 "taskInfo": {"parameter": {"customizeConfig": customize_config},
                              "updateUser": update_user},
