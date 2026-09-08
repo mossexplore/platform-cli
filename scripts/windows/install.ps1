@@ -273,6 +273,12 @@ if (Test-Path -LiteralPath $PackagesDirectory -PathType Container) {
     Invoke-Checked -Command $VirtualEnvironmentPython -Arguments $InstallArguments
 }
 
+# 每次安装（包括相同版本重装）均完整覆盖用户默认配置。
+Write-Host "Replacing user config.json with the packaged configuration..." -ForegroundColor Cyan
+Invoke-Checked -Command $VirtualEnvironmentPython -Arguments @(
+    "-c", "from wisemlops_cli.config import reset_packaged_config; print(reset_packaged_config())"
+)
+
 Write-Host "[6/7] Registering the ml command..." -ForegroundColor Cyan
 New-Item -ItemType Directory -Path $BinDirectory -Force | Out-Null
 $LauncherPath = Join-Path $BinDirectory "ml.cmd"

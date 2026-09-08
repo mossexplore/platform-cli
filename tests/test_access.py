@@ -100,13 +100,13 @@ def test_disabled_does_not_connect(inputs):
         client.assert_not_called()
 
 
-def test_upgrade_preserves_access_configuration(tmp_path):
+def test_upgrade_replaces_access_configuration(tmp_path):
     target = tmp_path / 'config.json'
     settings = {'enabled': True, 'url': 'https://access.example.com'}
     target.write_text(json.dumps({'old': 'config', 'access_control': settings}))
     with patch('wisemlops_cli.config._packaged_config_text', return_value='{"new":"config"}'):
         _sync_packaged_config(target)
-    assert json.loads(target.read_text()) == {'new': 'config', 'access_control': settings}
+    assert json.loads(target.read_text()) == {'new': 'config'}
 
 
 @pytest.mark.parametrize('scheme', ['http', 'https'])

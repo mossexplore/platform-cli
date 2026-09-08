@@ -62,29 +62,32 @@ def _config_marker_path(destination: Path) -> Path:
     return destination.with_name(f".{destination.name}.installed")
 
 
-def _sync_packaged_config(destination: Path) -> None:
-    """新版本或默认配置变化后，首次运行时强制覆盖用户配置。"""
+def _package_install_stamp() -> str:
+    """安装文件时间戳区分相同版本、相同配置的重新安装。"""
+    installed = Path(__file__).stat()
+    return f"{installed.st_mtime_ns}:{installed.st_ctime_ns}"
+
+
+def reset_packaged_config() -> Path:
+    """安装器入口：无条件用包内配置完整覆盖当前用户的默认配置。"""
+    destination = user_config_dir() / "config.json"
+    _sync_packaged_config(destination, force=True)
+    return destination
+
+
+def _sync_packaged_config(destination: Path, *, force: bool = False) -> None:
+    """安装、版本或包内配置变化时完整覆盖，不保留任何旧字段。"""
     template = _packaged_config_text()
-    signature = f"{__version__}:{sha256(template.encode('utf-8')).hexdigest()}"
+    signature = f"{__version__}:{sha256(template.encode('utf-8')).hexdigest()}:{_package_install_stamp()}"
     marker = _config_marker_path(destination)
     try:
         installed_signature = marker.read_text(encoding="utf-8").strip()
     except FileNotFoundError:
         installed_signature = ""
 
-    if destination.exists() and installed_signature == signature:
+    if not force and destination.exists() and installed_signature == signature:
         return
 
-    # 升级默认配置时保留已部署的权限服务配置，避免升级意外取消检查。
-    if destination.exists():
-        try:
-            previous = json.loads(destination.read_text(encoding="utf-8"))
-            if "access_control" in previous:
-                updated = json.loads(template)
-                updated["access_control"] = previous["access_control"]
-                template = json.dumps(updated, ensure_ascii=False, indent=2) + "\n"
-        except (ValueError, TypeError):
-            raise ConfigError("已有配置损坏，无法安全保留权限设置，请修复 config.json") from None
     _install_packaged_config(destination, template)
     temporary = marker.with_name(f".{marker.name}.{os.getpid()}.tmp")
     temporary.write_text(signature + "\n", encoding="utf-8")

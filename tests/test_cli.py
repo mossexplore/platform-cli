@@ -54,7 +54,7 @@ class CliEnvironmentCommandTest(unittest.TestCase):
         result = self.runner.invoke(app, ["--version"])
 
         self.assertEqual(result.exit_code, 0, result.output)
-        self.assertIn("ml 0.3.27", result.output)
+        self.assertIn("ml 0.3.28", result.output)
 
     def test_offline_experiment_list_command_is_available(self):
         result = self.runner.invoke(

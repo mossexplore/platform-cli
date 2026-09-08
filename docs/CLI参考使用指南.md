@@ -1,6 +1,6 @@
 # 命令行参考使用指南
 
-`ml` 是 **WiseMLOps 平台** 的 Python 命令行客户端（包名 `wisemlops-cli`，当前版本 `0.3.27`）。
+`ml` 是 **WiseMLOps 平台** 的 Python 命令行客户端（包名 `wisemlops-cli`，当前版本 `0.3.28`）。
 本文档按当前源码及命令帮助核对（2026-09-08），覆盖全部 31 个可执行子命令、参数、配置项与退出行为。示例中的 `TASK_ID`、`JOB_ID`、`PROJECT_ID`、`NAMESPACE_ID`、`EXPERIMENT_ID`、`SET_ID` 均须替换为对应资源的真实 ID；它们不是同一种 ID。
 
 > 阅读前提：查询平台数据前建议先完成 `ml login` 和 `ml business use`。`user`、`mep`、`mtp`、`offline`、`train`、`featureset` 需要有效认证和业务选择；`business list/use/refresh` 用于建立或维护业务上下文，不要求预先选好业务。没有认证或认证过期时，相关命令会自动启动 Edge 登录。
@@ -118,7 +118,7 @@ ml - WiseMLOps平台命令行客户端
 | `--help` | — | 打印对应命令的用法后退出 |
 
 > 配置文件解析优先级：`--config` → `ML_CONFIG` → 当前工作目录的 `config.json` → 用户配置目录的 `config.json`（Windows `%APPDATA%\ml\config.json`、macOS `~/Library/Application Support/ml/config.json`、Linux `$XDG_CONFIG_HOME/ml/config.json`，未设置时为 `~/.config/ml/config.json`）。
-> 安装包携带的默认 `config.json` 会在「新版本」或「默认配置变化」后首次运行时，自动覆盖用户配置目录的那份文件；同一版本再次运行不会重复覆盖。升级前若改过环境配置，请先备份用户配置目录的 `config.json`。
+> Windows 安装器每次安装均立即用包内 `config.json` 完整覆盖用户默认配置，包括同版本重装和 `access_control`。直接 pip 安装在首次读取默认配置时检测并覆盖。普通后续运行不重复覆盖。`--config`、`ML_CONFIG` 及当前目录文件仍属于独立配置，不作为安装器覆盖目标。
 
 ---
 
@@ -873,7 +873,7 @@ AGENTS.md 要求时间适合人类阅读、首列 ID 固定 36 宽且不换行/�
 - **业务上下文是先决条件**：平台数据命令需要有效的租户或团队选择；提示未选择时执行 `ml business list`、`ml business use`，不要手工从其他环境复制业务 ID。
 - **`--tenant` 是必选项组合**：只传 `--team` 或 `--department` 而不传 `--tenant` 会被拒绝。
 - **输出格式控制**：带 `-o` / `--output` 的命令可临时切换 `table` / `json`；不传时跟随当前环境的 `output_format`。`env`、`auth status`、`business show` 固定表格；`business list` 输出层级目录，其他业务管理命令输出交互提示。特征集配置固定输出 JSON。
-- **配置会被自动覆盖**：升级 `wisemlops-cli` 或默认 `config.json` 变化后，首次运行会覆盖用户配置目录的 `config.json`；自定义环境请提前备份。
+- **配置会被自动覆盖**：Windows 安装器每次安装均完整覆盖用户默认 `config.json`；直接 pip 安装在首次读取默认配置时同步，包括同版本重装。`access_control` 也会覆盖。
 - **克隆会创建资源**：先用 `--dry-run -o json` 查看实际创建请求，再按需使用 `--yes`。源实验必须属于当前业务上下文。
 
 ---
@@ -900,7 +900,7 @@ AGENTS.md 要求时间适合人类阅读、首列 ID 固定 36 宽且不换行/�
 }
 ```
 
-权限服务地址支持 HTTP 或 HTTPS 源地址。可信内网使用 HTTP 时，服务配置 `COOKIE_SECURE=false` 并清空两个 TLS 路径。`enabled` 是布尔值（对象存在时默认 true），`timeout_seconds` 为 1–120 秒（默认 15）。没有该对象时兼容旧版不执行在线检查；生产分发需由管理员启用，配置升级会保留既有设置。客户端配置可被本地修改，此机制不替代业务平台或网关的权限校验。
+权限服务地址支持 HTTP 或 HTTPS 源地址。可信内网使用 HTTP 时，服务配置 `COOKIE_SECURE=false` 并清空两个 TLS 路径。`enabled` 是布尔值（对象存在时默认 true），`timeout_seconds` 为 1–120 秒（默认 15）。没有该对象时兼容旧版不执行在线检查；生产分发需由管理员启用，安装时默认配置全部以包内文件为准，不保留既有设置。客户端配置可被本地修改，此机制不替代业务平台或网关的权限校验。
 
 ```bash
 ml login

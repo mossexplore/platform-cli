@@ -22,6 +22,15 @@ ml login
 安装器会创建独立 Python 虚拟环境，不会污染用户现有项目的 Python 依赖，并将
 `ml.cmd` 所在目录添加到当前用户的 `PATH`。
 
+## 配置覆盖规则
+
+每次安装成功前，安装器都会用新包中的 `config.json` 完整覆盖当前用户的
+`%APPDATA%\ml\config.json`，同版本重装也会覆盖。不保留旧的环境、权限系统地址、
+`access_control.enabled` 或其他字段，且不会因旧配置损坏而跳过覆盖。
+
+`--config`、`ML_CONFIG` 和当前工作目录中的 `config.json` 仍可作为独立配置来源；
+这些任意路径的文件不在安装器覆盖范围内。默认配置以安装包内容为准。
+
 ## PowerShell 安装方式
 
 如果系统策略不允许双击脚本，可打开 PowerShell，在解压目录执行：
