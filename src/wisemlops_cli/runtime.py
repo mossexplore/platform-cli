@@ -21,6 +21,7 @@ class Runtime:
         credential_path: Optional[Path] = None,
         business_path: Optional[Path] = None,
     ):
+        self.invocation_command = "unknown"
         self.config = ConfigManager(config_path)
         self.credentials = CredentialStore(credential_path)
         self.business = BusinessStore(business_path)
@@ -37,7 +38,8 @@ class Runtime:
                 profile.name, credentials.username
             )
             try:
-                check_access(self.config.access_control, profile, credentials, selection)
+                check_access(self.config.access_control, profile, credentials, selection,
+                             command=getattr(self, "invocation_command", "unknown"))
                 with PlatformClient(
                     profile=profile,
                     credentials=credentials,

@@ -119,12 +119,34 @@ def test_access_accepts_http_and_https(inputs, scheme):
     assert manager.__enter__().post.call_args.args[0] == scheme + '://access.example.com:8008/api/v1/access/check'
 
 
-def test_command_name_excludes_argument_values():
-    import click
-    from wisemlops_cli.access import command_name
-    root = click.Context(click.Group('ml'))
-    group = click.Context(click.Group('train'), parent=root)
-    command = click.Context(click.Command('update'), parent=group)
-    command.params = {'password': 'sensitive', 'task_id': '123'}
-    with command:
-        assert command_name() == 'ml train update'
+def test_command_name_excludes_argument_values(tmp_path):
+    from typer.testing import CliRunner
+    from wisemlops_cli.cli import app
+    config = tmp_path / 'config.json'
+    config.write_text(json.dumps({'current': 'dev', 'profiles': [
+        {'name': 'dev', 'api_endpoint': 'https://platform.example.com'}]}))
+    commands = []
+    def capture(runtime, operation):
+        commands.append(runtime.invocation_command)
+        return 'job-id'
+    with patch.object(Runtime, 'authenticated_call', capture):
+        result = CliRunner().invoke(app, ['--config', str(config), 'train', 'start', 'sensitive-task-id'])
+    assert result.exit_code == 0, result.output
+    assert commands == ['ml train start']
+
+
+def test_access_module_imports_without_click():
+    # 独立进程模拟 click 不可用，验证配置加载依赖的 access 模块仍可导入。
+    import subprocess
+    import sys
+    import os
+    from pathlib import Path
+    script = """
+import sys
+sys.modules['click'] = None
+import wisemlops_cli.access
+assert wisemlops_cli.access.command_name(None) == 'unknown'
+"""
+    env = dict(os.environ, PYTHONPATH=str(Path(__file__).resolve().parents[1] / 'src'))
+    result = subprocess.run([sys.executable, '-c', script], env=env, capture_output=True, text=True)
+    assert result.returncode == 0, result.stderr

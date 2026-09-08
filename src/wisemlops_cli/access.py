@@ -4,7 +4,6 @@ from __future__ import annotations
 from typing import Any, Dict
 from urllib.parse import urlsplit
 import httpx
-import click
 from .errors import AuthenticationError, ConfigError, MlError
 
 
@@ -35,9 +34,8 @@ def validate_settings(value: Any) -> Dict[str, Any]:
     return dict(value)
 
 
-def command_name():
+def command_name(context):
     """仅取已解析的命令名，不包含用户参数、密码或自定义配置。"""
-    context = click.get_current_context(silent=True)
     parts = []
     while context is not None and context.parent is not None:
         if context.command.name:
@@ -46,7 +44,7 @@ def command_name():
     return ('ml ' + ' '.join(reversed(parts)))[:128] if parts else 'unknown'
 
 
-def check_access(settings, profile, credentials, selection):
+def check_access(settings, profile, credentials, selection, *, command="unknown"):
     if not settings or not settings.get('enabled', True):
         return None
     try:
@@ -58,7 +56,7 @@ def check_access(settings, profile, credentials, selection):
                                             'businessid': selection.business_id},
                                    json={'environment': profile.name,
                                          'platform_origin': profile.base_url,
-                                         'command': command_name()})
+                                         'command': command})
         if response.status_code == 401:
             raise AuthenticationError('权限服务核验平台身份失败，请重新登录')
         if response.status_code != 200:

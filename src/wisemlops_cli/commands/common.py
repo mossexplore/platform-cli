@@ -6,6 +6,7 @@ from typing import NoReturn
 
 import typer
 
+from ..access import command_name
 from ..errors import MlError
 from ..output import error_console
 from ..runtime import Runtime
@@ -15,6 +16,7 @@ def runtime_from_context(context: typer.Context) -> Runtime:
     runtime = context.find_root().obj
     if not isinstance(runtime, Runtime):
         fail("CLI 运行时尚未初始化")
+    runtime.invocation_command = command_name(context)
     return runtime
 
 
