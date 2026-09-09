@@ -20,7 +20,7 @@ ml login
 ```
 
 安装器会创建独立 Python 虚拟环境，不会污染用户现有项目的 Python 依赖，并将
-`ml.cmd` 所在目录添加到当前用户的 `PATH`。
+`ml.cmd` 所在目录移到当前用户 `PATH` 的首位，避免用户安装的其他 Python 入口抢先匹配。
 
 ## 配置覆盖规则
 
@@ -119,6 +119,29 @@ Typer 的命令补全。
 ### 找不到 `ml` 命令
 
 安装后必须重新打开 CMD 或 PowerShell，让新的用户 `PATH` 生效。
+
+### `ml --version` 提示找不到旧模块
+
+包名调整后，旧 Python 安装目录中的 `ml.exe` 可能仍引用旧模块。
+在 PowerShell 中检查实际匹配的入口，并直接验证新安装：
+
+```powershell
+where.exe ml
+& "$env:LOCALAPPDATA\Programs\WiseRecCLI\bin\ml.cmd" --version
+```
+
+使用自定义安装目录时，请替换上述路径。如果完整路径可以正常执行，可在当前
+PowerShell 窗口临时调整优先级：
+
+```powershell
+$env:Path = "$env:LOCALAPPDATA\Programs\WiseRecCLI\bin;" + $env:Path
+ml --version
+```
+
+使用修复后的安装器重新安装，会将入口移到用户 `PATH` 首位；随后关闭并重新打开
+终端。如果旧入口来自系统 `PATH`、当前目录或 PowerShell 别名，仍可能被优先选择，
+可通过完整路径调用，并用 `Get-Command ml -All` 检查冲突。
+如果完整路径不存在，请先完整解压发布包并运行 `install.cmd`。
 
 ### 找不到 Python
 

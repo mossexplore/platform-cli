@@ -100,8 +100,10 @@ function Add-ToUserPath {
             Where-Object { -not [string]::IsNullOrWhiteSpace($_) } |
             ForEach-Object { $_.Trim().TrimEnd("\") }
     )
-    if ($Entries -notcontains $NormalizedDirectory) {
-        $NewUserPath = (@($Entries) + $NormalizedDirectory) -join ";"
+    # Move an existing entry too: older Python launchers may precede it.
+    $OtherEntries = @($Entries | Where-Object { $_ -ne $NormalizedDirectory })
+    $NewUserPath = (@($NormalizedDirectory) + $OtherEntries) -join ";"
+    if ($NewUserPath -ne $CurrentUserPath) {
         [Environment]::SetEnvironmentVariable("Path", $NewUserPath, "User")
         return $true
     }
@@ -329,6 +331,8 @@ Write-Host ""
 Write-Host "WiseRec CLI installation completed." -ForegroundColor Green
 Write-Host "  Install directory: $ResolvedInstallDirectory"
 Write-Host "  Command launcher:  $LauncherPath"
+Write-Host "  Direct PowerShell check: & `"$LauncherPath`" --version"
+Write-Host "  If ml still uses another installation, run where.exe ml and check PATH order."
 if ($PathChanged) {
     Write-Host ""
     Write-Host "Open a new CMD or PowerShell window before running ml." -ForegroundColor Yellow

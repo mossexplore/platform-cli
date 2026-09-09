@@ -100,6 +100,15 @@ class WindowsPackagingScriptTest(unittest.TestCase):
             for token in powershell_7_only_tokens:
                 self.assertNotIn(token, script, f"{path.name}: {token}")
 
+    def test_installer_moves_launcher_ahead_of_existing_user_python_entries(self):
+        script = (self.windows_scripts / "install.ps1").read_text(encoding="utf-8")
+        function = script.split("function Add-ToUserPath {", 1)[1].split('\nif ($env:OS', 1)[0]
+        self.assertIn("Where-Object { $_ -ne $NormalizedDirectory }", function)
+        self.assertIn('(@($NormalizedDirectory) + $OtherEntries) -join ";"', function)
+        self.assertIn("if ($NewUserPath -ne $CurrentUserPath)", function)
+        self.assertNotIn("$Entries -notcontains $NormalizedDirectory", function)
+        self.assertIn("where.exe ml", script)
+
     def test_installer_reads_actual_wheel_and_environment_versions(self):
         script = (self.windows_scripts / "install.ps1").read_text(encoding="utf-8")
         check = script.split("$VersionCheck = @'\n", 1)[1].split("\n'@", 1)[0]
