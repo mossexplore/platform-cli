@@ -28,7 +28,7 @@
 {% else %}<tr><td colspan="{{ 8 if tab == 'environments' else 5 }}"><div class="empty"><strong>{{ '暂无匹配记录' if q or status else '尚未添加记录' }}</strong><p>{{ '请调整搜索内容或状态筛选后重试。' if q or status else '从右上角新增开始，配置人员、环境与访问授权。' if tab != 'audit' else '管理员操作后，审计记录将显示在这里。' }}</p>{% if q or status %}<a href="/cli-permission/admin?tab={{ tab }}">清空筛选</a>{% endif %}</div></td></tr>{% endfor %}
 </tbody></table></div>
 {% endif %}
-<div class="pagination"><span>共 {{ count }} {{ '个账号' if tab == 'grants' else '条' }} · 每页 {{ page_size }} {{ '个账号' if tab == 'grants' else '条' }}</span><div>{% if page > 1 %}<a class="secondary" href="/cli-permission/admin?tab={{ tab }}&q={{ q|urlencode }}&status={{ status }}&page={{ page-1 }}">上一页</a>{% else %}<span class="disabled-page">上一页</span>{% endif %}<span class="current-page">{{ page }}</span>{% if page*page_size < count %}<a class="secondary" href="/cli-permission/admin?tab={{ tab }}&q={{ q|urlencode }}&status={{ status }}&page={{ page+1 }}">下一页</a>{% else %}<span class="disabled-page">下一页</span>{% endif %}</div></div>
+{% include 'pagination.html' %}
 </section>
 
 {% if tab != 'audit' %}{{ editor(csrf, tab, users, environments, available_environments) }}{% for item in items %}{{ editor(csrf, tab, users, environments, available_environments, item) }}{% endfor %}

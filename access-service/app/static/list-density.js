@@ -30,7 +30,7 @@ const observer = new ResizeObserver((entries) => {
   }
 });
 document.querySelectorAll('.main-content > .panel .table-scroll > table > tbody > tr > td').forEach((cell) => {
-  if (cell.colSpan > 1 || cell.querySelector('button,a,input') || cell.closest('.grant-accounts')) return;
+  if (cell.colSpan > 1 || cell.querySelector('button,a,input') || cell.closest('.grant-accounts') || cell.classList.contains('people-environments') || cell.matches('.environment-table .origin')) return;
   const preview = document.createElement('div');
   preview.className = 'cell-preview';
   const text = cell.innerText;
@@ -52,3 +52,25 @@ document.querySelectorAll('.main-content > .panel .table-scroll > table > tbody 
   cell.append(preview, button);
   observer.observe(cell);
 });
+
+// Size a normal ten-row page to the available viewport, including its pager.
+// Short result sets retain the same row height instead of stretching a few records.
+const listTables = [...document.querySelectorAll('.main-content > .panel .table-scroll > table')];
+function sizeListRows() {
+  for (const table of listTables) {
+    const panel = table.closest('.panel');
+    const pager = panel.querySelector('.pagination');
+    if (!pager) continue;
+    let trailingHeight = 24;
+    for (let sibling = panel.nextElementSibling; sibling; sibling = sibling.nextElementSibling) {
+      if (getComputedStyle(sibling).position === 'static') trailingHeight += sibling.getBoundingClientRect().height;
+    }
+    const top = table.getBoundingClientRect().top + window.scrollY;
+    const available = window.innerHeight - top - table.tHead.getBoundingClientRect().height - pager.getBoundingClientRect().height - trailingHeight;
+    table.style.setProperty('--list-row-height', `${Math.max(52, Math.floor(available / 10))}px`);
+  }
+}
+window.addEventListener('resize', sizeListRows);
+document.addEventListener('toggle', sizeListRows, true);
+sizeListRows();
+document.fonts.ready.then(sizeListRows);

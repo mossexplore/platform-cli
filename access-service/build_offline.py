@@ -9,6 +9,7 @@ import subprocess
 import sys
 import tarfile
 import tempfile
+import tomllib
 import zipfile
 from email.parser import BytesParser
 
@@ -62,6 +63,7 @@ def main():
                 locked.append(f"{info['Name']}=={info['Version']} --hash=sha256:{sha256(wheel)}")
         (root / 'requirements.lock').write_text('\n'.join(locked) + '\n')
         (root / 'manifest.json').write_text(json.dumps({
+            'version': tomllib.loads((source.parent / 'pyproject.toml').read_text())['project']['version'],
             'architecture': 'x86_64', 'python': '3.12.14', 'minimum_glibc': '2.28',
             'runtime_source': RUNTIME_URL, 'runtime_sha256': RUNTIME_SHA256,
             'dependency_count': len(locked)}, indent=2) + '\n')

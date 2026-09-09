@@ -24,20 +24,20 @@
 .time-filters > div { display:flex; gap:12px; padding:5px 0 }
 .management-page .filter-actions { gap:8px; white-space:nowrap }
 .management-page .filter-actions a { padding-bottom:5px }
-.management-page .table-scroll > table { table-layout:fixed; font-size:12px }
-.management-page .table-scroll > table th { padding:7px 12px; font-size:11px }
-.management-page .table-scroll > table td { padding:2px 12px; height:40px; line-height:16px; vertical-align:middle }
-.management-page .table-scroll .badge { padding:2px 6px; font-size:11px }
-.management-page .table-scroll .text-button { min-height:28px; font-size:12px; padding:2px 3px }
+.management-page .table-scroll > table { table-layout:fixed; font-size:14px }
+.management-page .table-scroll > table th { padding:10px 12px; font-size:13px }
+.management-page .table-scroll > table td { padding:6px 12px; height:var(--list-row-height, 56px); line-height:20px; vertical-align:middle }
+.management-page .table-scroll .badge { padding:3px 8px; font-size:13px }
+.management-page .table-scroll .text-button { min-height:32px; font-size:14px; padding:4px 3px }
 .management-page .person .avatar { width:28px; height:28px }
-.management-page .pagination { padding:7px 14px; min-height:42px }
+.management-page .pagination { padding:10px 14px; min-height:52px; font-size:14px }
 .management-page .page-footer { display:none }
 .management-page .main-content > .success { margin-bottom:8px; padding:6px 12px }
 .list-help { font-size:11px; color:#758198; margin:3px 0 }
 .list-help summary { cursor:pointer; width:fit-content }
 .list-help p { padding:7px 10px; background:#eef3fd; border-radius:5px; margin-top:5px }
 .has-cell-preview { position:relative }
-.cell-preview { max-height:32px; overflow:hidden; white-space:normal; overflow-wrap:anywhere }
+.cell-preview { max-height:40px; overflow:hidden; white-space:normal; overflow-wrap:anywhere }
 .full-command .cell-preview { white-space:pre-wrap }
 .cell-expand { position:absolute; bottom:3px; right:5px; min-height:24px; padding:1px 5px; font-size:11px; background:#fff; color:#365cda; border:1px solid var(--border); border-radius:4px; box-shadow:-10px 0 8px #fff }
 .cell-expand:hover { background:#edf2ff }
@@ -47,7 +47,8 @@
 .management-page .logs-table th:nth-child(1) { width:150px }
 .management-page .logs-table th:nth-child(4) { width:280px }
 .management-page .logs-table th:nth-child(6) { width:180px }
-.management-page .logs-table th:nth-child(8) { width:105px }
+.management-page .logs-table th:nth-child(7) { width:105px }
+.management-page .logs-table th:nth-child(8) { width:200px }
 .management-page .table-scroll .full-command { white-space:normal; min-width:0 }
 .management-page .sidebar { padding-top:18px }
 .management-page .workspace-label { margin:20px 10px 16px }
@@ -84,9 +85,9 @@
 .page-heading > .list-help[open] p { position:absolute; z-index:2; right:0; width:320px; padding:12px; box-shadow:0 4px 18px #14213d22 }
 
 .management-page .grant-accounts th:first-child { width:280px }
-.management-page .people-table { min-width:780px }
-.people-table th:nth-child(1) { width:165px }
-.people-table th:nth-child(2) { width:100px }
+.management-page .table-scroll > .people-table { table-layout:auto; min-width:1000px }
+.people-table th:nth-child(1) { width:130px }
+.people-table th:nth-child(2) { width:80px }
 .people-table th:nth-child(3) { width:90px }
 .people-table th:last-child { width:80px }
 .people-actions { white-space:nowrap }
@@ -116,3 +117,39 @@
 .management-page .people-table,.management-page .environment-table { min-width:1220px }
 .people-table th:nth-child(4) { width:230px }
 .people-table th:nth-child(5),.people-table th:nth-child(6),.environment-table th:nth-child(5),.environment-table th:nth-child(6) { width:156px }
+
+/* All effective environments remain visible on one line; scroll the table if needed. */
+.people-table th:nth-child(4),.people-table td.people-environments {min-width:280px}
+.people-table th:nth-child(5),.people-table th:nth-child(6) {width:136px}
+.people-table th:nth-child(7) {width:84px}
+.people-table td:nth-child(7) {max-width:84px}
+.people-table .grant-pills {width:max-content;min-width:100%;overflow:visible;flex-wrap:nowrap}
+.people-table .grant-pills .badge {flex:0 0 auto;max-width:none;overflow:visible;text-overflow:clip;display:inline-flex;white-space:nowrap}
+
+/* Keep complete platform origins on one line without cell previews. */
+.management-page .table-scroll > .environment-table {table-layout:auto;min-width:1000px}
+.environment-table th:nth-child(1) {width:120px}
+.environment-table th:nth-child(2) {width:84px}
+.environment-table td:nth-child(2) {max-width:84px}
+.environment-table th:nth-child(3),.environment-table td.origin {min-width:320px}
+.environment-table td.origin {white-space:nowrap;overflow-wrap:normal;word-break:normal}
+.environment-table th:nth-child(4) {width:80px}
+.environment-table th:nth-child(5),.environment-table th:nth-child(6) {width:136px}
+.environment-table th:nth-child(7) {width:84px}
+.environment-table td:nth-child(7) {max-width:84px}
+
+/* Shared page navigation for every management list. */
+.management-page .pagination {display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px}
+.management-page .pagination-controls {display:flex;align-items:center;justify-content:flex-end;flex-wrap:wrap;gap:8px;margin-left:auto}
+.pagination-position {white-space:nowrap;font-variant-numeric:tabular-nums;color:#596780}
+.page-jump {display:flex;align-items:center;gap:8px;margin:0 0 0 8px}
+.page-jump label {display:flex;align-items:center;gap:6px;white-space:nowrap;font-size:14px;color:#596780}
+.management-page .page-jump input {width:68px;height:34px;min-width:0;padding:4px 6px;text-align:center;font-size:14px}
+.management-page .page-jump button {min-height:34px;padding:5px 12px}
+@media(max-width:640px){.management-page .pagination-controls{width:100%}.page-jump{margin-left:0}}
+
+/* Keep secondary cell text and navigation as readable as the main values. */
+.management-page .table-scroll .mono,.management-page .table-scroll .code-chip,.management-page .table-scroll .full-command {font-size:13px}
+.management-page .pagination .secondary {font-size:14px}
+.management-page .filter-bar input,.management-page .filter-bar select,.management-page .call-filters input,.management-page .call-filters select {font-size:14px;height:34px}
+.management-page .panel-title h2 {font-size:15px}

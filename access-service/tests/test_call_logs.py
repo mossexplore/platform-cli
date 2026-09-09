@@ -103,3 +103,32 @@ def test_v3_migration_preserves_old_logs(system):
         assert db.get(SchemaVersion, 7)
     login(client)
     assert '未上报（旧客户端或历史记录）' in client.get('/cli-permission/admin/calls').text
+
+
+def test_log_table_hides_source_ip_and_explains_denials(system):
+    app, client, _ = system
+    cases = [
+        ('ENVIRONMENT_DISABLED', '环境不存在或已停用'),
+        ('ENVIRONMENT_MISMATCH', '环境与平台地址不匹配'),
+        ('USER_DISABLED', '账号不存在或已停用'),
+        ('NOT_GRANTED', '未获得当前环境授权或授权已撤销'),
+        ('GRANT_EXPIRED', '当前环境授权已过期'),
+        ('FUTURE_REASON', '未知原因，请联系管理员'),
+    ]
+    with app.state.sessions() as db:
+        for reason, _ in cases:
+            db.add(CallLog(actor='alice', command='ml train list', environment='prod',
+                business_id='selected', source_ip='192.0.2.123', allowed=False, reason=reason))
+        db.add(CallLog(actor='allowed-user', command='ml train list', environment='prod',
+            business_id='selected', source_ip='192.0.2.123', allowed=True, reason='ALLOWED'))
+        db.commit()
+    login(client)
+    html = client.get('/cli-permission/admin/calls').text
+    assert '来源 IP' not in html and '192.0.2.123' not in html
+    for reason, label in cases:
+        assert reason not in html and label in html
+    row = html.split('allowed-user')[1].split('</tr>')[0]
+    assert '>通过</span>' in row and '<td>-</td>' in row and 'ALLOWED' not in html
+    assert 'colspan="8"' in client.get('/cli-permission/admin/calls?username=no-match').text
+    with app.state.sessions() as db:
+        assert db.scalar(select(CallLog).where(CallLog.reason == 'NOT_GRANTED')).source_ip == '192.0.2.123'

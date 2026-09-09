@@ -115,7 +115,8 @@ def test_environment_summary_only_shows_effective_grants(system):
         db.scalar(select(Grant).join(Environment).where(Environment.name == 'c-revoked')).enabled = True
         db.commit()
     row = client.get('/cli-permission/admin?tab=users').text.split('data-account="alice"')[1].split('</tr>')[0]
-    assert '<span class="count">+1</span>' in row
+    assert '<span class="count">+1</span>' not in row
+    assert all(name in row for name in ("a-expiring", "prod", "c-revoked"))
     with app.state.sessions() as db:
         db.get(User, 1).enabled = False
         db.commit()

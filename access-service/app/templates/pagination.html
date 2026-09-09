@@ -1,0 +1,15 @@
+{% set total_pages = [1, (count + page_size - 1) // page_size]|max %}
+{% set unit = '人' if tab == 'users' else '条' %}
+<nav class="pagination" aria-label="列表分页">
+  <span>共 {{ count }} {{ unit }} · 每页 {{ page_size }} {{ unit }}</span>
+  <div class="pagination-controls">
+    {% if page > 1 %}<a class="secondary" href="{{ request.url.include_query_params(page=page-1) }}">上一页</a>{% else %}<span class="disabled-page">上一页</span>{% endif %}
+    <span class="pagination-position">第 {{ page }} / {{ total_pages }} 页</span>
+    {% if page < total_pages %}<a class="secondary" href="{{ request.url.include_query_params(page=page+1) }}">下一页</a>{% else %}<span class="disabled-page">下一页</span>{% endif %}
+    <form class="page-jump" method="get" action="{{ request.url.path }}">
+      {% for key, value in request.query_params.multi_items() %}{% if key not in ('page', 'saved', 'deleted') %}<input type="hidden" name="{{ key }}" value="{{ value }}">{% endif %}{% endfor %}
+      <label>前往<input type="number" name="page" min="1" max="{{ total_pages }}" step="1" value="{{ [page, total_pages]|min }}" required aria-label="跳转页码" title="请输入 1 到 {{ total_pages }} 的页码">页</label>
+      <button type="submit" class="secondary">跳转</button>
+    </form>
+  </div>
+</nav>
