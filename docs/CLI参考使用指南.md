@@ -1,13 +1,13 @@
 # 命令行参考使用指南
 
-`ml` 是 **WiseMLOps 平台** 的 Python 命令行客户端（包名 `wisemlops-cli`，当前版本 `0.3.33`）。
+`ml` 是 **WiseMLOps 平台** 的 Python 命令行客户端（包名 `wisemlops-cli`，当前版本 `0.3.34`）。
 本文档按当前源码及命令帮助核对（2026-09-08），覆盖全部 31 个可执行子命令、参数、配置项与退出行为。示例中的 `TASK_ID`、`JOB_ID`、`PROJECT_ID`、`NAMESPACE_ID`、`EXPERIMENT_ID`、`SET_ID` 均须替换为对应资源的真实 ID；它们不是同一种 ID。
 
 > 阅读前提：查询平台数据前建议先完成 `ml login` 和 `ml business use`。`user`、`mep`、`mtp`、`offline`、`train`、`featureset` 需要有效认证和业务选择；`business list/use/refresh` 用于建立或维护业务上下文，不要求预先选好业务。没有认证或认证过期时，相关命令会自动启动 Edge 登录。
 
 ## 安装与首次使用
 
-需要 Python 3.9+ 和 Microsoft Edge。Windows 安装包用户完整解压后运行 `install.cmd`，安装完成后重新打开终端；详见 [Windows 安装说明](../scripts/windows/INSTALL.md)。从源码安装时，在项目根目录执行：
+需要 Python 3.9+ 和 Microsoft Edge。Windows 安装包用户完整解压后运行 `install.cmd`，安装完成后重新打开终端；版本一致时跳过 CLI 和依赖的安装，仍刷新配置并注册命令，使用 `install.cmd -Force` 可强制重建安装环境。详见 [Windows 安装说明](../scripts/windows/INSTALL.md)。从源码安装时，在项目根目录执行：
 
 ```bash
 python3 -m venv .venv

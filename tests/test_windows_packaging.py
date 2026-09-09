@@ -1,6 +1,13 @@
 import re
+import contextlib
+import io
+import json
+import tempfile
 import unittest
+from importlib.metadata import PackageNotFoundError
 from pathlib import Path
+from unittest.mock import patch
+from zipfile import ZipFile
 
 
 class WindowsPackagingScriptTest(unittest.TestCase):
@@ -92,6 +99,39 @@ class WindowsPackagingScriptTest(unittest.TestCase):
                     )
             for token in powershell_7_only_tokens:
                 self.assertNotIn(token, script, f"{path.name}: {token}")
+
+    def test_installer_reads_actual_wheel_and_environment_versions(self):
+        script = (self.windows_scripts / "install.ps1").read_text(encoding="utf-8")
+        check = script.split("$VersionCheck = @'\n", 1)[1].split("\n'@", 1)[0]
+        with tempfile.TemporaryDirectory() as directory:
+            wheel = Path(directory) / "wisemlops_cli.whl"
+            with ZipFile(wheel, "w") as archive:
+                archive.writestr(
+                    "wisemlops_cli-0.3.33.dist-info/METADATA",
+                    "Name: wisemlops-cli\nVersion: 0.3.33\n",
+                )
+            for installed in (None, "0.3.32", "0.3.33", "0.3.34"):
+                with self.subTest(installed=installed):
+                    output = io.StringIO()
+                    with patch("sys.argv", ["-c", str(wheel)]), patch(
+                        "importlib.metadata.version",
+                        return_value=installed,
+                        side_effect=PackageNotFoundError if installed is None else None,
+                    ) as read_version, contextlib.redirect_stdout(output):
+                        exec(check, {})
+                    read_version.assert_called_once_with("wisemlops-cli")
+                    self.assertEqual(
+                        json.loads(output.getvalue()),
+                        {"target": "0.3.33", "installed": installed},
+                    )
+
+    def test_installer_skips_matching_versions_without_forcing_dependencies(self):
+        script = (self.windows_scripts / "install.ps1").read_text(encoding="utf-8")
+        self.assertIn("$VersionOutput = & $VirtualEnvironmentPython -c $VersionCheck $WheelPath", script)
+        self.assertIn("-not $Force -and\n    $Versions.installed -eq $Versions.target", script)
+        self.assertIn("if ($SkipPackageInstall)", script)
+        self.assertNotIn("--force-reinstall", script)
+        self.assertIn("if ($Force -and (Test-Path -LiteralPath $VirtualEnvironment))", script)
 
 
 if __name__ == "__main__":

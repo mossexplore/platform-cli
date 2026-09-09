@@ -242,21 +242,51 @@ if (-not (Test-Path -LiteralPath $VirtualEnvironmentPython)) {
 }
 
 Write-Host "[5/7] Installing wisemlops-cli..." -ForegroundColor Cyan
+$VersionCheck = @'
+import json
+import sys
+from email.parser import BytesParser
+from importlib.metadata import PackageNotFoundError, version
+from zipfile import ZipFile
+
+with ZipFile(sys.argv[1]) as wheel:
+    metadata_paths = [name for name in wheel.namelist() if name.endswith('.dist-info/METADATA')]
+    if len(metadata_paths) != 1:
+        raise ValueError('Expected exactly one Wheel METADATA file')
+    metadata = BytesParser().parsebytes(wheel.read(metadata_paths[0]))
+    target = metadata['Version']
+    if not target:
+        raise ValueError('Wheel metadata is missing Version')
+try:
+    installed = version('wisemlops-cli')
+except PackageNotFoundError:
+    installed = None
+print(json.dumps({'target': target, 'installed': installed}))
+'@
+$VersionOutput = & $VirtualEnvironmentPython -c $VersionCheck $WheelPath
+if ($LASTEXITCODE -ne 0) {
+    throw "Unable to compare installed and packaged CLI versions."
+}
+$Versions = $VersionOutput | ConvertFrom-Json
+$SkipPackageInstall = (
+    -not $Force -and
+    $Versions.installed -eq $Versions.target
+)
 $PackagesDirectory = Join-Path $BundleDirectory "packages"
-if (Test-Path -LiteralPath $PackagesDirectory -PathType Container) {
+if ($SkipPackageInstall) {
+    Write-Host "  wisemlops-cli $($Versions.target) is already installed; skipping package installation."
+} elseif (Test-Path -LiteralPath $PackagesDirectory -PathType Container) {
     Invoke-Checked -Command $VirtualEnvironmentPython -Arguments @(
         "-m", "pip", "install",
         "--no-index",
         "--find-links", $PackagesDirectory,
         "--upgrade",
-        "--force-reinstall",
         $WheelPath
     )
 } else {
     $InstallArguments = @(
         "-m", "pip", "install",
-        "--upgrade",
-        "--force-reinstall"
+        "--upgrade"
     )
     if (-not [string]::IsNullOrWhiteSpace($EffectiveIndexUrl)) {
         $InstallArguments += @("--index-url", $EffectiveIndexUrl)
@@ -273,7 +303,7 @@ if (Test-Path -LiteralPath $PackagesDirectory -PathType Container) {
     Invoke-Checked -Command $VirtualEnvironmentPython -Arguments $InstallArguments
 }
 
-# 每次安装（包括相同版本重装）均完整覆盖用户默认配置。
+# 每次运行（包括相同版本跳过安装）均完整覆盖用户默认配置。
 Write-Host "Replacing user config.json with the packaged configuration..." -ForegroundColor Cyan
 Invoke-Checked -Command $VirtualEnvironmentPython -Arguments @(
     "-c", "from wisemlops_cli.config import reset_packaged_config; print(reset_packaged_config())"
@@ -291,7 +321,7 @@ $PathChanged = Add-ToUserPath -Directory $BinDirectory
 
 Write-Host "[7/7] Verifying installation..." -ForegroundColor Cyan
 if (-not (Test-Path -LiteralPath $VirtualEnvironmentMl)) {
-    throw "ml.exe was not created in the isolated environment."
+    throw "ml.exe is missing from the isolated environment. Rerun install.cmd -Force to rebuild it."
 }
 Invoke-Checked -Command $VirtualEnvironmentMl -Arguments @("--version")
 

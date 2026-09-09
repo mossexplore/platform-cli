@@ -74,7 +74,7 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass `
 1. 校验发布包 SHA-256。
 2. 检查 Python 3.9+ 和 Microsoft Edge。
 3. 在 `%LOCALAPPDATA%\Programs\WiseMLOpsCLI` 创建独立虚拟环境。
-4. 安装或升级 CLI，不污染其他 Python 项目。
+4. 安装或升级 CLI；版本一致时跳过包安装，更新时复用满足要求的依赖，不污染其他 Python 项目。
 5. 将 `ml` 启动目录加入当前用户 `PATH`。
 6. 执行 `ml --version` 验证安装。
 
