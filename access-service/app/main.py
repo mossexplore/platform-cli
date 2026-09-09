@@ -20,11 +20,11 @@ def create_app(settings=None):
     directory = Path(__file__).parent
     app.state.templates = Jinja2Templates(directory=str(directory / 'templates'))
     app.state.templates.env.filters['beijing'] = display_time
-    app.mount('/static', StaticFiles(directory=directory / 'static'), name='static')
-    app.include_router(admin_auth.router)
-    app.include_router(admin.router)
-    app.include_router(access.router)
-    app.include_router(call_logs.router)
+    app.mount('/cli-permission/static', StaticFiles(directory=directory / 'static'), name='static')
+    app.include_router(admin_auth.router, prefix="/cli-permission")
+    app.include_router(admin.router, prefix="/cli-permission")
+    app.include_router(access.router, prefix="/cli-permission")
+    app.include_router(call_logs.router, prefix="/cli-permission")
 
     @app.middleware('http')
     async def response_headers(request, call_next):
@@ -36,7 +36,7 @@ def create_app(settings=None):
         return response
 
     def error_response(request, message, status):
-        if request.url.path.startswith('/api/') or request.url.path == '/healthz':
+        if request.url.path.startswith('/cli-permission/api/') or request.url.path == '/cli-permission/healthz':
             return JSONResponse({'detail': message}, status_code=status)
         return app.state.templates.TemplateResponse(request=request, name='error.html',
             context={'message': message}, status_code=status)
@@ -58,11 +58,15 @@ def create_app(settings=None):
         # 不返回或记录含数据库连接信息、参数的原始异常。
         return error_response(request, '数据库不可用或未初始化，请检查服务配置和数据库迁移', 503)
 
-    @app.get('/')
-    def index():
-        return RedirectResponse('/admin', status_code=303)
+    @app.get('/cli-permission', include_in_schema=False)
+    def prefix_entry():
+        return RedirectResponse('/cli-permission/', status_code=308)
 
-    @app.get('/healthz')
+    @app.get('/cli-permission/')
+    def index():
+        return RedirectResponse('/cli-permission/admin', status_code=303)
+
+    @app.get('/cli-permission/healthz')
     def health():
         with app.state.sessions() as db:
             if db.scalar(select(SchemaVersion.version)) != 2:

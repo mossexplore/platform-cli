@@ -40,7 +40,6 @@ class AccessDiagnostics:
         self.line('businessid', selection.business_id)
         self.line('命令', command)
         self.line('超时设置（秒）', timeout)
-        self.line('网络设置', '沿用 HTTPX 环境配置；不更改代理、证书或重定向策略')
 
     def trace(self, event, info):
         # 只消费连接元数据，绝不输出 info 中的请求对象或异常。

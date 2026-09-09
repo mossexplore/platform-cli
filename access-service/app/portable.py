@@ -43,7 +43,7 @@ def main():
         return 1
     protocol = 'https' if os.environ.get('TLS_CERT_FILE') else 'http'
     port = os.environ.get('LISTEN_PORT', '8008')
-    print(f'管理页面：{protocol}://服务器IP:{port}；按 Ctrl+C 停止。', flush=True)
+    print(f'管理页面：{protocol}://服务器IP:{port}/cli-permission/；按 Ctrl+C 停止。', flush=True)
     serve()
     return 0
 

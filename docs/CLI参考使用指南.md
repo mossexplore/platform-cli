@@ -1,6 +1,6 @@
 # 命令行参考使用指南
 
-`ml` 是 **WiseMLOps 平台** 的 Python 命令行客户端（包名 `wisemlops-cli`，当前版本 `0.3.30`）。
+`ml` 是 **WiseMLOps 平台** 的 Python 命令行客户端（包名 `wisemlops-cli`，当前版本 `0.3.31`）。
 本文档按当前源码及命令帮助核对（2026-09-08），覆盖全部 31 个可执行子命令、参数、配置项与退出行为。示例中的 `TASK_ID`、`JOB_ID`、`PROJECT_ID`、`NAMESPACE_ID`、`EXPERIMENT_ID`、`SET_ID` 均须替换为对应资源的真实 ID；它们不是同一种 ID。
 
 > 阅读前提：查询平台数据前建议先完成 `ml login` 和 `ml business use`。`user`、`mep`、`mtp`、`offline`、`train`、`featureset` 需要有效认证和业务选择；`business list/use/refresh` 用于建立或维护业务上下文，不要求预先选好业务。没有认证或认证过期时，相关命令会自动启动 Edge 登录。
@@ -895,12 +895,12 @@ AGENTS.md 要求时间适合人类阅读、首列 ID 固定 36 宽且不换行/�
 ```json
 "access_control": {
   "enabled": true,
-  "url": "https://permissions.internal:8008",
+  "url": "https://permissions.internal:8008/cli-permission",
   "timeout_seconds": 15
 }
 ```
 
-权限服务地址支持 HTTP 或 HTTPS 源地址。可信内网使用 HTTP 时，服务配置 `COOKIE_SECURE=false` 并清空两个 TLS 路径。`enabled` 是布尔值（对象存在时默认 true），`timeout_seconds` 为 1–120 秒（默认 15）。没有该对象时兼容旧版不执行在线检查；生产分发需由管理员启用，安装时默认配置全部以包内文件为准，不保留既有设置。客户端配置可被本地修改，此机制不替代业务平台或网关的权限校验。
+权限服务地址支持 HTTP 或 HTTPS，并统一使用 `/cli-permission` 前缀。可信内网使用 HTTP 时，服务配置 `COOKIE_SECURE=false` 并清空两个 TLS 路径。`enabled` 是布尔值（对象存在时默认 true），`timeout_seconds` 为 1–120 秒（默认 15）。没有该对象时兼容旧版不执行在线检查；生产分发需由管理员启用，安装时默认配置全部以包内文件为准，不保留既有设置。客户端配置可被本地修改，此机制不替代业务平台或网关的权限校验。
 
 ```bash
 ml login
@@ -966,10 +966,10 @@ ml train history list aaaa83b8-5669-43a7-a62c-97ccf877e732
 
 ### 权限检查故障定位
 
-`GET /healthz` 正常不代表 `POST /api/v1/access/check` 正常。权限检查分别提示连接超时、等待响应超时、连接失败、HTTP 协议异常以及 HTTP 200 非 JSON 响应；不会输出原始异常或响应正文。等待响应超时应检查权限服务日志、数据库和 `access_control.timeout_seconds`；HTTP 200 非 JSON 应检查权限接口路由或网关是否返回 HTML 页面。
+`GET /cli-permission/healthz` 正常不代表 `POST /cli-permission/api/v1/access/check` 正常。权限检查分别提示连接超时、等待响应超时、连接失败、HTTP 协议异常以及 HTTP 200 非 JSON 响应；不会输出原始异常或响应正文。等待响应超时应检查权限服务日志、数据库和 `access_control.timeout_seconds`；HTTP 200 非 JSON 应检查权限接口路由或网关是否返回 HTML 页面。
 
 
-### 权限连接诊断（0.3.30）
+### 权限连接诊断（0.3.31）
 
 当健康检查或 curl 正常但 CLI 报错时，可执行：
 
@@ -979,4 +979,20 @@ ml --config "C:\Users\l00123456\AppData\Roaming\ml\config.json" access status --
 
 需先完成登录和业务选择。`--diagnose` 显示配置路径、版本、请求 URL、当前账号、环境、平台源地址、businessid、连接目标、可获取的 TCP 对端、HTTP 状态、请求耗时和 Server/Via 等有限响应头。连接目标可能是代理；对端仅代表直接连接的节点，响应头不能证明整个转发链。连接失败时可能没有对端或响应头。
 
-诊断不改变请求、环境代理或证书校验策略；不输出 Cookie、CSRF、完整请求头或响应正文。输出包含内部地址与账号，分享时按需隐藏。诊断失败仍阻止业务请求，退出码沿用原有规则。
+诊断不额外改变请求策略；权限请求默认直连，只有 `use_env_proxy: true` 时使用环境代理；不输出 Cookie、CSRF、完整请求头或响应正文。输出包含内部地址与账号，分享时按需隐藏。诊断失败仍阻止业务请求，退出码沿用原有规则。
+
+
+### 权限服务前缀与默认直连（0.3.31）
+
+```json
+"access_control": {
+  "enabled": true,
+  "url": "https://管理域名/cli-permission",
+  "timeout_seconds": 15,
+  "use_env_proxy": false
+}
+```
+
+权限服务请求统一为 `/cli-permission/api/v1/access/check`。URL 仅允许纯源地址或 `/cli-permission` 路径（可带尾斜杠）；纯源地址自动补齐前缀，不影响业务平台 `api_endpoint`。需同步升级权限服务，管理入口为 `/cli-permission/`，健康检查为 `/cli-permission/healthz`。
+
+`use_env_proxy` 为可选布尔值，默认 false：权限检查直接连接服务地址，不读取环境代理、不修改系统设置，其他业务请求保持原有行为。只有明确配置 true 才使用环境代理。默认直连仍支持 SSL_CERT_FILE、SSL_CERT_DIR 企业 CA，并校验证书。直连失败不会自动切换代理；可使用 `--diagnose` 查看当前模式及连接目标。

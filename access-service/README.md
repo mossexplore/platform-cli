@@ -90,7 +90,7 @@ sudo systemctl status cli-access
 
 安装仅使用 `pip --no-index --find-links --require-hashes` 读取包内文件，不访问外网、不在线安装系统软件。管理员密码交互输入、不回显、不作为命令参数；至少 12 个字符，无默认管理员或默认密码。
 
-浏览器打开 `http://你的权限服务器IP:8008`。先添加环境，再添加人员，最后配置访问授权。环境标识对应 CLI `profiles[].name`，平台地址对应该环境 `api_endpoint` 的源地址（不含 `/dashboard`）；人员账号对应 CLI 当前环境登录缓存中的 `username`。
+浏览器打开 `http://你的权限服务器IP:8008/cli-permission`。先添加环境，再添加人员，最后配置访问授权。环境标识对应 CLI `profiles[].name`，平台地址对应该环境 `api_endpoint` 的源地址（不含 `/dashboard`）；人员账号对应 CLI 当前环境登录缓存中的 `username`。
 
 ## CLI 接入
 
@@ -99,12 +99,12 @@ sudo systemctl status cli-access
 ```json
 "access_control": {
   "enabled": true,
-  "url": "http://permissions.internal:8008",
+  "url": "http://permissions.internal:8008/cli-permission",
   "timeout_seconds": 15
 }
 ```
 
-`url` 支持 HTTP 或 HTTPS 源地址。HTTPS 连接仍校验证书，不继承日志下载的 `verify_ssl: false`。需要企业 CA 时，通过客户端进程的 `SSL_CERT_FILE` 配置信任证书包。
+`url` 支持 HTTP 或 HTTPS 地址及固定路径 `/cli-permission`，旧的纯源地址会自动补上前缀。HTTPS 连接仍校验证书，不继承日志下载的 `verify_ssl: false`。需要企业 CA 时，通过客户端进程的 `SSL_CERT_FILE` 配置信任证书包。
 
 ```bash
 ml login
@@ -132,7 +132,7 @@ sudo .venv/bin/python -m app.manage --env-file /etc/cli-access/env reset-passwor
 
 管理操作记录操作者、修改前后值、北京时间。所有数据库时间存 UTC，页面转换为 UTC+8；授权到期时间按北京时间输入。平台凭据和管理员密码不写入审计。定期备份 MySQL；审计长期增长需结合内部保留策略归档。
 
-`GET /healthz` 检查数据库及结构版本，正常返回 `{"status":"ok"}`。当前结构版本为 2，升级会新增 cli_call_logs 表并保留原有数据，迁移可重复执行；后续数据库结构升级必须新增显式迁移。更新前备份数据库与 `/etc/cli-access/env`，上传新包并重新运行安装；配置保留，服务会短暂停止。
+`GET /cli-permission/healthz` 检查数据库及结构版本，正常返回 `{"status":"ok"}`。当前结构版本为 2，升级会新增 cli_call_logs 表并保留原有数据，迁移可重复执行；后续数据库结构升级必须新增显式迁移。更新前备份数据库与 `/etc/cli-access/env`，上传新包并重新运行安装；配置保留，服务会短暂停止。
 
 若目标 glibc 小于 2.28，安装会明确拒绝，请基于实际系统另行准备兼容依赖包，不要强制替换系统 glibc。权限检查不再依赖权限服务到业务平台的网络。CLI 到权限服务的网络故障、数据库异常或请求缺少账号仍会阻止访问。
 
@@ -153,12 +153,12 @@ python3.12 -m venv .venv
 
 ```bash
 sudo systemctl restart cli-access
-curl http://127.0.0.1:8008/healthz
+curl http://127.0.0.1:8008/cli-permission/healthz
 ```
 
 新安装脚本固定 umask 为 022，并修复旧安装中 Python、虚拟环境和程序目录对服务组不可读、
 不可执行的问题，不修改数据库配置和证书文件权限。CLI 客户端也需要更新到支持 HTTP 的版本，
-再将 access_control.url 改为 `http://服务器IP:8008`。
+再将 access_control.url 改为 `http://服务器IP:8008/cli-permission`。
 
 ## 同一账号授权多个环境
 
@@ -207,3 +207,13 @@ CLI 与权限服务需要同时更新。请求 JSON 新增必填 `username`（1�
 - 操作审计展示管理员、操作类型、摘要及变更前后字段；原始记录可在详情中展开。调用日志支持组合筛选和分页。
 
 界面资源随服务离线部署，不依赖 CDN、外部字体或前端构建工具。管理台需要启用 JavaScript；新增脚本仅允许从本站加载。此次界面升级不需要迁移数据库。
+
+## /cli-permission 前缀与 Nginx 挂载（CLI 0.3.31）
+
+管理台、API、静态资源、健康检查、表单目标和重定向统一使用 `/cli-permission`。登录与 CSRF Cookie 的 Path 也限制在此前缀。旧的无前缀服务路由不再提供，升级后需重新登录管理台；数据库结构不变。
+
+参考 `nginx.conf.example`：`location /cli-permission/` 中使用 `proxy_pass http://127.0.0.1:8008;`，**不要加尾部斜杠或 rewrite 去除前缀**。只代理该路径，不接管同域其他站点。无尾斜杠的 `/cli-permission` 重定向至 `/cli-permission/`。
+
+CLI 的 `access_control.url` 建议填 `https://管理域名/cli-permission`；CLI 0.3.31 也兼容纯源地址，自动补齐前缀。CLI 与权限服务需同步升级，旧客户端请求无前缀 API 会收到 404。业务平台的 `api_endpoint` 和管理台保存的平台源地址不添加此前缀。
+
+权限检查默认忽略环境代理，不修改系统代理、NO_PROXY 或业务客户端；可设 `access_control.use_env_proxy: true` 恢复环境代理。企业 CA 的 `SSL_CERT_FILE` / `SSL_CERT_DIR` 仍有效，证书校验不关闭。

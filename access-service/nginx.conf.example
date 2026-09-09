@@ -6,7 +6,11 @@ server {
     ssl_certificate /etc/nginx/certs/fullchain.pem;
     ssl_certificate_key /etc/nginx/certs/privkey.pem;
     client_max_body_size 32k;
-    location / {
+    location = /cli-permission {
+        return 308 /cli-permission/;
+    }
+    location /cli-permission/ {
+        # proxy_pass 不添加 URI 或尾部斜杠，保留完整前缀。
         limit_req zone=cli_access_limit burst=10 nodelay;
         limit_req_status 429;
         proxy_pass http://127.0.0.1:8008;

@@ -9,11 +9,11 @@ def test_records_reported_account_command_and_denial(system):
     headers = {'x-platform-cookie': 'DO_NOT_LOG_COOKIE', 'x-platform-csrf': 'DO_NOT_LOG_CSRF', 'businessid': 'selected'}
     body = {'environment': 'prod', 'platform_origin': 'https://platform.example.com',
             'command': 'ml train list', 'username': 'alice', 'password': 'DO_NOT_LOG_PASSWORD'}
-    assert client.post('/api/v1/access/check', headers=headers, json=body).json()['allowed']
+    assert client.post('/cli-permission/api/v1/access/check', headers=headers, json=body).json()['allowed']
     with app.state.sessions() as db:
         db.get(Grant, 1).enabled = False
         db.commit()
-    assert not client.post('/api/v1/access/check', headers=headers, json=body).json()['allowed']
+    assert not client.post('/cli-permission/api/v1/access/check', headers=headers, json=body).json()['allowed']
     with app.state.sessions() as db:
         rows = db.scalars(select(CallLog).order_by(CallLog.id)).all()
         assert len(rows) == 2
@@ -38,18 +38,18 @@ def test_unknown_reported_account_recorded(system):
 
 def test_log_query_requires_admin_and_filters_with_pagination(system):
     app, client, _ = system
-    assert client.get('/admin/calls', follow_redirects=False).status_code == 303
+    assert client.get('/cli-permission/admin/calls', follow_redirects=False).status_code == 303
     for _ in range(21):
         check(client)
     login(client)
-    page = client.get('/admin/calls?username=alice&environment=prod&result=allowed')
+    page = client.get('/cli-permission/admin/calls?username=alice&environment=prod&result=allowed')
     assert page.status_code == 200 and '21 条' in page.text and '下一页' in page.text
     assert '未验证' not in page.text.split('<tbody>')[1].split('</tbody>')[0]
-    assert '暂无匹配记录' in client.get('/admin/calls?result=denied').text
-    assert '暂无匹配记录' in client.get('/admin/calls?command=unmatched').text
-    assert '暂无匹配记录' in client.get('/admin/calls?begin=2099-01-01T00:00').text
-    assert client.get('/admin/calls?begin=2030-01-01&end=2020-01-01').status_code == 400
-    assert '上一页' in client.get('/admin/calls?page=2').text
+    assert '暂无匹配记录' in client.get('/cli-permission/admin/calls?result=denied').text
+    assert '暂无匹配记录' in client.get('/cli-permission/admin/calls?command=unmatched').text
+    assert '暂无匹配记录' in client.get('/cli-permission/admin/calls?begin=2099-01-01T00:00').text
+    assert client.get('/cli-permission/admin/calls?begin=2030-01-01&end=2020-01-01').status_code == 400
+    assert '上一页' in client.get('/cli-permission/admin/calls?page=2').text
 
 
 def test_v1_migration_preserves_users_and_creates_logs(system):
@@ -64,7 +64,7 @@ def test_v1_migration_preserves_users_and_creates_logs(system):
         assert db.get(SchemaVersion, 2)
         assert db.get(User, 1).username == 'alice'
         assert db.scalars(select(CallLog)).all() == []
-    assert client.get('/healthz').json()['status'] == 'ok'
+    assert client.get('/cli-permission/healthz').json()['status'] == 'ok'
 
 
 def test_log_write_failure_does_not_allow_access(system):

@@ -24,7 +24,7 @@ def calls(request: Request, username: str = Query('', max_length=128),
             admin, session = admin_session(request, db)
         except HTTPException as exc:
             if exc.status_code == 401:
-                return RedirectResponse('/login', status_code=303)
+                return RedirectResponse('/cli-permission/login', status_code=303)
             raise
         query = select(CallLog)
         if username:

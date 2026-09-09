@@ -32,7 +32,7 @@ def login_page(request: Request):
     response = request.app.state.templates.TemplateResponse(
         request=request, name='login.html', context={'csrf': token})
     response.set_cookie('login_csrf', token, secure=request.app.state.settings.secure_cookie,
-                        httponly=True, samesite='strict', max_age=600)
+                        httponly=True, samesite='strict', path='/cli-permission', max_age=600)
     return response
 
 
@@ -63,10 +63,10 @@ def login(request: Request, username: str = Form(max_length=128),
                        expires_at=now() + timedelta(hours=request.app.state.settings.session_hours)))
         db.add(Audit(actor=admin.username, action='login', detail='管理员登录成功'))
         db.commit()
-    response = RedirectResponse('/admin', status_code=303)
-    response.delete_cookie('login_csrf')
+    response = RedirectResponse('/cli-permission/admin', status_code=303)
+    response.delete_cookie('login_csrf', path='/cli-permission')
     response.set_cookie('access_session', token, secure=request.app.state.settings.secure_cookie,
-                        httponly=True, samesite='strict',
+                        httponly=True, samesite='strict', path='/cli-permission',
                         max_age=request.app.state.settings.session_hours * 3600)
     return response
 
@@ -78,6 +78,6 @@ def logout(request: Request, csrf: str = Form(max_length=64)):
         db.delete(db.get(Session, digest(request.cookies['access_session'])))
         db.add(Audit(actor=admin.username, action='logout', detail='管理员退出'))
         db.commit()
-    response = RedirectResponse('/login', status_code=303)
-    response.delete_cookie('access_session')
+    response = RedirectResponse('/cli-permission/login', status_code=303)
+    response.delete_cookie('access_session', path='/cli-permission')
     return response

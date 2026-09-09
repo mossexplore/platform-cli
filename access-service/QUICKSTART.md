@@ -47,12 +47,12 @@ bash start.sh
 
 首次运行自动准备内置 Python、离线安装依赖、初始化数据库；没有启用的管理员时，交互提示创建管理员，密码至少 12 字符。已有管理员和授权数据会保留。
 
-浏览器打开 `http://服务器IP:8008`。按 Ctrl+C 停止；下次仍使用 `bash start.sh`。需要允许客户端连接服务器 TCP 8008 端口。
+浏览器打开 `http://服务器IP:8008/cli-permission`。按 Ctrl+C 停止；下次仍使用 `bash start.sh`。需要允许客户端连接服务器 TCP 8008 端口。
 
 可在另一终端检查：
 
 ```bash
-curl http://127.0.0.1:8008/healthz
+curl http://127.0.0.1:8008/cli-permission/healthz
 ```
 
 正常返回 `{"status":"ok"}`。必须先完成一次交互式初始化，之后可后台运行：

@@ -20,7 +20,7 @@ def record(db, admin, action, before, item):
     db.add(Audit(actor=admin.username, action=action,
                  detail=json.dumps({'before': before, 'after': snapshot(item)}, ensure_ascii=False)))
     db.commit()
-    return RedirectResponse('/admin?tab=' + action.split('.')[0] + '&saved=1', status_code=303)
+    return RedirectResponse('/cli-permission/admin?tab=' + action.split('.')[0] + '&saved=1', status_code=303)
 
 
 def existing(db, model, item_id):
@@ -43,7 +43,7 @@ def dashboard(request: Request, tab: str = 'users', page: int = Query(1, ge=1),
             admin, session = admin_session(request, db)
         except HTTPException as exc:
             if exc.status_code == 401:
-                return RedirectResponse('/login', status_code=303)
+                return RedirectResponse('/cli-permission/login', status_code=303)
             raise
         model = {'users': User, 'environments': Environment, 'grants': Grant, 'audit': Audit}[tab]
         query = select(model)
@@ -157,4 +157,4 @@ def save_grants(request: Request, csrf: str = Form(max_length=64),
             db.add(Audit(actor=admin.username, action='grants.batch_save',
                          detail=json.dumps({'before': before, 'after': snapshot(item)}, ensure_ascii=False)))
         db.commit()
-        return RedirectResponse('/admin?tab=grants&saved=1', status_code=303)
+        return RedirectResponse('/cli-permission/admin?tab=grants&saved=1', status_code=303)

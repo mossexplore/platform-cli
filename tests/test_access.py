@@ -33,7 +33,7 @@ def test_authorization_headers_and_environment(inputs):
     with patch('wisemlops_cli.access.httpx.Client', return_value=manager) as ctor:
         assert check_access(*inputs)['allowed']
     args, kwargs = manager.__enter__().post.call_args
-    assert args[0] == 'https://access.example.com/api/v1/access/check'
+    assert args[0] == 'https://access.example.com/cli-permission/api/v1/access/check'
     assert kwargs['headers'] == {'businessid': 'current-business'}
     assert kwargs['json'] == {'username': 'alice', 'environment': 'dev', 'platform_origin': 'https://platform.example.com', 'command': 'unknown'}
     assert ctor.call_args.kwargs['verify'] is True
@@ -116,7 +116,7 @@ def test_access_accepts_http_and_https(inputs, scheme):
     manager = response_mock(response)
     with patch('wisemlops_cli.access.httpx.Client', return_value=manager):
         assert check_access(settings, *inputs[1:])['allowed']
-    assert manager.__enter__().post.call_args.args[0] == scheme + '://access.example.com:8008/api/v1/access/check'
+    assert manager.__enter__().post.call_args.args[0] == scheme + '://access.example.com:8008/cli-permission/api/v1/access/check'
 
 
 def test_command_name_excludes_argument_values(tmp_path):

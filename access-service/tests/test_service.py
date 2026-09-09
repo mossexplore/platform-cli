@@ -32,14 +32,14 @@ def system(tmp_path):
 def check(client, **overrides):
     body = {'username': 'alice', 'environment': 'prod', 'platform_origin': 'https://platform.example.com'}
     body.update(overrides)
-    return client.post('/api/v1/access/check', json=body,
+    return client.post('/cli-permission/api/v1/access/check', json=body,
                        headers={'businessid': 'selected'})
 
 
 def login(client):
-    page = client.get('/login')
+    page = client.get('/cli-permission/login')
     csrf = re.search('name="csrf" value="([^"]+)"', page.text)[1]
-    result = client.post('/login', data={'username': 'admin', 'password': 'password-123456', 'csrf': csrf})
+    result = client.post('/cli-permission/login', data={'username': 'admin', 'password': 'password-123456', 'csrf': csrf})
     assert result.status_code == 200
     assert 'CLI 权限管理' in result.text
     return re.search('name="csrf" value="([^"]+)"', result.text)[1]
@@ -63,7 +63,7 @@ def test_invalid_username_rejected(system, username):
 
 def test_missing_username_rejected(system):
     _, client, _ = system
-    assert client.post('/api/v1/access/check', json={
+    assert client.post('/cli-permission/api/v1/access/check', json={
         'environment': 'prod', 'platform_origin': 'https://platform.example.com'},
         headers={'businessid': 'selected'}).status_code == 422
 
@@ -95,32 +95,32 @@ def test_unknown_account_and_environment(system):
 
 def test_admin_requires_login_and_csrf(system):
     app, client, _ = system
-    assert client.get('/admin', follow_redirects=False).status_code == 303
-    assert client.post('/admin/users', data={'username': 'bob', 'csrf': 'x'}).status_code == 401
+    assert client.get('/cli-permission/admin', follow_redirects=False).status_code == 303
+    assert client.post('/cli-permission/admin/users', data={'username': 'bob', 'csrf': 'x'}).status_code == 401
     csrf = login(client)
-    assert client.post('/admin/users', data={'username': 'bob', 'csrf': 'wrong'}).status_code == 403
-    assert client.post('/admin/users', data={'username': 'bob', 'csrf': csrf, 'enabled': 'true'}).status_code == 200
+    assert client.post('/cli-permission/admin/users', data={'username': 'bob', 'csrf': 'wrong'}).status_code == 403
+    assert client.post('/cli-permission/admin/users', data={'username': 'bob', 'csrf': csrf, 'enabled': 'true'}).status_code == 200
     with app.state.sessions() as db:
         assert db.scalar(select(User).where(User.username == 'bob')).enabled
         audit = db.scalars(select(Audit).where(Audit.action == 'users.save')).one()
         assert 'bob' in audit.detail
         assert 'password' not in audit.detail
-    assert client.post('/admin/users', data={'username': 'bob', 'csrf': csrf}).status_code == 409
-    assert client.post('/logout', data={'csrf': csrf}, follow_redirects=False).status_code == 303
-    assert client.get('/admin', follow_redirects=False).status_code == 303
+    assert client.post('/cli-permission/admin/users', data={'username': 'bob', 'csrf': csrf}).status_code == 409
+    assert client.post('/cli-permission/logout', data={'csrf': csrf}, follow_redirects=False).status_code == 303
+    assert client.get('/cli-permission/admin', follow_redirects=False).status_code == 303
 
 
 def test_admin_grant_form_timezone_and_revoke(system):
     app, client, _ = system
     csrf = login(client)
-    result = client.post('/admin/grants', data={'csrf': csrf, 'item_id': 1, 'username': 'alice',
+    result = client.post('/cli-permission/admin/grants', data={'csrf': csrf, 'item_id': 1, 'username': 'alice',
         'environment': 'prod', 'expires_at': '2030-09-08T14:54', 'note': 'test', 'enabled': 'true'})
     assert result.status_code == 200
     with app.state.sessions() as db:
         item = db.get(Grant, 1)
         assert item.expires_at.isoformat() == '2030-09-08T06:54:00'
     assert '2030-09-08T14:54' in result.text
-    result = client.post('/admin/grants', data={'csrf': csrf, 'item_id': 1, 'username': 'alice', 'environment': 'prod'})
+    result = client.post('/cli-permission/admin/grants', data={'csrf': csrf, 'item_id': 1, 'username': 'alice', 'environment': 'prod'})
     assert result.status_code == 200
     assert check(client).json()['reason'] == 'NOT_GRANTED'
 
@@ -129,33 +129,33 @@ def test_environment_form_and_disabled_admin(system):
     app, client, _ = system
     csrf = login(client)
     for origin in ['ftp://example.com', 'https://u:p@example.com', 'https://example.com/path']:
-        assert client.post('/admin/environments', data={'csrf': csrf, 'name': 'dev', 'display_name': '开发', 'platform_origin': origin}).status_code == 400
-    assert client.post('/admin/environments', data={'csrf': csrf, 'name': 'dev', 'display_name': '开发', 'platform_origin': 'https://dev.example.com', 'enabled': 'true'}).status_code == 200
+        assert client.post('/cli-permission/admin/environments', data={'csrf': csrf, 'name': 'dev', 'display_name': '开发', 'platform_origin': origin}).status_code == 400
+    assert client.post('/cli-permission/admin/environments', data={'csrf': csrf, 'name': 'dev', 'display_name': '开发', 'platform_origin': 'https://dev.example.com', 'enabled': 'true'}).status_code == 200
     with app.state.sessions() as db:
         db.get(Admin, 1).enabled = False
         db.commit()
-    assert client.post('/admin/users', data={'csrf': csrf, 'username': 'bob'}).status_code == 401
+    assert client.post('/cli-permission/admin/users', data={'csrf': csrf, 'username': 'bob'}).status_code == 401
 
 
 def test_login_rate_limit(system):
     _, client, _ = system
-    csrf = re.search('name="csrf" value="([^"]+)"', client.get('/login').text)[1]
+    csrf = re.search('name="csrf" value="([^"]+)"', client.get('/cli-permission/login').text)[1]
     for _ in range(10):
-        assert client.post('/login', data={'csrf': csrf, 'username': 'nobody', 'password': 'bad'}).status_code == 401
-    assert client.post('/login', data={'csrf': csrf, 'username': 'admin', 'password': 'password-123456'}).status_code == 429
+        assert client.post('/cli-permission/login', data={'csrf': csrf, 'username': 'nobody', 'password': 'bad'}).status_code == 401
+    assert client.post('/cli-permission/login', data={'csrf': csrf, 'username': 'admin', 'password': 'password-123456'}).status_code == 429
 
 
 def test_health_migration_and_html_escaping(system):
     app, client, _ = system
     migrate(app.state.engine, app.state.sessions)
-    assert client.get('/healthz').json()['status'] == 'ok'
+    assert client.get('/cli-permission/healthz').json()['status'] == 'ok'
     csrf = login(client)
-    client.post('/admin/users', data={'csrf': csrf, 'username': '<script>alert(1)</script>'})
-    response = client.get('/admin')
+    client.post('/cli-permission/admin/users', data={'csrf': csrf, 'username': '<script>alert(1)</script>'})
+    response = client.get('/cli-permission/admin')
     assert '<script>alert(1)</script>' not in response.text
     assert '&lt;script&gt;' in response.text
     for tab in ['users', 'environments', 'grants', 'audit']:
-        assert client.get('/admin', params={'tab': tab}).status_code == 200
+        assert client.get('/cli-permission/admin', params={'tab': tab}).status_code == 200
     assert "frame-ancestors 'none'" in response.headers['content-security-policy']
     assert display_time(expiry('2026-09-08T14:54:36')) == '2026-09-08 14:54:36'
 
@@ -165,7 +165,7 @@ def test_environment_origin_preserves_scheme(system, scheme):
     app, client, captured = system
     csrf = login(client)
     platform = scheme + '://platform.example.com:8080'
-    result = client.post('/admin/environments', data={'csrf': csrf, 'item_id': 1,
+    result = client.post('/cli-permission/admin/environments', data={'csrf': csrf, 'item_id': 1,
         'name': 'prod', 'display_name': '生产', 'platform_origin': platform + '/', 'enabled': 'true'})
     assert result.status_code == 200
     assert check(client, platform_origin=platform).json()['allowed']

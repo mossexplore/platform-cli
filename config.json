@@ -11,7 +11,8 @@
   "access_control": {
     "enabled": false,
     "url": "",
-    "timeout_seconds": 15
+    "timeout_seconds": 15,
+    "use_env_proxy": false
   },
   "browser": {
     "channel": "msedge",

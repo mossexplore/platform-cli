@@ -1,24 +1,24 @@
 <!doctype html>
 <html lang="zh-CN">
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>{% block title %}CLI 权限管理{% endblock %} · WiseMLOps</title><link rel="stylesheet" href="/static/app.css"><script src="/static/app.js" defer></script></head>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>{% block title %}CLI 权限管理{% endblock %} · WiseMLOps</title><link rel="stylesheet" href="/cli-permission/static/app.css"><script src="/cli-permission/static/app.js" defer></script></head>
 <body>
 <a class="skip-link" href="#main">跳转到主要内容</a>
 <aside class="sidebar">
-<a class="brand" href="/admin"><span class="brand-mark">W</span><span>WiseMLOps<small>ACCESS MANAGEMENT</small></span></a>
+<a class="brand" href="/cli-permission/admin"><span class="brand-mark">W</span><span>WiseMLOps<small>ACCESS MANAGEMENT</small></span></a>
 <div class="workspace-label">CLI 权限管理 <span class="workspace-tag">控制台</span></div>
 <nav aria-label="管理导航">
 <p class="nav-label">访问控制</p>
 {% for key,label,caption in [('users','人员管理','01'),('environments','环境管理','02'),('grants','访问授权','03')] %}
-<a href="/admin?tab={{ key }}" {% if tab == key %}aria-current="page"{% endif %}><span class="nav-index">{{ caption }}</span>{{ label }}</a>{% endfor %}
+<a href="/cli-permission/admin?tab={{ key }}" {% if tab == key %}aria-current="page"{% endif %}><span class="nav-index">{{ caption }}</span>{{ label }}</a>{% endfor %}
 <p class="nav-label separated">监控与审计</p>
-<a href="/admin/calls" {% if tab == 'calls' %}aria-current="page"{% endif %}><span class="nav-index">04</span>CLI 调用日志</a>
-<a href="/admin?tab=audit" {% if tab == 'audit' %}aria-current="page"{% endif %}><span class="nav-index">05</span>操作审计</a>
+<a href="/cli-permission/admin/calls" {% if tab == 'calls' %}aria-current="page"{% endif %}><span class="nav-index">04</span>CLI 调用日志</a>
+<a href="/cli-permission/admin?tab=audit" {% if tab == 'audit' %}aria-current="page"{% endif %}><span class="nav-index">05</span>操作审计</a>
 </nav>
 <div class="sidebar-note"><span class="note-line"></span><strong>授权实时生效</strong><p>每次 CLI 业务请求<br>均检查最新授权配置。</p></div>
 <div class="sidebar-account"><span class="avatar">{{ admin.username[:1]|upper }}</span><div><strong>{{ admin.username }}</strong><small>系统管理员</small></div></div>
 </aside>
 <div class="app-shell">
-<header class="topbar"><div class="breadcrumb">访问管理 <span>/</span> <strong>{{ page_title }}</strong></div><div class="topbar-actions"><span class="timezone">北京时间 UTC+8</span><form method="post" action="/logout"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="text-button">退出登录</button></form></div></header>
+<header class="topbar"><div class="breadcrumb">访问管理 <span>/</span> <strong>{{ page_title }}</strong></div><div class="topbar-actions"><span class="timezone">北京时间 UTC+8</span><form method="post" action="/cli-permission/logout"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="text-button">退出登录</button></form></div></header>
 <main id="main" class="main-content">
 <noscript><p class="noscript">请启用 JavaScript，以使用新增、编辑及详情抽屉。</p></noscript>
 {% block content %}{% endblock %}

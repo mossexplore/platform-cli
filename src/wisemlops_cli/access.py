@@ -5,6 +5,7 @@ from typing import Any, Dict
 from urllib.parse import urlsplit
 import httpx
 from .errors import ConfigError, MlError
+from .access_transport import permission_url, tls_verify
 
 
 def validate_settings(value: Any) -> Dict[str, Any]:
@@ -22,12 +23,14 @@ def validate_settings(value: Any) -> Dict[str, Any]:
             parsed = urlsplit(url)
             valid = (parsed.scheme in ('http', 'https') and parsed.hostname and not parsed.username
                      and not parsed.password and not parsed.query and not parsed.fragment
-                     and parsed.path in ('', '/'))
+                     and parsed.path in ('', '/', '/cli-permission', '/cli-permission/'))
             _ = parsed.port
         except (TypeError, ValueError):
             valid = False
         if not valid:
-            raise ConfigError('access_control.url 必须是 HTTP 或 HTTPS 源地址，不含路径或凭据')
+            raise ConfigError('access_control.url 必须是 HTTP 或 HTTPS 地址，路径仅允许 /cli-permission，不含凭据、查询参数或片段')
+    if not isinstance(value.get('use_env_proxy', False), bool):
+        raise ConfigError('access_control.use_env_proxy 必须是布尔值')
     timeout = value.get('timeout_seconds', 15)
     if isinstance(timeout, bool) or not isinstance(timeout, (int, float)) or not 1 <= timeout <= 120:
         raise ConfigError('access_control.timeout_seconds 必须在 1–120 秒之间')
@@ -47,12 +50,14 @@ def command_name(context):
 def check_access(settings, profile, credentials, selection, *, command="unknown", diagnostics=None):
     if not settings or not settings.get('enabled', True):
         return None
-    url = settings['url'].rstrip('/') + '/api/v1/access/check'
+    url = permission_url(settings['url'])
     if diagnostics:
         diagnostics.begin(url, profile, credentials, selection, command, settings.get('timeout_seconds', 15))
+        diagnostics.line('网络设置', '沿用环境代理配置' if settings.get('use_env_proxy', False) else '权限服务直连，已忽略环境代理')
     try:
         with httpx.Client(timeout=settings.get('timeout_seconds', 15),
-                          verify=True, follow_redirects=False) as client:
+                          verify=tls_verify(), follow_redirects=False,
+                          trust_env=settings.get('use_env_proxy', False)) as client:
             response = client.post(url,
                                    headers={'businessid': selection.business_id},
                                    json={'username': credentials.username,
