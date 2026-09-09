@@ -1,10 +1,10 @@
-"""在线授权检查：仅信任权限服务验证过的平台身份。"""
+"""在线授权检查：以当前登录账号检查环境授权。"""
 from __future__ import annotations
 
 from typing import Any, Dict
 from urllib.parse import urlsplit
 import httpx
-from .errors import AuthenticationError, ConfigError, MlError
+from .errors import ConfigError, MlError
 
 
 def validate_settings(value: Any) -> Dict[str, Any]:
@@ -51,20 +51,31 @@ def check_access(settings, profile, credentials, selection, *, command="unknown"
         with httpx.Client(timeout=settings.get('timeout_seconds', 15),
                           verify=True, follow_redirects=False) as client:
             response = client.post(settings['url'].rstrip('/') + '/api/v1/access/check',
-                                   headers={'X-Platform-Cookie': credentials.cookie,
-                                            'X-Platform-Csrf': credentials.csrftoken,
-                                            'businessid': selection.business_id},
-                                   json={'environment': profile.name,
+                                   headers={'businessid': selection.business_id},
+                                   json={'username': credentials.username,
+                                         'environment': profile.name,
                                          'platform_origin': profile.base_url,
                                          'command': command})
         if response.status_code == 401:
-            raise AuthenticationError('权限服务核验平台身份失败，请重新登录')
+            raise MlError('权限服务拒绝请求，请检查客户端与服务端版本及接入配置')
         if response.status_code != 200:
             raise MlError(f'权限检查失败，HTTP {response.status_code}，业务请求已停止，请联系管理员')
         result = response.json()
-    except (httpx.HTTPError, ValueError):
-        # 不拼接可能包含平台 Cookie、认证信息的网络异常。
-        raise MlError('权限服务连接失败或响应无效，业务请求已停止，请检查网络、证书或联系管理员') from None
+    except httpx.ConnectTimeout:
+        raise MlError('连接权限服务超时，业务请求已停止，请检查地址、端口和网络') from None
+    except httpx.ReadTimeout:
+        raise MlError('等待权限服务响应超时，业务请求已停止，请检查服务日志、数据库及 timeout_seconds 配置') from None
+    except httpx.TimeoutException:
+        raise MlError('权限服务请求超时，业务请求已停止，请检查网络及 timeout_seconds 配置') from None
+    except httpx.ConnectError:
+        raise MlError('无法连接权限服务，业务请求已停止，请检查地址、端口、HTTP/HTTPS 协议及证书') from None
+    except httpx.RemoteProtocolError:
+        raise MlError('权限服务连接被关闭或 HTTP 响应不完整，业务请求已停止，请检查服务或网关日志及 HTTP/HTTPS 协议') from None
+    except httpx.HTTPError:
+        raise MlError('权限服务 HTTP 通信异常，业务请求已停止，请检查服务或网关日志') from None
+    except ValueError:
+        # 不回显异常或响应正文，避免泄露认证信息和内部页面内容。
+        raise MlError('权限服务返回 HTTP 200，但响应不是有效 JSON，业务请求已停止，请检查权限接口路由及网关响应') from None
     if not isinstance(result, dict) or type(result.get('allowed')) is not bool:
         raise MlError('权限服务响应格式错误，业务请求已停止')
     if not result['allowed']:

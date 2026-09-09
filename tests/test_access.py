@@ -34,8 +34,8 @@ def test_authorization_headers_and_environment(inputs):
         assert check_access(*inputs)['allowed']
     args, kwargs = manager.__enter__().post.call_args
     assert args[0] == 'https://access.example.com/api/v1/access/check'
-    assert kwargs['headers']['businessid'] == 'current-business'
-    assert kwargs['json'] == {'environment': 'dev', 'platform_origin': 'https://platform.example.com', 'command': 'unknown'}
+    assert kwargs['headers'] == {'businessid': 'current-business'}
+    assert kwargs['json'] == {'username': 'alice', 'environment': 'dev', 'platform_origin': 'https://platform.example.com', 'command': 'unknown'}
     assert ctor.call_args.kwargs['verify'] is True
     assert ctor.call_args.kwargs['follow_redirects'] is False
 
@@ -51,9 +51,9 @@ def test_denial_and_invalid_response(inputs, status, payload, error):
             check_access(*inputs)
 
 
-def test_expired_identity_refresh_signal(inputs):
+def test_access_401_reports_service_rejection(inputs):
     with patch('wisemlops_cli.access.httpx.Client', return_value=response_mock(httpx.Response(401))):
-        with pytest.raises(AuthenticationError):
+        with pytest.raises(MlError, match="权限服务拒绝请求"):
             check_access(*inputs)
 
 
@@ -150,3 +150,29 @@ assert wisemlops_cli.access.command_name(None) == 'unknown'
     env = dict(os.environ, PYTHONPATH=str(Path(__file__).resolve().parents[1] / 'src'))
     result = subprocess.run([sys.executable, '-c', script], env=env, capture_output=True, text=True)
     assert result.returncode == 0, result.stderr
+
+
+@pytest.mark.parametrize('exception,message', [
+    (httpx.ConnectTimeout, '连接权限服务超时'),
+    (httpx.ReadTimeout, '等待权限服务响应超时'),
+    (httpx.WriteTimeout, '权限服务请求超时'),
+    (httpx.ConnectError, '无法连接权限服务'),
+    (httpx.RemoteProtocolError, 'HTTP 响应不完整'),
+    (httpx.ProxyError, 'HTTP 通信异常'),
+])
+def test_access_network_failure_categories(inputs, exception, message):
+    manager = response_mock(None)
+    manager.__enter__().post.side_effect = exception('secret-cookie secret-csrf')
+    with patch('wisemlops_cli.access.httpx.Client', return_value=manager):
+        with pytest.raises(MlError, match=message) as error:
+            check_access(*inputs)
+    assert 'secret-cookie' not in str(error.value)
+    assert 'secret-csrf' not in str(error.value)
+
+
+def test_non_json_access_response_is_distinct(inputs):
+    manager = response_mock(httpx.Response(200, text='<html>secret-cookie</html>'))
+    with patch('wisemlops_cli.access.httpx.Client', return_value=manager):
+        with pytest.raises(MlError, match='不是有效 JSON') as error:
+            check_access(*inputs)
+    assert 'secret-cookie' not in str(error.value)

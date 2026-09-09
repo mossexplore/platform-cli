@@ -1,0 +1,219 @@
+@media(min-width:1500px) {
+  .main-content {
+  padding:40px 48px
+}
+.topbar {
+  padding:0 48px
+}
+td {
+  padding-top:21px;
+  padding-bottom:21px
+}
+
+}
+
+@media(max-width:1100px) {
+  .sidebar {
+  width:190px;
+  padding-left:10px;
+  padding-right:10px
+}
+.brand {
+  font-size:17px
+}
+.brand small {
+  font-size:7px
+}
+.app-shell {
+  margin-left:190px
+}
+.main-content {
+  padding:25px 22px
+}
+.topbar {
+  padding:0 22px
+}
+.stat-card {
+  padding:16px
+}
+.stats-grid {
+  gap:10px
+}
+.timezone {
+  display:none
+}
+.call-filters {
+  grid-template-columns:repeat(2,minmax(120px,1fr))
+}
+td,th {
+  padding-left:14px;
+  padding-right:14px
+}
+.login-aside {
+  padding:40px 30px
+}
+
+}
+
+@media(max-width:760px) {
+  .sidebar {
+  position:static;
+  width:100%;
+  padding:16px
+}
+.sidebar .brand {
+  font-size:18px;
+  padding:0
+}
+.sidebar .brand small,.workspace-label,.sidebar-note,.sidebar-account,.nav-label,.nav-index {
+  display:none
+}
+.sidebar nav {
+  display:flex;
+  gap:5px;
+  overflow-x:auto;
+  margin-top:12px
+}
+.sidebar nav a {
+  font-size:11px;
+  white-space:nowrap;
+  padding:9px 10px;
+  margin:0
+}
+.app-shell {
+  margin-left:0
+}
+.topbar {
+  height:50px;
+  padding:0 18px
+}
+.main-content {
+  padding:22px 18px
+}
+.page-heading {
+  align-items:flex-start;
+  margin-bottom:20px
+}
+.page-heading h1 {
+  font-size:23px
+}
+.subtitle {
+  font-size:11px;
+  max-width:380px
+}
+.stats-grid {
+  grid-template-columns:repeat(2,1fr)
+}
+.stat-card strong {
+  font-size:26px
+}
+.panel-title {
+  padding:17px
+}
+.panel-title>.muted {
+  display:none
+}
+.filter-bar {
+  padding:0 17px 17px;
+  flex-wrap:wrap
+}
+.filter-bar .search-input {
+  flex:1;
+  min-width:155px;
+  max-width:none
+}
+.filter-bar select {
+  width:120px
+}
+.pagination {
+  padding:14px;
+  font-size:10px
+}
+.page-footer {
+  flex-wrap:wrap
+}
+.info-note {
+  display:block
+}
+.info-note p {
+  margin-top:6px
+}
+.login-page {
+  display:block
+}
+.login-aside {
+  padding:25px
+}
+.login-story,.login-aside footer {
+  display:none
+}
+.login-main {
+  padding:50px 25px
+}
+.call-filters {
+  padding:0 17px 17px
+}
+.drawer-heading,.drawer-body {
+  padding:22px
+}
+.drawer-footer {
+  padding:16px 22px
+}
+
+}
+
+@media(prefers-reduced-motion:reduce) {
+  * {
+  transition:none!important;
+  scroll-behavior:auto!important
+}
+
+}
+
+
+.call-results {
+  margin-top:22px
+}
+
+
+/* Comfortable reading density and predictable table overflow. */
+table {
+  font-size:13px
+}
+.table-scroll>table {
+  min-width:700px
+}
+.table-scroll>.logs-table {
+  min-width:1150px
+}
+.logs-table td:nth-child(2),.logs-table td:nth-child(3),.logs-table td:nth-child(4),.logs-table td:nth-child(5) {
+  white-space:nowrap
+}
+.badge,.actions button {
+  font-size:12px
+}
+.mono,.code-chip,.origin,.note-cell {
+  font-size:12px
+}
+th {
+  font-size:12px;
+  color:#6f7d92
+}
+.brand small {
+  white-space:nowrap;
+  letter-spacing:1.2px;
+  font-size:7px
+}
+.stat-card p {
+  font-size:11px;
+  color:#7d899d
+}
+.drawer {
+  overflow:hidden
+}
+.drawer-body {
+  min-height:0
+}
+.drawer:not(:has(form)) .drawer-body {
+  height:calc(100dvh - 90px)
+}

@@ -40,7 +40,7 @@ def main():
         root = Path(temporary) / 'cli-access'
         root.mkdir()
         shutil.copytree(source / 'app', root / 'app', ignore=shutil.ignore_patterns('__pycache__', '*.pyc'))
-        for name in ('install.sh', 'start.sh', '.env.example', 'cli-access.service', 'nginx.conf.example', 'README.md'):
+        for name in ('install.sh', 'start.sh', 'bootstrap.sh', 'manage.sh', 'QUICKSTART.md', '.env.example', 'cli-access.service', 'nginx.conf.example', 'README.md'):
             shutil.copy2(source / name, root / name)
         shutil.copy2(args.runtime, root / 'python-runtime.tar.gz')
         wheels = root / 'wheelhouse'

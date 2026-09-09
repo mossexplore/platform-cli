@@ -371,6 +371,6 @@ commands/mep.py -> services/mep.py -> client.py
 
 ### 可选在线权限管理
 
-新增 `ml access status`，可接入账号与环境白名单，在业务命令执行前验证平台身份及实时授权。独立管理服务支持 MySQL、Web 页面和 Linux 离线安装；离线包携带 Python 运行时及第三方依赖，不依赖服务器的 Python 3.7.4。
+新增 `ml access status`，可接入账号与环境白名单，在业务命令执行前按 CLI 当前登录账号检查实时授权。独立管理服务支持 MySQL、Web 页面和 Linux 离线安装；离线包携带 Python 运行时及第三方依赖，不依赖服务器的 Python 3.7.4。
 
 详见 [权限服务部署说明](access-service/README.md) 和 [CLI 使用指南](docs/CLI参考使用指南.md)。客户端检查不替代平台后端鉴权，需在分发配置中启用。

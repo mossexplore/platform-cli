@@ -1,0 +1,126 @@
+:root {
+  font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;
+  color:#263247;
+  background:#f5f7fb;
+  font-size:14px;
+  line-height:1.55;
+  --blue:#335cff;
+  --border:#e7ebf2;
+  --muted:#758198;
+  --navy:#141e32
+}
+* {
+  box-sizing:border-box
+}
+body {
+  margin:0
+}
+a {
+  color:#365cda;
+  text-decoration:none
+}
+button,input,select,textarea {
+  font:inherit
+}
+button,a,input,select,textarea {
+   -webkit-tap-highlight-color:transparent
+}
+button {
+  cursor:pointer
+}
+button,.secondary {
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  gap:8px;
+  background:var(--blue);
+  color:#fff;
+  border:1px solid var(--blue);
+  border-radius:7px;
+  padding:9px 17px;
+  font-size:13px;
+  font-weight:550;
+  white-space:nowrap;
+  min-height:38px
+}
+button:hover {
+  background:#264adb
+}
+.secondary {
+  background:#fff;
+  color:#47546b;
+  border-color:#dbe1eb
+}
+.secondary:hover {
+  background:#f6f8fc;
+  color:#2c4acb
+}
+.text-button {
+  padding:5px 3px;
+  background:none;
+  border:0;
+  color:#365cda;
+  min-height:32px
+}
+.text-button:hover {
+  background:#edf2ff
+}
+button:disabled {
+  opacity:.55;
+  cursor:wait
+}
+input,select,textarea {
+  width:100%;
+  padding:10px 12px;
+  border:1px solid #dbe1eb;
+  border-radius:6px;
+  background:#fff;
+  color:#29354a;
+  min-width:0
+}
+input::placeholder,textarea::placeholder {
+  color:#949eae
+}
+input[readonly] {
+  background:#f4f6f9;
+  color:#738097
+}
+input:focus,select:focus,textarea:focus {
+  border-color:#6f88f7
+}
+a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible,summary:focus-visible {
+  outline:3px solid #a3b4fc;
+  outline-offset:3px
+}
+h1,h2,h3,p {
+  margin:0
+}
+h1 {
+  font-size:27px;
+  line-height:1.4;
+  letter-spacing:-.5px;
+  font-weight:650
+}
+h2 {
+  font-size:15px;
+  font-weight:650
+}
+h3 {
+  font-size:14px
+}
+small {
+  font-size:11px;
+  font-weight:400;
+  color:var(--muted)
+}
+.muted {
+  color:var(--muted);
+  font-size:12px
+}
+.eyebrow {
+  font-size:10px;
+  font-weight:650;
+  letter-spacing:1.8px;
+  color:#8893a8;
+  margin-bottom:9px
+}

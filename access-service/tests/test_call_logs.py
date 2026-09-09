@@ -1,15 +1,14 @@
-import httpx
 from sqlalchemy import select
 from app.models import CallLog, Grant, SchemaVersion, User
 from app.manage import migrate
 from test_service import system, login, check
 
 
-def test_records_verified_identity_command_and_denial(system):
+def test_records_reported_account_command_and_denial(system):
     app, client, _ = system
     headers = {'x-platform-cookie': 'DO_NOT_LOG_COOKIE', 'x-platform-csrf': 'DO_NOT_LOG_CSRF', 'businessid': 'selected'}
     body = {'environment': 'prod', 'platform_origin': 'https://platform.example.com',
-            'command': 'ml train list', 'username': 'forged', 'password': 'DO_NOT_LOG_PASSWORD'}
+            'command': 'ml train list', 'username': 'alice', 'password': 'DO_NOT_LOG_PASSWORD'}
     assert client.post('/api/v1/access/check', headers=headers, json=body).json()['allowed']
     with app.state.sessions() as db:
         db.get(Grant, 1).enabled = False
@@ -27,15 +26,14 @@ def test_records_verified_identity_command_and_denial(system):
         assert 'DO_NOT_LOG' not in values and 'forged' not in values
 
 
-def test_identity_failure_recorded_without_claiming_username(system):
+def test_unknown_reported_account_recorded(system):
     app, client, _ = system
-    app.state.identity_transport = httpx.MockTransport(lambda req: httpx.Response(401))
-    assert check(client).status_code == 401
+    assert check(client, username='unknown').json()['reason'] == 'USER_DISABLED'
     with app.state.sessions() as db:
         row = db.scalar(select(CallLog))
-        assert row.actor == '未验证'
+        assert row.actor == 'unknown'
         assert row.command == 'unknown'
-        assert row.reason == 'HTTP_401'
+        assert row.reason == 'USER_DISABLED'
 
 
 def test_log_query_requires_admin_and_filters_with_pagination(system):

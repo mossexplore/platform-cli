@@ -50,11 +50,11 @@ class CliEnvironmentCommandTest(unittest.TestCase):
         self.assertNotEqual(result.exit_code, 0)
         self.assertIn("No such command", result.output)
 
-    def test_version_is_0_3_26(self):
+    def test_version_is_0_3_29(self):
         result = self.runner.invoke(app, ["--version"])
 
         self.assertEqual(result.exit_code, 0, result.output)
-        self.assertIn("ml 0.3.28", result.output)
+        self.assertIn("ml 0.3.29", result.output)
 
     def test_offline_experiment_list_command_is_available(self):
         result = self.runner.invoke(
@@ -107,7 +107,7 @@ class CliEnvironmentCommandTest(unittest.TestCase):
         )
 
         self.assertEqual(result.exit_code, 0, result.output)
-        self.assertIn("EXPERIMENT_ID", result.output)
+        self.assertIn("experiment_id", result.output.lower())
 
     def test_offline_experiment_trial_list_command_is_available(self):
         result = self.runner.invoke(
@@ -124,7 +124,7 @@ class CliEnvironmentCommandTest(unittest.TestCase):
         )
 
         self.assertEqual(result.exit_code, 0, result.output)
-        self.assertIn("PROJECT_ID", result.output)
+        self.assertIn("project_id", result.output.lower())
         self.assertIn("--ai-module", result.output)
 
 

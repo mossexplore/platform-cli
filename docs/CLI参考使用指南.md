@@ -1,6 +1,6 @@
 # 命令行参考使用指南
 
-`ml` 是 **WiseMLOps 平台** 的 Python 命令行客户端（包名 `wisemlops-cli`，当前版本 `0.3.28`）。
+`ml` 是 **WiseMLOps 平台** 的 Python 命令行客户端（包名 `wisemlops-cli`，当前版本 `0.3.29`）。
 本文档按当前源码及命令帮助核对（2026-09-08），覆盖全部 31 个可执行子命令、参数、配置项与退出行为。示例中的 `TASK_ID`、`JOB_ID`、`PROJECT_ID`、`NAMESPACE_ID`、`EXPERIMENT_ID`、`SET_ID` 均须替换为对应资源的真实 ID；它们不是同一种 ID。
 
 > 阅读前提：查询平台数据前建议先完成 `ml login` 和 `ml business use`。`user`、`mep`、`mtp`、`offline`、`train`、`featureset` 需要有效认证和业务选择；`business list/use/refresh` 用于建立或维护业务上下文，不要求预先选好业务。没有认证或认证过期时，相关命令会自动启动 Edge 登录。
@@ -910,7 +910,7 @@ ml access status
 ml --config ./config.json access status
 ```
 
-该命令无位置参数和专有选项，支持通用 `--config`。调用权限接口时，`businessid` 取当前环境 `business.json` 的 `selected.businessId`；账号由权限服务调用平台 `/ai/user/info` 验证，不使用手填账号做身份凭证。
+该命令无位置参数和专有选项，支持通用 `--config`。调用权限接口时，`businessid` 取当前环境 `business.json` 的 `selected.businessId`；账号 `username` 取当前环境本地登录缓存，权限服务信任该账号并查询授权，不再调用平台 `/ai/user/info`。权限请求不发送 Cookie 或 CSRF。CLI 与权限服务需同时更新，旧 CLI 缺少账号字段会收到 HTTP 422；本次无需数据库迁移。
 
 成功输出：`当前账号已获当前环境访问授权。` 未启用时输出配置提示；未授权、停用、过期、身份不一致或网络异常时打印具体类别的错误并返回非零退出码。未登录或未选择业务时，按原有登录和业务选择流程完成初始化。
 
@@ -924,7 +924,7 @@ ml --config ./config.json access status
 每次在线检查由权限服务写入 MySQL，并可在「CLI 调用日志」按账号、环境、命令、授权结果、时间查询。
 新版 CLI 仅上报命令名称，例如 `ml train list`，不记录位置参数、密码、Cookie 或自定义参数内容。
 该日志表示命令发起时的授权检查，不表示业务执行结果；帮助、登录和本地配置等未经过检查的操作不在记录范围内。
-旧客户端在新服务上仍可检查权限，但日志命令显示 `unknown`，需更新 CLI 后才能显示命令名。
+请求未提供命令名称时日志显示 `unknown`；未提供账号 `username` 的旧客户端无法使用新权限接口。
 
 ## 执行训练任务：`ml train start <task-id>`
 
@@ -962,3 +962,8 @@ ml train history list aaaa83b8-5669-43a7-a62c-97ccf877e732
 ```
 
 执行接口发出之前，权限检查发生登录失效时仍可按既有机制重新登录。底层只允许原有连接建立阶段的重试，不对已发送的执行请求自动重放。
+
+
+### 权限检查故障定位
+
+`GET /healthz` 正常不代表 `POST /api/v1/access/check` 正常。权限检查分别提示连接超时、等待响应超时、连接失败、HTTP 协议异常以及 HTTP 200 非 JSON 响应；不会输出原始异常或响应正文。等待响应超时应检查权限服务日志、数据库和 `access_control.timeout_seconds`；HTTP 200 非 JSON 应检查权限接口路由或网关是否返回 HTML 页面。

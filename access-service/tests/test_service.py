@@ -14,11 +14,7 @@ from app.settings import Settings
 @pytest.fixture
 def system(tmp_path):
     captured = []
-    def identity(request):
-        captured.append(request)
-        return httpx.Response(200, json={'result': {'code': 0, 'username': 'alice'}})
-    app = create_app(Settings('sqlite:///' + str(tmp_path / 'test.db'), secure_cookie=False),
-                     httpx.MockTransport(identity))
+    app = create_app(Settings('sqlite:///' + str(tmp_path / 'test.db'), secure_cookie=False))
     migrate(app.state.engine, app.state.sessions)
     with app.state.sessions() as db:
         db.add(Admin(username='admin', password_hash=password_hash('password-123456')))
@@ -34,10 +30,10 @@ def system(tmp_path):
 
 
 def check(client, **overrides):
-    body = {'environment': 'prod', 'platform_origin': 'https://platform.example.com'}
+    body = {'username': 'alice', 'environment': 'prod', 'platform_origin': 'https://platform.example.com'}
     body.update(overrides)
     return client.post('/api/v1/access/check', json=body,
-                       headers={'x-platform-cookie': 'secret-cookie', 'x-platform-csrf': 'secret-csrf', 'businessid': 'selected'})
+                       headers={'businessid': 'selected'})
 
 
 def login(client):
@@ -49,15 +45,27 @@ def login(client):
     return re.search('name="csrf" value="([^"]+)"', result.text)[1]
 
 
-def test_live_identity_headers_and_spoofed_username(system):
-    app, client, requests = system
-    response = check(client, username='admin')
-    assert response.json() == {'allowed': True, 'username': 'alice', 'environment': 'prod'}
-    assert str(requests[0].url) == 'https://platform.example.com/ai/user/info'
-    assert requests[0].headers['businessid'] == 'selected'
-    assert requests[0].headers['cookie'] == 'secret-cookie'
-    with app.state.sessions() as db:
-        assert not db.scalars(select(Audit)).all()
+def test_reported_username_without_platform_request(system, monkeypatch):
+    app, client, _ = system
+    def unexpected(*args, **kwargs):
+        pytest.fail('权限服务不得访问业务平台')
+    monkeypatch.setattr(httpx.Client, '__init__', unexpected)
+    # TestClient 已创建；权限检查不得再创建用于平台请求的客户端。
+    assert check(client).json() == {'allowed': True, 'username': 'alice', 'environment': 'prod'}
+    assert check(client, username='admin').json()['reason'] == 'USER_DISABLED'
+
+
+@pytest.mark.parametrize('username', [None, '', '   ', 'a' * 129, 123])
+def test_invalid_username_rejected(system, username):
+    _, client, _ = system
+    assert check(client, username=username).status_code == 422
+
+
+def test_missing_username_rejected(system):
+    _, client, _ = system
+    assert client.post('/api/v1/access/check', json={
+        'environment': 'prod', 'platform_origin': 'https://platform.example.com'},
+        headers={'businessid': 'selected'}).status_code == 422
 
 
 @pytest.mark.parametrize('model,field,value,reason', [
@@ -82,26 +90,7 @@ def test_unknown_account_and_environment(system):
     assert check(client, environment='unknown').json()['allowed'] is False
     assert check(client, platform_origin='https://evil.example.com').json()['reason'] == 'ENVIRONMENT_MISMATCH'
     assert not requests
-    app.state.identity_transport = httpx.MockTransport(lambda req: httpx.Response(200, json={'result': {'code': 0, 'username': 'mallory'}}))
-    assert check(client).json()['reason'] == 'USER_DISABLED'
-
-
-@pytest.mark.parametrize('status,payload,expected', [(401, {}, 401), (302, {}, 401), (500, {}, 503),
-    (200, {'result': {'code': 1}}, 401), (200, {'result': {'code': 0}}, 503), (200, [], 503)])
-def test_bad_identity_fails_closed(system, status, payload, expected):
-    app, client, _ = system
-    app.state.identity_transport = httpx.MockTransport(lambda req: httpx.Response(status, json=payload))
-    assert check(client).status_code == expected
-
-
-def test_identity_network_error_sanitized(system):
-    app, client, _ = system
-    def fail(req):
-        raise httpx.ConnectError('secret-cookie')
-    app.state.identity_transport = httpx.MockTransport(fail)
-    response = check(client)
-    assert response.status_code == 503
-    assert 'secret-cookie' not in response.text
+    assert check(client, username='mallory').json()['reason'] == 'USER_DISABLED'
 
 
 def test_admin_requires_login_and_csrf(system):
@@ -172,7 +161,7 @@ def test_health_migration_and_html_escaping(system):
 
 
 @pytest.mark.parametrize('scheme', ['http', 'https'])
-def test_environment_origin_preserves_scheme_through_identity_check(system, scheme):
+def test_environment_origin_preserves_scheme(system, scheme):
     app, client, captured = system
     csrf = login(client)
     platform = scheme + '://platform.example.com:8080'
@@ -180,7 +169,6 @@ def test_environment_origin_preserves_scheme_through_identity_check(system, sche
         'name': 'prod', 'display_name': '生产', 'platform_origin': platform + '/', 'enabled': 'true'})
     assert result.status_code == 200
     assert check(client, platform_origin=platform).json()['allowed']
-    assert str(captured[-1].url) == platform + '/ai/user/info'
-    assert captured[-1].headers['businessid'] == 'selected'
+    assert not captured
     opposite = ('https' if scheme == 'http' else 'http') + '://platform.example.com:8080'
     assert check(client, platform_origin=opposite).json()['reason'] == 'ENVIRONMENT_MISMATCH'

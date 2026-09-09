@@ -2,10 +2,11 @@
 import json
 from fastapi import APIRouter, Form, HTTPException, Query, Request
 from fastapi.responses import RedirectResponse
-from sqlalchemy import select, func
+from sqlalchemy import select, func, or_
 from .admin_auth import admin_session, authorize_form
 from .models import Audit, Environment, Grant, User
 from .security import expiry, origin
+from .admin_views import overview, filter_status, grant_state, audit_detail
 
 router = APIRouter()
 
@@ -31,9 +32,12 @@ def existing(db, model, item_id):
 
 @router.get('/admin')
 def dashboard(request: Request, tab: str = 'users', page: int = Query(1, ge=1),
-              q: str = Query('', max_length=128), saved: bool = False):
+              q: str = Query('', max_length=128), saved: bool = False, status: str = ''):
     if tab not in ('users', 'environments', 'grants', 'audit'):
         raise HTTPException(400, '无效页面')
+    allowed_statuses = ('', 'active', 'expired', 'expiring', 'disabled') if tab == 'grants' else ('', 'enabled', 'disabled')
+    if status not in allowed_statuses or (tab == 'audit' and status):
+        raise HTTPException(400, '无效状态筛选')
     with request.app.state.sessions() as db:
         try:
             admin, session = admin_session(request, db)
@@ -43,13 +47,16 @@ def dashboard(request: Request, tab: str = 'users', page: int = Query(1, ge=1),
             raise
         model = {'users': User, 'environments': Environment, 'grants': Grant, 'audit': Audit}[tab]
         query = select(model)
+        if tab == 'grants':
+            query = query.join(User).join(Environment)
+        query = filter_status(query, tab, status)
         if q:
             if tab == 'users':
-                query = query.where(User.username.contains(q, autoescape=True))
+                query = query.where(or_(User.username.contains(q, autoescape=True), User.display_name.contains(q, autoescape=True)))
             elif tab == 'environments':
-                query = query.where(Environment.name.contains(q, autoescape=True))
+                query = query.where(or_(Environment.name.contains(q, autoescape=True), Environment.display_name.contains(q, autoescape=True)))
             elif tab == 'grants':
-                query = query.join(User).where(User.username.contains(q, autoescape=True))
+                query = query.where(or_(User.username.contains(q, autoescape=True), Environment.name.contains(q, autoescape=True)))
             else:
                 query = query.where(Audit.actor.contains(q, autoescape=True))
         count = db.scalar(select(func.count()).select_from(query.subquery()))
@@ -58,10 +65,14 @@ def dashboard(request: Request, tab: str = 'users', page: int = Query(1, ge=1),
         users = {item.user_id: existing(db, User, item.user_id).username for item in items} if tab == 'grants' else {}
         environments = {item.environment_id: existing(db, Environment, item.environment_id).name for item in items} if tab == 'grants' else {}
         available_environments = db.scalars(select(Environment).where(Environment.enabled.is_(True)).order_by(Environment.name)).all() if tab == 'grants' else []
+        grant_states = {item.id: grant_state(item, db.get(User, item.user_id), db.get(Environment, item.environment_id)) for item in items} if tab == 'grants' else {}
+        user_grants = dict(db.execute(select(Grant.user_id, func.count()).where(Grant.user_id.in_([item.id for item in items])).group_by(Grant.user_id)).all()) if tab == 'users' else {}
         return request.app.state.templates.TemplateResponse(request=request, name='dashboard.html', context={
             'admin': admin, 'csrf': session.csrf, 'tab': tab, 'items': items, 'page': page,
             'count': count, 'q': q, 'saved': saved, 'users': users, 'environments': environments,
-            'available_environments': available_environments})
+            'available_environments': available_environments, 'status': status, 'stats': overview(db),
+            'grant_states': grant_states, 'user_grants': user_grants,
+            'audit_details': {item.id: audit_detail(item) for item in items} if tab == 'audit' else {}})
 
 
 @router.post('/admin/users')

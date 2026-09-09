@@ -1,0 +1,27 @@
+{% macro fields(csrf, tab, users, environments, available_environments, item=none) %}
+<input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="item_id" value="{{ item.id if item else 0 }}">
+{% if tab == 'users' %}
+<label>平台账号 <span class="required">*</span><input name="username" required maxlength="128" value="{{ item.username if item else '' }}" {% if item %}readonly{% endif %} placeholder="填写当前平台登录账号"><small>与 CLI 登录账号一致，创建后不可修改。</small></label>
+<label>姓名<input name="display_name" maxlength="128" value="{{ item.display_name if item else '' }}" placeholder="便于识别的人员姓名"></label>
+{% elif tab == 'environments' %}
+<label>环境标识 <span class="required">*</span><input name="name" required maxlength="64" value="{{ item.name if item else '' }}" {% if item %}readonly{% endif %} placeholder="例如 production"><small>与 CLI 中的环境标识一致，创建后不可修改。</small></label>
+<label>显示名称 <span class="required">*</span><input name="display_name" required maxlength="128" value="{{ item.display_name if item else '' }}" placeholder="例如 生产环境"></label>
+<label>平台地址 <span class="required">*</span><input name="platform_origin" type="url" required maxlength="512" value="{{ item.platform_origin if item else '' }}" placeholder="https://platform.example.com"><small>HTTP 或 HTTPS 源地址，不包含 /dashboard 等路径。</small></label>
+{% else %}
+<label>平台账号 <span class="required">*</span><input name="username" required maxlength="128" value="{{ users[item.user_id] if item else '' }}" {% if item %}readonly{% endif %} placeholder="填写已添加的人员账号"></label>
+{% if item %}<label>授权环境<input name="environment" required maxlength="64" value="{{ environments[item.environment_id] }}" readonly></label>
+{% else %}<fieldset class="environment-choices"><legend>授权环境 <span class="required">*</span><small>可同时选择多个环境</small></legend>{% for env in available_environments %}<label class="choice"><input type="checkbox" name="environments" value="{{ env.name }}"><span>{{ env.display_name }}<small>{{ env.name }}</small></span></label>{% else %}<p class="muted">暂无启用的环境，<a href="/admin?tab=environments">前往添加环境</a>。</p>{% endfor %}</fieldset><p class="field-hint">所选环境的已有授权将更新为本次配置，未选择的环境不变。</p>{% endif %}
+<label>到期时间<input name="expires_at" type="datetime-local" step="1" value="{{ (item.expires_at|beijing).replace(' ', 'T') if item and item.expires_at else '' }}"><small>北京时间（UTC+8），留空为长期有效。</small></label>
+<label>授权备注<textarea name="note" maxlength="1000" rows="3" placeholder="填写用途、申请来源或其他说明">{{ item.note if item else '' }}</textarea></label>
+{% endif %}
+<div class="state-field"><div><strong>{{ '允许访问' if tab == 'grants' else '启用人员' if tab == 'users' else '启用环境' }}</strong><p>{{ '关闭后该授权立即撤销。' if tab == 'grants' else '停用后，该人员的所有环境授权不可用。' if tab == 'users' else '停用后，所有人员均无法通过此环境的授权检查。' }}</p></div><label class="switch"><input type="checkbox" aria-label="{{ '允许访问' if tab == 'grants' else '启用人员' if tab == 'users' else '启用环境' }}" name="enabled" value="true" {% if not item or item.enabled %}checked{% endif %}><span></span></label></div>
+{% endmacro %}
+{% macro editor(csrf, tab, users, environments, available_environments, item=none) %}
+{% set dialog_id = 'edit-' ~ item.id if item else 'create' %}
+<dialog id="{{ dialog_id }}" class="drawer" aria-labelledby="{{ dialog_id }}-title">
+<form method="post" action="/admin/{{ tab }}{{ '/batch' if tab == 'grants' and not item else '' }}" class="editor-form" data-editor>
+<div class="drawer-heading"><div><p class="eyebrow">ACCESS MANAGEMENT</p><h2 id="{{ dialog_id }}-title">{{ '编辑' if item else '新增' }}{{ '人员' if tab == 'users' else '环境' if tab == 'environments' else '访问授权' }}</h2></div><button type="button" class="text-button" data-close>关闭</button></div>
+<div class="drawer-body"><div class="form-error" role="alert" hidden></div>{{ fields(csrf, tab, users, environments, available_environments, item) }}</div>
+<div class="drawer-footer"><button type="button" class="secondary" data-close>取消</button><button type="submit">{{ '保存修改' if item else '保存所选环境授权' if tab == 'grants' else '确认添加' }}</button></div>
+</form></dialog>
+{% endmacro %}

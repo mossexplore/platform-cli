@@ -13,11 +13,10 @@ from .security import display_time
 from .settings import Settings
 
 
-def create_app(settings=None, identity_transport=None):
+def create_app(settings=None):
     app = FastAPI(title='CLI 权限管理', docs_url=None, redoc_url=None, openapi_url=None)
     app.state.settings = settings or Settings.load()
     app.state.engine, app.state.sessions = database(app.state.settings.database_url)
-    app.state.identity_transport = identity_transport
     directory = Path(__file__).parent
     app.state.templates = Jinja2Templates(directory=str(directory / 'templates'))
     app.state.templates.env.filters['beijing'] = display_time
@@ -32,7 +31,7 @@ def create_app(settings=None, identity_transport=None):
         response = await call_next(request)
         response.headers['Cache-Control'] = 'no-store'
         response.headers['X-Content-Type-Options'] = 'nosniff'
-        response.headers['Content-Security-Policy'] = "default-src 'self'; style-src 'self'; frame-ancestors 'none'; form-action 'self'; base-uri 'none'"
+        response.headers['Content-Security-Policy'] = "default-src 'self'; style-src 'self'; script-src 'self'; frame-ancestors 'none'; form-action 'self'; base-uri 'none'"
         response.headers['Referrer-Policy'] = 'no-referrer'
         return response
 

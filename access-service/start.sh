@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# Run directly from the extracted package, with no root/systemd requirement.
 set -euo pipefail
-cd -- "$(dirname -- "${BASH_SOURCE[0]}")"
-exec .venv/bin/python -c 'from dotenv import load_dotenv; load_dotenv(); from app.serve import main; main()'
+source "$(dirname -- "${BASH_SOURCE[0]}")/bootstrap.sh"
+exec .venv/bin/python -m app.portable
