@@ -1,0 +1,36 @@
+<div class="receipt-topline"><span class="receipt-brand">WiseRec CLI</span><span class="receipt-number">申请 #{{ item.id }}</span></div>
+<header class="receipt-hero {{ item.status }}">
+  <span class="badge {{ {'pending':'warning', 'approved':'positive', 'rejected':'danger'}[item.status] }}">{{ statuses[item.status] }}</span>
+  <h1>{{ {'pending':'申请已提交', 'approved':'申请已通过', 'rejected':'申请未通过'}[item.status] }}</h1>
+  <p>{% if item.status == 'pending' %}申请已进入审批队列，请等待管理员处理。{% elif item.status == 'approved' %}权限已开通，请使用下方 W3 账号登录 CLI。{% else %}请查看拒绝原因，核实信息后可重新提交申请。{% endif %}</p>
+</header>
+<div class="receipt-content">
+  <section class="receipt-section" aria-labelledby="receipt-person-title">
+    <h2 id="receipt-person-title">{{ '审批确认信息' if item.status == 'approved' else '申请信息' }}</h2>
+    <dl class="receipt-fields">
+      <div><dt>平台账号（W3账号）</dt><dd class="receipt-account">{{ item.approved_username or item.username }}</dd></div>
+      <div><dt>姓名</dt><dd>{{ item.approved_name or item.display_name }}</dd></div>
+      <div><dt>提交时间</dt><dd class="receipt-time">{{ item.created_at|beijing }}</dd></div>
+      {% if item.reviewed_at %}<div><dt>审批时间</dt><dd class="receipt-time">{{ item.reviewed_at|beijing }}</dd></div>{% endif %}
+    </dl>
+    {% if item.status == 'approved' and (item.approved_username != item.username or item.approved_name != item.display_name) %}<p class="receipt-caption">管理员已修正申请信息，请以上方账号和姓名为准。</p>{% endif %}
+  </section>
+  {% if item.status == 'approved' %}
+  <section class="receipt-section" aria-labelledby="receipt-grants-title">
+    <div class="receipt-section-heading"><h2 id="receipt-grants-title">授权环境</h2><span>{{ result.environments|length }} 个环境</span></div>
+    <ul class="receipt-environments">
+      {% for env in result.environments %}<li><strong>{{ env.environment }}</strong><span>{{ env.expires_at|application_expiry ~ ' 到期' if env.expires_at else '长期有效' }}</span></li>{% endfor %}
+    </ul>
+    <p class="receipt-caption">以上为本次审批记录，实际访问权限以当前配置为准。</p>
+  </section>
+  {% elif item.status == 'rejected' %}
+  <section class="receipt-reason" aria-labelledby="receipt-reason-title"><h2 id="receipt-reason-title">拒绝原因</h2><p>{{ item.reason }}</p></section>
+  {% else %}
+  <div class="receipt-next"><h2>接下来</h2><p>无需重复提交。请收藏本页，之后可通过此链接查看审批进度。</p></div>
+  {% endif %}
+  <div class="receipt-actions">
+    {% if item.status == 'rejected' %}<a class="receipt-button" href="/cli-permission/apply">重新申请</a><a class="receipt-refresh" href="">刷新结果</a>
+    {% else %}<a class="receipt-button {{ 'secondary' if item.status == 'approved' else '' }}" href="">刷新审批结果</a>{% endif %}
+  </div>
+</div>
+<footer class="receipt-footer"><p>请收藏此页面，查询链接仅供本人使用，请勿转发。</p><span>时间均为北京时间（UTC+8）</span></footer>

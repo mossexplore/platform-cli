@@ -1,0 +1,13 @@
+{% extends 'base.html' %}{% block title %}权限申请{% endblock %}{% block content %}
+<link rel="stylesheet" href="/cli-permission/static/applications.css">
+<a href="/cli-permission/admin/applications/{{ item.id }}">返回修改账号和姓名</a>
+<section class="review-card"><h1>核对并授权</h1><p>原始填写：{{ item.username }} / {{ item.display_name }}</p><p><strong>审批信息：{{ username }} / {{ display_name }}</strong></p>
+{% if state.duplicate %}<p role="alert">该账号有其他待审批申请，请先处理重复申请。</p>{% elif state.user and not state.user.enabled %}<p role="alert">该人员已停用，请先在“人员与授权”中处理停用状态。</p>{% elif not state.environments %}<p role="alert">暂无启用环境，请先在环境管理中配置。</p>{% else %}
+<form method="post" action="/cli-permission/admin/applications/{{ item.id }}/approve">
+<input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="snapshot" value="{{ snapshot }}"><input type="hidden" name="username" value="{{ username }}"><input type="hidden" name="display_name" value="{{ display_name }}">
+{% if state.user %}<p>已有人员：{{ state.user.username }} / {{ state.user.name }}</p><label class="choice"><input type="checkbox" name="confirm_existing" value="true" required>确认关联此人员</label>{% if state.user.name != display_name %}<label class="choice"><input type="checkbox" name="update_name" value="true">同时将已有人员姓名更新为 {{ display_name }}（不勾选则保留）</label>{% endif %}{% else %}<p>审批通过后将创建新人员。</p>{% endif %}
+<fieldset class="environment-choices"><legend>授权环境（默认全选）</legend>{% for env in state.environments %}<label class="choice"><input type="checkbox" name="environments" value="{{ env.id }}" checked><span>{{ env.display_name }} · {{ env.name }}</span></label>{% endfor %}</fieldset>
+{% if state.grants %}<details open><summary>已有授权记录</summary><ul>{% for grant in state.grants %}<li>{% set matched = state.environments|selectattr('id', 'equalto', grant.environment_id)|list %}{{ matched[0].name if matched else '停用环境' }} · {{ '启用' if grant.enabled else '已撤销' }} · {{ grant.expires_at|application_expiry if grant.expires_at else '长期有效' }}</li>{% endfor %}</ul></details><label class="choice"><input type="checkbox" name="restore_grants" value="true">确认重新开通所选环境中已撤销或过期的授权</label>{% endif %}
+<label>新开通或恢复授权的到期时间<input type="datetime-local" name="expires_at" step="1"><small>北京时间，留空长期有效。已有有效授权的到期时间和备注保持不变。</small></label>
+<p class="muted">未勾选的已有授权保持不变；以后新增环境不会自动授权。</p><button>通过并授权</button></form>{% endif %}</section>
+{% endblock %}

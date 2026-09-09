@@ -1,14 +1,15 @@
 from pathlib import Path
+from datetime import datetime
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.exceptions import RequestValidationError
 from starlette.exceptions import HTTPException
 from fastapi.templating import Jinja2Templates
-from sqlalchemy import select
+from sqlalchemy import select, func
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
-from . import access, admin, admin_auth, call_logs, administrators, deletions, grant_selection
-from .models import SchemaVersion, database
+from . import access, admin, admin_auth, call_logs, administrators, deletions, grant_selection, applications
+from .models import SchemaVersion, AccessApplication, database
 from .migrations import SCHEMA_VERSION
 from .pagination import PAGE_SIZE
 from .security import display_time
@@ -22,7 +23,18 @@ def create_app(settings=None):
     directory = Path(__file__).parent
     app.state.templates = Jinja2Templates(directory=str(directory / 'templates'))
     app.state.templates.env.filters['beijing'] = display_time
+    app.state.templates.env.filters['application_expiry'] = lambda value: display_time(datetime.fromisoformat(value))
     app.state.templates.env.globals['page_size'] = PAGE_SIZE
+    def application_context(request):
+        if request.url.path.startswith('/cli-permission/admin'):
+            try:
+                with app.state.sessions() as db:
+                    return {'pending_application_count': db.scalar(select(func.count()).select_from(
+                        AccessApplication).where(AccessApplication.status == 'pending'))}
+            except SQLAlchemyError:
+                return {}
+        return {}
+    app.state.templates.context_processors.append(application_context)
     app.mount('/cli-permission/static', StaticFiles(directory=directory / 'static'), name='static')
     app.include_router(admin_auth.router, prefix="/cli-permission")
     app.include_router(admin.router, prefix="/cli-permission")
@@ -31,6 +43,7 @@ def create_app(settings=None):
     app.include_router(administrators.router, prefix="/cli-permission")
     app.include_router(deletions.router, prefix="/cli-permission")
     app.include_router(grant_selection.router, prefix="/cli-permission")
+    app.include_router(applications.router, prefix="/cli-permission")
 
     @app.middleware('http')
     async def response_headers(request, call_next):

@@ -8,10 +8,11 @@
 <div class="workspace-label">CLI 权限管理 <span class="workspace-tag">控制台</span></div>
 <nav aria-label="管理导航">
 <p class="nav-label">访问控制</p>
+<a href="/cli-permission/admin/applications" {% if tab == 'applications' %}aria-current="page"{% endif %}>权限申请{% if pending_application_count %} · {{ pending_application_count }}{% endif %}</a>
 {% for key,label in [('users','人员与授权'),('environments','环境管理')] %}
 <a href="/cli-permission/admin?tab={{ key }}" {% if tab == key %}aria-current="page"{% endif %}>{{ label }}</a>{% endfor %}
 <p class="nav-label separated">监控与审计</p>
-<a href="/cli-permission/admin/calls" {% if tab == 'calls' %}aria-current="page"{% endif %}>CLI 调用日志</a>
+<a href="/cli-permission/admin/calls" {% if tab == 'calls' %}aria-current="page"{% endif %}>调用日志</a>
 <a href="/cli-permission/admin?tab=audit" {% if tab == 'audit' %}aria-current="page"{% endif %}>操作审计</a>
 {% if admin.role == 'super_admin' %}
 <p class="nav-label separated">系统管理</p>

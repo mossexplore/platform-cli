@@ -1,11 +1,17 @@
 # 放入 nginx 的 http {} 内（例如 /etc/nginx/conf.d/cli-access.conf）。
 limit_req_zone $binary_remote_addr zone=cli_access_limit:10m rate=5r/s;
+# 查询链接包含个人查询凭证，不记录到访问日志。
+map $uri $cli_access_loggable {
+    default 1;
+    ~^/cli-permission/apply/status/ 0;
+}
 server {
     listen 443 ssl;
     server_name permissions.example.com;
     ssl_certificate /etc/nginx/certs/fullchain.pem;
     ssl_certificate_key /etc/nginx/certs/privkey.pem;
     client_max_body_size 32k;
+    access_log /var/log/nginx/cli-access.log combined if=$cli_access_loggable;
     location = /cli-permission {
         return 308 /cli-permission/;
     }

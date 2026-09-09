@@ -56,12 +56,12 @@ def test_v1_migration_preserves_users_and_creates_logs(system):
     app, client, _ = system
     CallLog.__table__.drop(app.state.engine)
     with app.state.sessions() as db:
-        db.get(SchemaVersion, 6).version = 1
+        db.get(SchemaVersion, 7).version = 1
         db.commit()
     migrate(app.state.engine, app.state.sessions)
     migrate(app.state.engine, app.state.sessions)
     with app.state.sessions() as db:
-        assert db.get(SchemaVersion, 6)
+        assert db.get(SchemaVersion, 7)
         assert db.get(User, 1).username == 'alice'
         assert db.scalars(select(CallLog)).all() == []
     assert client.get('/cli-permission/healthz').json()['status'] == 'ok'
@@ -100,6 +100,6 @@ def test_v3_migration_preserves_old_logs(system):
     with app.state.sessions() as db:
         old = db.scalar(select(CallLog))
         assert old.actor == 'alice' and old.full_command is None
-        assert db.get(SchemaVersion, 6)
+        assert db.get(SchemaVersion, 7)
     login(client)
     assert '未上报（旧客户端或历史记录）' in client.get('/cli-permission/admin/calls').text

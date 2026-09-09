@@ -88,6 +88,33 @@ class SchemaVersion(Base):
     version: Mapped[int] = mapped_column(primary_key=True)
 
 
+class AccessApplication(Base):
+    __tablename__ = 'access_applications'
+    id: Mapped[int] = mapped_column(primary_key=True)
+    username: Mapped[str] = mapped_column(String(128), index=True)
+    display_name: Mapped[str] = mapped_column(String(128))
+    # NULL after a decision; a unique key prevents simultaneous pending requests.
+    pending_username: Mapped[str | None] = mapped_column(String(128), unique=True, nullable=True)
+    token_hash: Mapped[str] = mapped_column(String(64), unique=True)
+    status: Mapped[str] = mapped_column(String(16), default='pending', index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=now)
+    reviewed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    reviewed_by: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    approved_username: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    approved_name: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    reason: Mapped[str] = mapped_column(String(1000), default='')
+    result: Mapped[str] = mapped_column(Text, default='{}')
+    # Historical reference survives personnel deletion, like existing audits.
+    user_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+
+
+class ApplicationAttempt(Base):
+    __tablename__ = 'application_attempts'
+    id: Mapped[int] = mapped_column(primary_key=True)
+    source: Mapped[str] = mapped_column(String(64), index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=now, index=True)
+
+
 def database(url):
     engine = create_engine(url, pool_pre_ping=True, hide_parameters=True)
     return engine, sessionmaker(engine, expire_on_commit=False)

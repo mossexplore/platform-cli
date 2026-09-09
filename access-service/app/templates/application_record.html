@@ -1,0 +1,46 @@
+<article class="application-record">
+  <a class="record-back" href="/cli-permission/admin/applications?status=">返回申请列表</a>
+  <header class="record-heading">
+    <div><p class="record-kicker">权限申请 / #{{ item.id }}</p><h1>申请详情</h1></div>
+    <span class="record-status {{ item.status }}">{{ statuses[item.status] }}</span>
+  </header>
+
+  <section class="record-summary" aria-label="审批结果">
+    <div class="record-identity"><span class="record-avatar" aria-hidden="true">{{ (item.approved_name or item.display_name)[:1] }}</span><div><h2>{{ item.approved_name or item.display_name }}</h2><p>W3账号 <strong>{{ item.approved_username or item.username }}</strong></p></div></div>
+    <div class="record-outcome"><span>{{ '授权环境' if item.status == 'approved' else '审批结果' }}</span><strong>{{ result.environments|length if item.status == 'approved' else '未授权' }}{% if item.status == 'approved' %}<small> 个</small>{% endif %}</strong></div>
+  </section>
+
+  <div class="record-columns">
+    <section class="record-panel" aria-labelledby="submission-title"><h2 id="submission-title">申请信息</h2><dl class="record-fields">
+      <div><dt>提交账号</dt><dd>{{ item.username }}</dd></div>
+      <div><dt>提交姓名</dt><dd>{{ item.display_name }}</dd></div>
+      <div><dt>申请时间</dt><dd>{{ item.created_at|beijing }}</dd></div>
+    </dl></section>
+    <section class="record-panel" aria-labelledby="decision-title"><h2 id="decision-title">审批信息</h2><dl class="record-fields">
+      <div><dt>审批状态</dt><dd>{{ statuses[item.status] }}</dd></div>
+      <div><dt>审批人</dt><dd>{{ item.reviewed_by }}</dd></div>
+      <div><dt>审批时间</dt><dd>{{ item.reviewed_at|beijing }}</dd></div>
+    </dl></section>
+  </div>
+
+  {% if item.status == 'rejected' %}
+  <section class="record-panel record-rejection" aria-labelledby="reason-title"><h2 id="reason-title">拒绝原因</h2><p>{{ item.reason }}</p></section>
+  {% else %}
+  {% if item.username != item.approved_username or item.display_name != item.approved_name %}
+  <section class="record-panel" aria-labelledby="correction-title"><div class="record-section-heading"><h2 id="correction-title">信息修正</h2><span>审批时更新</span></div>
+    <div class="record-table-wrap"><table class="record-table"><thead><tr><th scope="col">字段</th><th scope="col">用户填写</th><th scope="col">审批确认</th></tr></thead><tbody>
+    {% if item.username != item.approved_username %}<tr><th scope="row">平台账号</th><td class="record-before">{{ item.username }}</td><td>{{ item.approved_username }}</td></tr>{% endif %}
+    {% if item.display_name != item.approved_name %}<tr><th scope="row">姓名</th><td class="record-before">{{ item.display_name }}</td><td>{{ item.approved_name }}</td></tr>{% endif %}
+    </tbody></table></div>
+  </section>
+  {% endif %}
+  {% if result.person_name != item.approved_name %}<p class="record-note">关联人员保留原姓名：<strong>{{ result.person_name }}</strong>。本次审批未修改已有人员姓名。</p>{% endif %}
+  <section class="record-panel" aria-labelledby="environments-title">
+    <div class="record-section-heading"><h2 id="environments-title">授权环境 <span class="record-count">{{ result.environments|length }}</span></h2><span>本次审批记录</span></div>
+    <div class="record-table-wrap"><table class="record-table"><thead><tr><th scope="col">环境</th><th scope="col">处理结果</th><th scope="col">有效期至（北京时间）</th></tr></thead><tbody>
+    {% for env in result.environments %}<tr><th scope="row">{{ env.environment }}</th><td><span class="record-grant {{ 'preserved' if env.action == 'preserved' else '' }}">{{ '保留已有授权' if env.action == 'preserved' else '已开通' }}</span></td><td>{{ env.expires_at|application_expiry if env.expires_at else '长期有效' }}</td></tr>{% endfor %}
+    </tbody></table></div>
+    <p class="record-footnote">以上为审批时的授权结果，实际访问权限以当前配置为准。</p>
+  </section>
+  {% endif %}
+</article>

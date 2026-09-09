@@ -1,0 +1,17 @@
+{% extends 'base.html' %}{% block title %}权限申请{% endblock %}{% block content %}
+<link rel="stylesheet" href="/cli-permission/static/applications.css">
+{% if item.status != 'pending' %}
+{% include 'application_record.html' %}
+{% else %}
+<a href="/cli-permission/admin/applications">返回申请列表</a>
+<section class="review-card"><h1>申请 #{{ item.id }} · {{ statuses[item.status] }}</h1>
+<p>用户原始填写：{{ item.username }} / {{ item.display_name }}</p><p class="muted">提交时间：{{ item.created_at|beijing }}</p>
+{% if item.status == 'pending' %}
+<form method="post" action="/cli-permission/admin/applications/{{ item.id }}/preview">
+<input type="hidden" name="csrf" value="{{ csrf }}">
+<label>平台账号（W3账号）<input name="username" required maxlength="128" value="{{ item.username }}"><small>W3账号，如 l00123456。可在此修正。</small></label>
+<label>姓名<input name="display_name" required maxlength="128" value="{{ item.display_name }}"></label>
+<button>下一步：核对人员与授权</button></form>
+<details><summary>拒绝申请</summary><form method="post" action="/cli-permission/admin/applications/{{ item.id }}/reject"><input type="hidden" name="csrf" value="{{ csrf }}"><label>拒绝原因<textarea name="reason" required maxlength="1000" rows="3"></textarea></label><button class="secondary">确认拒绝</button></form></details>
+{% endif %}
+</section>{% endif %}{% endblock %}

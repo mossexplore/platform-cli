@@ -7,7 +7,7 @@
 | 项目名称 | WiseRec Python CLI |
 | Python 包名 | `wiserec-cli` |
 | 命令名 | `ml` |
-| 当前代码版本 | `0.3.36` |
+| 当前代码版本 | `0.3.37` |
 | 目标平台 | Windows 优先，兼容 macOS/Linux 的基础路径逻辑 |
 | 文档整理日期 | 2026-08-16 |
 | 代码仓库 | `mossexplore/platform-cli` |
@@ -600,7 +600,7 @@ ml offline experiment clone <PROJECT_ID> --name <NEW_NAME> --output json
 | macOS | `~/Library/Application Support/ml` |
 | Linux | `${XDG_CONFIG_HOME:-~/.config}/ml` |
 
-### 10.2 当前代码状态（0.3.36）
+### 10.2 当前代码状态（0.3.37）
 
 ```text
 ml/

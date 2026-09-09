@@ -62,6 +62,17 @@ def audit_detail(item):
         data = json.loads(item.detail)
     except (ValueError, TypeError):
         return {'label': ACTIONS.get(item.action, item.action), 'summary': item.detail, 'changes': []}
+    if item.action == 'applications.approve' and isinstance(data, dict):
+        original, corrected = data['original'], data['corrected']
+        return {'label': '通过权限申请', 'summary': f"申请 #{data['application_id']} · {corrected['username']}",
+                'changes': [
+                    {'field': '平台账号', 'before': original['username'], 'after': corrected['username']},
+                    {'field': '姓名', 'before': original['name'], 'after': corrected['name']},
+                    {'field': '授权环境', 'before': '—', 'after': '、'.join(
+                        env['environment'] for env in data['after']['environments'])}]}
+    if item.action == 'applications.reject' and isinstance(data, dict):
+        return {'label': '拒绝权限申请', 'summary': f"申请 #{data['application_id']} · {data['username']}",
+                'changes': [{'field': '拒绝原因', 'before': '—', 'after': data['reason']}]}
     if not isinstance(data, dict) or not isinstance(data.get('after'), dict):
         return {'label': ACTIONS.get(item.action, item.action), 'summary': item.detail, 'changes': []}
     after, before = data['after'], data.get('before') or {}

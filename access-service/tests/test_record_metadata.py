@@ -40,7 +40,7 @@ def test_v4_metadata_migration_preserves_unknown_history(system):
     migrate(app.state.engine,app.state.sessions)
     migrate(app.state.engine,app.state.sessions)
     with app.state.sessions() as db:
-        assert db.get(SchemaVersion,6)
+        assert db.get(SchemaVersion,7)
         for model in [User,Environment]:
             row=db.get(model,1)
             assert row.created_at is None and row.updated_at is None and row.updated_by is None
