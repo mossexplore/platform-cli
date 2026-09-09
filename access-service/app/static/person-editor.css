@@ -1,0 +1,59 @@
+/* Account editor: clear sections and a persistent, restrained status footer. */
+.person-editor { width:620px }
+.person-editor > .person-panel-heading { padding:18px 24px; min-height:80px; gap:12px }
+.panel-kicker { margin-bottom:3px; color:#7d899d; font-size:11px }
+.person-panel-heading h2 { font-size:20px }
+.person-panel-heading .panel-close { min-height:30px; padding:4px 11px; font-size:12px }
+.person-editor > .person-panel-body { padding:0 24px 24px; background:#f7f9fc; min-height:0 }
+.person-identity { display:flex; align-items:center; gap:12px; padding:22px 0 }
+.identity-avatar { flex-shrink:0; width:44px; height:44px; border-radius:12px; display:grid; place-items:center; color:#4564d5; background:#e7edff; font-size:19px; font-weight:600 }
+.person-identity > div { flex:1; min-width:0 }
+.person-identity strong { display:block; font-size:16px; overflow-wrap:anywhere }
+.person-identity p { margin-top:3px; font-size:11px; color:#8a95a6; overflow-wrap:anywhere }
+.person-identity .mono { color:#63718b; margin-left:6px }
+.person-identity > .badge { flex-shrink:0 }
+.person-section { border:1px solid #e3e8f0; border-radius:10px; background:#fff; margin-bottom:16px; overflow:hidden }
+.person-section-heading { display:flex; justify-content:space-between; align-items:center; gap:12px; padding:16px 18px; border-bottom:1px solid #eef1f6 }
+.person-section-heading h3 { font-size:13px; color:#33415b }
+.person-section-heading p { font-size:11px; color:#8b96a8; margin-top:3px }
+.person-section-heading button { min-height:30px; font-size:12px; padding:4px 11px }
+.person-editor .person-details-form { display:block; padding:16px 18px 0; border:0 }
+.person-input-grid { display:grid; grid-template-columns:1fr 1fr; gap:20px; align-items:end }
+.person-editor .person-input-grid > label { margin:0; font-size:12px }
+.person-editor .person-input-grid input:not([type=checkbox]) { margin-top:7px; height:36px; padding:6px 10px }
+.person-state { display:flex; align-items:center; justify-content:space-between; min-height:60px; gap:12px }
+.person-state strong { display:block; font-size:12px; font-weight:500; color:#526078 }
+.person-state div > span { display:block; font-size:11px; color:#8b96a8; margin-top:7px }
+.person-save-row { display:flex; justify-content:space-between; align-items:center; gap:10px; padding:14px 0; margin-top:14px; border-top:1px solid #eef1f6 }
+.person-save-row p { font-size:11px; color:#8b96a8 }
+.person-save-row button { min-height:32px; padding:5px 12px; font-size:12px }
+.permission-list { padding:0 18px }
+.permission-row { padding:14px 0 }
+.permission-row + .permission-row { border-top:1px solid #eef1f6 }
+.permission-row-heading { display:flex; align-items:center; gap:9px }
+.environment-symbol { width:25px; height:25px; display:grid; place-items:center; background:#edf2fa; color:#7b8ca7; border:1px solid #e3eaf5; border-radius:6px; font-size:11px }
+.permission-row-heading strong { flex:1; min-width:0; overflow-wrap:anywhere; font-size:12px }
+.permission-row-heading .badge { font-size:10px; padding:3px 6px }
+.permission-row-heading .text-button { font-size:11px; min-height:28px; padding:2px }
+.permission-meta { display:flex; gap:14px; margin:8px 0 0 34px; font-size:11px; line-height:1.7 }
+.permission-meta > span { flex-shrink:0; width:36px; color:#96a0b0 }
+.permission-meta p { color:#69768d; overflow-wrap:anywhere; min-width:0 }
+.person-editor .permission-meta small { display:inline; font-size:10px; margin:0 0 0 4px }
+.permission-note { white-space:pre-wrap }
+.permission-empty { padding:24px 18px 28px; text-align:center }
+.empty-symbol { display:grid; place-items:center; width:34px; height:34px; border-radius:10px; background:#f0f4fc; color:#91a2c1; margin:0 auto 10px; font-size:20px }
+.permission-empty h4 { margin:0; font-size:12px; font-weight:500; color:#63718b }
+.permission-empty p { margin-top:6px; font-size:11px; line-height:1.8; color:#98a2b2 }
+.person-panel-footer { flex-shrink:0; display:flex; align-items:center; gap:8px; border-top:1px solid var(--border); padding:12px 24px; background:#fff; font-size:10px; color:#8a97ab }
+.footer-dot { width:5px; height:5px; border-radius:50%; background:#7ba78d; flex-shrink:0 }
+@media(max-width:560px) {
+  .person-editor > .person-panel-body { padding:0 14px 14px }
+  .person-input-grid { grid-template-columns:1fr; gap:10px }
+  .person-state { min-height:42px }
+  .person-save-row { align-items:flex-start }
+  .permission-row-heading { flex-wrap:wrap }
+  .person-panel-footer { padding:10px 14px }
+}
+
+.configure-choices { margin-top:20px; max-height:none }
+.configure-choices .choice:has(input:disabled) { opacity:.6 }

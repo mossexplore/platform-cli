@@ -1,0 +1,29 @@
+{% for group in grant_groups %}
+<dialog class="drawer person-editor" id="account-grants-{{ group.user.id }}" aria-labelledby="account-grants-title-{{ group.user.id }}">
+<div class="drawer-heading person-panel-heading"><div><p class="panel-kicker">人员与授权</p><h2 id="account-grants-title-{{ group.user.id }}">编辑人员</h2></div><button type="button" class="secondary panel-close" data-close aria-label="关闭编辑">关闭</button></div>
+<div class="drawer-body person-panel-body">
+<div class="person-identity"><span class="identity-avatar">{{ (group.user.display_name or group.user.username)[:1]|upper }}</span><div><strong>{{ group.user.display_name or group.user.username }}</strong><p>平台账号 <span class="mono">{{ group.user.username }}</span></p></div><span class="badge {{ 'positive' if group.user.enabled else 'neutral' }}">{{ '已启用' if group.user.enabled else '已停用' }}</span></div>
+<section class="person-section">
+<div class="person-section-heading"><div><h3>基本信息</h3><p>维护人员姓名与账号访问状态</p></div></div>
+<form method="post" action="/cli-permission/admin/users" class="person-details-form" data-editor>
+<input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="item_id" value="{{ group.user.id }}"><input type="hidden" name="username" value="{{ group.user.username }}">
+<div class="form-error" role="alert" hidden></div>
+<div class="person-input-grid"><label>姓名<input name="display_name" maxlength="128" value="{{ group.user.display_name }}" placeholder="填写人员姓名"></label><div class="person-state"><div><strong>账号状态</strong><span>允许该人员访问</span></div><label class="switch"><input type="checkbox" aria-label="启用人员" name="enabled" value="true" {% if group.user.enabled %}checked{% endif %}><span></span></label></div></div>
+<div class="person-save-row"><p>停用人员后，所有环境授权将不可用。</p><button type="submit">保存人员信息</button></div>
+</form>
+</section>
+<section class="person-section permission-section">
+<div class="person-section-heading"><div><h3>全部环境授权 <span class="count">{{ group.grants|length }} 个环境</span></h3><p>独立管理各环境的访问状态与有效期</p></div><button type="button" class="secondary" data-open="add-grants-{{ group.user.id }}">配置授权</button></div>
+{% if group.grants %}<div class="permission-list">
+{% for item in group.grants %}
+<article class="permission-row"><div class="permission-row-heading"><span class="environment-symbol" aria-hidden="true">E</span><strong class="mono">{{ environments[item.environment_id] }}</strong><span class="badge {{ grant_states[item.id][0] }}">{{ grant_states[item.id][1] }}</span><button type="button" class="text-button" data-open="grant-edit-{{ item.id }}" aria-label="编辑 {{ group.user.username }} 的 {{ environments[item.environment_id] }} 授权">编辑授权</button></div>
+<div class="permission-meta"><span>有效期</span><p>{% if item.expires_at %}{{ item.expires_at|beijing }} <small>UTC+8</small>{% else %}长期有效{% endif %}</p></div>
+{% if item.note %}<div class="permission-meta"><span>备注</span><p class="permission-note">{{ item.note }}</p></div>{% endif %}
+</article>
+{% endfor %}</div>
+{% else %}<div class="permission-empty"><span class="empty-symbol" aria-hidden="true">＋</span><h4>尚未配置环境授权</h4><p>点击“配置授权”选择可访问的环境，<br>支持同时配置多个环境。</p></div>{% endif %}
+</section>
+</div>
+<div class="person-panel-footer"><span class="footer-dot" aria-hidden="true"></span><p>人员信息与环境授权分别保存，授权变更实时生效。</p></div>
+</dialog>
+{% endfor %}

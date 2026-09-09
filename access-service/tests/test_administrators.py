@@ -136,7 +136,7 @@ def test_v2_migration_preserves_existing_admins_and_defaults_new_accounts(tmp_pa
     migrate(engine, sessions)
     migrate(engine, sessions)
     with sessions() as db:
-        assert db.get(SchemaVersion,4)
+        assert db.get(SchemaVersion,6)
         assert db.get(Admin,1).role == 'super_admin'
         assert db.get(Admin,1).password_hash == 'existing-hash'
         assert db.get(Admin,2).role == 'super_admin' and not db.get(Admin,2).enabled

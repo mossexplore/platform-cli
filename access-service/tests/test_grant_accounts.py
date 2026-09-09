@@ -18,7 +18,7 @@ def test_account_pagination_keeps_all_environments_together(system):
     assert response.status_code == 200
     assert response.text.count('data-account="alice"') == 1
     assert '23 个环境' in response.text
-    assert '共 1 个账号 · 每页 10 个账号' in response.text
+    assert '共 1 人 · 每页 10 人' in response.text
     assert response.text.count('aria-label="编辑 alice 的 ') == 23
     filtered = client.get('/cli-permission/admin?tab=grants&q=env-00&status=disabled').text
     assert 'data-account="alice"' in filtered
@@ -44,4 +44,4 @@ def test_account_pages_do_not_repeat_users(system):
     assert 'data-account="alice"' not in first
     assert second.count('data-account=') == 1
     assert 'data-account="alice"' in second
-    assert '共 21 个账号' in first
+    assert '共 21 人' in first

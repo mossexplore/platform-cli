@@ -84,3 +84,35 @@
 .page-heading > .list-help[open] p { position:absolute; z-index:2; right:0; width:320px; padding:12px; box-shadow:0 4px 18px #14213d22 }
 
 .management-page .grant-accounts th:first-child { width:280px }
+.management-page .people-table { min-width:780px }
+.people-table th:nth-child(1) { width:165px }
+.people-table th:nth-child(2) { width:100px }
+.people-table th:nth-child(3) { width:90px }
+.people-table th:last-child { width:80px }
+.people-actions { white-space:nowrap }
+.people-actions button + button { margin-left:8px }
+.grant-detail-list > button { margin-bottom:14px }
+
+.person-details-form { display:flex; flex-direction:column; gap:16px; padding-bottom:22px; border-bottom:1px solid var(--border) }
+.person-details-form > button { align-self:flex-start }
+.person-grant-heading { margin:20px 0 12px }
+.person-grant-heading p { margin-top:5px }
+
+.person-editor[open] { display:flex; flex-direction:column }
+.person-editor > .drawer-heading { flex-shrink:0 }
+.management-page .people-table th:last-child { width:115px }
+.management-page .table-scroll th.actions { width:105px }
+.management-page .delete-link { color:#c14c52; margin-left:8px }
+.delete-dialog { width:460px; max-width:calc(100vw - 32px); border:0; padding:0; border-radius:12px; color:#33415b; box-shadow:0 16px 70px #10213c40 }
+.delete-dialog::backdrop { background:#111e3c66 }
+.delete-heading { display:flex; align-items:center; justify-content:space-between; padding:18px 22px; border-bottom:1px solid var(--border) }
+.delete-body { padding:20px 22px; font-size:13px; overflow-wrap:anywhere }
+.delete-impact { margin:14px 0 18px; padding:12px; border:1px solid #f1d4d5; border-radius:6px; background:#fff6f6; color:#ad555b; font-size:12px; line-height:1.8 }
+.delete-body input { margin-top:8px }
+.delete-footer { display:flex; justify-content:flex-end; gap:10px; padding:14px 22px; border-top:1px solid var(--border) }
+.danger-button { background:#c34f55; border-color:#c34f55 }
+.danger-button:hover { background:#a93d43 }
+
+.management-page .people-table,.management-page .environment-table { min-width:1220px }
+.people-table th:nth-child(4) { width:230px }
+.people-table th:nth-child(5),.people-table th:nth-child(6),.environment-table th:nth-child(5),.environment-table th:nth-child(6) { width:156px }

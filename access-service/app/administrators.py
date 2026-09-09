@@ -6,7 +6,7 @@ from fastapi import APIRouter, Form, HTTPException, Query, Request
 from fastapi.responses import RedirectResponse, JSONResponse
 from sqlalchemy import select, func, delete
 from .admin_auth import admin_session, authorize_form
-from .models import Admin, Audit, Session
+from .models import Admin, Audit, Session, now
 from .security import password_hash
 
 router = APIRouter()
@@ -23,6 +23,7 @@ def audit_state(item):
 
 
 def save_audit(db, actor, action, before, item):
+    item.updated_at = now()
     db.add(Audit(actor=actor.username, action='administrators.' + action,
         detail=json.dumps({'before': before, 'after': audit_state(item)}, ensure_ascii=False)))
     db.commit()
@@ -48,7 +49,7 @@ def page(request: Request, q: str = Query('', max_length=128), status: str = '',
         if status:
             query = query.where(Admin.enabled.is_(status == 'enabled'))
         count = db.scalar(select(func.count()).select_from(query.subquery()))
-        items = db.scalars(query.order_by(Admin.id.desc()).offset((page-1)*PAGE_SIZE).limit(PAGE_SIZE)).all()
+        items = db.scalars(query.order_by(func.coalesce(Admin.updated_at, Admin.created_at).desc(), Admin.id.desc()).offset((page-1)*PAGE_SIZE).limit(PAGE_SIZE)).all()
         return request.app.state.templates.TemplateResponse(request=request, name='administrators.html', context={
             'admin': actor, 'csrf': session.csrf, 'items': items, 'count': count,
             'page': page, 'q': q, 'status': status, 'saved': saved,

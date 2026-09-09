@@ -8,7 +8,7 @@
 <div class="workspace-label">CLI 权限管理 <span class="workspace-tag">控制台</span></div>
 <nav aria-label="管理导航">
 <p class="nav-label">访问控制</p>
-{% for key,label in [('users','人员管理'),('environments','环境管理'),('grants','访问授权')] %}
+{% for key,label in [('users','人员与授权'),('environments','环境管理')] %}
 <a href="/cli-permission/admin?tab={{ key }}" {% if tab == key %}aria-current="page"{% endif %}>{{ label }}</a>{% endfor %}
 <p class="nav-label separated">监控与审计</p>
 <a href="/cli-permission/admin/calls" {% if tab == 'calls' %}aria-current="page"{% endif %}>CLI 调用日志</a>

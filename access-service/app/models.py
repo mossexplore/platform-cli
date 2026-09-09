@@ -19,6 +19,9 @@ class Admin(Base):
     role: Mapped[str] = mapped_column(String(32), default="admin")
     enabled: Mapped[bool] = mapped_column(Boolean, default=True)
 
+    created_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, default=now)
+    updated_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, default=now)
+
 
 class User(Base):
     __tablename__ = 'users'
@@ -26,6 +29,10 @@ class User(Base):
     username: Mapped[str] = mapped_column(String(128), unique=True)
     display_name: Mapped[str] = mapped_column(String(128), default='')
     enabled: Mapped[bool] = mapped_column(Boolean, default=True)
+
+    created_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, default=now)
+    updated_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, default=now)
+    updated_by: Mapped[str | None] = mapped_column(String(128), nullable=True)
 
 
 class Environment(Base):
@@ -35,6 +42,10 @@ class Environment(Base):
     display_name: Mapped[str] = mapped_column(String(128))
     platform_origin: Mapped[str] = mapped_column(String(512))
     enabled: Mapped[bool] = mapped_column(Boolean, default=True)
+
+    created_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, default=now)
+    updated_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, default=now)
+    updated_by: Mapped[str | None] = mapped_column(String(128), nullable=True)
 
 
 class Grant(Base):

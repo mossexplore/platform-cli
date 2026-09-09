@@ -1,0 +1,16 @@
+{% for group in grant_groups %}
+<dialog class="drawer" id="add-grants-{{ group.user.id }}" aria-labelledby="configure-title-{{ group.user.id }}">
+<form method="post" action="/cli-permission/admin/users/{{ group.user.id }}/environments" class="editor-form" data-editor>
+<input type="hidden" name="csrf" value="{{ csrf }}">
+<div class="drawer-heading"><div><p class="panel-kicker">{{ group.user.username }}</p><h2 id="configure-title-{{ group.user.id }}">配置授权</h2></div><button type="button" class="text-button" data-close>关闭</button></div>
+<div class="drawer-body"><div class="form-error" role="alert" hidden></div>
+<label>平台账号<input value="{{ group.user.username }}" readonly></label>
+<div class="info-note"><p>已勾选的环境表示已开通授权。取消勾选将在保存后撤销；全部取消将撤销所有可配置环境的授权。已有有效期和备注保持不变。</p></div>
+<fieldset class="environment-choices configure-choices"><legend>可访问环境</legend>
+{% set enabled_ids = group.grants|selectattr('enabled')|map(attribute='environment_id')|list %}
+{% for env in configurable_environments %}<label class="choice"><input type="checkbox" name="environments" value="{{ env.name }}" {% if env.id in enabled_ids %}checked{% endif %} {% if not env.enabled %}disabled{% endif %}><span>{{ env.display_name }}<small>{{ env.name }}{% if not env.enabled %} · 环境已停用，当前授权保持不变{% elif env.id in enabled_ids %} · 已开通{% endif %}</small></span></label>{% else %}<p class="muted">暂无已启用的环境，请先在环境管理中创建或启用环境。</p>{% endfor %}
+</fieldset>
+<p class="field-hint">新开通的环境默认长期有效。已过期的授权也会显示勾选，需在“编辑授权”中调整有效期后才能恢复访问。</p>
+</div><div class="drawer-footer"><button type="button" class="secondary" data-close>取消</button><button type="submit">保存授权配置</button></div>
+</form></dialog>
+{% endfor %}

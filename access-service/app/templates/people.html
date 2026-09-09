@@ -1,0 +1,26 @@
+{% extends 'base.html' %}
+{% from 'forms.html' import editor, fields %}
+{% from 'delete_dialog.html' import delete_dialog %}
+{% block title %}人员与授权{% endblock %}
+{% block content %}
+<div class="page-heading"><h1>人员与授权</h1><button data-open="create">新增人员</button></div>
+{% if saved %}<div class="success" role="status">保存成功，新的配置将在下一次 CLI 业务请求时生效。</div>{% endif %}
+<div class="stats-grid">
+{% for label,value,detail,link in [('人员总数',stats.users,'已纳入访问管理','/cli-permission/admin?tab=users'),('接入环境',stats.environments,'独立管理各环境权限','/cli-permission/admin?tab=environments'),('有效授权',stats.active,'人员、环境及授权均有效','/cli-permission/admin?tab=users&grant_status=active'),('即将到期',stats.expiring,'未来 7 天内到期','/cli-permission/admin?tab=users&grant_status=expiring')] %}<a class="stat-card" href="{{ link }}"><span>{{ label }}</span><strong class="{{ 'amber' if loop.last and value else '' }}">{{ value }}<small>{{ '个' if loop.index == 2 else '项' if loop.index > 2 else '人' }}</small></strong><p>{{ detail }}</p></a>{% endfor %}
+</div>
+{% if request.query_params.get('deleted') == '1' %}<div class="success" role="status">删除成功，关联授权已清理。</div>{% endif %}
+<section class="panel">
+<div class="panel-title"><h2>人员与授权 <span class="count">{{ count }} 人</span></h2><span class="muted">停用人员影响全部环境；撤销授权仅影响对应环境</span></div>
+<form method="get" class="filter-bar"><input type="hidden" name="tab" value="users"><input class="search-input" name="q" value="{{ q }}" maxlength="128" placeholder="搜索账号、姓名或环境" aria-label="搜索账号、姓名或环境"><select name="status" aria-label="账号状态"><option value="">全部账号状态</option><option value="enabled" {% if status=='enabled' %}selected{% endif %}>已启用</option><option value="disabled" {% if status=='disabled' %}selected{% endif %}>已停用</option></select><select name="grant_status" aria-label="授权状态"><option value="">全部授权状态</option>{% for key,label in [('none','未授权'),('active','有效授权'),('expiring','即将到期'),('expired','已过期'),('disabled','已撤销 / 已停用')] %}<option value="{{ key }}" {% if grant_status==key %}selected{% endif %}>{{ label }}</option>{% endfor %}</select><button class="secondary">查询</button>{% if q or status or grant_status %}<a href="/cli-permission/admin?tab=users">重置</a>{% endif %}</form>
+<div class="table-scroll"><table class="people-table"><thead><tr><th>平台账号</th><th>姓名</th><th>账号状态</th><th>授权环境</th><th>创建时间</th><th>修改时间</th><th>最新操作人</th><th>操作</th></tr></thead><tbody>
+{% for group in grant_groups %}<tr data-account="{{ group.user.username }}"><td class="mono">{{ group.user.username }}</td><td>{{ group.user.display_name or '—' }}</td><td><span class="badge {{ 'positive' if group.user.enabled else 'neutral' }}">{{ '已启用' if group.user.enabled else '已停用' }}</span></td><td><div class="grant-pills">{% for item in group.visible_grants[:2] %}<span class="badge {{ grant_states[item.id][0] }}" title="{{ environments[item.environment_id] }}">{{ environments[item.environment_id] }}</span>{% else %}<span class="muted">未授权</span>{% endfor %}{% if group.visible_grants|length > 2 %}<span class="count">+{{ group.visible_grants|length - 2 }}</span>{% endif %}</div></td><td>{{ group.user.created_at|beijing if group.user.created_at else "未知" }}</td><td>{{ group.user.updated_at|beijing if group.user.updated_at else "未知" }}</td><td>{{ group.user.updated_by or "未知" }}</td><td class="people-actions"><button class="text-button" data-open="account-grants-{{ group.user.id }}" aria-label="编辑 {{ group.user.username }}">编辑</button><button type="button" class="text-button delete-link" data-open="delete-users-{{ group.user.id }}" aria-label="删除 {{ group.user.username }}">删除</button></td></tr>
+{% else %}<tr><td colspan="8" class="empty">暂无匹配人员，请调整筛选或新增人员。</td></tr>{% endfor %}
+</tbody></table></div>
+<div class="pagination"><span>共 {{ count }} 人 · 每页 {{ page_size }} 人</span><div>{% if page>1 %}<a class="secondary" href="{{ previous }}">上一页</a>{% endif %}<span class="current-page">{{ page }}</span>{% if page*page_size<count %}<a class="secondary" href="{{ next }}">下一页</a>{% endif %}</div></div>
+</section>
+{{ editor(csrf, 'users', users, environments, available_environments) }}
+{% include 'configure_grants.html' %}
+{% for grant in grants %}{{ editor(csrf, 'grants', users, environments, available_environments, grant, 'grant-edit-' ~ grant.id) }}{% endfor %}
+{% include 'person_editor.html' %}
+{% for group in grant_groups %}{{ delete_dialog(csrf, 'users', group.user, group.grants|length) }}{% endfor %}
+{% endblock %}

@@ -74,3 +74,15 @@ document.querySelectorAll('dialog').forEach((dialog) => {
     }
   });
 });
+
+// The server independently enforces the same exact confirmation value.
+document.querySelectorAll('[data-delete]').forEach((form) => {
+  const input = form.querySelector('[data-delete-confirm]');
+  const submit = form.querySelector('[type="submit"]');
+  input.addEventListener('input', () => { submit.disabled = input.value !== 'yes'; });
+  form.closest('dialog').addEventListener('close', () => {
+    input.value = '';
+    submit.disabled = true;
+    form.querySelector('.form-error').hidden = true;
+  });
+});

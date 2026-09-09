@@ -1,0 +1,11 @@
+{% macro delete_dialog(csrf, resource, item, grant_count=none) %}
+{% set label = '人员' if resource == 'users' else '环境' %}
+{% set name = item.username if resource == 'users' else item.name %}
+<dialog class="delete-dialog" id="delete-{{ resource }}-{{ item.id }}" aria-labelledby="delete-title-{{ resource }}-{{ item.id }}">
+<form method="post" action="/cli-permission/admin/{{ resource }}/{{ item.id }}/delete" data-editor data-delete>
+<input type="hidden" name="csrf" value="{{ csrf }}">
+<div class="delete-heading"><h2 id="delete-title-{{ resource }}-{{ item.id }}">永久删除{{ label }}</h2><button type="button" class="text-button" data-close>取消</button></div>
+<div class="delete-body"><div class="form-error" role="alert" hidden></div><p>确定删除{{ label }} <strong>{{ name }}</strong>？</p><div class="delete-impact">此操作不可撤销。{{ '该人员的全部环境授权' if resource == 'users' else '所有人员在此环境下的授权' }}将一并删除{% if grant_count is not none %}（{{ grant_count }} 条）{% endif %}。历史调用日志和操作审计保留。</div><label>请输入 <strong>yes</strong> 确认<input name="confirmation" autocomplete="off" spellcheck="false" required pattern="yes" maxlength="16" placeholder="yes" data-delete-confirm></label></div>
+<div class="delete-footer"><button type="button" class="secondary" data-close>取消</button><button type="submit" class="danger-button" disabled>永久删除{{ label }}</button></div>
+</form></dialog>
+{% endmacro %}

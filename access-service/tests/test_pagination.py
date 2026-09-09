@@ -17,6 +17,6 @@ def test_lists_show_ten_records(system, path, model, fields):
         db.commit()
     login(client)
     html = client.get('/cli-permission' + path).text
-    assert '每页 10 条' in html
-    assert html.split('<tbody>')[1].split('</tbody>')[0].count('<tr>') == 10
+    assert ('每页 10 人' if model is User else '每页 10 条') in html
+    assert html.split('<tbody>')[1].split('</tbody>')[0].count('<tr') == 10
     assert '下一页' in html

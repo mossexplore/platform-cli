@@ -1,6 +1,6 @@
 # 权限管理系统 Linux 部署与运维手册
 
-适用版本：项目 **0.3.32**，数据库结构版本 **6**。本文依据当前离线包的启动、安装、配置及迁移代码编写。命令中的服务器 IP、数据库账号、密码和域名须替换为实际值。
+适用版本：项目 **0.3.33**，数据库结构版本 **6**。本文依据当前离线包的启动、安装、配置及迁移代码编写。命令中的服务器 IP、数据库账号、密码和域名须替换为实际值。
 
 ## 1. 部署方式与运行条件
 
@@ -371,7 +371,7 @@ sudo .venv/bin/python -m app.manage --env-file /etc/cli-access/env reset-passwor
 }
 ```
 
-通过 Nginx 时 URL 改为 `https://实际管理域名/cli-permission`。0.3.32 权限请求默认忽略环境代理；`use_env_proxy: true` 才恢复环境代理。该设置不改变业务平台请求的代理策略。HTTPS 仍验证证书，企业 CA 可通过 CLI 进程的 `SSL_CERT_FILE` 配置。
+通过 Nginx 时 URL 改为 `https://实际管理域名/cli-permission`。0.3.33 权限请求默认忽略环境代理；`use_env_proxy: true` 才恢复环境代理。该设置不改变业务平台请求的代理策略。HTTPS 仍验证证书，企业 CA 可通过 CLI 进程的 `SSL_CERT_FILE` 配置。
 
 ```bash
 ml --version
@@ -495,7 +495,7 @@ unset http_proxy https_proxy all_proxy HTTP_PROXY HTTPS_PROXY ALL_PROXY
 
 此操作不会修改其他终端、已运行服务或永久配置。永久设置可能来自 shell 启动文件、系统环境或服务配置，应定位设置来源再修改。诊断输出可能含代理账号信息，分享前脱敏。
 
-CLI 0.3.32 的权限请求默认直连；如果诊断仍显示沿用环境代理，检查实际版本、所用 config.json 及 `use_env_proxy`，不要仅凭终端 curl 推断 CLI 的连接路径。
+CLI 0.3.33 的权限请求默认直连；如果诊断仍显示沿用环境代理，检查实际版本、所用 config.json 及 `use_env_proxy`，不要仅凭终端 curl 推断 CLI 的连接路径。
 
 ### 11.2 定位 504 的地址链
 
