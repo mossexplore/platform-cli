@@ -17,7 +17,7 @@ def system(tmp_path):
     app = create_app(Settings('sqlite:///' + str(tmp_path / 'test.db'), secure_cookie=False))
     migrate(app.state.engine, app.state.sessions)
     with app.state.sessions() as db:
-        db.add(Admin(username='admin', password_hash=password_hash('password-123456')))
+        db.add(Admin(username='admin', password_hash=password_hash('password-123456'), role='super_admin'))
         user = User(username='alice', display_name='Alice')
         env = Environment(name='prod', display_name='生产', platform_origin='https://platform.example.com')
         db.add_all([user, env])
@@ -143,6 +143,16 @@ def test_login_rate_limit(system):
     for _ in range(10):
         assert client.post('/cli-permission/login', data={'csrf': csrf, 'username': 'nobody', 'password': 'bad'}).status_code == 401
     assert client.post('/cli-permission/login', data={'csrf': csrf, 'username': 'admin', 'password': 'password-123456'}).status_code == 429
+
+
+def test_login_clears_legacy_root_cookies(system):
+    _, client, _ = system
+    for name in ['login_csrf', 'access_session']:
+        client.cookies.set(name, 'legacy-token', domain='testserver.local', path='/')
+    login(client)
+    assert not any(cookie.path == '/' and cookie.name in ['login_csrf', 'access_session']
+                   for cookie in client.cookies.jar)
+    assert client.get('/cli-permission/admin', follow_redirects=False).status_code == 200
 
 
 def test_health_migration_and_html_escaping(system):

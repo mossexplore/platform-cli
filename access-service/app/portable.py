@@ -21,7 +21,7 @@ def prepare():
     try:
         migrate(engine, sessions)
         with sessions() as db:
-            needs_admin = db.scalar(select(Admin.id).where(Admin.enabled.is_(True)).limit(1)) is None
+            needs_admin = db.scalar(select(Admin.id).where(Admin.enabled.is_(True), Admin.role == "super_admin").limit(1)) is None
     finally:
         engine.dispose()
     return needs_admin
@@ -32,8 +32,8 @@ def main():
         needs_admin = prepare()
         if needs_admin:
             if not sys.stdin.isatty():
-                raise ValueError('尚无启用的管理员。请在交互终端执行 bash manage.sh create-admin，再启动服务。')
-            print('数据库已就绪，首次启动请创建管理员（密码不会回显）。', flush=True)
+                raise ValueError('尚无启用的超级管理员。请在交互终端执行 bash manage.sh create-admin，再启动服务。')
+            print('数据库已就绪，请创建超级管理员（密码不会回显）。', flush=True)
             subprocess.run([sys.executable, '-m', 'app.manage', '--env-file', '.env', 'create-admin'], check=True)
     except SQLAlchemyError:
         print('数据库初始化失败，请检查 .env 中的 MySQL 地址、账号权限和网络连接。', file=sys.stderr)

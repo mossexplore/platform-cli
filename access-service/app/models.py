@@ -16,6 +16,7 @@ class Admin(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     username: Mapped[str] = mapped_column(String(128), unique=True)
     password_hash: Mapped[str] = mapped_column(String(256))
+    role: Mapped[str] = mapped_column(String(32), default="admin")
     enabled: Mapped[bool] = mapped_column(Boolean, default=True)
 
 

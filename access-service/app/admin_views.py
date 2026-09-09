@@ -49,10 +49,10 @@ def grant_state(item, user, environment):
     return ('positive', '生效中')
 
 
-ACTIONS = {'login': '登录管理台', 'logout': '退出登录', 'login_failed': '登录失败',
+ACTIONS = {'administrators.reset_password': '重置管理员密码', 'administrators.create': '创建管理员', 'administrators.enable': '启用管理员', 'administrators.disable': '停用管理员', 'login': '登录管理台', 'logout': '退出登录', 'login_failed': '登录失败',
            'users.save': '更新人员', 'environments.save': '更新环境',
            'grants.save': '更新授权', 'grants.batch_save': '批量配置授权'}
-FIELDS = {'username': '账号', 'display_name': '名称', 'enabled': '启用状态',
+FIELDS = {'role': '管理角色', 'username': '账号', 'display_name': '名称', 'enabled': '启用状态',
           'name': '环境标识', 'platform_origin': '平台地址', 'expires_at': '到期时间',
           'note': '备注', 'user_id': '人员编号', 'environment_id': '环境编号'}
 
@@ -68,6 +68,8 @@ def audit_detail(item):
     def display(key, value):
         if value in (None, 'None', ''):
             return '—'
+        if key == 'role':
+            return {'admin': '管理员', 'super_admin': '超级管理员'}.get(value, value)
         if key == 'enabled':
             return '启用' if value in ('True', True) else '停用'
         if key == 'expires_at':

@@ -38,16 +38,10 @@
   border-top:1px solid #303e56
 }
 .login-features div {
-  display:flex;
-  gap:18px;
   padding:17px 0;
   border-bottom:1px solid #303e56;
   font-size:12px;
   color:#b2c0d8
-}
-.login-features span {
-  color:#627ba7;
-  font-family:monospace
 }
 .login-aside footer {
   color:#697e9e;

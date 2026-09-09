@@ -7,8 +7,9 @@ from starlette.exceptions import HTTPException
 from fastapi.templating import Jinja2Templates
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
-from . import access, admin, admin_auth, call_logs
+from . import access, admin, admin_auth, call_logs, administrators
 from .models import SchemaVersion, database
+from .migrations import SCHEMA_VERSION
 from .security import display_time
 from .settings import Settings
 
@@ -25,6 +26,7 @@ def create_app(settings=None):
     app.include_router(admin.router, prefix="/cli-permission")
     app.include_router(access.router, prefix="/cli-permission")
     app.include_router(call_logs.router, prefix="/cli-permission")
+    app.include_router(administrators.router, prefix="/cli-permission")
 
     @app.middleware('http')
     async def response_headers(request, call_next):
@@ -69,7 +71,7 @@ def create_app(settings=None):
     @app.get('/cli-permission/healthz')
     def health():
         with app.state.sessions() as db:
-            if db.scalar(select(SchemaVersion.version)) != 2:
+            if db.scalar(select(SchemaVersion.version)) != SCHEMA_VERSION:
                 return JSONResponse({'status': 'schema_not_ready'}, status_code=503)
         return {'status': 'ok'}
 

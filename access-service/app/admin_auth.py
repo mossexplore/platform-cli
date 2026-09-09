@@ -14,7 +14,7 @@ DUMMY_HASH = password_hash(secrets.token_urlsafe(24))
 def admin_session(request, db):
     session = db.get(Session, digest(request.cookies.get('access_session', '')))
     admin = db.get(Admin, session.admin_id) if session else None
-    if not session or session.expires_at <= now() or not admin or not admin.enabled:
+    if not session or session.expires_at <= now() or not admin or not admin.enabled or admin.role not in ("admin", "super_admin"):
         raise HTTPException(401, '请先登录管理页面')
     return admin, session
 
@@ -31,6 +31,9 @@ def login_page(request: Request):
     token = secrets.token_hex(32)
     response = request.app.state.templates.TemplateResponse(
         request=request, name='login.html', context={'csrf': token})
+    # 清理旧版根路径同名 Cookie，避免其遮蔽带前缀的新会话。
+    response.delete_cookie('login_csrf', path='/')
+    response.delete_cookie('access_session', path='/')
     response.set_cookie('login_csrf', token, secure=request.app.state.settings.secure_cookie,
                         httponly=True, samesite='strict', path='/cli-permission', max_age=600)
     return response
@@ -53,7 +56,7 @@ def login(request: Request, username: str = Form(max_length=128),
         db.commit()
         admin = db.scalar(select(Admin).where(Admin.username == username))
         valid = password_matches(password, admin.password_hash if admin else DUMMY_HASH)
-        if not admin or not admin.enabled or not valid:
+        if not admin or not admin.enabled or admin.role not in ("admin", "super_admin") or not valid:
             db.add(Audit(actor=username, action='login_failed', detail='管理员登录失败'))
             db.commit()
             raise HTTPException(401, '账号或密码错误')

@@ -56,12 +56,12 @@ def test_v1_migration_preserves_users_and_creates_logs(system):
     app, client, _ = system
     CallLog.__table__.drop(app.state.engine)
     with app.state.sessions() as db:
-        db.get(SchemaVersion, 2).version = 1
+        db.get(SchemaVersion, 3).version = 1
         db.commit()
     migrate(app.state.engine, app.state.sessions)
     migrate(app.state.engine, app.state.sessions)
     with app.state.sessions() as db:
-        assert db.get(SchemaVersion, 2)
+        assert db.get(SchemaVersion, 3)
         assert db.get(User, 1).username == 'alice'
         assert db.scalars(select(CallLog)).all() == []
     assert client.get('/cli-permission/healthz').json()['status'] == 'ok'

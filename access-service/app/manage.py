@@ -4,25 +4,10 @@ import getpass
 from dotenv import load_dotenv
 from sqlalchemy import select, delete
 from sqlalchemy.exc import SQLAlchemyError
-from .models import Admin, Audit, Base, SchemaVersion, Session, CallLog, database
+from .models import Admin, Audit, Session, database
+from .migrations import migrate, SCHEMA_VERSION
 from .security import password_hash
 from .settings import Settings
-
-
-def migrate(engine, sessions):
-    # 版本 2 新增调用日志表。MySQL DDL 可能自动提交，checkfirst 允许中断后重跑。
-    SchemaVersion.__table__.create(engine, checkfirst=True)
-    with sessions() as db:
-        versions = db.scalars(select(SchemaVersion.version)).all()
-        if versions not in ([], [1], [2]):
-            raise RuntimeError('数据库版本不兼容，不能自动迁移')
-        if not versions:
-            Base.metadata.create_all(engine)
-            db.add(SchemaVersion(version=2))
-        elif versions == [1]:
-            CallLog.__table__.create(engine, checkfirst=True)
-            db.get(SchemaVersion, 1).version = 2
-        db.commit()
 
 
 def main():
@@ -35,7 +20,7 @@ def main():
     try:
         if args.command == 'migrate':
             migrate(engine, sessions)
-            print('数据库初始化完成（版本 2）')
+            print(f'数据库初始化完成（版本 {SCHEMA_VERSION}）')
             return
         username = input('管理员账号: ').strip()
         if not username or len(username) > 128:
@@ -49,7 +34,7 @@ def main():
             if args.command == 'create-admin':
                 if admin:
                     raise ValueError('管理员已存在，请使用 reset-password 重置密码')
-                admin = Admin(username=username, password_hash=encoded)
+                admin = Admin(username=username, password_hash=encoded, role="super_admin")
                 db.add(admin)
             else:
                 if not admin:

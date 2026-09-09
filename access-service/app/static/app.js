@@ -24,6 +24,15 @@ document.querySelectorAll('[data-editor]').forEach((form) => {
     submit.textContent = '正在保存…';
     try {
       const response = await fetch(form.action, {method: 'POST', body: data});
+      if (response.ok && form.hasAttribute('data-credentials') && response.headers.get('content-type')?.includes('application/json')) {
+        const result = await response.json();
+        form.querySelector('.admin-account-fields').hidden = true;
+        form.querySelector('[data-credential-text]').value = `管理员账号：${result.username}\n登录密码：${result.password}`;
+        form.querySelector('.credential-result').hidden = false;
+        form.closest('dialog').dataset.credentialsGenerated = 'true';
+        submit.hidden = true;
+        return;
+      }
       if (response.ok && response.redirected) {
         window.location.assign(response.url);
         return;
@@ -37,5 +46,31 @@ document.querySelectorAll('[data-editor]').forEach((form) => {
     error.scrollIntoView({block:'nearest'});
     submit.disabled = false;
     submit.textContent = label;
+  });
+});
+
+// Passwords only live in this response and dialog; no local/session storage.
+document.addEventListener('click', async (event) => {
+  const button = event.target.closest('[data-copy-credentials]');
+  if (!button) return;
+  const panel = button.closest('.credential-result');
+  const field = panel.querySelector('[data-credential-text]');
+  const status = panel.querySelector('[data-copy-status]');
+  try {
+    if (!navigator.clipboard) throw new Error('clipboard unavailable');
+    await navigator.clipboard.writeText(field.value);
+    status.textContent = '账号和密码已复制。';
+  } catch (_) {
+    field.focus();
+    field.select();
+    status.textContent = '浏览器不允许自动复制，已选中账号和密码，请按 Ctrl+C（Mac：⌘C）复制。';
+  }
+});
+document.querySelectorAll('dialog').forEach((dialog) => {
+  dialog.addEventListener('close', () => {
+    if (dialog.dataset.credentialsGenerated === 'true') {
+      dialog.querySelector('[data-credential-text]').value = '';
+      window.location.assign('/cli-permission/admin/administrators?saved=1');
+    }
   });
 });

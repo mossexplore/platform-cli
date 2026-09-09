@@ -235,3 +235,16 @@
 .stat-card .amber {
   color:#b97a20
 }
+
+/* Keep the full Chinese platform name visible in the compact sidebar. */
+.sidebar .brand {
+  font-size: 14px;
+  letter-spacing: 0;
+  gap: 8px;
+  padding: 0 6px;
+}
+.sidebar .brand-mark {
+  width: 28px;
+  height: 30px;
+  font-size: 17px;
+}
