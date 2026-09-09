@@ -11,6 +11,7 @@ class Check(BaseModel):
     username: str = Field(strict=True, min_length=1, max_length=128, pattern=r'\S')
     environment: str = Field(min_length=1, max_length=64)
     platform_origin: str = Field(min_length=1, max_length=512)
+    full_command: str = Field(default='', strict=True, max_length=8192)
     command: str = Field(default='unknown', min_length=1, max_length=128, pattern=r'^[a-zA-Z0-9 _-]+$')
 
 
@@ -25,7 +26,7 @@ def check_access(body: Check, request: Request,
     # 账号由 CLI 上报，日志不表示已通过平台身份核验。
     with request.app.state.sessions() as db:
         db.add(CallLog(actor=body.username,
-            command=body.command, environment=body.environment, business_id=businessid,
+            command=body.command, full_command=body.full_command, environment=body.environment, business_id=businessid,
             source_ip=(request.client.host if request.client else '')[:64],
             allowed=result['allowed'], reason=result.get('reason', 'ALLOWED')))
         db.commit()

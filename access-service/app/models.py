@@ -87,6 +87,7 @@ class CallLog(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     actor: Mapped[str] = mapped_column(String(128), index=True)
     command: Mapped[str] = mapped_column(String(128), index=True)
+    full_command: Mapped[str | None] = mapped_column(Text, nullable=True)
     environment: Mapped[str] = mapped_column(String(64), index=True)
     business_id: Mapped[str] = mapped_column(String(256))
     source_ip: Mapped[str] = mapped_column(String(64))

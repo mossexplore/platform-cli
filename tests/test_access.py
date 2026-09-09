@@ -35,7 +35,7 @@ def test_authorization_headers_and_environment(inputs):
     args, kwargs = manager.__enter__().post.call_args
     assert args[0] == 'https://access.example.com/cli-permission/api/v1/access/check'
     assert kwargs['headers'] == {'businessid': 'current-business'}
-    assert kwargs['json'] == {'username': 'alice', 'environment': 'dev', 'platform_origin': 'https://platform.example.com', 'command': 'unknown'}
+    assert kwargs['json'] == {'username': 'alice', 'environment': 'dev', 'platform_origin': 'https://platform.example.com', 'command': 'unknown', 'full_command': ''}
     assert ctor.call_args.kwargs['verify'] is True
     assert ctor.call_args.kwargs['follow_redirects'] is False
 
@@ -176,3 +176,13 @@ def test_non_json_access_response_is_distinct(inputs):
         with pytest.raises(MlError, match='不是有效 JSON') as error:
             check_access(*inputs)
     assert 'secret-cookie' not in str(error.value)
+
+
+def test_full_command_is_sent_with_current_business_header(inputs):
+    response = httpx.Response(200, json={'allowed': True, 'username': 'alice', 'environment': 'dev'})
+    manager = response_mock(response)
+    with patch('wisemlops_cli.access.httpx.Client', return_value=manager):
+        check_access(*inputs, command='ml train start', full_command='ml train start task-123')
+    kwargs = manager.__enter__().post.call_args.kwargs
+    assert kwargs['json']['full_command'] == 'ml train start task-123'
+    assert kwargs['headers']['businessid'] == 'current-business'

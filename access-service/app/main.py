@@ -10,6 +10,7 @@ from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from . import access, admin, admin_auth, call_logs, administrators
 from .models import SchemaVersion, database
 from .migrations import SCHEMA_VERSION
+from .pagination import PAGE_SIZE
 from .security import display_time
 from .settings import Settings
 
@@ -21,6 +22,7 @@ def create_app(settings=None):
     directory = Path(__file__).parent
     app.state.templates = Jinja2Templates(directory=str(directory / 'templates'))
     app.state.templates.env.filters['beijing'] = display_time
+    app.state.templates.env.globals['page_size'] = PAGE_SIZE
     app.mount('/cli-permission/static', StaticFiles(directory=directory / 'static'), name='static')
     app.include_router(admin_auth.router, prefix="/cli-permission")
     app.include_router(admin.router, prefix="/cli-permission")

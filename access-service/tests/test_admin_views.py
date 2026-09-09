@@ -13,13 +13,13 @@ def test_effective_grant_counts_and_filters(system):
         grant.expires_at = now() + timedelta(days=2)
         db.commit()
         assert overview(db) == {'users': 1, 'environments': 1, 'active': 1, 'expiring': 1}
-    assert '授权列表 <span class="count">1 条' in client.get('/cli-permission/admin?tab=grants&status=expiring').text
+    assert '授权列表 <span class="count">1 个账号' in client.get('/cli-permission/admin?tab=grants&status=expiring').text
     with app.state.sessions() as db:
         db.scalar(select(User)).enabled = False
         db.commit()
         assert overview(db)['active'] == 0
         assert overview(db)['expiring'] == 0
-    assert '授权列表 <span class="count">0 条' in client.get('/cli-permission/admin?tab=grants&status=active').text
+    assert '授权列表 <span class="count">0 个账号' in client.get('/cli-permission/admin?tab=grants&status=active').text
     assert '人员已停用' in client.get('/cli-permission/admin?tab=grants&status=disabled').text
 
 
@@ -28,7 +28,7 @@ def test_name_and_environment_search(system):
     login(client)
     assert '人员列表 <span class="count">1 条' in client.get('/cli-permission/admin?tab=users&q=Alice').text
     assert '环境列表 <span class="count">1 条' in client.get('/cli-permission/admin?tab=environments&q=生产').text
-    assert '授权列表 <span class="count">1 条' in client.get('/cli-permission/admin?tab=grants&q=prod').text
+    assert '授权列表 <span class="count">1 个账号' in client.get('/cli-permission/admin?tab=grants&q=prod').text
     assert client.get('/cli-permission/admin?tab=users&status=expired').status_code == 400
 
 

@@ -40,6 +40,7 @@ class Runtime:
             try:
                 check_access(self.config.access_control, profile, credentials, selection,
                              command=getattr(self, "invocation_command", "unknown"),
+                             full_command=getattr(self, "full_command", ""),
                              **({"diagnostics": self.access_diagnostics} if getattr(self, "access_diagnostics", None) else {}))
                 with PlatformClient(
                     profile=profile,

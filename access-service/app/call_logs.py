@@ -1,4 +1,5 @@
 """调用日志查询；全部筛选在数据库完成，管理会话验证后才能访问。"""
+from .pagination import PAGE_SIZE
 from fastapi import APIRouter, Query, Request, HTTPException
 from fastapi.responses import RedirectResponse
 from sqlalchemy import select, func
@@ -40,7 +41,7 @@ def calls(request: Request, username: str = Query('', max_length=128),
         if stop:
             query = query.where(CallLog.created_at <= stop)
         count = db.scalar(select(func.count()).select_from(query.subquery()))
-        items = db.scalars(query.order_by(CallLog.created_at.desc(), CallLog.id.desc()).offset((page-1)*20).limit(20)).all()
+        items = db.scalars(query.order_by(CallLog.created_at.desc(), CallLog.id.desc()).offset((page-1)*PAGE_SIZE).limit(PAGE_SIZE)).all()
         return request.app.state.templates.TemplateResponse(request=request, name='calls.html', context={
             'admin': admin, 'csrf': session.csrf, 'items': items, 'count': count, 'page': page,
             'username': username, 'environment': environment, 'command': command, 'result': result,

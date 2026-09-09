@@ -17,6 +17,7 @@ def runtime_from_context(context: typer.Context) -> Runtime:
     if not isinstance(runtime, Runtime):
         fail("CLI 运行时尚未初始化")
     runtime.invocation_command = command_name(context)
+    runtime.full_command = context.meta.get("full_command", "")
     return runtime
 
 

@@ -20,10 +20,12 @@ from .commands.offline import offline_app
 from .commands.train import train_app
 from .commands.user import user_app
 from .runtime import Runtime
+from .invocation import InvocationGroup
 
 
 app = typer.Typer(
     name="ml",
+    cls=InvocationGroup,
     no_args_is_help=True,
     help="WiseMLOps平台命令行客户端",
 )

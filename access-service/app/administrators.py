@@ -1,4 +1,5 @@
 """超级管理员管理管理员账号；普通管理员不能进入或修改。"""
+from .pagination import PAGE_SIZE
 import json
 import secrets
 from fastapi import APIRouter, Form, HTTPException, Query, Request
@@ -47,7 +48,7 @@ def page(request: Request, q: str = Query('', max_length=128), status: str = '',
         if status:
             query = query.where(Admin.enabled.is_(status == 'enabled'))
         count = db.scalar(select(func.count()).select_from(query.subquery()))
-        items = db.scalars(query.order_by(Admin.id.desc()).offset((page-1)*20).limit(20)).all()
+        items = db.scalars(query.order_by(Admin.id.desc()).offset((page-1)*PAGE_SIZE).limit(PAGE_SIZE)).all()
         return request.app.state.templates.TemplateResponse(request=request, name='administrators.html', context={
             'admin': actor, 'csrf': session.csrf, 'items': items, 'count': count,
             'page': page, 'q': q, 'status': status, 'saved': saved,

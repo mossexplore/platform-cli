@@ -56,12 +56,12 @@ def test_v1_migration_preserves_users_and_creates_logs(system):
     app, client, _ = system
     CallLog.__table__.drop(app.state.engine)
     with app.state.sessions() as db:
-        db.get(SchemaVersion, 3).version = 1
+        db.get(SchemaVersion, 4).version = 1
         db.commit()
     migrate(app.state.engine, app.state.sessions)
     migrate(app.state.engine, app.state.sessions)
     with app.state.sessions() as db:
-        assert db.get(SchemaVersion, 3)
+        assert db.get(SchemaVersion, 4)
         assert db.get(User, 1).username == 'alice'
         assert db.scalars(select(CallLog)).all() == []
     assert client.get('/cli-permission/healthz').json()['status'] == 'ok'
@@ -73,3 +73,33 @@ def test_log_write_failure_does_not_allow_access(system):
     response = check(client)
     assert response.status_code == 503
     assert 'allowed' not in response.json()
+
+
+def test_full_command_is_stored_and_escaped(system):
+    app, client, _ = system
+    command = 'ml train start "任务 <script>alert(1)</script>" --config "a b.json"'
+    assert check(client, command='ml train start', full_command=command).json()['allowed']
+    with app.state.sessions() as db:
+        assert db.scalar(select(CallLog)).full_command == command
+    login(client)
+    html = client.get('/cli-permission/admin/calls').text
+    assert '<th>完整命令</th>' in html
+    assert '&lt;script&gt;' in html and '<script>alert(1)</script>' not in html
+    assert check(client, full_command='x' * 8193).status_code == 422
+
+
+def test_v3_migration_preserves_old_logs(system):
+    from sqlalchemy import text
+    app, client, _ = system
+    check(client)
+    with app.state.engine.begin() as connection:
+        connection.execute(text('ALTER TABLE cli_call_logs DROP COLUMN full_command'))
+        connection.execute(text('UPDATE schema_versions SET version=3'))
+    migrate(app.state.engine, app.state.sessions)
+    migrate(app.state.engine, app.state.sessions)
+    with app.state.sessions() as db:
+        old = db.scalar(select(CallLog))
+        assert old.actor == 'alice' and old.full_command is None
+        assert db.get(SchemaVersion, 4)
+    login(client)
+    assert '未上报（旧客户端或历史记录）' in client.get('/cli-permission/admin/calls').text

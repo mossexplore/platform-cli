@@ -922,7 +922,7 @@ ml --config ./config.json access status
 
 管理员可在「访问授权」一次为同一账号勾选多个环境；切换环境后 CLI 按当前环境检查授权。
 每次在线检查由权限服务写入 MySQL，并可在「CLI 调用日志」按账号、环境、命令、授权结果、时间查询。
-新版 CLI 仅上报命令名称，例如 `ml train list`，不记录位置参数、密码、Cookie 或自定义参数内容。
+新版 CLI 上报命令名称及完整命令。完整命令包含位置参数、选项和值；已识别的密码、令牌、Cookie、请求头和请求体参数会脱敏，最多 8192 字符，超长明确标记截断。
 该日志表示命令发起时的授权检查，不表示业务执行结果；帮助、登录和本地配置等未经过检查的操作不在记录范围内。
 请求未提供命令名称时日志显示 `unknown`；未提供账号 `username` 的旧客户端无法使用新权限接口。
 
@@ -944,7 +944,7 @@ ml --config ./config.json train start aaaa83b8-5669-43a7-a62c-97ccf877e732
 调用 `POST /ai/backend/modelDev/modelTrain/startScheduleTask`，接口基础地址沿用当前环境 `api_endpoint` 的构造规则。
 请求头 `businessid` 来自当前环境 `business.json` 的 `selected.businessId`，认证信息复用当前登录。
 请求体包含 `version="1.0"`、每次请求新生成的 `meta.uuid` 以及 `data.taskId`。
-权限服务日志记录命令名称 `ml train start`，不包含 task-id。
+权限服务的命令名称列显示 `ml train start`，完整命令列还包含实际 task-id 及显式传入的选项。
 
 仅当 `result.code` 为整数 `0` 且 `result.des` 为 `success` 时，输出：
 
@@ -996,3 +996,5 @@ ml --config "C:\Users\l00123456\AppData\Roaming\ml\config.json" access status --
 权限服务请求统一为 `/cli-permission/api/v1/access/check`。URL 仅允许纯源地址或 `/cli-permission` 路径（可带尾斜杠）；纯源地址自动补齐前缀，不影响业务平台 `api_endpoint`。需同步升级权限服务，管理入口为 `/cli-permission/`，健康检查为 `/cli-permission/healthz`。
 
 `use_env_proxy` 为可选布尔值，默认 false：权限检查直接连接服务地址，不读取环境代理、不修改系统设置，其他业务请求保持原有行为。只有明确配置 true 才使用环境代理。默认直连仍支持 SSL_CERT_FILE、SSL_CERT_DIR 企业 CA，并校验证书。直连失败不会自动切换代理；可使用 `--diagnose` 查看当前模式及连接目标。
+
+完整命令记录要求服务数据库结构升级至版本 4，并使用更新后的 CLI；旧客户端及历史记录显示“未上报”。内容由 CLI 参数序列重建，不保留 shell 原始引号、管道或重定向，不读取参数指向的文件。管理台所有列表默认每页 10 条，访问授权按账号汇总。

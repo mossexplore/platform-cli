@@ -47,7 +47,7 @@ def command_name(context):
     return ('ml ' + ' '.join(reversed(parts)))[:128] if parts else 'unknown'
 
 
-def check_access(settings, profile, credentials, selection, *, command="unknown", diagnostics=None):
+def check_access(settings, profile, credentials, selection, *, command="unknown", full_command="", diagnostics=None):
     if not settings or not settings.get('enabled', True):
         return None
     url = permission_url(settings['url'])
@@ -63,7 +63,7 @@ def check_access(settings, profile, credentials, selection, *, command="unknown"
                                    json={'username': credentials.username,
                                          'environment': profile.name,
                                          'platform_origin': profile.base_url,
-                                         'command': command},
+                                         'command': command, 'full_command': full_command},
                                    **({'extensions': {'trace': diagnostics.trace}} if diagnostics else {}))
             if diagnostics:
                 diagnostics.response(response)

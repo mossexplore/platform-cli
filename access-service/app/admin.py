@@ -1,4 +1,5 @@
 """账号、环境和授权的管理页面。"""
+from .pagination import PAGE_SIZE
 import json
 from fastapi import APIRouter, Form, HTTPException, Query, Request
 from fastapi.responses import RedirectResponse
@@ -59,8 +60,22 @@ def dashboard(request: Request, tab: str = 'users', page: int = Query(1, ge=1),
                 query = query.where(or_(User.username.contains(q, autoescape=True), Environment.name.contains(q, autoescape=True)))
             else:
                 query = query.where(Audit.actor.contains(q, autoescape=True))
-        count = db.scalar(select(func.count()).select_from(query.subquery()))
-        items = db.scalars(query.order_by(model.id.desc()).offset((page - 1) * 20).limit(20)).all()
+        grant_groups = []
+        if tab == 'grants':
+            # 先按匹配账号分页，再加载该页账号的全部环境，避免跨页拆散同一账号。
+            matched = query.with_only_columns(Grant.user_id, func.max(Grant.id).label('latest')).group_by(Grant.user_id).subquery()
+            count = db.scalar(select(func.count()).select_from(matched))
+            user_ids = list(db.scalars(select(matched.c.user_id).order_by(matched.c.latest.desc())
+                                      .offset((page - 1) * PAGE_SIZE).limit(PAGE_SIZE)))
+            items = db.scalars(select(Grant).join(Environment).where(Grant.user_id.in_(user_ids))
+                               .order_by(Environment.name, Grant.id)).all()
+            grouped = {user_id: [] for user_id in user_ids}
+            for item in items:
+                grouped[item.user_id].append(item)
+            grant_groups = [{'user': db.get(User, user_id), 'grants': grouped[user_id]} for user_id in user_ids]
+        else:
+            count = db.scalar(select(func.count()).select_from(query.subquery()))
+            items = db.scalars(query.order_by(model.id.desc()).offset((page - 1) * PAGE_SIZE).limit(PAGE_SIZE)).all()
         # 授权表单按账号和环境名称输入，不一次加载全部账号。
         users = {item.user_id: existing(db, User, item.user_id).username for item in items} if tab == 'grants' else {}
         environments = {item.environment_id: existing(db, Environment, item.environment_id).name for item in items} if tab == 'grants' else {}
@@ -71,7 +86,7 @@ def dashboard(request: Request, tab: str = 'users', page: int = Query(1, ge=1),
             'admin': admin, 'csrf': session.csrf, 'tab': tab, 'items': items, 'page': page,
             'count': count, 'q': q, 'saved': saved, 'users': users, 'environments': environments,
             'available_environments': available_environments, 'status': status, 'stats': overview(db),
-            'grant_states': grant_states, 'user_grants': user_grants,
+            'grant_states': grant_states, 'user_grants': user_grants, 'grant_groups': grant_groups,
             'audit_details': {item.id: audit_detail(item) for item in items} if tab == 'audit' else {}})
 
 

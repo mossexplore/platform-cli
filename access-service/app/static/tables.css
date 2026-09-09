@@ -241,3 +241,15 @@ tbody tr:last-child td {
   border-color:#f0c9c9;
   color:#b74444
 }
+
+.grant-accounts td { vertical-align:top; max-width:none }
+.grant-accounts .grant-account { width:200px; min-width:150px }
+.grant-account p { margin:8px 0 }
+.grant-account .count { margin-left:0 }
+.grant-environments { display:flex; flex-wrap:wrap; gap:10px }
+.grant-environment { flex:1 1 260px; max-width:420px; min-width:230px; border:1px solid var(--border); border-radius:7px; padding:12px 14px; background:#fff }
+.grant-environment-heading { display:flex; align-items:center; gap:8px; flex-wrap:wrap }
+.grant-environment-heading button { margin-left:auto; font-size:11px }
+.grant-expiry { margin:10px 0 0; color:#718098; font-size:11px }
+.grant-note { margin:8px 0 0; color:#718098; white-space:pre-wrap; overflow-wrap:anywhere; font-size:11px }
+.grant-filter-hint { margin:0; padding:0 22px 16px; color:#718098; font-size:12px }

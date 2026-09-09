@@ -1,0 +1,21 @@
+{% if q or status %}<p class="grant-filter-hint">已筛选出包含匹配授权的账号，下方展示这些账号的全部环境授权。</p>{% endif %}
+<div class="table-scroll"><table class="grant-accounts"><thead><tr><th>平台账号</th><th>授权环境</th></tr></thead><tbody>
+{% for group in grant_groups %}
+<tr data-account="{{ group.user.username }}"><td class="grant-account"><div class="grant-account-name"><strong class="mono">{{ group.user.username }}</strong><span class="muted">{{ group.user.display_name }}</span></div></td>
+<td><div class="grant-summary"><div class="grant-pills">{% for item in group.grants[:3] %}<span class="badge {{ grant_states[item.id][0] }}" title="{{ environments[item.environment_id] }} · {{ grant_states[item.id][1] }}">{{ environments[item.environment_id] }} · {{ grant_states[item.id][1] }}</span>{% endfor %}</div><button class="text-button" data-open="account-grants-{{ group.user.id }}">查看 {{ group.grants|length }} 个环境</button></div></td></tr>
+{% else %}<tr><td colspan="2"><div class="empty"><strong>暂无匹配账号</strong><p>请调整筛选条件，或为平台账号新增授权。</p></div></td></tr>{% endfor %}
+</tbody></table></div>
+
+{% for group in grant_groups %}
+<dialog class="drawer" id="account-grants-{{ group.user.id }}" aria-labelledby="account-grants-title-{{ group.user.id }}"><div class="drawer-heading"><h2 id="account-grants-title-{{ group.user.id }}">{{ group.user.username }} · 全部环境授权</h2><button type="button" class="text-button" data-close>关闭</button></div><div class="drawer-body grant-detail-list">
+<div class="grant-environments">
+{% for item in group.grants %}
+<div class="grant-environment">
+<div class="grant-environment-heading"><span class="code-chip">{{ environments[item.environment_id] }}</span><span class="badge {{ grant_states[item.id][0] }}">{{ grant_states[item.id][1] }}</span><button class="text-button" data-open="edit-{{ item.id }}" aria-label="编辑 {{ group.user.username }} 的 {{ environments[item.environment_id] }} 授权">编辑</button></div>
+<p class="grant-expiry">{% if item.expires_at %}到期：{{ item.expires_at|beijing }} <small>UTC+8</small>{% else %}长期有效{% endif %}</p>
+{% if item.note %}<p class="grant-note">{{ item.note }}</p>{% endif %}
+</div>
+{% endfor %}
+</div>
+</div></dialog>
+{% endfor %}
