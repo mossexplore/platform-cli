@@ -15,6 +15,8 @@
 .application-filters {display:flex;flex-wrap:wrap;gap:12px;align-items:end;margin:20px 0}
 .application-filters label {display:grid;gap:6px;flex:1;min-width:150px}
 .application-filters button {height:40px}
+.application-list .application-filters {margin:0;padding:16px 14px}
+.application-list .pagination {background:#fff}
 
 /* Read-only application record; editing and public forms retain their layout. */
 .application-record {max-width:1080px;margin:0 auto;overflow-wrap:anywhere}
