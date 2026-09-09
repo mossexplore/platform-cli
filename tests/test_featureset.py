@@ -10,13 +10,13 @@ import httpx
 from rich.console import Console
 from typer.testing import CliRunner
 
-from wisemlops_cli.business import BusinessSelection
-from wisemlops_cli.cli import app
-from wisemlops_cli.client import PlatformClient
-from wisemlops_cli.commands.featureset import COLUMNS, display_value, render_page
-from wisemlops_cli.errors import ApiError, BusinessError
-from wisemlops_cli.models import Credentials, Profile
-from wisemlops_cli.services.featureset import FeatureSetService
+from wiserec_cli.business import BusinessSelection
+from wiserec_cli.cli import app
+from wiserec_cli.client import PlatformClient
+from wiserec_cli.commands.featureset import COLUMNS, display_value, render_page
+from wiserec_cli.errors import ApiError, BusinessError
+from wiserec_cli.models import Credentials, Profile
+from wiserec_cli.services.featureset import FeatureSetService
 
 
 def response(items=None, count=0):
@@ -215,8 +215,8 @@ class FeatureSetCommandTest(unittest.TestCase):
             authenticated_call=authenticated,
             config=SimpleNamespace(current_profile=lambda: SimpleNamespace(output_format=configured_output)),
         )
-        with patch("wisemlops_cli.cli.Runtime", return_value=runtime), patch(
-            "wisemlops_cli.commands.featureset.runtime_from_context", return_value=runtime,
+        with patch("wiserec_cli.cli.Runtime", return_value=runtime), patch(
+            "wiserec_cli.commands.featureset.runtime_from_context", return_value=runtime,
         ):
             options = {"mix_stderr": False} if "mix_stderr" in inspect.signature(CliRunner).parameters else {}
             return CliRunner(**options).invoke(app, ["featureset"] + args)
@@ -266,7 +266,7 @@ class FeatureSetCommandTest(unittest.TestCase):
         for value in ("2026-09-08T03:30:58.000+00:00", "2026-09-08T03:30:58Z",
                       "2026-09-07T23:30:58-04:00"):
             self.assertEqual(display_value("createTime", value), "2026-09-08 11:30:58")
-        with patch("wisemlops_cli.commands.featureset.error_console") as errors:
+        with patch("wiserec_cli.commands.featureset.error_console") as errors:
             for value in ("bad", "2026-09-08T03:30:58"):
                 self.assertEqual(display_value("updateTime", value), value)
             self.assertEqual(errors.print.call_count, 2)
@@ -276,7 +276,7 @@ class FeatureSetCommandTest(unittest.TestCase):
                   "createTime": "2026-09-08T03:30:58Z"}
         original = copy.deepcopy(record)
         stream = io.StringIO()
-        with patch("wisemlops_cli.commands.featureset.console", Console(file=stream, width=240)):
+        with patch("wiserec_cli.commands.featureset.console", Console(file=stream, width=240)):
             render_page({"count": 1, "pageIndex": 1, "pageSize": 10, "items": [record]}, "table")
         text = stream.getvalue()
         positions = [text.index(title) for title, _ in COLUMNS]

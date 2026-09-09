@@ -1,9 +1,9 @@
 from unittest.mock import Mock, patch
 import httpx
 import pytest
-from wisemlops_cli.access import check_access
-from wisemlops_cli.access_diagnostics import AccessDiagnostics, endpoint
-from wisemlops_cli.errors import MlError
+from wiserec_cli.access import check_access
+from wiserec_cli.access_diagnostics import AccessDiagnostics, endpoint
+from wiserec_cli.errors import MlError
 from test_access import inputs, response_mock
 
 
@@ -13,7 +13,7 @@ def test_504_diagnostics_and_redaction(inputs):
     response = httpx.Response(504, headers={'server':'gateway', 'via':'secret-cookie',
         'set-cookie':'do-not-print', 'x-request-id':'trace-123'}, text='private response body')
     manager = response_mock(response)
-    with patch('wisemlops_cli.access.httpx.Client', return_value=manager):
+    with patch('wiserec_cli.access.httpx.Client', return_value=manager):
         with pytest.raises(MlError, match='504'):
             check_access(*inputs, diagnostics=diagnostics)
     trace = manager.__enter__().post.call_args.kwargs['extensions']['trace']
@@ -30,7 +30,7 @@ def test_504_diagnostics_and_redaction(inputs):
 
 def test_timeout_has_elapsed_without_fabricated_response(inputs):
     lines = []
-    with patch('wisemlops_cli.access.httpx.Client', side_effect=httpx.ReadTimeout('secret-cookie')):
+    with patch('wiserec_cli.access.httpx.Client', side_effect=httpx.ReadTimeout('secret-cookie')):
         with pytest.raises(MlError):
             check_access(*inputs, diagnostics=AccessDiagnostics(lines.append))
     output = '\n'.join(lines)
@@ -45,7 +45,7 @@ def test_url_credentials_and_query_are_removed():
 
 def test_diagnose_option_is_available(tmp_path):
     from typer.testing import CliRunner
-    from wisemlops_cli.cli import app
+    from wiserec_cli.cli import app
     config = tmp_path / 'config.json'
     config.write_text('{"current":"dev","profiles":[{"name":"dev","api_endpoint":"https://example.com"}]}')
     result = CliRunner().invoke(app, ['--config', str(config), 'access', 'status', '--help'])

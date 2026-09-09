@@ -4,9 +4,9 @@ from unittest.mock import patch
 import httpx
 import pytest
 from typer.testing import CliRunner
-from wisemlops_cli.cli import app
-from wisemlops_cli.client import PlatformClient
-from wisemlops_cli.errors import MlError
+from wiserec_cli.cli import app
+from wiserec_cli.client import PlatformClient
+from wiserec_cli.errors import MlError
 import test_runtime
 
 
@@ -22,8 +22,8 @@ def runtime():
 def invoke(runtime, handler, task='task-id'):
     def client(**kwargs):
         return PlatformClient(**kwargs, transport=httpx.MockTransport(handler))
-    with patch('wisemlops_cli.commands.train.runtime_from_context', return_value=runtime), \
-         patch('wisemlops_cli.runtime.PlatformClient', side_effect=client):
+    with patch('wiserec_cli.commands.train.runtime_from_context', return_value=runtime), \
+         patch('wiserec_cli.runtime.PlatformClient', side_effect=client):
         return CliRunner().invoke(app, ['--config', str(runtime.config.path), 'train', 'start', task])
 
 
@@ -97,7 +97,7 @@ def test_timeout_does_not_replay(runtime):
 
 def test_access_denied_prevents_start(runtime):
     requests = []
-    with patch('wisemlops_cli.runtime.check_access', side_effect=MlError('没有权限')):
+    with patch('wiserec_cli.runtime.check_access', side_effect=MlError('没有权限')):
         response = invoke(runtime, lambda req: requests.append(req))
     assert response.exit_code != 0
     assert not requests

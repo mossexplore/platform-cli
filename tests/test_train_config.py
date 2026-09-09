@@ -7,9 +7,9 @@ from unittest.mock import Mock, patch
 import httpx
 from typer.testing import CliRunner
 
-from wisemlops_cli.cli import app
-from wisemlops_cli.client import PlatformClient
-from wisemlops_cli.services.train import TrainService
+from wiserec_cli.cli import app
+from wiserec_cli.client import PlatformClient
+from wiserec_cli.services.train import TrainService
 import test_runtime
 
 
@@ -27,8 +27,8 @@ class TrainConfigCommandTest(unittest.TestCase):
         def client_factory(**kwargs):
             return PlatformClient(**kwargs, transport=httpx.MockTransport(handler))
         options = {"mix_stderr": False} if "mix_stderr" in inspect.signature(CliRunner).parameters else {}
-        with patch("wisemlops_cli.cli.Runtime", return_value=self.fixture.runtime), patch(
-            "wisemlops_cli.runtime.PlatformClient", side_effect=client_factory
+        with patch("wiserec_cli.cli.Runtime", return_value=self.fixture.runtime), patch(
+            "wiserec_cli.runtime.PlatformClient", side_effect=client_factory
         ):
             return CliRunner(**options).invoke(app, ["train", "config", "update"] + args)
 

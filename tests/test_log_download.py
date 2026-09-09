@@ -10,10 +10,10 @@ from unittest.mock import patch
 import httpx
 from typer.testing import CliRunner
 
-from wisemlops_cli.cli import app
-from wisemlops_cli.downloads import download_file, download_filename
-from wisemlops_cli.errors import ApiError
-from wisemlops_cli.services.train import TrainService
+from wiserec_cli.cli import app
+from wiserec_cli.downloads import download_file, download_filename
+from wiserec_cli.errors import ApiError
+from wiserec_cli.services.train import TrainService
 import test_client
 
 
@@ -62,7 +62,7 @@ class LogServiceTest(unittest.TestCase):
 class DownloaderTest(unittest.TestCase):
     def test_download_disables_certificate_verification(self):
         real_client = httpx.Client
-        with patch("wisemlops_cli.downloads.httpx.Client", wraps=real_client) as client:
+        with patch("wiserec_cli.downloads.httpx.Client", wraps=real_client) as client:
             download_file("https://files.example/log", "j", self.path,
                           transport=httpx.MockTransport(lambda r: self.response()))
         self.assertIs(client.call_args.kwargs["verify"], False)
@@ -122,7 +122,7 @@ class DownloaderTest(unittest.TestCase):
         self.assertEqual(download_filename("", "j"), "j-logs.zip")
         self.assertEqual(download_filename('attachment; filename="train.log"', "j"), "train.log.zip")
         self.assertEqual(download_filename('attachment; filename="train.ZIP"', "j"), "train.ZIP")
-        with patch("wisemlops_cli.downloads.Path", wraps=Path) as paths:
+        with patch("wiserec_cli.downloads.Path", wraps=Path) as paths:
             paths.side_effect = lambda value: self.path.parent / value
             target, _ = download_file("https://files.example/log", "j", transport=httpx.MockTransport(
                 lambda r: self.response(headers={"content-disposition": 'attachment; filename="../../logs.zip"'})))
@@ -179,9 +179,9 @@ class DownloadCommandTest(unittest.TestCase):
         runner = CliRunner(**options)
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "log.zip"
-            with patch("wisemlops_cli.cli.Runtime", return_value=runtime), patch(
-                "wisemlops_cli.commands.train.runtime_from_context", return_value=runtime
-            ), patch("wisemlops_cli.commands.train.download_file", return_value=(path, 12)) as download:
+            with patch("wiserec_cli.cli.Runtime", return_value=runtime), patch(
+                "wiserec_cli.commands.train.runtime_from_context", return_value=runtime
+            ), patch("wiserec_cli.commands.train.download_file", return_value=(path, 12)) as download:
                 result = runner.invoke(app, ["train", "history", "logs", "download", "t", "j", "--file", str(path)])
                 self.assertEqual(result.exit_code, 0, result.output)
                 self.assertEqual(json.loads(result.stdout), {"taskId": "t", "jobId": "j", "path": str(path), "bytes": 12, "status": "downloaded"})

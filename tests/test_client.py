@@ -2,13 +2,13 @@ import unittest
 
 import httpx
 
-from wisemlops_cli.client import PlatformClient
-from wisemlops_cli.business import BusinessSelection
-from wisemlops_cli.errors import AuthenticationError
-from wisemlops_cli.models import Credentials, Profile
-from wisemlops_cli.services.mep import MepService
-from wisemlops_cli.services.train import TrainService
-from wisemlops_cli.services.user import UserService
+from wiserec_cli.client import PlatformClient
+from wiserec_cli.business import BusinessSelection
+from wiserec_cli.errors import AuthenticationError
+from wiserec_cli.models import Credentials, Profile
+from wiserec_cli.services.mep import MepService
+from wiserec_cli.services.train import TrainService
+from wiserec_cli.services.user import UserService
 
 
 class PlatformClientTest(unittest.TestCase):

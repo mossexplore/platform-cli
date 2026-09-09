@@ -104,11 +104,11 @@ class WindowsPackagingScriptTest(unittest.TestCase):
         script = (self.windows_scripts / "install.ps1").read_text(encoding="utf-8")
         check = script.split("$VersionCheck = @'\n", 1)[1].split("\n'@", 1)[0]
         with tempfile.TemporaryDirectory() as directory:
-            wheel = Path(directory) / "wisemlops_cli.whl"
+            wheel = Path(directory) / "wiserec_cli.whl"
             with ZipFile(wheel, "w") as archive:
                 archive.writestr(
-                    "wisemlops_cli-0.3.33.dist-info/METADATA",
-                    "Name: wisemlops-cli\nVersion: 0.3.33\n",
+                    "wiserec_cli-0.3.33.dist-info/METADATA",
+                    "Name: wiserec-cli\nVersion: 0.3.33\n",
                 )
             for installed in (None, "0.3.32", "0.3.33", "0.3.34"):
                 with self.subTest(installed=installed):
@@ -119,7 +119,7 @@ class WindowsPackagingScriptTest(unittest.TestCase):
                         side_effect=PackageNotFoundError if installed is None else None,
                     ) as read_version, contextlib.redirect_stdout(output):
                         exec(check, {})
-                    read_version.assert_called_once_with("wisemlops-cli")
+                    read_version.assert_called_once_with("wiserec-cli")
                     self.assertEqual(
                         json.loads(output.getvalue()),
                         {"target": "0.3.33", "installed": installed},

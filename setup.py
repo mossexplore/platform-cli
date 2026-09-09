@@ -11,7 +11,7 @@ class BuildPy(BaseBuildPy):
     def run(self) -> None:
         super().run()
         source = Path("config.json")
-        destination = Path(self.build_lib) / "wisemlops_cli" / "config.json"
+        destination = Path(self.build_lib) / "wiserec_cli" / "config.json"
         destination.parent.mkdir(parents=True, exist_ok=True)
         copyfile(source, destination)
 

@@ -3,12 +3,12 @@ import json
 from unittest.mock import Mock, patch
 import httpx
 import pytest
-from wisemlops_cli.access import check_access, validate_settings
-from wisemlops_cli.config import _sync_packaged_config
-from wisemlops_cli.errors import AuthenticationError, ConfigError, MlError
-from wisemlops_cli.models import Profile, Credentials
-from wisemlops_cli.business import BusinessSelection
-from wisemlops_cli.runtime import Runtime
+from wiserec_cli.access import check_access, validate_settings
+from wiserec_cli.config import _sync_packaged_config
+from wiserec_cli.errors import AuthenticationError, ConfigError, MlError
+from wiserec_cli.models import Profile, Credentials
+from wiserec_cli.business import BusinessSelection
+from wiserec_cli.runtime import Runtime
 
 
 @pytest.fixture
@@ -30,7 +30,7 @@ def response_mock(response):
 def test_authorization_headers_and_environment(inputs):
     response = httpx.Response(200, json={'allowed': True, 'username': 'alice', 'environment': 'dev'})
     manager = response_mock(response)
-    with patch('wisemlops_cli.access.httpx.Client', return_value=manager) as ctor:
+    with patch('wiserec_cli.access.httpx.Client', return_value=manager) as ctor:
         assert check_access(*inputs)['allowed']
     args, kwargs = manager.__enter__().post.call_args
     assert args[0] == 'https://access.example.com/cli-permission/api/v1/access/check'
@@ -46,19 +46,19 @@ def test_authorization_headers_and_environment(inputs):
     (200, {'allowed': True, 'username': 'mallory', 'environment': 'dev'}, '不一致'),
     (503, {}, '503'), (302, {}, '302')])
 def test_denial_and_invalid_response(inputs, status, payload, error):
-    with patch('wisemlops_cli.access.httpx.Client', return_value=response_mock(httpx.Response(status, json=payload))):
+    with patch('wiserec_cli.access.httpx.Client', return_value=response_mock(httpx.Response(status, json=payload))):
         with pytest.raises(MlError, match=error):
             check_access(*inputs)
 
 
 def test_access_401_reports_service_rejection(inputs):
-    with patch('wisemlops_cli.access.httpx.Client', return_value=response_mock(httpx.Response(401))):
+    with patch('wiserec_cli.access.httpx.Client', return_value=response_mock(httpx.Response(401))):
         with pytest.raises(MlError, match="权限服务拒绝请求"):
             check_access(*inputs)
 
 
 def test_network_error_hides_credentials(inputs):
-    with patch('wisemlops_cli.access.httpx.Client', side_effect=httpx.ConnectError('secret-cookie')):
+    with patch('wiserec_cli.access.httpx.Client', side_effect=httpx.ConnectError('secret-cookie')):
         with pytest.raises(MlError) as error:
             check_access(*inputs)
         assert 'secret-cookie' not in str(error.value)
@@ -73,12 +73,12 @@ def test_runtime_blocks_operation_and_rechecks_each_command(inputs):
     runtime.business = Mock()
     runtime.business.require_selection.return_value = inputs[3]
     operation = Mock()
-    with patch('wisemlops_cli.runtime.check_access', side_effect=MlError('denied')), patch('wisemlops_cli.runtime.PlatformClient') as client:
+    with patch('wiserec_cli.runtime.check_access', side_effect=MlError('denied')), patch('wiserec_cli.runtime.PlatformClient') as client:
         with pytest.raises(MlError):
             runtime.authenticated_call(operation)
         client.assert_not_called()
         operation.assert_not_called()
-    with patch('wisemlops_cli.runtime.check_access', side_effect=[{}, MlError('revoked')]) as check, patch('wisemlops_cli.runtime.PlatformClient'):
+    with patch('wiserec_cli.runtime.check_access', side_effect=[{}, MlError('revoked')]) as check, patch('wiserec_cli.runtime.PlatformClient'):
         runtime.authenticated_call(operation)
         with pytest.raises(MlError):
             runtime.authenticated_call(operation)
@@ -95,7 +95,7 @@ def test_bad_settings(settings):
 
 
 def test_disabled_does_not_connect(inputs):
-    with patch('wisemlops_cli.access.httpx.Client') as client:
+    with patch('wiserec_cli.access.httpx.Client') as client:
         assert check_access({}, *inputs[1:]) is None
         client.assert_not_called()
 
@@ -104,7 +104,7 @@ def test_upgrade_replaces_access_configuration(tmp_path):
     target = tmp_path / 'config.json'
     settings = {'enabled': True, 'url': 'https://access.example.com'}
     target.write_text(json.dumps({'old': 'config', 'access_control': settings}))
-    with patch('wisemlops_cli.config._packaged_config_text', return_value='{"new":"config"}'):
+    with patch('wiserec_cli.config._packaged_config_text', return_value='{"new":"config"}'):
         _sync_packaged_config(target)
     assert json.loads(target.read_text()) == {'new': 'config'}
 
@@ -114,14 +114,14 @@ def test_access_accepts_http_and_https(inputs, scheme):
     settings = validate_settings({'url': scheme + '://access.example.com:8008'})
     response = httpx.Response(200, json={'allowed': True, 'username': 'alice', 'environment': 'dev'})
     manager = response_mock(response)
-    with patch('wisemlops_cli.access.httpx.Client', return_value=manager):
+    with patch('wiserec_cli.access.httpx.Client', return_value=manager):
         assert check_access(settings, *inputs[1:])['allowed']
     assert manager.__enter__().post.call_args.args[0] == scheme + '://access.example.com:8008/cli-permission/api/v1/access/check'
 
 
 def test_command_name_excludes_argument_values(tmp_path):
     from typer.testing import CliRunner
-    from wisemlops_cli.cli import app
+    from wiserec_cli.cli import app
     config = tmp_path / 'config.json'
     config.write_text(json.dumps({'current': 'dev', 'profiles': [
         {'name': 'dev', 'api_endpoint': 'https://platform.example.com'}]}))
@@ -144,8 +144,8 @@ def test_access_module_imports_without_click():
     script = """
 import sys
 sys.modules['click'] = None
-import wisemlops_cli.access
-assert wisemlops_cli.access.command_name(None) == 'unknown'
+import wiserec_cli.access
+assert wiserec_cli.access.command_name(None) == 'unknown'
 """
     env = dict(os.environ, PYTHONPATH=str(Path(__file__).resolve().parents[1] / 'src'))
     result = subprocess.run([sys.executable, '-c', script], env=env, capture_output=True, text=True)
@@ -163,7 +163,7 @@ assert wisemlops_cli.access.command_name(None) == 'unknown'
 def test_access_network_failure_categories(inputs, exception, message):
     manager = response_mock(None)
     manager.__enter__().post.side_effect = exception('secret-cookie secret-csrf')
-    with patch('wisemlops_cli.access.httpx.Client', return_value=manager):
+    with patch('wiserec_cli.access.httpx.Client', return_value=manager):
         with pytest.raises(MlError, match=message) as error:
             check_access(*inputs)
     assert 'secret-cookie' not in str(error.value)
@@ -172,7 +172,7 @@ def test_access_network_failure_categories(inputs, exception, message):
 
 def test_non_json_access_response_is_distinct(inputs):
     manager = response_mock(httpx.Response(200, text='<html>secret-cookie</html>'))
-    with patch('wisemlops_cli.access.httpx.Client', return_value=manager):
+    with patch('wiserec_cli.access.httpx.Client', return_value=manager):
         with pytest.raises(MlError, match='不是有效 JSON') as error:
             check_access(*inputs)
     assert 'secret-cookie' not in str(error.value)
@@ -181,7 +181,7 @@ def test_non_json_access_response_is_distinct(inputs):
 def test_full_command_is_sent_with_current_business_header(inputs):
     response = httpx.Response(200, json={'allowed': True, 'username': 'alice', 'environment': 'dev'})
     manager = response_mock(response)
-    with patch('wisemlops_cli.access.httpx.Client', return_value=manager):
+    with patch('wiserec_cli.access.httpx.Client', return_value=manager):
         check_access(*inputs, command='ml train start', full_command='ml train start task-123')
     kwargs = manager.__enter__().post.call_args.kwargs
     assert kwargs['json']['full_command'] == 'ml train start task-123'

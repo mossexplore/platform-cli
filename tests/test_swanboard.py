@@ -1,13 +1,13 @@
 import unittest
 
-from wisemlops_cli.commands.mtp import (
+from wiserec_cli.commands.mtp import (
     _config_items,
     _environment_item,
     _items,
     _metric_items,
 )
-from wisemlops_cli.errors import ApiError
-from wisemlops_cli.services.swanboard import SwanBoardService
+from wiserec_cli.errors import ApiError
+from wiserec_cli.services.swanboard import SwanBoardService
 
 
 class FakeClient:

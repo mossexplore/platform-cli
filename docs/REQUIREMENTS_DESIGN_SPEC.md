@@ -1,13 +1,13 @@
-# WiseMLOps Python CLI 需求设计说明书
+# WiseRec Python CLI 需求设计说明书
 
 ## 1. 文档信息
 
 | 项目 | 内容 |
 | --- | --- |
-| 项目名称 | WiseMLOps Python CLI |
-| Python 包名 | `wisemlops-cli` |
+| 项目名称 | WiseRec Python CLI |
+| Python 包名 | `wiserec-cli` |
 | 命令名 | `ml` |
-| 当前代码版本 | `0.3.34` |
+| 当前代码版本 | `0.3.35` |
 | 目标平台 | Windows 优先，兼容 macOS/Linux 的基础路径逻辑 |
 | 文档整理日期 | 2026-08-16 |
 | 代码仓库 | `mossexplore/platform-cli` |
@@ -21,7 +21,7 @@
 
 ## 2. 项目背景与目标
 
-WiseMLOps Web 管理台已有大量 Java 后端接口，需要在现有 Python 项目上持续封装为 CLI，降低人工登录页面和重复操作的成本。
+WiseRec Web 管理台已有大量 Java 后端接口，需要在现有 Python 项目上持续封装为 CLI，降低人工登录页面和重复操作的成本。
 
 核心目标：
 
@@ -50,7 +50,7 @@ Service 业务适配层
     ↓ 领域接口与请求体
 PlatformClient 统一 HTTP 层
     ↓ Cookie / csrftoken / ai-businessId / 重试 / SSL
-WiseMLOps Java API
+WiseRec Java API
 
 登录流程：
 AuthManager → Playwright → 持久化 Microsoft Edge Profile
@@ -93,7 +93,7 @@ commands/<domain>.py → services/<domain>.py → PlatformClient
 
 CLI 产品描述统一为：
 
-> `ml` 是 WiseMLOps平台的 Python 命令行客户端。
+> `ml` 是 WiseRec平台的 Python 命令行客户端。
 
 ### 4.2 当前命令树
 
@@ -600,7 +600,7 @@ ml offline experiment clone <PROJECT_ID> --name <NEW_NAME> --output json
 | macOS | `~/Library/Application Support/ml` |
 | Linux | `${XDG_CONFIG_HOME:-~/.config}/ml` |
 
-### 10.2 当前代码状态（0.3.34）
+### 10.2 当前代码状态（0.3.35）
 
 ```text
 ml/
@@ -670,7 +670,7 @@ scripts\windows\build-release.cmd
 ```
 
 脚本默认构建只携带项目通用 Wheel、安装时从 Python 包源下载依赖的联网 ZIP：
-`wisemlops-cli-<版本>-windows-py3-online.zip`。同一个联网包可用于 Python 3.12 和
+`wiserec-cli-<版本>-windows-py3-online.zip`。同一个联网包可用于 Python 3.12 和
 3.13。使用 `build-release.ps1 -IndexUrl <企业源>` 可把不含凭据的默认企业源写入
 `release.json`，用户双击安装即可；使用 `-Offline` 才生成离线包。发布 ZIP 同时包含
 Wheel、安装脚本、安装说明和 SHA-256 校验文件。
@@ -683,13 +683,13 @@ Wheel、安装脚本、安装说明和 SHA-256 校验文件。
 产物示例：
 
 ```text
-dist\wisemlops_cli-0.3.23-py3-none-any.whl
+dist\wiserec_cli-0.3.23-py3-none-any.whl
 ```
 
 安装者执行：
 
 ```powershell
-py -m pip install --upgrade .\dist\wisemlops_cli-0.3.23-py3-none-any.whl
+py -m pip install --upgrade .\dist\wiserec_cli-0.3.23-py3-none-any.whl
 ml --version
 ```
 
@@ -706,7 +706,7 @@ ml --version
 ```powershell
 py -m pip install --user pipx
 py -m pipx ensurepath
-pipx install .\dist\wisemlops_cli-0.3.23-py3-none-any.whl
+pipx install .\dist\wiserec_cli-0.3.23-py3-none-any.whl
 ```
 
 重新打开 CMD 后，应能在任意目录执行：
@@ -725,9 +725,9 @@ ml login
 1. 校验 PowerShell 5.1+ 及所需 cmdlet。
 2. 校验 `CHECKSUMS.sha256`。
 3. 检查 Python 3.9+ 和 Microsoft Edge。
-4. 在 `%LOCALAPPDATA%\Programs\WiseMLOpsCLI\venv` 创建独立虚拟环境。
+4. 在 `%LOCALAPPDATA%\Programs\WiseRecCLI\venv` 创建独立虚拟环境。
 5. 自动识别离线 `packages/`；存在时禁止联网并从本地安装依赖，不存在时联网解析依赖。
-6. 创建 `%LOCALAPPDATA%\Programs\WiseMLOpsCLI\bin\ml.cmd`。
+6. 创建 `%LOCALAPPDATA%\Programs\WiseRecCLI\bin\ml.cmd`。
 7. 将上述 `bin` 目录加入当前用户 `PATH`。
 8. 调用虚拟环境中的 `ml --version` 验证安装。
 
@@ -791,7 +791,7 @@ ml offline experiment create -f experiment.yaml --dry-run
 建议配置示例：
 
 ```yaml
-apiVersion: wisemlops/v1
+apiVersion: wiserec/v1
 kind: OfflineExperiment
 metadata:
   name: demo-experiment

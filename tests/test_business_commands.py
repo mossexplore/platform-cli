@@ -6,11 +6,11 @@ from unittest.mock import patch
 
 from typer.testing import CliRunner
 
-from wisemlops_cli.business import BusinessStore, parse_business_list
-from wisemlops_cli.cli import app
-from wisemlops_cli.commands.business import console as business_console
-from wisemlops_cli.credentials import CredentialStore
-from wisemlops_cli.models import Credentials
+from wiserec_cli.business import BusinessStore, parse_business_list
+from wiserec_cli.cli import app
+from wiserec_cli.commands.business import console as business_console
+from wiserec_cli.credentials import CredentialStore
+from wiserec_cli.models import Credentials
 
 
 class BusinessCommandTest(unittest.TestCase):
@@ -80,10 +80,10 @@ class BusinessCommandTest(unittest.TestCase):
 
     def invoke(self, arguments, input_value=None):
         with patch(
-            "wisemlops_cli.credentials.user_config_dir",
+            "wiserec_cli.credentials.user_config_dir",
             return_value=self.root,
         ), patch(
-            "wisemlops_cli.business.user_config_dir",
+            "wiserec_cli.business.user_config_dir",
             return_value=self.root,
         ):
             return self.runner.invoke(
@@ -169,7 +169,7 @@ class BusinessCommandTest(unittest.TestCase):
 
     def test_interactive_selection_displays_disabled_team_in_red(self):
         with patch(
-            "wisemlops_cli.commands.business.console.print",
+            "wiserec_cli.commands.business.console.print",
             wraps=business_console.print,
         ) as print_mock:
             result = self.invoke(

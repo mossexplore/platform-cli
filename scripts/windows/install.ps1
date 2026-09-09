@@ -115,7 +115,7 @@ if (-not $env:LOCALAPPDATA) {
     throw "LOCALAPPDATA is not available for the current Windows user."
 }
 if ([string]::IsNullOrWhiteSpace($InstallDirectory)) {
-    $InstallDirectory = Join-Path $env:LOCALAPPDATA "Programs\WiseMLOpsCLI"
+    $InstallDirectory = Join-Path $env:LOCALAPPDATA "Programs\WiseRecCLI"
 }
 
 foreach ($RequiredCommand in @(
@@ -129,9 +129,9 @@ $BundleDirectory = $ScriptDirectory
 Write-Host "[1/7] Verifying release package..." -ForegroundColor Cyan
 Test-ReleaseChecksums -BundleDirectory $BundleDirectory
 
-$Wheels = @(Get-ChildItem -LiteralPath $BundleDirectory -Filter "wisemlops_cli-*.whl" -File)
+$Wheels = @(Get-ChildItem -LiteralPath $BundleDirectory -Filter "wiserec_cli-*.whl" -File)
 if ($Wheels.Count -ne 1) {
-    throw "Expected exactly one wisemlops-cli Wheel next to install.ps1, but found $($Wheels.Count)."
+    throw "Expected exactly one wiserec-cli Wheel next to install.ps1, but found $($Wheels.Count)."
 }
 $WheelPath = $Wheels[0].FullName
 
@@ -241,7 +241,7 @@ if (-not (Test-Path -LiteralPath $VirtualEnvironmentPython)) {
     Invoke-Checked -Command $PythonCommand -Arguments $VenvArguments
 }
 
-Write-Host "[5/7] Installing wisemlops-cli..." -ForegroundColor Cyan
+Write-Host "[5/7] Installing wiserec-cli..." -ForegroundColor Cyan
 $VersionCheck = @'
 import json
 import sys
@@ -258,7 +258,7 @@ with ZipFile(sys.argv[1]) as wheel:
     if not target:
         raise ValueError('Wheel metadata is missing Version')
 try:
-    installed = version('wisemlops-cli')
+    installed = version('wiserec-cli')
 except PackageNotFoundError:
     installed = None
 print(json.dumps({'target': target, 'installed': installed}))
@@ -274,7 +274,7 @@ $SkipPackageInstall = (
 )
 $PackagesDirectory = Join-Path $BundleDirectory "packages"
 if ($SkipPackageInstall) {
-    Write-Host "  wisemlops-cli $($Versions.target) is already installed; skipping package installation."
+    Write-Host "  wiserec-cli $($Versions.target) is already installed; skipping package installation."
 } elseif (Test-Path -LiteralPath $PackagesDirectory -PathType Container) {
     Invoke-Checked -Command $VirtualEnvironmentPython -Arguments @(
         "-m", "pip", "install",
@@ -306,7 +306,7 @@ if ($SkipPackageInstall) {
 # 每次运行（包括相同版本跳过安装）均完整覆盖用户默认配置。
 Write-Host "Replacing user config.json with the packaged configuration..." -ForegroundColor Cyan
 Invoke-Checked -Command $VirtualEnvironmentPython -Arguments @(
-    "-c", "from wisemlops_cli.config import reset_packaged_config; print(reset_packaged_config())"
+    "-c", "from wiserec_cli.config import reset_packaged_config; print(reset_packaged_config())"
 )
 
 Write-Host "[6/7] Registering the ml command..." -ForegroundColor Cyan
@@ -326,7 +326,7 @@ if (-not (Test-Path -LiteralPath $VirtualEnvironmentMl)) {
 Invoke-Checked -Command $VirtualEnvironmentMl -Arguments @("--version")
 
 Write-Host ""
-Write-Host "WiseMLOps CLI installation completed." -ForegroundColor Green
+Write-Host "WiseRec CLI installation completed." -ForegroundColor Green
 Write-Host "  Install directory: $ResolvedInstallDirectory"
 Write-Host "  Command launcher:  $LauncherPath"
 if ($PathChanged) {

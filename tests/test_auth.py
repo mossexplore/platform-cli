@@ -7,11 +7,11 @@ from collections import deque
 from pathlib import Path
 from unittest.mock import Mock, patch
 
-from wisemlops_cli.auth import AuthManager, BrowserAuthenticator, _parse_user_info
-from wisemlops_cli.business import BusinessStore
-from wisemlops_cli.config import ConfigManager
-from wisemlops_cli.credentials import CredentialStore
-from wisemlops_cli.models import Credentials, Profile
+from wiserec_cli.auth import AuthManager, BrowserAuthenticator, _parse_user_info
+from wiserec_cli.business import BusinessStore
+from wiserec_cli.config import ConfigManager
+from wiserec_cli.credentials import CredentialStore
+from wiserec_cli.models import Credentials, Profile
 
 
 class FakeBrowserAuthenticator:
@@ -294,7 +294,7 @@ class AuthManagerTest(unittest.TestCase):
                 side_effect=AssertionError("不应等待回车"),
             ):
                 with patch("builtins.print") as print_mock, patch(
-                    "wisemlops_cli.auth.print_result"
+                    "wiserec_cli.auth.print_result"
                 ) as result_printer:
                     result = authenticator.login(
                         profile=Profile(

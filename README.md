@@ -1,8 +1,8 @@
 # ml CLI
 
-> WiseMLOps 平台的官方 Python 命令行客户端。
+> WiseRec 平台的官方 Python 命令行客户端。
 
-`ml` 是 [WiseMLOps](https://github.com/mossexplore/platform-cli) 平台的命令行客户端（要求 Python 3.9+）。它基于 [Typer](https://typer.tiangolo.com/) 构建，使用 [Playwright](https://playwright.dev/) 在 Microsoft Edge 中完成登录；登录成功后，Cookie、CSRF Token、账号、中文名、部门和过期时间会按 profile 保存到本地，后续业务命令使用 [HTTPX](https://www.python-httpx.org/) 请求平台接口。
+`ml` 是 [WiseRec](https://github.com/mossexplore/platform-cli) 平台的命令行客户端（要求 Python 3.9+）。它基于 [Typer](https://typer.tiangolo.com/) 构建，使用 [Playwright](https://playwright.dev/) 在 Microsoft Edge 中完成登录；登录成功后，Cookie、CSRF Token、账号、中文名、部门和过期时间会按 profile 保存到本地，后续业务命令使用 [HTTPX](https://www.python-httpx.org/) 请求平台接口。
 
 ![Python](https://img.shields.io/badge/python-3.9%2B-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
@@ -52,7 +52,7 @@ scripts\windows\build-release.cmd
 默认生成一个安装时下载依赖的联网发布包，可供 Python 3.12、3.13 等受支持版本使用：
 
 ```text
-release\wisemlops-cli-<版本>-windows-py3-online.zip
+release\wiserec-cli-<版本>-windows-py3-online.zip
 ```
 
 企业内部有 Python 包源时，建议由发布人员将不含凭据的源地址写入发布包：
@@ -73,7 +73,7 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass `
 
 1. 校验发布包 SHA-256。
 2. 检查 Python 3.9+ 和 Microsoft Edge。
-3. 在 `%LOCALAPPDATA%\Programs\WiseMLOpsCLI` 创建独立虚拟环境。
+3. 在 `%LOCALAPPDATA%\Programs\WiseRecCLI` 创建独立虚拟环境。
 4. 安装或升级 CLI；版本一致时跳过包安装，更新时复用满足要求的依赖，不污染其他 Python 项目。
 5. 将 `ml` 启动目录加入当前用户 `PATH`。
 6. 执行 `ml --version` 验证安装。
@@ -333,7 +333,7 @@ ml featureset model config SET_ID
 ## 增加新接口
 
 通用认证、超时、重试和错误处理位于 `PlatformClient`。业务接口按领域放在
-`src/wisemlops_cli/services/`，CLI 参数放在 `src/wisemlops_cli/commands/`。
+`src/wiserec_cli/services/`，CLI 参数放在 `src/wiserec_cli/commands/`。
 增加接口时不要在命令模块中直接拼接 Cookie 或 URL。
 
 ```text

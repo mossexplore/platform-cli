@@ -2,8 +2,8 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from wisemlops_cli.credentials import CredentialStore
-from wisemlops_cli.models import Credentials
+from wiserec_cli.credentials import CredentialStore
+from wiserec_cli.models import Credentials
 
 
 class CredentialStoreTest(unittest.TestCase):

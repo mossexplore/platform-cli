@@ -27,7 +27,7 @@ app = typer.Typer(
     name="ml",
     cls=InvocationGroup,
     no_args_is_help=True,
-    help="WiseMLOps平台命令行客户端",
+    help="WiseRec平台命令行客户端",
 )
 app.command("login")(login)
 app.command("logout")(logout)

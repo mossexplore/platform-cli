@@ -2,9 +2,9 @@ import json
 import shlex
 from unittest.mock import patch
 from typer.testing import CliRunner
-from wisemlops_cli.cli import app
-from wisemlops_cli.runtime import Runtime
-from wisemlops_cli.invocation import format_invocation, MAX_COMMAND_LENGTH
+from wiserec_cli.cli import app
+from wiserec_cli.runtime import Runtime
+from wiserec_cli.invocation import format_invocation, MAX_COMMAND_LENGTH
 
 
 def test_full_invocation_keeps_root_options_and_argument_values(tmp_path):

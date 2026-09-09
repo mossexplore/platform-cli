@@ -3,11 +3,11 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from wisemlops_cli.business import BusinessStore, parse_business_list
-from wisemlops_cli.credentials import CredentialStore
-from wisemlops_cli.errors import BusinessError
-from wisemlops_cli.models import Credentials
-from wisemlops_cli.runtime import Runtime
+from wiserec_cli.business import BusinessStore, parse_business_list
+from wiserec_cli.credentials import CredentialStore
+from wiserec_cli.errors import BusinessError
+from wiserec_cli.models import Credentials
+from wiserec_cli.runtime import Runtime
 
 
 class RuntimeBusinessContextTest(unittest.TestCase):

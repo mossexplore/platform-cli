@@ -2,14 +2,14 @@ import unittest
 from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
-from wisemlops_cli.commands.offline import (
+from wiserec_cli.commands.offline import (
     _clone_result,
     _table_items,
     _trial_table_items,
     clone_experiment,
 )
-from wisemlops_cli.errors import ApiError, BusinessError
-from wisemlops_cli.services.experiment import ExperimentService
+from wiserec_cli.errors import ApiError, BusinessError
+from wiserec_cli.services.experiment import ExperimentService
 
 
 class FakeClient:
@@ -436,9 +436,9 @@ class ExperimentCloneCommandTest(unittest.TestCase):
         client = FakeClient(self.project_detail_response())
 
         with patch(
-            "wisemlops_cli.commands.offline.runtime_from_context",
+            "wiserec_cli.commands.offline.runtime_from_context",
             return_value=self.runtime_for(client),
-        ), patch("wisemlops_cli.commands.offline.print_result") as printer:
+        ), patch("wiserec_cli.commands.offline.print_result") as printer:
             clone_experiment(
                 Mock(),
                 "source-id",
@@ -468,9 +468,9 @@ class ExperimentCloneCommandTest(unittest.TestCase):
         )
 
         with patch(
-            "wisemlops_cli.commands.offline.runtime_from_context",
+            "wiserec_cli.commands.offline.runtime_from_context",
             return_value=self.runtime_for(client),
-        ), patch("wisemlops_cli.commands.offline.print_result") as printer:
+        ), patch("wiserec_cli.commands.offline.print_result") as printer:
             clone_experiment(
                 Mock(),
                 "source-id",

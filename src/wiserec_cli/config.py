@@ -34,7 +34,7 @@ def default_config_path() -> Path:
 def _packaged_config_text() -> str:
     """读取当前安装包携带的默认配置。"""
     try:
-        return resources.files("wisemlops_cli").joinpath(
+        return resources.files("wiserec_cli").joinpath(
             "config.json"
         ).read_text(encoding="utf-8")
     except (FileNotFoundError, ModuleNotFoundError) as exc:
@@ -43,7 +43,7 @@ def _packaged_config_text() -> str:
             return source_config.read_text(encoding="utf-8")
         except FileNotFoundError:
             raise ConfigError(
-                "安装包中缺少 config.json，请重新安装 wisemlops-cli"
+                "安装包中缺少 config.json，请重新安装 wiserec-cli"
             ) from exc
 
 

@@ -1,9 +1,9 @@
 from unittest.mock import patch
 import httpcore
 import pytest
-from wisemlops_cli.access import check_access, validate_settings
-from wisemlops_cli.access_transport import permission_url, tls_verify
-from wisemlops_cli.errors import ConfigError, MlError
+from wiserec_cli.access import check_access, validate_settings
+from wiserec_cli.access_transport import permission_url, tls_verify
+from wiserec_cli.errors import ConfigError, MlError
 from test_access import inputs
 
 
@@ -41,11 +41,11 @@ def test_actual_transport_target_with_environment_proxy(inputs, monkeypatch, use
 def test_ca_environment_preserved(monkeypatch):
     monkeypatch.setenv('SSL_CERT_FILE','enterprise.pem')
     monkeypatch.setenv('SSL_CERT_DIR','enterprise-dir')
-    with patch('wisemlops_cli.access_transport.ssl.create_default_context') as create:
+    with patch('wiserec_cli.access_transport.ssl.create_default_context') as create:
         assert tls_verify() is create.return_value
         create.assert_called_once_with(cafile='enterprise.pem')
     monkeypatch.delenv('SSL_CERT_FILE')
-    with patch('wisemlops_cli.access_transport.ssl.create_default_context') as create:
+    with patch('wiserec_cli.access_transport.ssl.create_default_context') as create:
         tls_verify()
         create.assert_called_once_with(capath='enterprise-dir')
 

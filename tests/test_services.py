@@ -1,7 +1,7 @@
 import unittest
 
-from wisemlops_cli.services.mep import MepService
-from wisemlops_cli.services.user import UserService
+from wiserec_cli.services.mep import MepService
+from wiserec_cli.services.user import UserService
 
 
 class FakeClient:

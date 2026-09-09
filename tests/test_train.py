@@ -8,10 +8,10 @@ from unittest.mock import patch
 from rich.console import Console
 from typer.testing import CliRunner
 
-from wisemlops_cli.cli import app
-from wisemlops_cli.commands.train import display_value, render_page
-from wisemlops_cli.errors import ApiError, BusinessError
-from wisemlops_cli.services.train import TrainService
+from wiserec_cli.cli import app
+from wiserec_cli.commands.train import display_value, render_page
+from wiserec_cli.errors import ApiError, BusinessError
+from wiserec_cli.services.train import TrainService
 
 
 def tasks(items, count=None):
@@ -167,8 +167,8 @@ class TrainOutputTest(unittest.TestCase):
             {"createTime": now_ms - 59999},
             {"createTime": now_ms - 60000},
         ]
-        with patch("wisemlops_cli.commands.train.time.time", return_value=now_ms / 1000) as clock, patch(
-            "wisemlops_cli.commands.train.console"
+        with patch("wiserec_cli.commands.train.time.time", return_value=now_ms / 1000) as clock, patch(
+            "wiserec_cli.commands.train.console"
         ) as output:
             render_page({"count": 8, "pageIndex": 1, "pageSize": 10, "items": items},
                         "table", {"taskId": "t"})
@@ -191,7 +191,7 @@ class TrainOutputTest(unittest.TestCase):
                 "checkTime": 1785466890000, "createTime": 1785466890000,
                 "statusTime": 1785466890000, "actionType": "manual",
                 "bucketName": "history-bucket"}
-        with patch("wisemlops_cli.commands.train.console") as output:
+        with patch("wiserec_cli.commands.train.console") as output:
             render_page({"count": 11, "pageIndex": 1, "pageSize": 10,
                          "items": [item, {"gpuSize": 0, "fileSize": 0,
                                           "algorithmId": None, "algorithmName": ""}]},
@@ -264,7 +264,7 @@ class TrainOutputTest(unittest.TestCase):
 
     def test_empty_and_fixed_page_messages(self):
         stream = io.StringIO()
-        with patch("wisemlops_cli.commands.train.console", Console(file=stream, width=240)):
+        with patch("wiserec_cli.commands.train.console", Console(file=stream, width=240)):
             render_page({"count": 0, "pageIndex": 1, "pageSize": 10, "items": []}, "table")
             render_page({"count": 11, "pageIndex": 1, "pageSize": 10, "items": []},
                         "table", {"taskId": "t", "taskName": "[bold]literal"})
@@ -279,7 +279,7 @@ class TrainOutputTest(unittest.TestCase):
                 "gpuSize": 0, "fileSize": 145755572, "createTime": 1785466890000,
                 "hostIp": "10.0.0.1", "actionType": "manual", "bucketName": "train-bucket"}
         stream = io.StringIO()
-        with patch("wisemlops_cli.commands.train.console", Console(file=stream, width=240)):
+        with patch("wiserec_cli.commands.train.console", Console(file=stream, width=240)):
             render_page({"count": 1, "pageIndex": 1, "pageSize": 10, "items": [item]},
                         "table", task)
         self.assertNotIn("139.00M", stream.getvalue())
@@ -298,8 +298,8 @@ class TrainOutputTest(unittest.TestCase):
             authenticated_call=authenticated,
             config=SimpleNamespace(current_profile=lambda: SimpleNamespace(output_format=configured_output)),
         )
-        with patch("wisemlops_cli.cli.Runtime", return_value=runtime), patch(
-            "wisemlops_cli.commands.train.runtime_from_context", return_value=runtime,
+        with patch("wiserec_cli.cli.Runtime", return_value=runtime), patch(
+            "wiserec_cli.commands.train.runtime_from_context", return_value=runtime,
         ):
             # Click 8.1 defaults to merging stderr; newer versions separate streams.
             options = {"mix_stderr": False} if "mix_stderr" in inspect.signature(CliRunner).parameters else {}

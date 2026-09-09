@@ -5,7 +5,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from wisemlops_cli.config import (
+from wiserec_cli.config import (
     ConfigManager,
     _install_packaged_config,
     _sync_packaged_config,
@@ -99,11 +99,11 @@ class ConfigManagerTest(unittest.TestCase):
             {"ML_CONFIG": ""},
         ):
             with patch(
-                "wisemlops_cli.config.Path.cwd",
+                "wiserec_cli.config.Path.cwd",
                 return_value=root / "working-directory",
             ):
                 with patch(
-                    "wisemlops_cli.config.user_config_dir",
+                    "wiserec_cli.config.user_config_dir",
                     return_value=root / "ml",
                 ):
                     path = default_config_path()
@@ -126,15 +126,15 @@ class ConfigManagerTest(unittest.TestCase):
         _sync_packaged_config(destination)
         self.assertEqual(ConfigManager(destination).current_name, "test")
 
-        with patch("wisemlops_cli.config.__version__", "999.0.0"):
+        with patch("wiserec_cli.config.__version__", "999.0.0"):
             _sync_packaged_config(destination)
         self.assertEqual(ConfigManager(destination).current_name, "dev")
 
     def test_installer_overwrites_even_same_version_and_corrupt_local_config(self):
         root = Path(self.temporary.name) / "user-config"
         template = self.path.read_text()
-        with patch("wisemlops_cli.config.user_config_dir", return_value=root), \
-             patch("wisemlops_cli.config._packaged_config_text", return_value=template):
+        with patch("wiserec_cli.config.user_config_dir", return_value=root), \
+             patch("wiserec_cli.config._packaged_config_text", return_value=template):
             destination = reset_packaged_config()
             for previous in ('not json', '{"access_control":{"enabled":true,"url":"http://old"},"extra":1}'):
                 destination.write_text(previous)
@@ -144,13 +144,13 @@ class ConfigManagerTest(unittest.TestCase):
     def test_same_version_reinstall_detected_without_resetting_every_command(self):
         destination = Path(self.temporary.name) / "installed-config.json"
         template = self.path.read_text()
-        with patch("wisemlops_cli.config._packaged_config_text", return_value=template):
-            with patch("wisemlops_cli.config._package_install_stamp", return_value="install-1"):
+        with patch("wiserec_cli.config._packaged_config_text", return_value=template):
+            with patch("wiserec_cli.config._package_install_stamp", return_value="install-1"):
                 _sync_packaged_config(destination)
                 destination.write_text('{"local":"edit"}')
                 _sync_packaged_config(destination)
                 self.assertEqual(destination.read_text(), '{"local":"edit"}')
-            with patch("wisemlops_cli.config._package_install_stamp", return_value="install-2"):
+            with patch("wiserec_cli.config._package_install_stamp", return_value="install-2"):
                 _sync_packaged_config(destination)
                 self.assertEqual(destination.read_text(), template)
 

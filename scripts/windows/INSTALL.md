@@ -1,4 +1,4 @@
-# WiseMLOps CLI Windows 安装说明
+# WiseRec CLI Windows 安装说明
 
 ## 一键安装
 
@@ -16,7 +16,7 @@ ml login
 安装过程不需要管理员权限。默认安装到：
 
 ```text
-%LOCALAPPDATA%\Programs\WiseMLOpsCLI
+%LOCALAPPDATA%\Programs\WiseRecCLI
 ```
 
 安装器会创建独立 Python 虚拟环境，不会污染用户现有项目的 Python 依赖，并将
@@ -75,7 +75,7 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\install.ps1 `
 
 ```powershell
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\install.ps1 `
-  -InstallDirectory "D:\Tools\WiseMLOpsCLI"
+  -InstallDirectory "D:\Tools\WiseRecCLI"
 ```
 
 ## 安装要求
@@ -109,7 +109,7 @@ Typer 的命令补全。
 中的登录缓存和 Edge Profile 不会因升级虚拟环境而删除。
 
 安装器会读取发布包 Wheel 中的版本，并与目标安装目录的虚拟环境中已安装的
-`wisemlops-cli` 版本比较。版本一致时跳过包安装，不卸载或重装 CLI 及依赖；
+`wiserec-cli` 版本比较。版本一致时跳过包安装，不卸载或重装 CLI 及依赖；
 尚未安装或版本不同时正常安装，复用已满足要求的依赖。
 跳过包安装后仍会刷新用户 `config.json`、注册命令并验证 `ml --version`。
 如需修复损坏的环境，运行 `install.cmd -Force`，强制重建虚拟环境并安装。

@@ -114,9 +114,9 @@ if ($LASTEXITCODE -ne 0 -or $Architecture -notin @("x86", "x64", "arm64")) {
 }
 $PackageMode = if ($Offline) { "offline" } else { "online" }
 if ($PackageMode -eq "online") {
-    $BundleName = "wisemlops-cli-$Version-windows-py3-online"
+    $BundleName = "wiserec-cli-$Version-windows-py3-online"
 } else {
-    $BundleName = "wisemlops-cli-$Version-windows-$Architecture-$PythonTag-offline"
+    $BundleName = "wiserec-cli-$Version-windows-$Architecture-$PythonTag-offline"
 }
 $ResolvedOutputDirectory = [System.IO.Path]::GetFullPath($OutputDirectory)
 $BundleDirectory = Join-Path $ResolvedOutputDirectory $BundleName
@@ -136,7 +136,7 @@ if (Test-Path -LiteralPath $ArchivePath) {
 }
 
 $TemporaryRoot = Join-Path ([System.IO.Path]::GetTempPath()) (
-    "wisemlops-cli-release-" + [Guid]::NewGuid().ToString("N")
+    "wiserec-cli-release-" + [Guid]::NewGuid().ToString("N")
 )
 $WheelDirectory = Join-Path $TemporaryRoot "wheel"
 
@@ -150,7 +150,7 @@ try {
     $BuildToolArguments += @("build", "setuptools>=68")
     Invoke-CheckedPython -Arguments $BuildToolArguments
 
-    Write-Host "[2/5] Building wisemlops-cli $Version..." -ForegroundColor Cyan
+    Write-Host "[2/5] Building wiserec-cli $Version..." -ForegroundColor Cyan
     Push-Location $RepositoryRoot
     try {
         Invoke-CheckedPython -Arguments @(
@@ -173,7 +173,7 @@ try {
             -Destination (Join-Path $BundleDirectory $FileName)
     }
     $ReleaseMetadata = [ordered]@{
-        package = "wisemlops-cli"
+        package = "wiserec-cli"
         version = $Version
         mode = $PackageMode
         platform = "windows"

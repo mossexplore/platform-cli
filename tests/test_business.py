@@ -3,8 +3,8 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from wisemlops_cli.business import BusinessStore, parse_business_list
-from wisemlops_cli.errors import BusinessError
+from wiserec_cli.business import BusinessStore, parse_business_list
+from wiserec_cli.errors import BusinessError
 
 
 def business_list(team_status="available"):
@@ -18,7 +18,7 @@ def business_list(team_status="available"):
                 {"en": "WiseCloud&BigData Platform", "cn": "云平台部"}
             ),
             "serviceIdList": [
-                {"serviceId": "com.ab.wisemlopsmepservice"}
+                {"serviceId": "com.ab.wiserecmepservice"}
             ],
             "teamList": [
                 {
@@ -67,7 +67,7 @@ class BusinessStoreTest(unittest.TestCase):
         self.assertEqual(department.name, "云平台部")
         self.assertEqual([item.id for item in department.tenants], ["mep", "other"])
         tenant = department.tenants[0]
-        self.assertEqual(tenant.service_ids, ("com.ab.wisemlopsmepservice",))
+        self.assertEqual(tenant.service_ids, ("com.ab.wiserecmepservice",))
         self.assertEqual(tenant.teams[0].name, "asdasda")
         self.assertTrue(tenant.teams[0].selectable)
         self.assertFalse(tenant.teams[1].selectable)
