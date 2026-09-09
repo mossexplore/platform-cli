@@ -1,6 +1,6 @@
 # 命令行参考使用指南
 
-`ml` 是 **WiseMLOps 平台** 的 Python 命令行客户端（包名 `wisemlops-cli`，当前版本 `0.3.29`）。
+`ml` 是 **WiseMLOps 平台** 的 Python 命令行客户端（包名 `wisemlops-cli`，当前版本 `0.3.30`）。
 本文档按当前源码及命令帮助核对（2026-09-08），覆盖全部 31 个可执行子命令、参数、配置项与退出行为。示例中的 `TASK_ID`、`JOB_ID`、`PROJECT_ID`、`NAMESPACE_ID`、`EXPERIMENT_ID`、`SET_ID` 均须替换为对应资源的真实 ID；它们不是同一种 ID。
 
 > 阅读前提：查询平台数据前建议先完成 `ml login` 和 `ml business use`。`user`、`mep`、`mtp`、`offline`、`train`、`featureset` 需要有效认证和业务选择；`business list/use/refresh` 用于建立或维护业务上下文，不要求预先选好业务。没有认证或认证过期时，相关命令会自动启动 Edge 登录。
@@ -967,3 +967,16 @@ ml train history list aaaa83b8-5669-43a7-a62c-97ccf877e732
 ### 权限检查故障定位
 
 `GET /healthz` 正常不代表 `POST /api/v1/access/check` 正常。权限检查分别提示连接超时、等待响应超时、连接失败、HTTP 协议异常以及 HTTP 200 非 JSON 响应；不会输出原始异常或响应正文。等待响应超时应检查权限服务日志、数据库和 `access_control.timeout_seconds`；HTTP 200 非 JSON 应检查权限接口路由或网关是否返回 HTML 页面。
+
+
+### 权限连接诊断（0.3.30）
+
+当健康检查或 curl 正常但 CLI 报错时，可执行：
+
+```powershell
+ml --config "C:\Users\l00123456\AppData\Roaming\ml\config.json" access status --diagnose
+```
+
+需先完成登录和业务选择。`--diagnose` 显示配置路径、版本、请求 URL、当前账号、环境、平台源地址、businessid、连接目标、可获取的 TCP 对端、HTTP 状态、请求耗时和 Server/Via 等有限响应头。连接目标可能是代理；对端仅代表直接连接的节点，响应头不能证明整个转发链。连接失败时可能没有对端或响应头。
+
+诊断不改变请求、环境代理或证书校验策略；不输出 Cookie、CSRF、完整请求头或响应正文。输出包含内部地址与账号，分享时按需隐藏。诊断失败仍阻止业务请求，退出码沿用原有规则。

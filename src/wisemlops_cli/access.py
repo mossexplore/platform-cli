@@ -44,18 +44,24 @@ def command_name(context):
     return ('ml ' + ' '.join(reversed(parts)))[:128] if parts else 'unknown'
 
 
-def check_access(settings, profile, credentials, selection, *, command="unknown"):
+def check_access(settings, profile, credentials, selection, *, command="unknown", diagnostics=None):
     if not settings or not settings.get('enabled', True):
         return None
+    url = settings['url'].rstrip('/') + '/api/v1/access/check'
+    if diagnostics:
+        diagnostics.begin(url, profile, credentials, selection, command, settings.get('timeout_seconds', 15))
     try:
         with httpx.Client(timeout=settings.get('timeout_seconds', 15),
                           verify=True, follow_redirects=False) as client:
-            response = client.post(settings['url'].rstrip('/') + '/api/v1/access/check',
+            response = client.post(url,
                                    headers={'businessid': selection.business_id},
                                    json={'username': credentials.username,
                                          'environment': profile.name,
                                          'platform_origin': profile.base_url,
-                                         'command': command})
+                                         'command': command},
+                                   **({'extensions': {'trace': diagnostics.trace}} if diagnostics else {}))
+            if diagnostics:
+                diagnostics.response(response)
         if response.status_code == 401:
             raise MlError('权限服务拒绝请求，请检查客户端与服务端版本及接入配置')
         if response.status_code != 200:
@@ -76,6 +82,9 @@ def check_access(settings, profile, credentials, selection, *, command="unknown"
     except ValueError:
         # 不回显异常或响应正文，避免泄露认证信息和内部页面内容。
         raise MlError('权限服务返回 HTTP 200，但响应不是有效 JSON，业务请求已停止，请检查权限接口路由及网关响应') from None
+    finally:
+        if diagnostics:
+            diagnostics.finish()
     if not isinstance(result, dict) or type(result.get('allowed')) is not bool:
         raise MlError('权限服务响应格式错误，业务请求已停止')
     if not result['allowed']:
