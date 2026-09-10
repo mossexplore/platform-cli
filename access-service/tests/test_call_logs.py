@@ -1,7 +1,30 @@
 from sqlalchemy import select
+from datetime import datetime
 from app.models import CallLog, Grant, SchemaVersion, User
 from app.manage import migrate
 from test_service import system, login, check
+
+
+def test_beijing_time_range_selects_matching_utc_logs(system):
+    app, client, _ = system
+    with app.state.sessions() as db:
+        for actor, timestamp in [
+            ('before-range', '2026-09-09T10:59:59'),
+            ('range-start', '2026-09-09T11:00:00'),
+            ('range-end', '2026-09-09T12:00:00'),
+            ('after-range', '2026-09-09T12:00:01'),
+        ]:
+            db.add(CallLog(actor=actor, command='ml train list', environment='prod',
+                business_id='selected', source_ip='127.0.0.1', allowed=True,
+                reason='ALLOWED', created_at=datetime.fromisoformat(timestamp)))
+        db.commit()
+    login(client)
+    response = client.get('/cli-permission/admin/calls', params={
+        'begin': '2026-09-09T19:00:00', 'end': '2026-09-09T20:00:00'})
+    assert response.status_code == 200
+    assert '时间范围（北京时间 UTC+8）' in response.text
+    assert 'range-start' in response.text and 'range-end' in response.text
+    assert 'before-range' not in response.text and 'after-range' not in response.text
 
 
 def test_records_reported_account_command_and_denial(system):

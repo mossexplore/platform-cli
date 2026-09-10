@@ -144,6 +144,14 @@ python3.12 -m venv .venv
 .venv/bin/python -m pytest tests -q
 ```
 
+快捷时间筛选的前端回归测试使用 Node.js 运行（仅开发测试需要，服务器部署不需要）：
+
+```bash
+node --test tests/test_time_presets.cjs
+```
+
+该测试覆盖北京时间、UTC、洛杉矶时区以及跨年、闰日和夏令时切换；所有快捷范围均按北京时间填写。
+
 自动化服务测试使用临时 SQLite，覆盖登录、CSRF、授权、立即撤销、时间转换、错误与审计；生产配置只接受 MySQL。发布前还需在目标 Linux 验证 MySQL 连接、HTTPS 证书及 CLI 与权限服务的联调。不要将模拟测试视为真实平台验收。
 
 ## 已部署版本升级到 HTTP

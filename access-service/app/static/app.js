@@ -87,7 +87,7 @@ document.querySelectorAll('[data-delete]').forEach((form) => {
   });
 });
 
-// Quick time-range presets on the call-log filter; values use local time.
+// The backend interprets datetime-local values as Beijing time (UTC+8).
 document.addEventListener('click', (event) => {
   const chip = event.target.closest('[data-preset]');
   if (!chip) return;
@@ -95,11 +95,10 @@ document.addEventListener('click', (event) => {
   if (!range) return;
   const hours = {'1h': 1, '24h': 24, '7d': 168, '30d': 720}[chip.dataset.preset];
   if (!hours) return;
-  const pad = (n) => String(n).padStart(2, '0');
-  const local = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+  const beijing = (d) => new Date(d.getTime() + 8 * 3600000).toISOString().slice(0, 19);
   const end = new Date();
-  range.querySelector('[name="begin"]').value = local(new Date(end.getTime() - hours * 3600000));
-  range.querySelector('[name="end"]').value = local(end);
+  range.querySelector('[name="begin"]').value = beijing(new Date(end.getTime() - hours * 3600000));
+  range.querySelector('[name="end"]').value = beijing(end);
   range.querySelectorAll('.preset-chip').forEach((c) => c.classList.toggle('active', c === chip));
 });
 // Typing a custom range clears the preset highlight.
