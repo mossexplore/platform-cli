@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import sys
 from pathlib import Path
 from typing import Optional
 
@@ -78,7 +79,17 @@ def initialize(
         fail(exc)
 
 
+def configure_windows_output() -> None:
+    """Use UTF-8 for redirected Windows output, including CI and log files."""
+    if sys.platform != "win32":
+        return
+    for stream in (sys.stdout, sys.stderr):
+        if stream is not None and not stream.isatty() and hasattr(stream, "reconfigure"):
+            stream.reconfigure(encoding="utf-8")
+
+
 def run() -> None:
+    configure_windows_output()
     app()
 
 
