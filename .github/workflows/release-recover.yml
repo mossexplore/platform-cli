@@ -1,0 +1,101 @@
+name: Recover verified release draft
+on:
+  workflow_dispatch:
+    inputs:
+      source_run:
+        description: 'Prepare formal release run with successful CLI and image jobs'
+        required: true
+        type: string
+permissions:
+  contents: read
+  actions: read
+jobs:
+  recover:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+      actions: read
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          fetch-depth: 0
+      - name: Validate original build and existing draft
+        id: source
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SOURCE_RUN: ${{ inputs.source_run }}
+        run: |
+          python - <<'PY'
+          import json, os, re, subprocess, pathlib, tomllib
+          def gh(*args):
+              return json.loads(subprocess.check_output(['gh', *args]))
+          run_id = os.environ['SOURCE_RUN']
+          assert re.fullmatch(r'\d+', run_id)
+          assert os.environ['GITHUB_REF'] == 'refs/heads/main'
+          repo = os.environ['GITHUB_REPOSITORY']
+          run = gh('api', f'repos/{repo}/actions/runs/{run_id}')
+          assert run['path'] == '.github/workflows/release.yml'
+          assert run['event'] == 'workflow_dispatch' and run['head_branch'] == 'main'
+          assert run['status'] == 'completed'
+          jobs = gh('api', f'repos/{repo}/actions/runs/{run_id}/jobs?per_page=100')['jobs']
+          for name in ['validate', 'cli', 'image / image']:
+              assert any(j['name'] == name and j['conclusion'] == 'success' for j in jobs), name
+          sha = run['head_sha']
+          subprocess.run(['git', 'merge-base', '--is-ancestor', sha, 'origin/main'], check=True)
+          version = tomllib.loads(subprocess.check_output(['git', 'show', f'{sha}:pyproject.toml']).decode())['project']['version']
+          assert re.fullmatch(r'\d+\.\d+\.\d+', version)
+          release = gh('release', 'view', 'v'+version, '--json', 'isDraft,targetCommitish')
+          assert release['isDraft'] and release['targetCommitish'] == sha
+          # Preserve corrected assembly code and release notes before checking out original source.
+          pathlib.Path('/tmp/prepare-assets.py').write_bytes(pathlib.Path('scripts/releasing/prepare-assets.py').read_bytes())
+          pathlib.Path('/tmp/release-notes.md').write_bytes(pathlib.Path(f'docs/RELEASE_NOTES_{version}.md').read_bytes())
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as f:
+              f.write(f'sha={sha}\nversion={version}\n')
+          PY
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          ref: ${{ steps.source.outputs.sha }}
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: release-cli
+          path: release-assets
+          run-id: ${{ inputs.source_run }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: offline-image-${{ inputs.source_run }}
+          path: release-assets
+          run-id: ${{ inputs.source_run }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Revalidate exact artifacts
+        env:
+          VERSION: ${{ steps.source.outputs.version }}
+          SOURCE_SHA: ${{ steps.source.outputs.sha }}
+        run: |
+          export GITHUB_SHA="$SOURCE_SHA"
+          export IMAGE_DIGEST=$(python -c 'import json; print(json.load(open("release-assets/manifest.json"))["image_reference"].split("@")[1])')
+          python /tmp/prepare-assets.py
+      - name: Repair draft attachments without changing binaries
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ steps.source.outputs.version }}
+          SOURCE_SHA: ${{ steps.source.outputs.sha }}
+        run: |
+          python - <<'PY'
+          import json, os, subprocess
+          repo = os.environ['GITHUB_REPOSITORY']
+          version = os.environ['VERSION']
+          info = json.loads(subprocess.check_output(['gh', 'release', 'view', 'v'+version, '--json', 'isDraft,targetCommitish,assets']))
+          assert info['isDraft'] and info['targetCommitish'] == os.environ['SOURCE_SHA']
+          for asset in info['assets']:
+              replacement = {'CLI.md': 'CLI-install.md', 'Docker.md': 'Docker-runbook.md'}.get(asset['name'])
+              if replacement:
+                  subprocess.run(['gh', 'api', '--method', 'PATCH', asset['apiUrl'], '-f', 'name='+replacement], check=True, stdout=subprocess.DEVNULL)
+          PY
+          gh release upload "v$VERSION" release-assets/* --clobber
+          gh release edit "v$VERSION" --notes-file /tmp/release-notes.md
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: verified-release-assets
+          path: release-assets/
+          if-no-files-found: error

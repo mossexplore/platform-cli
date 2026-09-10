@@ -10,8 +10,8 @@
 | wiserec-cli-1.0.0-windows-x64-py312-offline.zip | Windows x64、Python 3.12 离线安装，已包含 Python 依赖 |
 | wiserec_cli-1.0.0-py3-none-any.whl | 使用 pip 安装 CLI，依赖另行准备 |
 | cli-access-1.0.0-linux-amd64.tar.gz | Linux x86_64 权限管理系统 Docker 离线镜像 |
-| service.env.example、Docker部署速查.md | 服务配置模板和部署步骤 |
-| CLI安装指南.md、CLI参考使用指南.md | CLI 安装与使用说明 |
+| service.env.example、Docker-runbook.md | 服务配置模板和部署步骤 |
+| CLI-install.md、CLI-reference.md | CLI 安装与使用说明 |
 | SHA256SUMS、manifest.json | 文件校验、源提交、平台和镜像摘要 |
 
 Windows CLI 需要预装 Python 和 Microsoft Edge；离线包不包含这两个软件。通用 CLI 要求 Python 3.9+，此次 Windows 安装与升级验证使用 Python 3.12 x64。Docker 镜像仅提供 linux/amd64，复用现有 MySQL 8.x，不包含数据库。
@@ -34,7 +34,7 @@ sha256sum --ignore-missing -c SHA256SUMS
 docker load -i cli-access-1.0.0-linux-amd64.tar.gz
 ```
 
-随后按 Docker部署速查.md 设置 `/opt/cli-access-config/service.env`，只读挂载到 `/run/cli-access` 后启动 `cli-access:1.0.0`。联网用户可使用 `ghcr.io/mossexplore/cli-access:1.0.0`，私有包需授权；生产建议记录 manifest.json 中的精确摘要。
+随后按 Docker-runbook.md 设置 `/opt/cli-access-config/service.env`，只读挂载到 `/run/cli-access` 后启动 `cli-access:1.0.0`。联网用户可使用 `ghcr.io/mossexplore/cli-access:1.0.0`，私有包需授权；生产建议记录 manifest.json 中的精确摘要。
 
 ## 升级须知
 

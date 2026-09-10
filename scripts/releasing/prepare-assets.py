@@ -50,9 +50,9 @@ manifest['validation'] = [
     'Windows upgrade from 0.3.42',
 ]
 (out / 'manifest.json').write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + '\n')
-shutil.copyfile('docs/权限管理系统Docker安装部署与调试指南.md', out / 'Docker部署速查.md')
-shutil.copyfile('scripts/windows/INSTALL.md', out / 'CLI安装指南.md')
-shutil.copyfile('docs/CLI参考使用指南.md', out / 'CLI参考使用指南.md')
+shutil.copyfile('docs/权限管理系统Docker安装部署与调试指南.md', out / 'Docker-runbook.md')
+shutil.copyfile('scripts/windows/INSTALL.md', out / 'CLI-install.md')
+shutil.copyfile('docs/CLI参考使用指南.md', out / 'CLI-reference.md')
 lines = []
 for path in sorted(out.iterdir()):
     if path.name != 'SHA256SUMS':
