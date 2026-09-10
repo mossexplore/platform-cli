@@ -48,7 +48,7 @@
 .management-page .panel-title h2 { font-size: 14px; }
 .management-page .filter-bar { padding: 12px 16px; gap: 8px; }
 .management-page .filter-bar input, .management-page .filter-bar select { height: 32px; font-size: 13px; }
-.management-page .filter-bar button, .management-page .filter-actions button { min-height: 32px; padding: 0 14px; font-size: 13px; }
+.management-page .filter-bar button, .management-page .filter-actions button, .management-page .filter-actions .secondary { min-height: 32px; padding: 0 14px; font-size: 13px; }
 .management-page .call-results { margin-top: 12px; }
 
 /* 日志筛选 */

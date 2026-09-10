@@ -10,8 +10,7 @@
 }
 .call-filters label { font-size: 13px; font-weight: 500; color: var(--text-2); }
 .call-filters input, .call-filters select { margin-top: 6px; font-weight: 400; }
-.filter-actions { display: flex; gap: 12px; align-items: center; justify-self: end; }
-.filter-actions a { font-size: 13px; white-space: nowrap; }
+.filter-actions { display: flex; gap: 10px; align-items: center; justify-self: end; }
 
 /* 时间范围 —— 连体选择器 + 快捷预设 */
 .time-range { grid-column: 1 / -2; display: flex; flex-direction: column; gap: 8px; min-width: 0; }
