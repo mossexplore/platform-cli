@@ -12,7 +12,7 @@ def main():
     uvicorn.run('app.main:create_app', factory=True, host=host,
                 port=int(os.environ.get('LISTEN_PORT', '8008')),
                 ssl_certfile=certificate, ssl_keyfile=key, access_log=False,
-                proxy_headers=True, forwarded_allow_ips='127.0.0.1')
+                proxy_headers=True, forwarded_allow_ips=os.environ.get('FORWARDED_ALLOW_IPS', '127.0.0.1'))
 
 
 if __name__ == '__main__':

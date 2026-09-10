@@ -374,3 +374,7 @@ commands/mep.py -> services/mep.py -> client.py
 新增 `ml access status`，可接入账号与环境白名单，在业务命令执行前按 CLI 当前登录账号检查实时授权。独立管理服务支持 MySQL、Web 页面和 Linux 离线安装；离线包携带 Python 运行时及第三方依赖，不依赖服务器的 Python 3.7.4。
 
 详见 [权限服务部署说明](access-service/README.md) 和 [CLI 使用指南](docs/CLI参考使用指南.md)。客户端检查不替代平台后端鉴权，需在分发配置中启用。
+
+## 权限管理服务 Docker 部署
+
+支持 GitHub Actions 自动测试、构建并发布 GHCR 镜像。配置、启动、日志、升级和发布流程见 [Docker 部署与发布指南](docs/权限管理系统Docker部署与发布指南.md)。

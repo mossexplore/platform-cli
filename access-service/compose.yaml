@@ -1,0 +1,27 @@
+name: cli-access
+services:
+  cli-access:
+    image: ${CLI_ACCESS_IMAGE:?Set CLI_ACCESS_IMAGE in .env to a published tag or digest}
+    platform: linux/amd64
+    env_file:
+      - ./docker/service.env
+    environment:
+      LISTEN_HOST: 0.0.0.0
+      LISTEN_PORT: "8008"
+    ports:
+      - "${BIND_IP:-127.0.0.1}:${HTTP_PORT:-8008}:8008"
+    restart: unless-stopped
+    init: true
+    read_only: true
+    tmpfs:
+      - /tmp:size=64m,mode=1777
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    stop_grace_period: 30s
+    logging:
+      driver: local
+      options:
+        max-size: "10m"
+        max-file: "5"

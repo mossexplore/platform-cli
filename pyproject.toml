@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "wiserec-cli"
-version = "0.3.40"
+version = "0.3.41"
 description = "WiseRec platform command line client"
 requires-python = ">=3.9"
 dependencies = [

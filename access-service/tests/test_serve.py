@@ -30,3 +30,14 @@ def test_https_still_supported(monkeypatch):
     main()
     assert calls[0]['ssl_certfile'] == '/some/cert.pem'
     assert calls[0]['ssl_keyfile'] == '/some/key.pem'
+
+
+@pytest.mark.parametrize('trusted', ['', '172.30.0.10', '172.30.0.0/24'])
+def test_proxy_trust_can_be_disabled_or_limited(monkeypatch, trusted):
+    monkeypatch.setenv('FORWARDED_ALLOW_IPS', trusted)
+    monkeypatch.setenv('TLS_CERT_FILE', '')
+    monkeypatch.setenv('TLS_KEY_FILE', '')
+    calls = []
+    monkeypatch.setattr('app.serve.uvicorn.run', lambda *args, **kwargs: calls.append(kwargs))
+    main()
+    assert calls[0]['forwarded_allow_ips'] == trusted

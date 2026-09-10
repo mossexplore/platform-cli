@@ -8,3 +8,8 @@ build/
 dist/
 release/
 credentials.json
+
+# Docker deployment credentials
+access-service/.env
+access-service/docker/service.env
+access-service/docker/certs/

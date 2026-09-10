@@ -1,4 +1,6 @@
-# CLI 权限管理服务（内网离线部署）
+# CLI 权限管理服务
+
+支持 Docker Compose 部署与 GitHub Actions → GHCR 自动制作镜像，详见 [Docker 部署与发布指南](../docs/权限管理系统Docker部署与发布指南.md)。下面保留原内网离线包部署方式。
 
 独立 Python 服务，提供人员、环境、访问授权与操作审计页面，使用 MySQL 保存数据。管理员按环境授予账号访问权限，可停用、撤销或设置到期时间。无需 Docker、Node.js、Redis 或独立前端构建。
 
