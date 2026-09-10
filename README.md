@@ -378,3 +378,5 @@ commands/mep.py -> services/mep.py -> client.py
 ## 权限管理服务 Docker 部署
 
 支持 GitHub Actions 自动测试、构建并发布 GHCR 镜像。配置、启动、日志、升级和发布流程见 [Docker 部署与发布指南](docs/权限管理系统Docker部署与发布指南.md)。
+
+离线镜像安装、固定目录挂载、docker run 启停和故障排查，请参阅 [权限管理系统 Docker 安装部署与调试指南](docs/权限管理系统Docker安装部署与调试指南.md)。

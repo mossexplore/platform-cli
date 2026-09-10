@@ -298,3 +298,5 @@ CLI 的 `access_control.url` 建议填 `https://管理域名/cli-permission`；C
 升级前备份数据库并停止旧服务，再执行 `bash manage.sh migrate` 或使用启动器迁移；
 历史人员、授权及审计保持不变，迁移可重复执行。Nginx 示例已排除专属查询链接的访问日志，
 现有反向代理也应采用同样的日志规则；服务启动器默认不记录 HTTP 访问日志。
+
+离线镜像安装、固定目录挂载、docker run 启停和故障排查，请参阅 [权限管理系统 Docker 安装部署与调试指南](../docs/权限管理系统Docker安装部署与调试指南.md)。

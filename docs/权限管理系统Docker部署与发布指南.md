@@ -1,6 +1,6 @@
 # 权限管理系统 Docker 部署与 GitHub 镜像发布
 
-适用项目版本：0.3.42；数据库结构版本：7。Docker 仅部署 access-service，终端 ml 客户端仍按原方式安装。
+适用项目版本：1.0.0；数据库结构版本：7。Docker 仅部署 access-service，终端 ml 客户端仍按原方式安装。
 
 ## 1. 架构与前提
 
@@ -15,7 +15,7 @@ GitHub 托管 Ubuntu 构建镜像，GHCR 保存镜像，Linux 服务器通过 Do
 - 推送 main 且涉及服务、CLI、测试、项目版本或工作流时运行；纯 docs 修改不触发。
 - Pull Request 运行测试和本地候选镜像验证，不登录、不发布 GHCR。
 - Actions → 对应工作流 → Run workflow → 选择 main，可手动构建。
-- 在 main 上已存在的提交创建 `v<项目版本>` 标签并发布 GitHub Release，生成正式版本镜像。标签必须与 pyproject.toml 和 CLI 版本一致；现有版本标签不覆盖。不要为了发布镜像推送其他代码分支。
+- 正式版在 main 手动运行 **Prepare formal release**：复用镜像测试，同时构建并验证 Windows CLI 安装包，完成后创建带全部附件的 Release 草稿。核验后发布草稿，不再通过 release.published 重新构建。版本标签与项目版本一致，正式标签不覆盖。
 
 流程：版本校验 → CLI/服务/时区测试 → Buildx 构建候选镜像 → 按摘要拉取 → 临时 MySQL 8.4 迁移两次 → 健康检查、静态资源、管理员登录、授权允许/拒绝、日志和重启检查 → 来源证明 → 提升标签。测试使用临时数据和测试专用密码，不访问业务平台或生产 MySQL。
 
@@ -28,7 +28,7 @@ GitHub 托管 Ubuntu 构建镜像，GHCR 保存镜像，Linux 服务器通过 Do
 | candidate-运行ID-尝试次数 | 构建候选，可能测试失败，不用于部署 |
 | sha-完整提交SHA | 测试通过的提交构建；同提交重新构建可能更新该标签 |
 | main | main 最近一次通过的构建，便于体验，不推荐固定生产版本时使用 |
-| 0.3.42 等版本 | GitHub Release 通过后发布，不覆盖已有版本 |
+| 1.0.0 等版本 | 正式发布准备流程测试通过后生成，不覆盖已有版本 |
 | @sha256:… | 精确不可变镜像摘要，生产首选 |
 
 候选先推送，是为了保留 SBOM/provenance 并测试最终分发的同一份镜像；验证后用 imagetools 添加标签，不重新构建。失败候选不会更新 main 或版本标签。不同事件的构建可能并行，main 标签按构建完成顺序更新，生产应固定摘要。保留生产和回滚版本；候选缓存清理需避免删除仍被部署摘要引用的镜像。
@@ -120,7 +120,7 @@ restart:unless-stopped 在进程退出后恢复，Docker 服务需开机启动�
 4. `docker compose up -d --wait --wait-timeout 120 cli-access`，检查登录、授权、实际 CLI 与日志。
 5. 同结构兼容回滚：改回旧摘要并重建；数据库迁移不自动回退，恢复备份会丢失备份后的写入，必须单独规划。
 
-0.3.42 仍为结构版本 7，本次 Docker 改造没有新增数据库迁移。迁移旧 systemd 部署时先备份，在临时端口完成验证，维护窗口停止旧服务，再接管原端口或 Nginx 上游。保留 MySQL、域名和 /cli-permission 地址即可保留 CLI 配置；避免两个实例同时跑迁移，第一版只部署单实例。
+1.0.0 仍为结构版本 7，本次 Docker 改造没有新增数据库迁移。迁移旧 systemd 部署时先备份，在临时端口完成验证，维护窗口停止旧服务，再接管原端口或 Nginx 上游。保留 MySQL、域名和 /cli-permission 地址即可保留 CLI 配置；避免两个实例同时跑迁移，第一版只部署单实例。
 
 ## 7. 本地构建与离线分发
 
@@ -128,7 +128,7 @@ restart:unless-stopped 在进程退出后恢复，Docker 服务需开机启动�
 
 ```bash
 docker buildx build --platform linux/amd64 --load \
-  --build-arg VERSION=0.3.42 \
+  --build-arg VERSION=1.0.0 \
   -t cli-access:local access-service
 ```
 
@@ -154,6 +154,6 @@ docker buildx build --platform linux/amd64 --load \
 
 成功镜像流水线会额外生成 offline-image 附件（保留 30 天），包含可用 docker load 导入的镜像、校验文件、配置示例和完整 docker run 操作指南。无需服务器 docker pull、Compose 或重新制作镜像。已有 GHCR 镜像可通过 Export existing access image for offline Docker 手动工作流输入精确 sha256 摘要导出，保持原镜像和源代码版本。下载者需登录 GitHub，附件下载域名需可达。参考 [离线导入与运行模板](权限管理系统Docker离线导入与运行.md)，下载附件内 README 已填入实际标签和文件名。
 
-## 固定目录挂载配置（0.3.42 起）
+## 固定目录挂载配置（1.0.0 起）
 
 使用 docker run 时推荐将 `/opt/cli-access-config` 只读挂载到 `/run/cli-access`，镜像自动加载其中的 `service.env`，无需追加启动命令。完整的权限设置、启动命令和离线操作见 [离线运行指南](权限管理系统Docker离线导入与运行.md)。配置文件优先于环境变量，修改文件后重启容器生效；不进行 `${VAR}` 插值。服务、健康检查和管理命令均支持该配置入口。原 Compose/env_file 部署仍受支持。数据库结构仍为 7，无新增迁移。

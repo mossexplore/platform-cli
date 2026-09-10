@@ -21,6 +21,10 @@ revision=$(docker image inspect --format '{{index .Config.Labels "org.opencontai
 [[ $(docker image inspect --format '{{.Os}}/{{.Architecture}}' "$IMAGE_REFERENCE") == linux/amd64 ]]
 tag="cli-access:$version-${revision:0:12}"
 filename="cli-access-$version-${revision:0:12}-linux-amd64.tar.gz"
+if [[ "${FORMAL_RELEASE:-false}" == true ]]; then
+  tag="cli-access:$version"
+  filename="cli-access-$version-linux-amd64.tar.gz"
+fi
 docker tag "$IMAGE_REFERENCE" "$tag"
 docker save "$tag" | gzip -n > "$OUTPUT_DIR/$filename"
 # Verify the actual download format can be loaded back without registry access.

@@ -10,8 +10,14 @@ on:
       - '.github/workflows/access-image.yml'
   pull_request:
     branches: [main]
-  release:
-    types: [published]
+  workflow_call:
+    inputs:
+      formal_release:
+        type: boolean
+        default: false
+    outputs:
+      digest:
+        value: ${{ jobs.image.outputs.digest }}
   workflow_dispatch:
 
 permissions:
@@ -22,6 +28,8 @@ concurrency:
 
 jobs:
   image:
+    outputs:
+      digest: ${{ steps.build.outputs.digest }}
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     permissions:
@@ -47,17 +55,13 @@ jobs:
           OWNER: ${{ github.repository_owner }}
         run: |
           python - <<'PY'
-          import os, pathlib, re, subprocess, tomllib
+          import os, pathlib, re, tomllib
           version = tomllib.loads(pathlib.Path('pyproject.toml').read_text())['project']['version']
           cli = pathlib.Path('src/wiserec_cli/__init__.py').read_text()
           assert f'__version__ = "{version}"' in cli
           assert re.fullmatch(r'\d+\.\d+\.\d+', version)
           event, ref = os.environ['EVENT'], os.environ['REF']
           publish = ref == 'refs/heads/main' and event in ('push', 'workflow_dispatch')
-          if event == 'release':
-              assert ref == 'refs/tags/v' + version, 'Release tag must match project version'
-              subprocess.run(['git', 'merge-base', '--is-ancestor', 'HEAD', 'origin/main'], check=True)
-              publish = True
           image = 'ghcr.io/' + os.environ['OWNER'].lower() + '/cli-access'
           candidate = image + ':candidate-' + os.environ['GITHUB_RUN_ID'] + '-' + os.environ['GITHUB_RUN_ATTEMPT']
           with open(os.environ['GITHUB_OUTPUT'], 'a') as out:
@@ -127,15 +131,7 @@ jobs:
           EVENT: ${{ github.event_name }}
         run: |
           tags=(--tag "$IMAGE:sha-$GITHUB_SHA")
-          if [[ "$EVENT" == release ]]; then
-            if docker buildx imagetools inspect "$IMAGE:$VERSION" >/dev/null 2>&1; then
-              echo 'Version tag already exists; refusing to overwrite it.' >&2
-              exit 1
-            fi
-            tags+=(--tag "$IMAGE:$VERSION")
-          else
-            tags+=(--tag "$IMAGE:main")
-          fi
+          tags+=(--tag "$IMAGE:main")
           docker buildx imagetools create "${tags[@]}" "$IMAGE@$DIGEST"
           {
             echo '### Tested Linux amd64 image'
@@ -149,6 +145,7 @@ jobs:
         env:
           IMAGE_REFERENCE: ${{ steps.info.outputs.image }}@${{ steps.build.outputs.digest }}
           OUTPUT_DIR: ${{ runner.temp }}/offline-image
+          FORMAL_RELEASE: ${{ inputs.formal_release || false }}
         run: bash access-service/ci/export-image.sh
       - name: Upload offline Docker download
         if: steps.info.outputs.publish == 'true'

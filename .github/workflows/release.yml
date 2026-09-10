@@ -1,0 +1,132 @@
+name: Prepare formal release
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: formal-release
+  cancel-in-progress: false
+jobs:
+  validate:
+    runs-on: ubuntu-24.04
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+      - id: version
+        env:
+          REF: ${{ github.ref }}
+        run: |
+          test "$REF" = refs/heads/main
+          python - <<'PY'
+          import os, re, pathlib, tomllib
+          version = tomllib.loads(pathlib.Path('pyproject.toml').read_text())['project']['version']
+          assert re.fullmatch(r'\d+\.\d+\.\d+', version)
+          assert f'__version__ = "{version}"' in pathlib.Path('src/wiserec_cli/__init__.py').read_text()
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as f:
+              f.write(f'version={version}\n')
+          PY
+  image:
+    needs: validate
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+      attestations: write
+    uses: ./.github/workflows/access-image.yml
+    with:
+      formal_release: true
+  cli:
+    needs: validate
+    runs-on: windows-2022
+    timeout-minutes: 25
+    env:
+      PY_PYTHON3: '3.12'
+      PY_PYTHON: '3.12'
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1
+        with:
+          python-version: '3.12'
+          architecture: x64
+      - name: Build Windows online and offline packages
+        shell: powershell
+        run: |
+          $env:SOURCE_DATE_EPOCH = git show -s --format=%ct HEAD
+          py -3 -c "import sys; assert sys.version_info[:2] == (3, 12)"
+          ./scripts/windows/build-release.ps1 -Online
+          ./scripts/windows/build-release.ps1 -Offline
+          $offline = Get-Content release/wiserec-cli-*-offline/release.json | ConvertFrom-Json
+          if ($offline.python_minor -ne 12 -or $offline.architecture -ne 'x64') { throw 'Wrong offline target' }
+      - name: Build previous CLI for upgrade test
+        shell: powershell
+        run: |
+          git worktree add --detach "$env:RUNNER_TEMP/previous-cli" aa3978da77a4ce29e45434ac2a01f28d7aaf6183
+          if ($LASTEXITCODE -ne 0) { throw 'Previous checkout failed' }
+          py -3 -m build --wheel --no-isolation --outdir "$env:RUNNER_TEMP/previous-wheel" "$env:RUNNER_TEMP/previous-cli"
+          if ($LASTEXITCODE -ne 0) { throw 'Previous build failed' }
+      - name: Verify clean installs, offline install and upgrade
+        shell: powershell
+        run: ./scripts/releasing/verify-windows.ps1
+      - name: Collect CLI assets
+        shell: powershell
+        run: |
+          New-Item -ItemType Directory assets | Out-Null
+          Copy-Item release/*.zip assets/
+          Copy-Item release/wiserec-cli-*-online/*.whl assets/
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: release-cli
+          path: assets/
+          retention-days: 30
+          if-no-files-found: error
+  draft:
+    needs: [validate, cli, image]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+      packages: write
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: release-cli
+          path: release-assets
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: offline-image-${{ github.run_id }}
+          path: release-assets
+      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f
+      - uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Verify assets and prepare release metadata
+        env:
+          VERSION: ${{ needs.validate.outputs.version }}
+          IMAGE_DIGEST: ${{ needs.image.outputs.digest }}
+        run: python scripts/releasing/prepare-assets.py
+      - name: Tag exact tested image and upload draft
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ needs.validate.outputs.version }}
+          DIGEST: ${{ needs.image.outputs.digest }}
+          OWNER: ${{ github.repository_owner }}
+        run: |
+          image="ghcr.io/${OWNER,,}/cli-access"
+          if gh release view "v$VERSION" >/dev/null 2>&1; then
+            echo 'Release already exists; refusing to overwrite.' >&2
+            exit 1
+          fi
+          if docker buildx imagetools inspect "$image:$VERSION" >/dev/null 2>&1; then
+            echo 'Image version already exists; refusing to overwrite.' >&2
+            exit 1
+          fi
+          docker buildx imagetools create --tag "$image:$VERSION" "$image@$DIGEST"
+          gh release create "v$VERSION" --target "$GITHUB_SHA" --draft \
+            --title "v$VERSION — CLI 与权限管理系统" \
+            --notes-file docs/RELEASE_NOTES_1.0.0.md release-assets/*
+          echo 'Draft ready. Verify assets and publish after review.' >> "$GITHUB_STEP_SUMMARY"
