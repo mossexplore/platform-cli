@@ -1,4 +1,5 @@
 """Validate release inputs and assemble the reviewable download manifest."""
+from email.parser import BytesParser
 import hashlib
 import json
 import os
@@ -22,23 +23,23 @@ assert wheel.is_file()
 with ZipFile(wheel) as z:
     metadata = [n for n in z.namelist() if n.endswith('.dist-info/METADATA')]
     assert len(metadata) == 1
-    assert f'Version: {version}\n' in z.read(metadata[0]).decode()
+    assert BytesParser().parsebytes(z.read(metadata[0]))['Version'] == version
 archives = sorted(out.glob('*.zip'))
 assert len(archives) == 2
 cli = []
 for archive in archives:
     with ZipFile(archive) as z:
-        names = z.namelist()
+        names = {name.replace("\\", "/"): name for name in z.namelist()}
         meta = [n for n in names if n.endswith('/release.json')]
         assert len(meta) == 1
-        data = json.loads(z.read(meta[0]).decode('utf-8-sig'))
+        data = json.loads(z.read(names[meta[0]]).decode('utf-8-sig'))
         assert data['version'] == version
         if data['mode'] == 'offline':
             assert data['architecture'] == 'x64'
             assert (data['python_major'], data['python_minor']) == (3, 12)
         inner_wheels = [n for n in names if n.endswith('/' + wheel.name) and '/packages/' not in n]
         assert len(inner_wheels) == 1
-        assert z.read(inner_wheels[0]) == wheel.read_bytes(), 'CLI bundles must share the same wheel'
+        assert z.read(names[inner_wheels[0]]) == wheel.read_bytes(), 'CLI bundles must share the same wheel'
         cli.append({'file': archive.name, **data})
 manifest['cli_packages'] = cli
 manifest['release_tag'] = 'v' + version
