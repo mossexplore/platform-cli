@@ -124,7 +124,7 @@
 
 /* 侧栏紧凑 */
 .management-page .sidebar { padding-top: 16px; }
-.management-page .workspace-label { margin: 18px 6px 14px; }
+.management-page .sidebar nav { margin-top: 24px; }
 .management-page .sidebar nav a { padding: 8px 12px; margin: 2px 0; }
 .management-page .separated { margin-top: 16px; }
 .management-page .sidebar-note { display: none; }

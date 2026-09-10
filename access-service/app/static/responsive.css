@@ -15,7 +15,6 @@
   .topbar { padding: 0 20px; }
   .stats-grid { gap: 10px; }
   .stat-card { padding: 16px; }
-  .timezone { display: none; }
   .call-filters { grid-template-columns: repeat(2, minmax(120px, 1fr)); }
   td, th { padding-left: 12px; padding-right: 12px; }
   .login-aside { padding: 40px 32px; }
@@ -24,7 +23,7 @@
 @media (max-width: 760px) {
   .sidebar { position: static; width: 100%; padding: 14px 16px; }
   .sidebar .brand { font-size: 16px; padding: 0; }
-  .sidebar .brand small, .workspace-label, .sidebar-note, .sidebar-account, .nav-label, .nav-index { display: none; }
+  .sidebar .brand small, .sidebar-note, .sidebar-account, .nav-label, .nav-index { display: none; }
   .sidebar nav { display: flex; gap: 6px; overflow-x: auto; margin-top: 12px; }
   .sidebar nav a { font-size: 12px; white-space: nowrap; padding: 8px 12px; margin: 0; }
   .app-shell { margin-left: 0; }

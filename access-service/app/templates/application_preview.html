@@ -1,4 +1,4 @@
-{% extends 'base.html' %}{% block title %}权限申请{% endblock %}{% block content %}
+{% extends 'base.html' %}{% set page_title = '审批预览' %}{% set crumb_parent = ('权限申请', '/cli-permission/admin/applications') %}{% block title %}权限申请{% endblock %}{% block content %}
 <link rel="stylesheet" href="/cli-permission/static/applications.css">
 <a href="/cli-permission/admin/applications/{{ item.id }}">返回修改账号和姓名</a>
 <section class="review-card"><h1>核对并授权</h1><p>原始填写：{{ item.username }} / {{ item.display_name }}</p><p><strong>审批信息：{{ username }} / {{ display_name }}</strong></p>

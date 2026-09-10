@@ -1,4 +1,4 @@
-{% extends 'base.html' %}{% block title %}权限申请{% endblock %}{% block content %}
+{% extends 'base.html' %}{% set page_title = '申请详情' %}{% set crumb_parent = ('权限申请', '/cli-permission/admin/applications') %}{% block title %}权限申请{% endblock %}{% block content %}
 <link rel="stylesheet" href="/cli-permission/static/applications.css">
 {% if item.status != 'pending' %}
 {% include 'application_record.html' %}
