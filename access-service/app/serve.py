@@ -1,9 +1,11 @@
 """可直接提供 HTTP 或 HTTPS，内网无需另外安装 Nginx。"""
 import os
 import uvicorn
+from .configuration import load_service_config
 
 
 def main():
+    load_service_config()
     certificate = os.environ.get('TLS_CERT_FILE') or None
     key = os.environ.get('TLS_KEY_FILE') or None
     host = os.environ.get('LISTEN_HOST', '127.0.0.1')

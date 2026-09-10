@@ -2,6 +2,7 @@
 import argparse
 import getpass
 from dotenv import load_dotenv
+from .configuration import load_service_config
 from sqlalchemy import select, delete
 from sqlalchemy.exc import SQLAlchemyError
 from .models import Admin, Audit, Session, database
@@ -12,10 +13,16 @@ from .settings import Settings
 
 def main():
     parser = argparse.ArgumentParser(description='CLI 权限服务管理')
-    parser.add_argument('--env-file', default='.env')
+    parser.add_argument('--env-file', help='显式指定配置文件；否则优先读取挂载配置')
     parser.add_argument('command', choices=['migrate', 'create-admin', 'reset-password'])
     args = parser.parse_args()
-    load_dotenv(args.env_file)
+    try:
+        if args.env_file:
+            load_dotenv(args.env_file)
+        elif not load_service_config():
+            load_dotenv('.env')
+    except RuntimeError as exc:
+        parser.exit(1, str(exc) + '\n')
     engine, sessions = database(Settings.load().database_url)
     try:
         if args.command == 'migrate':

@@ -44,3 +44,5 @@ python ci/smoke.py "http://127.0.0.1:$HTTP_PORT"
 "${compose[@]}" restart cli-access
 "${compose[@]}" up -d --wait --wait-timeout 120 cli-access
 python ci/smoke.py "http://127.0.0.1:$HTTP_PORT"
+
+bash ci/smoke-mounted.sh

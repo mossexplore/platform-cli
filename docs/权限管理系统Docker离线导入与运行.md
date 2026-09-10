@@ -33,12 +33,14 @@ docker image inspect --format '{{.Id}}' {{image_tag}}
 
 ## 3. 修改配置
 
+以下复制命令仅用于首次配置；已有真实 service.env 时保留该文件，不要用示例覆盖。
+
 ```bash
-cp service.env.example service.env
-chmod 600 service.env
+sudo install -d -o root -g 10001 -m 750 /opt/cli-access-config
+sudo install -o root -g 10001 -m 640 service.env.example /opt/cli-access-config/service.env
 ```
 
-用编辑器修改 service.env，将 DATABASE_URL 中的地址、数据库名、账号和密码改为实际值：
+用 sudo 编辑 /opt/cli-access-config/service.env，将 DATABASE_URL 中的地址、数据库名、账号和密码改为实际值：
 
 ```dotenv
 DATABASE_URL=mysql+pymysql://cli_access:URL_ENCODED_PASSWORD@mysql.internal:3306/cli_access?charset=utf8mb4
@@ -54,13 +56,13 @@ FORWARDED_ALLOW_IPS=
 
 ## 4. 初始化数据库与管理员
 
-首次连接新数据库需要运行迁移，再交互创建管理员；已有数据库也先备份并运行迁移，已有管理员则跳过创建。
+首次连接新数据库需要运行迁移，再交互创建管理员。已有数据库结构为版本 7 且管理员正常时，无需执行本节命令；旧结构升级前先备份再迁移。
 
 ```bash
-docker run --rm --pull=never --env-file ./service.env \
+docker run --rm -v /opt/cli-access-config:/run/cli-access:ro \
   {{image_tag}} python -m app.manage migrate
 
-docker run --rm -it --pull=never --env-file ./service.env \
+docker run --rm -it -v /opt/cli-access-config:/run/cli-access:ro \
   {{image_tag}} python -m app.manage create-admin
 ```
 
@@ -73,10 +75,8 @@ docker run --rm -it --pull=never --env-file ./service.env \
 ```bash
 docker run -d \
   --name cli-access \
-  --pull=never \
   --restart unless-stopped \
-  --init \
-  --env-file ./service.env \
+  -v /opt/cli-access-config:/run/cli-access:ro \
   -p 8008:8008 \
   --read-only \
   --tmpfs /tmp:rw,noexec,nosuid,size=64m,mode=1777 \
@@ -90,7 +90,7 @@ docker run -d \
 
 `-p 8008:8008` 会绑定宿主机所有地址；需要限制到内网网卡时改为 `-p 实际内网IP:8008:8008` 并核实网络访问控制。宿主机 Nginx 代理时改为 `-p 127.0.0.1:8008:8008`，参考完整 Docker 指南设置可信代理来源。容器内保持 LISTEN_HOST=0.0.0.0、LISTEN_PORT=8008。
 
-`--pull=never` 保证本地镜像缺失时直接报错，不尝试联网拉取。镜像使用非 root UID 10001。先确认旧 systemd/容器没有占用端口，生产切换前完成数据库备份。
+为兼容旧 Docker，此示例不使用 `--pull` 或 `--init`；运行前务必完成 docker load 并核对镜像标签。镜像使用非 root UID/GID 10001，因此配置目录和文件必须允许 GID 10001 读取。先确认旧 systemd/容器没有占用端口，生产切换前完成数据库备份。
 
 ```bash
 docker ps --filter name=cli-access
@@ -113,19 +113,16 @@ docker restart cli-access
 
 CLI 调用日志和操作审计在 MySQL/管理台；docker logs 查看服务进程输出。镜像默认不记录全部 HTTP 访问日志。unhealthy 本身不会触发自动重启，进程退出才由 restart 策略处理。
 
-修改 service.env 后，restart 不会重新加载环境变量，需要重建容器：
+修改 `/opt/cli-access-config/service.env` 后执行 `docker restart cli-access` 即可重新读取。配置不会热加载；更改端口映射、挂载目录或镜像标签需要停止并删除旧容器，再重新执行 docker run。外部 MySQL 数据不受删除应用容器影响。
 
-```bash
-docker stop --time 30 cli-access
-docker rm cli-access
-```
+镜像自动读取 `/run/cli-access/service.env`，文件中的值优先于环境变量（包括镜像默认值）。不支持 `${VAR}` 变量插值，直接填写实际值。自定义路径可使用 `-e SERVICE_ENV_FILE=/其他容器路径/service.env`；显式指定的文件缺失或不可读会报错。默认文件不存在时兼容原 `--env-file` 用法，但原方式修改后仍需要重建容器。
 
-然后重新执行第 5 节 docker run。容器名称可复用；MySQL 数据不会因删除应用容器而丢失。需要保留容器运行日志时先 `docker logs cli-access > cli-access.log 2>&1` 导出。
+只读挂载不把数据库密码写入 Docker 的 Config.Env，但宿主机 root、Docker 管理员和容器服务进程仍可读取配置；它不是加密。不要将真实配置提交到 GitHub 或打包到镜像。若宿主机启用 SELinux，需要按本机策略为挂载目录设置容器可读标签。
 
 重置管理员密码：
 
 ```bash
-docker run --rm -it --pull=never --env-file ./service.env \
+docker run --rm -it -v /opt/cli-access-config:/run/cli-access:ro \
   {{image_tag}} python -m app.manage reset-password
 ```
 
