@@ -66,6 +66,9 @@ jobs:
       - name: Install test dependencies
         run: python -m pip install -e . -r access-service/requirements.lock pytest
       - name: CLI tests
+        env:
+          # Typer forces ANSI output on GitHub; help assertions require plain text.
+          _TYPER_FORCE_DISABLE_TERMINAL: "1"
         run: python -m pytest tests -q
       - name: Access service tests
         working-directory: access-service
