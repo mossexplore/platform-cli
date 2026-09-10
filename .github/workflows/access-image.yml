@@ -144,6 +144,21 @@ jobs:
             echo 'Tests: CLI + access service + timezones + MySQL image smoke/restart.'
             echo 'Set CLI_ACCESS_IMAGE to the digest above; production is not deployed automatically.'
           } >> "$GITHUB_STEP_SUMMARY"
+      - name: Export tested image for offline servers
+        if: steps.info.outputs.publish == 'true'
+        env:
+          IMAGE_REFERENCE: ${{ steps.info.outputs.image }}@${{ steps.build.outputs.digest }}
+          OUTPUT_DIR: ${{ runner.temp }}/offline-image
+        run: bash access-service/ci/export-image.sh
+      - name: Upload offline Docker download
+        if: steps.info.outputs.publish == 'true'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: offline-image-${{ github.run_id }}
+          path: ${{ runner.temp }}/offline-image/
+          compression-level: 0
+          retention-days: 30
+          if-no-files-found: error
       - name: Upload smoke diagnostics
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4

@@ -149,3 +149,7 @@ docker buildx build --platform linux/amd64 --load \
 - https://docs.docker.com/build/ci/github-actions/attestations/
 - https://docs.docker.com/build/ci/github-actions/cache/
 - https://docs.github.com/en/packages/working-with-a-github-packages-registry/working-with-the-container-registry
+
+## 9. 只能访问 GitHub 的内网
+
+成功镜像流水线会额外生成 offline-image 附件（保留 30 天），包含可用 docker load 导入的镜像、校验文件、配置示例和完整 docker run 操作指南。无需服务器 docker pull、Compose 或重新制作镜像。已有 GHCR 镜像可通过 Export existing access image for offline Docker 手动工作流输入精确 sha256 摘要导出，保持原镜像和源代码版本。下载者需登录 GitHub，附件下载域名需可达。参考 [离线导入与运行模板](权限管理系统Docker离线导入与运行.md)，下载附件内 README 已填入实际标签和文件名。

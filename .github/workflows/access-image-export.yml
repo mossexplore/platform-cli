@@ -1,0 +1,45 @@
+name: Export existing access image for offline Docker
+on:
+  workflow_dispatch:
+    inputs:
+      digest:
+        description: 'Previously tested GHCR image digest (sha256:...)'
+        required: true
+        type: string
+permissions:
+  contents: read
+jobs:
+  export:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      packages: read
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - name: Validate digest
+        env:
+          DIGEST: ${{ inputs.digest }}
+        run: |
+          [[ "$DIGEST" =~ ^sha256:[a-f0-9]{64}$ ]]
+      - uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Export the existing image without rebuilding
+        env:
+          DIGEST: ${{ inputs.digest }}
+          OWNER: ${{ github.repository_owner }}
+          OUTPUT_DIR: ${{ runner.temp }}/offline-image
+        run: |
+          export IMAGE_REFERENCE="ghcr.io/${OWNER,,}/cli-access@$DIGEST"
+          bash access-service/ci/export-image.sh
+      - name: Upload downloadable Docker archive and runbook
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: offline-image-${{ github.run_id }}
+          path: ${{ runner.temp }}/offline-image/
+          compression-level: 0
+          retention-days: 30
+          if-no-files-found: error
