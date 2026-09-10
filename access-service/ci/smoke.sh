@@ -2,6 +2,7 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 : "${CLI_ACCESS_IMAGE:?Set CLI_ACCESS_IMAGE to the image under test}"
+export COMPOSE_PROJECT_NAME="cli-access-ci-${GITHUB_RUN_ID:-$$}"
 export BIND_IP=127.0.0.1 HTTP_PORT=${HTTP_PORT:-18008}
 compose=(docker compose -f compose.yaml -f compose.ci.yaml)
 # This file is ignored by Git. Never run CI against production deployment files.

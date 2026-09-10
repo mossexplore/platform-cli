@@ -3,8 +3,7 @@ import re
 import sys
 import httpx
 
-base = sys.argv[1] + '/cli-permission'
-with httpx.Client(base_url=base, follow_redirects=True, trust_env=False, timeout=15) as client:
+def verify(client):
     response = client.get('/healthz')
     assert response.status_code == 200 and response.json() == {'status': 'ok'}
     for asset in ('app.css', 'app.js', 'base.css', 'icon-chevron-down.svg'):
@@ -18,7 +17,15 @@ with httpx.Client(base_url=base, follow_redirects=True, trust_env=False, timeout
     response = client.post('/api/v1/access/check', json=body, headers={'businessid': 'ci-business'})
     assert response.status_code == 200 and response.json()['allowed'] is True
     body['username'] = 'unknown-user'
-    assert client.post('/api/v1/access/check', json=body).json()['allowed'] is False
+    response = client.post('/api/v1/access/check', json=body, headers={'businessid': 'ci-business'})
+    assert response.status_code == 200, response.text
+    assert response.json()['allowed'] is False
     logs = client.get('/admin/calls')
     assert logs.status_code == 200 and 'ci-business' in logs.text
-print('PASS: health, assets, admin login, grant allow/deny and persisted call logs')
+
+
+if __name__ == "__main__":
+    base = sys.argv[1] + "/cli-permission"
+    with httpx.Client(base_url=base, follow_redirects=True, trust_env=False, timeout=15) as client:
+        verify(client)
+    print("PASS: health, assets, admin login, grant allow/deny and persisted call logs")
