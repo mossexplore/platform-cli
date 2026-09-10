@@ -86,3 +86,25 @@ document.querySelectorAll('[data-delete]').forEach((form) => {
     form.querySelector('.form-error').hidden = true;
   });
 });
+
+// Quick time-range presets on the call-log filter; values use local time.
+document.addEventListener('click', (event) => {
+  const chip = event.target.closest('[data-preset]');
+  if (!chip) return;
+  const range = chip.closest('[data-time-range]');
+  if (!range) return;
+  const hours = {'1h': 1, '24h': 24, '7d': 168, '30d': 720}[chip.dataset.preset];
+  if (!hours) return;
+  const pad = (n) => String(n).padStart(2, '0');
+  const local = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+  const end = new Date();
+  range.querySelector('[name="begin"]').value = local(new Date(end.getTime() - hours * 3600000));
+  range.querySelector('[name="end"]').value = local(end);
+  range.querySelectorAll('.preset-chip').forEach((c) => c.classList.toggle('active', c === chip));
+});
+// Typing a custom range clears the preset highlight.
+document.querySelectorAll('[data-time-range] input').forEach((input) => {
+  input.addEventListener('input', () => {
+    input.closest('[data-time-range]').querySelectorAll('.preset-chip').forEach((c) => c.classList.remove('active'));
+  });
+});

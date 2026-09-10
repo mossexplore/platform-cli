@@ -54,15 +54,14 @@
 /* 日志筛选 */
 .management-page .call-filters {
   display: grid;
-  grid-template-columns: repeat(4, minmax(90px, 1fr)) auto auto;
-  gap: 10px;
+  grid-template-columns: repeat(4, minmax(90px, 1fr));
+  gap: 10px 12px;
   padding: 12px 16px;
   align-items: end;
 }
 .management-page .call-filters input, .management-page .call-filters select { height: 32px; padding: 4px 10px; margin-top: 4px; font-size: 13px; }
-.time-filters summary { cursor: pointer; color: var(--brand); white-space: nowrap; padding: 5px 0; }
-.time-filters[open] { grid-column: 1 / -1; grid-row: 2; }
-.time-filters > div { display: flex; gap: 12px; padding: 6px 0; }
+.management-page .time-range-box input { height: 32px; padding: 4px 8px; margin-top: 0; }
+.management-page .preset-chip { min-height: 24px; padding: 0 10px; }
 .management-page .filter-actions { gap: 8px; white-space: nowrap; }
 .management-page .filter-actions a { padding-bottom: 6px; }
 
@@ -226,7 +225,7 @@
 .person-editor > .drawer-heading { flex-shrink: 0; }
 
 @media (max-width: 1100px) {
-  .management-page .call-filters { gap: 6px; grid-template-columns: repeat(4, minmax(70px, 1fr)) auto auto; }
+  .management-page .call-filters { gap: 8px; grid-template-columns: repeat(4, minmax(70px, 1fr)); }
   .management-page .stat-card { gap: 10px; padding: 10px 14px; }
 }
 @media (max-width: 760px) {
@@ -235,8 +234,8 @@
   .management-page .stats-grid { flex-wrap: wrap; }
   .management-page .stat-card { flex-basis: 50%; }
   .management-page .call-filters { grid-template-columns: repeat(2, minmax(100px, 1fr)); }
-  .time-filters[open] { grid-row: auto; }
-  .time-filters > div { flex-wrap: wrap; }
+  .management-page .time-range { grid-column: 1 / -1; }
+  .management-page .filter-actions { justify-self: start; }
   .management-page .sidebar { padding: 10px 12px; }
   .management-page .sidebar-account { display: none; }
 }
