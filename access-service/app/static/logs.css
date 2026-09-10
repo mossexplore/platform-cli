@@ -1,35 +1,40 @@
+/* ============================================================
+   调用日志 —— 筛选区与日志表格
+   ============================================================ */
 .call-filters {
-  display:grid;
-  grid-template-columns:repeat(4,minmax(100px,1fr));
-  gap:15px;
-  padding:0 22px 22px
+  display: grid;
+  grid-template-columns: repeat(4, minmax(120px, 1fr));
+  gap: 14px;
+  padding: 16px 20px;
 }
-.call-filters label {
-  font-size:11px;
-  color:#7b879c
-}
-.call-filters input,.call-filters select {
-  margin-top:6px;
-  font-size:12px;
-  height:38px
-}
-.filter-actions {
-  display:flex;
-  gap:15px;
-  align-items:end
-}
-.filter-actions a {
-  font-size:11px;
-  padding-bottom:9px
-}
-.logs-table {
-  min-width:950px
-}
-.logs-table td {
-  padding:16px
-}
-.logs-table th {
-  padding:12px 16px
+.call-filters label { font-size: 13px; font-weight: 500; color: var(--text-2); }
+.call-filters input, .call-filters select { margin-top: 6px; font-weight: 400; }
+.filter-actions { display: flex; gap: 12px; align-items: end; }
+.filter-actions a { font-size: 13px; padding-bottom: 8px; white-space: nowrap; }
+
+.logs-table { min-width: 1000px; }
+.logs-table .full-command {
+  min-width: 260px;
+  max-width: 480px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-family: var(--font-mono);
+  font-size: 12px;
 }
 
-.logs-table .full-command { min-width:280px; max-width:480px; white-space:pre-wrap; overflow-wrap:anywhere; font-family:ui-monospace,monospace; font-size:11px }
+.time-filters summary { cursor: pointer; color: var(--brand); white-space: nowrap; padding: 6px 0; font-size: 13px; }
+.time-filters > div { display: flex; gap: 14px; padding: 8px 0; }
+.time-filters label { flex: 1; }
+
+.list-help { font-size: 13px; color: var(--text-3); margin: 4px 0; }
+.list-help summary { cursor: pointer; width: fit-content; }
+.list-help p {
+  padding: 10px 14px;
+  background: var(--info-bg);
+  border: 1px solid var(--brand-border);
+  border-radius: var(--radius);
+  margin-top: 8px;
+  line-height: 1.8;
+  font-size: 13px;
+  color: #3d5a99;
+}

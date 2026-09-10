@@ -1,116 +1,134 @@
+/* ============================================================
+   登录页 / 错误页
+   ============================================================ */
 .login-page {
-  min-height:100vh;
-  display:grid;
-  grid-template-columns:44% 56%;
-  background:white
+  min-height: 100vh;
+  display: grid;
+  grid-template-columns: minmax(400px, 44%) 1fr;
+  background: var(--card-bg);
 }
+
+/* 左侧品牌区 */
 .login-aside {
-  background:#141e32;
-  color:white;
-  display:flex;
-  flex-direction:column;
-  padding:48px 60px
+  position: relative;
+  background:
+    radial-gradient(1200px 600px at 110% -10%, rgba(59, 139, 255, 0.35) 0%, transparent 55%),
+    radial-gradient(800px 500px at -20% 110%, rgba(0, 82, 217, 0.5) 0%, transparent 60%),
+    linear-gradient(160deg, #0e1a33 0%, #0a1224 100%);
+  color: #fff;
+  display: flex;
+  flex-direction: column;
+  padding: 48px 56px;
+  overflow: hidden;
 }
-.login-aside .brand {
-  padding:0
+.login-aside::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.035) 1px, transparent 1px);
+  background-size: 44px 44px;
+  pointer-events: none;
 }
-.login-story {
-  margin:auto 0;
-  max-width:360px
-}
-.login-story .eyebrow {
-  color:#839ad5
-}
+.login-aside > * { position: relative; }
+.login-aside .brand { padding: 0; font-size: 17px; }
+.login-aside .brand-mark { width: 38px; height: 38px; font-size: 17px; }
+
+.login-story { margin: auto 0; max-width: 400px; }
+.login-story .eyebrow { color: #7ea6f2; letter-spacing: 2.4px; }
 .login-story h1 {
-  font-size:37px;
-  line-height:1.5;
-  font-weight:550;
-  letter-spacing:1px
+  font-size: 34px;
+  line-height: 1.5;
+  font-weight: 600;
+  letter-spacing: 1px;
 }
-.login-story>p {
-  color:#8597b7;
-  font-size:13px;
-  line-height:2;
-  margin-top:20px
-}
-.login-features {
-  margin-top:40px;
-  border-top:1px solid #303e56
-}
+.login-story > p { color: #93a5c6; font-size: 14px; line-height: 2; margin-top: 18px; }
+
+.login-features { margin-top: 36px; border-top: 1px solid rgba(255, 255, 255, 0.1); }
 .login-features div {
-  padding:17px 0;
-  border-bottom:1px solid #303e56;
-  font-size:12px;
-  color:#b2c0d8
+  position: relative;
+  padding: 14px 0 14px 24px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  font-size: 13px;
+  color: #b9c6de;
 }
-.login-aside footer {
-  color:#697e9e;
-  font-size:10px
+.login-features div::before {
+  content: "";
+  position: absolute;
+  left: 2px;
+  top: 22px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #3b8bff;
+  box-shadow: 0 0 0 3px rgba(59, 139, 255, 0.25);
 }
+.login-aside footer { color: #5f739a; font-size: 12px; }
+
+/* 右侧登录卡 */
 .login-main {
-  display:grid;
-  place-items:center;
-  padding:40px
+  display: grid;
+  place-items: center;
+  padding: 40px;
+  background:
+    radial-gradient(600px 400px at 80% 10%, rgba(0, 82, 217, 0.05) 0%, transparent 60%),
+    var(--page-bg);
 }
 .login-card {
-  width:100%;
-  max-width:350px
+  width: 100%;
+  max-width: 380px;
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  box-shadow: var(--shadow-pop);
+  padding: 36px;
 }
-.login-card h1 {
-  font-size:28px;
-  margin:10px 0
-}
-.login-card>.muted {
-  margin-bottom:30px
-}
-.login-card form {
-  display:grid;
-  gap:20px
-}
-.login-card label {
-  font-size:12px;
-  color:#596780
-}
-.login-card input {
-  margin-top:8px
-}
-.login-card button {
-  margin-top:8px;
-  width:100%;
-  height:43px
-}
-.hint {
-  font-size:11px;
-  color:#9aa5b5;
-  margin-top:24px;
-  line-height:1.8
-}
+.login-card .eyebrow { color: var(--brand); }
+.login-card h1 { font-size: 24px; margin: 6px 0 8px; }
+.login-card > .muted { margin-bottom: 26px; font-size: 13px; }
+.login-card form { display: grid; gap: 18px; }
+.login-card label { font-size: 13px; font-weight: 500; color: var(--text-2); }
+.login-card input { margin-top: 6px; min-height: 38px; font-weight: 400; }
+.login-card button { margin-top: 6px; width: 100%; min-height: 40px; font-size: 15px; }
+.hint { font-size: 12px; color: var(--text-4); margin-top: 22px; line-height: 1.8; }
+
+/* 错误页 */
 .error-page {
-  min-height:100vh;
-  display:grid;
-  place-items:center;
-  padding:25px
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: var(--page-bg);
 }
 .error-card {
-  padding:40px;
-  background:white;
-  border:1px solid var(--border);
-  border-radius:12px;
-  max-width:500px
+  padding: 36px 40px;
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  box-shadow: var(--shadow-pop);
+  max-width: 520px;
 }
-.error-card h1 {
-  margin:10px 0
-}
+.error-card .eyebrow { color: var(--brand); }
+.error-card h1 { margin: 8px 0; }
 .error-card [role=alert] {
-  margin:20px 0;
-  color:#95605e
+  margin: 16px 0 22px;
+  padding: 12px 16px;
+  border-radius: var(--radius);
+  background: var(--danger-bg);
+  border: 1px solid #f2b8b4;
+  color: var(--danger);
+  font-size: 13px;
+  line-height: 1.7;
 }
-.error-actions {
-  display:flex;
-  gap:12px
-}
+.error-actions { display: flex; gap: 12px; }
+
 .noscript {
-  padding:15px;
-  background:#fff6e6;
-  color:#8b641e
+  padding: 12px 16px;
+  background: var(--warning-bg);
+  border: 1px solid #f5cf9e;
+  border-radius: var(--radius);
+  color: #9c5a10;
+  font-size: 13px;
+  margin-bottom: 16px;
 }

@@ -1,179 +1,242 @@
-/* List-first layout. Form drawers and login keep their own reading density. */
-.management-page .topbar { height:44px; padding:0 22px }
-.management-page .main-content { padding:10px 22px 4px }
-.management-page .page-heading { margin-bottom:10px; gap:12px }
-.management-page .page-heading h1 { font-size:22px }
+/* ============================================================
+   Management 密度 —— 列表优先的紧凑布局（.management-page）
+   ============================================================ */
+.management-page .topbar { height: 48px; padding: 0 24px; }
+.management-page .main-content { padding: 14px 24px 8px; }
+.management-page .page-heading { margin-bottom: 14px; gap: 12px; align-items: center; }
+.management-page .page-heading h1 { font-size: 20px; }
 .management-page .page-heading .eyebrow,
-.management-page .page-heading .subtitle { display:none }
-.management-page .stats-grid { display:flex; gap:0; margin-bottom:10px; border:1px solid var(--border); border-radius:7px; background:#fff }
-.management-page .stat-card { flex:1; display:flex; align-items:center; gap:14px; padding:7px 14px; border:0; border-radius:0; background:transparent }
-.management-page .stat-card + .stat-card { border-left:1px solid var(--border) }
-.management-page .stat-card strong { font-size:20px; margin:0; white-space:nowrap }
-.management-page .stat-card strong small { margin-left:4px }
-.management-page .stat-card p { display:none }
-.management-page .panel-title { padding:8px 14px; min-height:34px }
-.management-page .panel-title h2 { font-size:13px }
-.management-page .filter-bar { padding:0 14px 8px; gap:8px }
-.management-page .filter-bar input,.management-page .filter-bar select { height:30px; padding:4px 9px }
-.management-page .filter-bar button,.management-page .filter-actions button { min-height:30px; padding:4px 12px }
-.management-page .call-results { margin-top:8px }
-.management-page .call-filters { display:grid; grid-template-columns:repeat(4,minmax(90px,1fr)) auto auto; gap:10px; padding:8px 14px; align-items:end }
-.management-page .call-filters input,.management-page .call-filters select { height:30px; padding:4px 8px; margin-top:3px }
-.time-filters summary { cursor:pointer; color:#365cda; white-space:nowrap; padding:5px 0 }
-.time-filters[open] { grid-column:1/-1; grid-row:2 }
-.time-filters > div { display:flex; gap:12px; padding:5px 0 }
-.management-page .filter-actions { gap:8px; white-space:nowrap }
-.management-page .filter-actions a { padding-bottom:5px }
-.management-page .table-scroll > table { table-layout:fixed; font-size:14px }
-.management-page .table-scroll > table th { padding:10px 12px; font-size:13px }
-.management-page .table-scroll > table td { padding:6px 12px; height:var(--list-row-height, 56px); line-height:20px; vertical-align:middle }
-.management-page .table-scroll .badge { padding:3px 8px; font-size:13px }
-.management-page .table-scroll .text-button { min-height:32px; font-size:14px; padding:4px 3px }
-.management-page .person .avatar { width:28px; height:28px }
-.management-page .pagination { padding:10px 14px; min-height:52px; font-size:14px }
-.management-page .page-footer { display:none }
-.management-page .main-content > .success { margin-bottom:8px; padding:6px 12px }
-.list-help { font-size:11px; color:#758198; margin:3px 0 }
-.list-help summary { cursor:pointer; width:fit-content }
-.list-help p { padding:7px 10px; background:#eef3fd; border-radius:5px; margin-top:5px }
-.has-cell-preview { position:relative }
-.cell-preview { max-height:40px; overflow:hidden; white-space:normal; overflow-wrap:anywhere }
-.full-command .cell-preview { white-space:pre-wrap }
-.cell-expand { position:absolute; bottom:3px; right:5px; min-height:24px; padding:1px 5px; font-size:11px; background:#fff; color:#365cda; border:1px solid var(--border); border-radius:4px; box-shadow:-10px 0 8px #fff }
-.cell-expand:hover { background:#edf2ff }
-.cell-expand[hidden] { display:none }
-.list-cell-content { white-space:pre-wrap; overflow-wrap:anywhere; font:13px/1.8 ui-monospace,monospace; margin:0; user-select:text }
-.management-page .logs-table { min-width:1200px }
-.management-page .logs-table th:nth-child(1) { width:184px }
-.management-page .logs-table th:nth-child(2) { width:100px }
-.management-page .logs-table th:nth-child(5) { width:80px }
-.management-page .logs-table th:nth-child(3) { width:320px }
-.management-page .logs-table th:nth-child(4) { width:280px }
-.management-page .logs-table th:nth-child(6) { width:120px }
-.management-page .logs-table th:nth-child(7) { width:124px }
-.management-page .logs-table td:nth-child(1),.management-page .logs-table td:nth-child(7) {white-space:nowrap;overflow-wrap:normal}
-.management-page .logs-table td:nth-child(7) .badge {white-space:nowrap}
-.management-page .logs-table th:nth-child(8) { width:200px }
-.management-page .table-scroll .full-command { white-space:normal; min-width:0 }
-.management-page .sidebar { padding-top:18px }
-.management-page .workspace-label { margin:20px 10px 16px }
-.management-page .sidebar nav a { padding:9px 15px; margin:2px 0 }
-.management-page .separated { margin-top:18px }
-.management-page .sidebar-note { display:none }
-.management-page .sidebar-account { margin-top:auto; padding:12px 7px }
-.management-page .grant-filter-hint { padding:0 14px 7px }
-.management-page .grant-accounts .grant-account { width:210px }
-.grant-account-name { display:flex; gap:8px; align-items:center; overflow:hidden; white-space:nowrap }
-.grant-account-name .muted { overflow:hidden; text-overflow:ellipsis }
-.grant-summary { display:flex; align-items:center; gap:8px; min-width:0 }
-.grant-pills { display:flex; gap:6px; flex:1; min-width:0; overflow:hidden; white-space:nowrap }
-.grant-pills .badge { max-width:180px; overflow:hidden; text-overflow:ellipsis; display:inline-block }
-.grant-summary > button { flex-shrink:0 }
-.grant-detail-list .grant-environment { max-width:none; flex-basis:100% }
-@media(max-width:1100px) {
-  .management-page .call-filters { gap:6px; grid-template-columns:repeat(4,minmax(70px,1fr)) auto auto }
-  .management-page .stat-card { gap:8px; padding:7px 10px }
+.management-page .page-heading .subtitle { display: none; }
+
+/* 统计条：合并为一行分段卡片 */
+.management-page .stats-grid {
+  display: flex;
+  gap: 0;
+  margin-bottom: 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-l);
+  background: var(--card-bg);
+  box-shadow: var(--shadow-card);
+  overflow: hidden;
 }
-@media(max-width:760px) {
-  .management-page .main-content { padding:10px 12px }
-  .management-page .topbar { padding:0 12px }
-  .management-page .stats-grid { flex-wrap:wrap }
-  .management-page .stat-card { flex-basis:50% }
-  .management-page .call-filters { grid-template-columns:repeat(2,minmax(100px,1fr)) }
-  .time-filters[open] { grid-row:auto }
-  .time-filters > div { flex-wrap:wrap }
-  .management-page .sidebar { padding:10px 12px }
-  .management-page .sidebar-account { display:none }
+.management-page .stat-card {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 18px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+.management-page .stat-card:hover { transform: none; box-shadow: none; background: #f7faff; }
+.management-page .stat-card + .stat-card { border-left: 1px solid var(--border); }
+.management-page .stat-card strong { font-size: 22px; margin: 0; white-space: nowrap; }
+.management-page .stat-card strong small { margin-left: 4px; }
+.management-page .stat-card p { display: none; }
+.management-page .stat-card .stat-icon {
+  position: static;
+  width: 34px;
+  height: 34px;
+  flex-shrink: 0;
+  border-radius: 8px;
+  order: -1;
 }
 
-.page-heading > .list-help { margin-left:auto; position:relative }
-.page-heading > .list-help[open] p { position:absolute; z-index:2; right:0; width:320px; padding:12px; box-shadow:0 4px 18px #14213d22 }
+.management-page .panel-title { padding: 10px 16px; min-height: 42px; }
+.management-page .panel-title h2 { font-size: 14px; }
+.management-page .filter-bar { padding: 12px 16px; gap: 8px; }
+.management-page .filter-bar input, .management-page .filter-bar select { height: 32px; font-size: 13px; }
+.management-page .filter-bar button, .management-page .filter-actions button { min-height: 32px; padding: 0 14px; font-size: 13px; }
+.management-page .call-results { margin-top: 12px; }
 
-.management-page .grant-accounts th:first-child { width:280px }
-.management-page .table-scroll > .people-table { table-layout:auto; min-width:1000px }
-.people-table th:nth-child(1) { width:130px }
-.people-table th:nth-child(2) { width:80px }
-.people-table th:nth-child(3) { width:90px }
-.people-table th:last-child { width:80px }
-.people-actions { white-space:nowrap }
-.people-actions button + button { margin-left:8px }
-.grant-detail-list > button { margin-bottom:14px }
+/* 日志筛选 */
+.management-page .call-filters {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(90px, 1fr)) auto auto;
+  gap: 10px;
+  padding: 12px 16px;
+  align-items: end;
+}
+.management-page .call-filters input, .management-page .call-filters select { height: 32px; padding: 4px 10px; margin-top: 4px; font-size: 13px; }
+.time-filters summary { cursor: pointer; color: var(--brand); white-space: nowrap; padding: 5px 0; }
+.time-filters[open] { grid-column: 1 / -1; grid-row: 2; }
+.time-filters > div { display: flex; gap: 12px; padding: 6px 0; }
+.management-page .filter-actions { gap: 8px; white-space: nowrap; }
+.management-page .filter-actions a { padding-bottom: 6px; }
 
-.person-details-form { display:flex; flex-direction:column; gap:16px; padding-bottom:22px; border-bottom:1px solid var(--border) }
-.person-details-form > button { align-self:flex-start }
-.person-grant-heading { margin:20px 0 12px }
-.person-grant-heading p { margin-top:5px }
+/* 列表表格 */
+.management-page .table-scroll > table { table-layout: fixed; font-size: 13px; }
+.management-page .table-scroll > table th { padding: 9px 12px; font-size: 13px; }
+.management-page .table-scroll > table td {
+  padding: 6px 12px;
+  height: var(--list-row-height, 52px);
+  line-height: 20px;
+  vertical-align: middle;
+}
+.management-page .table-scroll .badge { font-size: 12px; }
+.management-page .table-scroll .text-button { min-height: 28px; font-size: 13px; padding: 2px 4px; }
+.management-page .person .avatar { width: 26px; height: 26px; font-size: 12px; }
+.management-page .pagination { padding: 10px 16px; min-height: 48px; font-size: 13px; }
+.management-page .page-footer { display: none; }
+.management-page .main-content > .success { margin-bottom: 10px; padding: 8px 14px; }
 
-.person-editor[open] { display:flex; flex-direction:column }
-.person-editor > .drawer-heading { flex-shrink:0 }
-.management-page .people-table th:last-child { width:115px }
-.management-page .table-scroll th.actions { width:105px }
-.management-page .delete-link { color:#c14c52; margin-left:8px }
-.delete-dialog { width:460px; max-width:calc(100vw - 32px); border:0; padding:0; border-radius:12px; color:#33415b; box-shadow:0 16px 70px #10213c40 }
-.delete-dialog::backdrop { background:#111e3c66 }
-.delete-heading { display:flex; align-items:center; justify-content:space-between; padding:18px 22px; border-bottom:1px solid var(--border) }
-.delete-body { padding:20px 22px; font-size:13px; overflow-wrap:anywhere }
-.delete-impact { margin:14px 0 18px; padding:12px; border:1px solid #f1d4d5; border-radius:6px; background:#fff6f6; color:#ad555b; font-size:12px; line-height:1.8 }
-.delete-body input { margin-top:8px }
-.delete-footer { display:flex; justify-content:flex-end; gap:10px; padding:14px 22px; border-top:1px solid var(--border) }
-.danger-button { background:#c34f55; border-color:#c34f55 }
-.danger-button:hover { background:#a93d43 }
+/* 单元格折叠预览（list-density.js） */
+.has-cell-preview { position: relative; }
+.cell-preview { max-height: 40px; overflow: hidden; white-space: normal; overflow-wrap: anywhere; }
+.full-command .cell-preview { white-space: pre-wrap; }
+.cell-expand {
+  position: absolute;
+  bottom: 3px;
+  right: 5px;
+  min-height: 22px;
+  padding: 0 6px;
+  font-size: 12px;
+  background: var(--card-bg);
+  color: var(--brand);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-s);
+  box-shadow: -10px 0 8px var(--card-bg);
+}
+.cell-expand:hover { background: var(--brand-light); border-color: var(--brand-border); }
+.cell-expand[hidden] { display: none; }
+.list-cell-content {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font: 13px/1.8 var(--font-mono);
+  margin: 0;
+  user-select: text;
+}
 
-.management-page .people-table,.management-page .environment-table { min-width:1220px }
-.people-table th:nth-child(4) { width:230px }
-.people-table th:nth-child(5),.people-table th:nth-child(6),.environment-table th:nth-child(5),.environment-table th:nth-child(6) { width:156px }
+/* 日志列宽 */
+.management-page .logs-table { min-width: 1200px; }
+.management-page .logs-table th:nth-child(1) { width: 184px; }
+.management-page .logs-table th:nth-child(2) { width: 100px; }
+.management-page .logs-table th:nth-child(5) { width: 80px; }
+.management-page .logs-table th:nth-child(3) { width: 320px; }
+.management-page .logs-table th:nth-child(4) { width: 280px; }
+.management-page .logs-table th:nth-child(6) { width: 120px; }
+.management-page .logs-table th:nth-child(7) { width: 124px; }
+.management-page .logs-table td:nth-child(1), .management-page .logs-table td:nth-child(7) { white-space: nowrap; overflow-wrap: normal; }
+.management-page .logs-table td:nth-child(7) .badge { white-space: nowrap; }
+.management-page .logs-table th:nth-child(8) { width: 200px; }
+.management-page .table-scroll .full-command { white-space: normal; min-width: 0; }
 
-/* All effective environments remain visible on one line; scroll the table if needed. */
-.people-table th:nth-child(4),.people-table td.people-environments {min-width:280px}
-.people-table th:nth-child(5),.people-table th:nth-child(6) {width:136px}
-.people-table th:nth-child(7) {width:84px}
-.people-table td:nth-child(7) {max-width:84px}
-.people-table .grant-pills {width:max-content;min-width:100%;overflow:visible;flex-wrap:nowrap}
-.people-table .grant-pills .badge {flex:0 0 auto;max-width:none;overflow:visible;text-overflow:clip;display:inline-flex;white-space:nowrap}
+/* 侧栏紧凑 */
+.management-page .sidebar { padding-top: 16px; }
+.management-page .workspace-label { margin: 18px 6px 14px; }
+.management-page .sidebar nav a { padding: 8px 12px; margin: 2px 0; }
+.management-page .separated { margin-top: 16px; }
+.management-page .sidebar-note { display: none; }
+.management-page .sidebar-account { margin-top: auto; padding: 12px 8px; }
 
-/* Keep complete platform origins on one line without cell previews. */
-.management-page .table-scroll > .environment-table {table-layout:auto;min-width:1000px}
-.environment-table th:nth-child(1) {width:120px;min-width:120px}
-.environment-table th:nth-child(2) {width:164px;min-width:164px}
-.environment-table td:nth-child(2) {white-space:nowrap;overflow-wrap:normal;max-width:none}
-.environment-table th:nth-child(3),.environment-table td.origin {width:160px;min-width:160px}
-.environment-table td.origin {white-space:nowrap;overflow-wrap:normal;word-break:normal}
-.environment-table th:nth-child(4) {width:80px}
-.environment-table th:nth-child(5),.environment-table th:nth-child(6) {width:176px;min-width:176px}
-.environment-table td:nth-child(5),.environment-table td:nth-child(6) {white-space:nowrap}
-.environment-table th:nth-child(7) {width:84px}
-.environment-table td:nth-child(7) {max-width:84px}
+/* 授权聚合 */
+.management-page .grant-filter-hint { padding: 0 16px 10px; }
+.management-page .grant-accounts .grant-account { width: 210px; }
+.grant-account-name { display: flex; gap: 8px; align-items: center; overflow: hidden; white-space: nowrap; }
+.grant-account-name .muted { overflow: hidden; text-overflow: ellipsis; }
+.grant-summary { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.grant-pills { display: flex; gap: 6px; flex: 1; min-width: 0; overflow: hidden; white-space: nowrap; }
+.grant-pills .badge { max-width: 180px; overflow: hidden; text-overflow: ellipsis; display: inline-block; }
+.grant-summary > button { flex-shrink: 0; }
+.grant-detail-list .grant-environment { max-width: none; flex-basis: 100%; }
+.management-page .grant-accounts th:first-child { width: 280px; }
+.grant-detail-list > button { margin-bottom: 14px; }
 
-/* Shared page navigation for every management list. */
-.management-page .pagination {display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px}
-.management-page .pagination-controls {display:flex;align-items:center;justify-content:flex-end;flex-wrap:wrap;gap:8px;margin-left:auto}
-.pagination-position {white-space:nowrap;font-variant-numeric:tabular-nums;color:#596780}
-.page-jump {display:flex;align-items:center;gap:8px;margin:0 0 0 8px}
-.page-jump label {display:flex;align-items:center;gap:6px;white-space:nowrap;font-size:14px;color:#596780}
-.management-page .page-jump input {width:68px;height:34px;min-width:0;padding:4px 6px;text-align:center;font-size:14px}
-.management-page .page-jump button {min-height:34px;padding:5px 12px}
-@media(max-width:640px){.management-page .pagination-controls{width:100%}.page-jump{margin-left:0}}
+/* 人员表格 */
+.management-page .table-scroll > .people-table { table-layout: auto; min-width: 1000px; }
+.people-table th:nth-child(1) { width: 130px; }
+.people-table th:nth-child(2) { width: 80px; }
+.people-table th:nth-child(3) { width: 90px; }
+.people-actions { white-space: nowrap; text-align: right; }
+.people-actions button + button { margin-left: 6px; }
+.management-page .people-table th:last-child { width: 115px; }
+.management-page .table-scroll th.actions { width: 105px; }
+.management-page .delete-link { color: var(--danger); margin-left: 6px; }
+.management-page .delete-link:hover { background: var(--danger-bg); color: var(--danger); }
+.management-page .people-table, .management-page .environment-table { min-width: 1220px; }
+.people-table th:nth-child(4) { width: 230px; }
+.people-table th:nth-child(5), .people-table th:nth-child(6), .environment-table th:nth-child(5), .environment-table th:nth-child(6) { width: 156px; }
 
-/* Keep secondary cell text and navigation as readable as the main values. */
-.management-page .table-scroll .mono,.management-page .table-scroll .code-chip,.management-page .table-scroll .full-command {font-size:13px}
-.management-page .pagination .secondary {font-size:14px}
-.management-page .filter-bar input,.management-page .filter-bar select,.management-page .call-filters input,.management-page .call-filters select {font-size:14px;height:34px}
-.management-page .panel-title h2 {font-size:15px}
+/* 人员授权环境胶囊保持单行 */
+.people-table th:nth-child(4), .people-table td.people-environments { min-width: 280px; }
+.people-table th:nth-child(5), .people-table th:nth-child(6) { width: 136px; }
+.people-table th:nth-child(7) { width: 84px; }
+.people-table td:nth-child(7) { max-width: 84px; }
+.people-table .grant-pills { width: max-content; min-width: 100%; overflow: visible; flex-wrap: nowrap; }
+.people-table .grant-pills .badge { flex: 0 0 auto; max-width: none; overflow: visible; text-overflow: clip; display: inline-flex; white-space: nowrap; }
 
-/* Administrator columns fit the panel without reserving a scrollable minimum width. */
-.management-page .table-scroll > .administrators-table {min-width:0;width:100%;table-layout:fixed}
-.management-page .administrators-table th,.management-page .administrators-table td {padding-left:8px;padding-right:8px}
-.administrators-table th:nth-child(1) {width:26%}
-.administrators-table th:nth-child(2) {width:14%}
-.administrators-table th:nth-child(3) {width:88px}
-.administrators-table th:nth-child(4) {width:auto}
-.management-page .administrators-table th.actions {width:124px}
-.management-page .administrators-table .badge {padding:3px 5px;white-space:nowrap}
-.administrators-table td:nth-child(3) {white-space:nowrap;overflow-wrap:normal}
-.administrators-table td.actions {white-space:normal}
-@media(max-width:640px){
-  .management-page .administrators-table th,.management-page .administrators-table td {padding-left:4px;padding-right:4px}
-  .administrators-table th:nth-child(3) {width:80px}
-  .management-page .administrators-table th.actions {width:76px}
-  .administrators-table th {white-space:normal}
+/* 环境表格：地址完整展示 */
+.management-page .table-scroll > .environment-table { table-layout: auto; min-width: 1000px; }
+.environment-table th:nth-child(1) { width: 120px; min-width: 120px; }
+.environment-table th:nth-child(2) { width: 164px; min-width: 164px; }
+.environment-table td:nth-child(2) { white-space: nowrap; overflow-wrap: normal; max-width: none; }
+.environment-table th:nth-child(3), .environment-table td.origin { width: 160px; min-width: 160px; }
+.environment-table td.origin { white-space: nowrap; overflow-wrap: normal; word-break: normal; }
+.environment-table th:nth-child(4) { width: 80px; }
+.environment-table th:nth-child(5), .environment-table th:nth-child(6) { width: 176px; min-width: 176px; }
+.environment-table td:nth-child(5), .environment-table td:nth-child(6) { white-space: nowrap; }
+.environment-table th:nth-child(7) { width: 84px; }
+.environment-table td:nth-child(7) { max-width: 84px; }
+
+/* 分页控件 */
+.management-page .pagination { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; }
+.management-page .pagination-controls { display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 8px; margin-left: auto; }
+.pagination-position { white-space: nowrap; font-variant-numeric: tabular-nums; color: var(--text-2); }
+.page-jump { display: flex; align-items: center; gap: 8px; margin: 0 0 0 8px; }
+.page-jump label { display: flex; align-items: center; gap: 6px; white-space: nowrap; font-size: 13px; color: var(--text-2); }
+.management-page .page-jump input { width: 64px; height: 30px; min-width: 0; padding: 4px 6px; text-align: center; font-size: 13px; }
+.management-page .page-jump button { min-height: 30px; padding: 0 12px; }
+@media (max-width: 640px) { .management-page .pagination-controls { width: 100%; } .page-jump { margin-left: 0; } }
+
+/* 表格内等宽内容 */
+.management-page .table-scroll .mono, .management-page .table-scroll .code-chip, .management-page .table-scroll .full-command { font-size: 12px; }
+.management-page .pagination .secondary { font-size: 13px; }
+.management-page .panel-title h2 { font-size: 15px; }
+
+/* 管理员表格 */
+.management-page .table-scroll > .administrators-table { min-width: 0; width: 100%; table-layout: fixed; }
+.management-page .administrators-table th, .management-page .administrators-table td { padding-left: 8px; padding-right: 8px; }
+.administrators-table th:nth-child(1) { width: 26%; }
+.administrators-table th:nth-child(2) { width: 14%; }
+.administrators-table th:nth-child(3) { width: 88px; }
+.administrators-table th:nth-child(4) { width: auto; }
+.management-page .administrators-table th.actions { width: 124px; }
+.management-page .administrators-table .badge { padding: 2px 6px; white-space: nowrap; }
+.administrators-table td:nth-child(3) { white-space: nowrap; overflow-wrap: normal; }
+.administrators-table td.actions { white-space: normal; }
+@media (max-width: 640px) {
+  .management-page .administrators-table th, .management-page .administrators-table td { padding-left: 4px; padding-right: 4px; }
+  .administrators-table th:nth-child(3) { width: 80px; }
+  .management-page .administrators-table th.actions { width: 76px; }
+  .management-page .administrators-table th { white-space: normal; }
+}
+
+/* 帮助说明（页头右侧悬浮） */
+.page-heading > .list-help { margin-left: auto; position: relative; }
+.page-heading > .list-help[open] p { position: absolute; z-index: 2; right: 0; width: 320px; padding: 12px; box-shadow: var(--shadow-pop); background: var(--card-bg); }
+
+/* 人员编辑表单（person_editor 内的基本信息表单） */
+.person-details-form { display: flex; flex-direction: column; gap: 16px; padding-bottom: 22px; border-bottom: 1px solid var(--border); }
+.person-details-form > button { align-self: flex-start; }
+.person-grant-heading { margin: 20px 0 12px; }
+.person-grant-heading p { margin-top: 5px; }
+.person-editor[open] { display: flex; flex-direction: column; }
+.person-editor > .drawer-heading { flex-shrink: 0; }
+
+@media (max-width: 1100px) {
+  .management-page .call-filters { gap: 6px; grid-template-columns: repeat(4, minmax(70px, 1fr)) auto auto; }
+  .management-page .stat-card { gap: 10px; padding: 10px 14px; }
+}
+@media (max-width: 760px) {
+  .management-page .main-content { padding: 12px; }
+  .management-page .topbar { padding: 0 12px; }
+  .management-page .stats-grid { flex-wrap: wrap; }
+  .management-page .stat-card { flex-basis: 50%; }
+  .management-page .call-filters { grid-template-columns: repeat(2, minmax(100px, 1fr)); }
+  .time-filters[open] { grid-row: auto; }
+  .time-filters > div { flex-wrap: wrap; }
+  .management-page .sidebar { padding: 10px 12px; }
+  .management-page .sidebar-account { display: none; }
 }
