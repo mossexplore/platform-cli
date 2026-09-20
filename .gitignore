@@ -8,6 +8,7 @@ build/
 dist/
 release/
 credentials.json
+.jupyter-local/
 
 # Docker deployment credentials
 access-service/.env

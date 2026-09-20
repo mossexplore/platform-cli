@@ -9,6 +9,8 @@
 
 启用权限校验后，CLI 在执行业务命令前向权限系统检查当前账号和环境的授权，通过后再调用平台接口。权限系统独立部署，数据保存在 MySQL；客户端校验不替代平台自身的权限控制。
 
+当前源码版本：**1.0.1**（新增 Jupyter Notebook 前台执行及 Terminal）。本地开发参见 [Jupyter 本地开发指南](docs/Jupyter本地开发指南.md)。下方链接仍为已发布的 1.0.0 安装包。
+
 ## 下载 1.0.0
 
 前往 [GitHub 正式版本](https://github.com/mossexplore/platform-cli/releases/tag/v1.0.0)，按需要下载：

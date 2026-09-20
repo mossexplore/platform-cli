@@ -264,6 +264,16 @@ class ConfigManager:
                 return profile
         raise ConfigError(f"找不到当前环境: {self.current_name}")
 
+    def jupyter_settings(self) -> Dict[str, Any]:
+        """Jupyter 配置严格限定到当前环境，不从其他环境回退。"""
+        for item in self._data["profiles"]:
+            if item["name"] == self.current_name:
+                value = item.get("jupyter", {})
+                if not isinstance(value, dict):
+                    raise ConfigError("当前环境 jupyter 必须为对象")
+                return dict(value)
+        raise ConfigError("当前环境不存在")
+
     def use_profile(self, name: str) -> Profile:
         target = next((item for item in self.profiles() if item.name == name), None)
         if target is None:

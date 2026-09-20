@@ -1,1 +1,4 @@
 include config.json
+include scripts/jupyter_local.py
+include examples/jupyter/hello.ipynb
+include docs/Jupyter本地开发指南.md

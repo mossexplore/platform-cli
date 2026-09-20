@@ -2,8 +2,8 @@
 
 只需查看版本、选择环境、登录和查询训练任务，请阅读 [CLI 快速使用指南](CLI快速使用指南.md)。
 
-`ml` 是 **WiseRec 平台** 的 Python 命令行客户端（包名 `wiserec-cli`，当前版本 `1.0.0`）。
-本文档按当前源码及命令帮助核对（2026-09-08），覆盖全部 31 个可执行子命令、参数、配置项与退出行为。示例中的 `TASK_ID`、`JOB_ID`、`PROJECT_ID`、`NAMESPACE_ID`、`EXPERIMENT_ID`、`SET_ID` 均须替换为对应资源的真实 ID；它们不是同一种 ID。
+`ml` 是 **WiseRec 平台** 的 Python 命令行客户端（包名 `wiserec-cli`，当前版本 `1.0.1`）。
+本文档覆盖命令参数、配置项与退出行为；2026-09-20 新增 Jupyter Notebook 与 Terminal 使用说明。示例中的 `TASK_ID`、`JOB_ID`、`PROJECT_ID`、`NAMESPACE_ID`、`EXPERIMENT_ID`、`SET_ID` 均须替换为对应资源的真实 ID；它们不是同一种 ID。
 
 > 阅读前提：查询平台数据前建议先完成 `ml login` 和 `ml business use`。`user`、`mep`、`mtp`、`offline`、`train`、`featureset` 需要有效认证和业务选择；`business list/use/refresh` 用于建立或维护业务上下文，不要求预先选好业务。没有认证或认证过期时，相关命令会自动启动 Edge 登录。
 
@@ -1000,3 +1000,44 @@ ml --config "C:\Users\l00123456\AppData\Roaming\ml\config.json" access status --
 `use_env_proxy` 为可选布尔值，默认 false：权限检查直接连接服务地址，不读取环境代理、不修改系统设置，其他业务请求保持原有行为。只有明确配置 true 才使用环境代理。默认直连仍支持 SSL_CERT_FILE、SSL_CERT_DIR 企业 CA，并校验证书。直连失败不会自动切换代理；可使用 `--diagnose` 查看当前模式及连接目标。
 
 完整命令记录要求服务数据库结构升级至版本 4，并使用更新后的 CLI；旧客户端及历史记录显示“未上报”。内容由 CLI 参数序列重建，不保留 shell 原始引号、管道或重定向，不读取参数指向的文件。管理台所有列表默认每页 10 条，访问授权按账号汇总。
+
+## Jupyter Notebook 与 Terminal（1.0.1 新增）
+
+用途：通过当前环境配置的 Jupyter Server 执行完整 Notebook，或连接远程交互终端。使用前提为可访问的 Jupyter Server、有效 Token、当前环境 business.json 中的业务选择；Terminal 需要服务端启用终端能力。独立本地环境的完整安装流程见 [Jupyter 本地开发指南](Jupyter本地开发指南.md)。
+
+### 连接配置
+
+在当前 profile 的 `jupyter` 中配置 `server_url`（省略时使用 api_endpoint）、`token_env`（默认 ML_JUPYTER_TOKEN）或 `token_file`、`kernel`（默认 python3）。可选 `business_file` 和 `ca_file` 分别指定业务文件、内部 CA；文件路径相对 config.json。Token 环境变量优先于文件。所有 HTTP 请求与 WebSocket 握手携带当前环境 selected.businessId，不回退其他环境。权限控制开启时继续检查平台权限。
+
+### 命令与参数
+
+| 命令 | 参数和选项 | 输出与行为 |
+|---|---|---|
+| `ml jupyter doctor` | 无 | 检查 HTTP 认证、Kernel 列表、Terminal 接口；不会创建资源，不代表 WebSocket 已验证 |
+| `ml jupyter notebook run SOURCE` | SOURCE 为本地 .ipynb；`--download` 结果根目录（默认 results）；`--kernel` 覆盖环境 Kernel；`--cwd` 服务器根目录下的相对工作目录；`--timeout` 全部代码执行时限（默认 600 秒）；`--startup-timeout` Kernel 就绪等待（默认 60 秒）；`--output text/json` | 顺序执行非空代码单元格，遇错停止。每次创建 UUID 结果目录，保存 executed.ipynb 和 summary.json；不覆盖输入 |
+| `ml jupyter terminal open` | 无，需真实 TTY | 创建并连接，输出终端名称；Ctrl+] 离开连接 |
+| `ml jupyter terminal list` | 无 | 终端名称、北京时间的最后活动时间 |
+| `ml jupyter terminal attach NAME` | 服务器返回的终端名称 | 重连现存终端，不保证补取全部历史输出 |
+| `ml jupyter terminal close NAME` | 要关闭的终端名称 | 删除指定远程终端，可能中止其中的进程 |
+
+### 调用示例
+
+```bash
+ml --config .jupyter-local/config.json jupyter doctor
+ml --config .jupyter-local/config.json jupyter notebook run examples/jupyter/hello.ipynb --download .jupyter-local/results
+ml --config .jupyter-local/config.json jupyter notebook run analysis.ipynb --cwd projects/demo --kernel python3 --timeout 1800 --output json
+ml --config .jupyter-local/config.json jupyter terminal open
+ml --config .jupyter-local/config.json jupyter terminal list
+ml --config .jupyter-local/config.json jupyter terminal attach 1
+ml --config .jupyter-local/config.json jupyter terminal close 1
+```
+
+`--cwd` 不同步本地依赖文件，请提前准备远程目录。Notebook 默认在本次独立目录执行；指定 cwd 后按指定目录执行。图像、HTML 等富输出保留在结果 Notebook 中。JSON 模式仅 stdout 输出最终结构化摘要，进度和实时输出进入 stderr；摘要时间均为北京时间 YYYY-MM-DD HH:mm:ss。
+
+### 执行与退出约定
+
+- Notebook 前台执行要求 CLI 持续连接；不提供 --detach，也不自动重试代码。
+- 退出码：成功 0；参数/认证/执行失败 1（解析错误可能为 2）；执行结果未知 2；超时 124；用户中断 130。
+- 失败、超时或中断时保存已收到的输出，尝试中断并删除本次 Kernel。清理失败在摘要中列出 kernel_id 和提示，用户可进一步检查。
+- Terminal 的 Ctrl+C 发给远程进程；Ctrl+D 发送 EOF；Ctrl+] 只断开客户端。close 或远程 exit 才会关闭 Shell。
+- Token 不进入请求 URL。原生 Jupyter 不依据 businessid 隔离业务，真实权限由服务端身份和工作空间保证。
