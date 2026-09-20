@@ -39,6 +39,9 @@ def run_notebook(client, source: Path, download: Path, *, kernel=None, cwd="",
     summary = {"id": execution_id, "status": "STARTING", "remote_directory": remote_dir,
                "notebook": str(result.resolve()), "started_at": now(), "completed_cells": 0,
                "cleanup_errors": []}
+    if isinstance(client.connection.studio_id, str) and client.connection.studio_id:
+        summary["studio_id"] = client.connection.studio_id
+        summary["server_url"] = client.connection.url
     kernel_id = None
     socket = None
     error = None

@@ -2,7 +2,7 @@
 
 只需查看版本、选择环境、登录和查询训练任务，请阅读 [CLI 快速使用指南](CLI快速使用指南.md)。
 
-`ml` 是 **WiseRec 平台** 的 Python 命令行客户端（包名 `wiserec-cli`，当前版本 `1.0.1`）。
+`ml` 是 **WiseRec 平台** 的 Python 命令行客户端（包名 `wiserec-cli`，当前版本 `1.0.2`）。
 本文档覆盖命令参数、配置项与退出行为；2026-09-20 新增 Jupyter Notebook 与 Terminal 使用说明。示例中的 `TASK_ID`、`JOB_ID`、`PROJECT_ID`、`NAMESPACE_ID`、`EXPERIMENT_ID`、`SET_ID` 均须替换为对应资源的真实 ID；它们不是同一种 ID。
 
 > 阅读前提：查询平台数据前建议先完成 `ml login` 和 `ml business use`。`user`、`mep`、`mtp`、`offline`、`train`、`featureset` 需要有效认证和业务选择；`business list/use/refresh` 用于建立或维护业务上下文，不要求预先选好业务。没有认证或认证过期时，相关命令会自动启动 Edge 登录。
@@ -1041,3 +1041,71 @@ ml --config .jupyter-local/config.json jupyter terminal close 1
 - 失败、超时或中断时保存已收到的输出，尝试中断并删除本次 Kernel。清理失败在摘要中列出 kernel_id 和提示，用户可进一步检查。
 - Terminal 的 Ctrl+C 发给远程进程；Ctrl+D 发送 EOF；Ctrl+] 只断开客户端。close 或远程 exit 才会关闭 Shell。
 - Token 不进入请求 URL。原生 Jupyter 不依据 businessid 隔离业务，真实权限由服务端身份和工作空间保证。
+
+## Web Studio 与动态 Jupyter 登录（1.0.2 新增）
+
+用途：使用管理台认证查询 Web Studio，选择默认实例，自动取得 Jupyter 路由和 Token。无需手动复制 Token，既有 direct 模式保持兼容。以下两个平台接口按 POST 调用：`/ai/backend/webstudio/dataExplorer/queryEnvList`、`/ai/backend/webstudio/dataExplorer/accessUrl`；域名取自当前 profile.api_endpoint 的源站。
+
+### 使用前提与配置
+
+先完成 `ml login` 和 `ml business use`。当前环境 business.json 的 selected.businessId 同时用于请求体和 businessid 请求头。accessUrl 的 operator 使用当前登录账号，不使用列表创建者。平台模式即使未启用额外权限服务，也需要管理台认证；已启用时继续进行命令权限检查。
+
+在当前 profile 增加以下配置（保留该环境已有字段）：
+
+```json
+"jupyter": {
+  "mode": "webstudio",
+  "server_url": "https://你的Jupyter网关域名",
+  "kernel": "python3"
+}
+```
+
+webstudio 模式 server_url 只填协议、域名及可选端口，不含路径、/lab、查询参数或 Token。返回 `/explore-env/路由ID/lab?token=...` 后，自动得到 `https://网关/explore-env/路由ID/` 作为 API 根地址。该路由 ID 与平台 envId 不要求相同。HTTP 和 WebSocket 均携带 Token 认证头及 businessid，不转发管理台 Cookie。
+
+平台模式忽略 token_env/token_file，拒绝 business_file 覆盖；使用已有平台业务文件。ca_file 和既有 TLS 配置仍有效。未配置 mode 时默认为 direct，继续读取静态 Token。direct 模式不能使用 --studio-id。
+
+**升级配置注意：** 现有安装器/配置同步流程会刷新默认 config.json，升级前请备份自定义配置；长期自定义配置建议放在独立文件，通过 `ml --config 路径` 或 ML_CONFIG 指定。
+
+### 命令与示例
+
+| 命令 | 参数和选项 | 输出 |
+|---|---|---|
+| `ml webstudio list` | `--page` 默认 1、`--page-size` 默认 10，均须正整数；`--name` 名称模糊匹配；`--status`、`--relator`、`--env-id` 精确匹配；可选 `--business-id` 必须与当前选择一致；`--output table/json` | 当前页、总数及实例记录 |
+| `ml webstudio login ENV_ID` | 必填 Web Studio ID | 定位实例、取得动态凭据、验证 Kernel HTTP 接口，成功后保存默认目标；失败不覆盖旧选择 |
+| `ml webstudio show` | 无 | 当前配置、环境、账号和业务下的默认实例（保存时的名称，不是实时状态） |
+
+```bash
+ml webstudio list --status online --name l001
+ml webstudio list --relator l00123456 --page 2 --page-size 20
+ml webstudio list --output json
+ml webstudio login f925886d-072c-48fc-a4ec-636ab3ba9a60
+ml webstudio show
+ml jupyter doctor
+ml jupyter terminal open
+ml jupyter notebook run analysis.ipynb --download results
+```
+
+列表按 envId、名称、集群类型、资源规格、状态、创建者、修改者、启动时间展示。首列固定 36，不换行截断；启动时间使用 accessTime，转换为北京时间 YYYY-MM-DD HH:mm:ss。JSON 保留原始响应字段及原始机器时间，敏感字段脱敏；不能把原始 UTC 时间当作北京时间展示。
+
+已有 `jupyter doctor`、`notebook run`、`terminal open/list/attach/close` 均新增 `--studio-id ENV_ID`，只覆盖本次目标、不修改默认选择：
+
+```bash
+ml jupyter doctor --studio-id f925886d-072c-48fc-a4ec-636ab3ba9a60
+ml jupyter terminal attach 1 --studio-id f925886d-072c-48fc-a4ec-636ab3ba9a60
+ml jupyter terminal close 1 --studio-id f925886d-072c-48fc-a4ec-636ab3ba9a60
+```
+
+终端名称仅在所属实例内有效。操作前打印目标 envId；Notebook 摘要记录 studio_id 与不带 Token 的服务地址。
+
+### 凭据、默认选择与故障处理
+
+- 默认实例存于用户配置目录 webstudio.json，仅保存 envId、名称和北京时间的选择时间，不保存 Token。按配置文件路径、平台地址、profile、网关、账号、businessId 隔离。
+- 每次 Jupyter 命令重新获取一次访问地址/Token，执行期间固定该连接。不会因认证失败重放 Notebook、创建终端或在新实例清理旧实例资源。
+- 只连接 online 实例；其他状态提示在管理台处理。不自动启动、重启或删除 Web Studio。
+- 管理台认证本地过期沿用现有认证获取机制。平台或 Jupyter 拒绝凭据时，本版本不自动重发 accessUrl；先检查 `ml login`、业务选择、网关权限后重试命令。执行已开始时请先核查远程结果，勿盲目重跑。
+- doctor 逐步报告管理台、实例、地址获取及 Kernel/Terminal HTTP 检查；WebSocket 在实际执行或 attach 时验证。登录成功不表示 Terminal 必然有权限。
+- 访问 URL 必须含唯一有效 Token，路径入口为 /lab 或 /lab/。拒绝跨域地址、路径穿越、重复 Token、额外未知查询参数；遇到新的网关格式需明确适配，不盲目转发。
+- 普通错误不输出含 Token 的平台响应正文。当前只适配提供的接口与 Token 头模式，生产网关额外 Cookie/SSO 要求仍需实际联调。
+- 查询结果为空正常显示；找不到指定实例、业务不一致、状态不可用、认证拒绝和配置无效均返回非零退出码。
+
+Windows 联网/离线打包脚本保持不变，新模块自动进入 Wheel；Jupyter 服务端仍非默认安装依赖。本地开发示例继续使用 direct 模式。

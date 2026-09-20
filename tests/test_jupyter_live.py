@@ -114,7 +114,8 @@ def test_bad_token_rejected(client):
             wrong.request("GET", "api/kernelspecs")
 
 
-def test_real_server_with_url_prefix(tmp_path):
+@pytest.mark.parametrize("mode", ["direct", "webstudio"])
+def test_real_server_with_url_prefix(tmp_path, mode):
     """真实 /user/name/ 路由，验证 HTTP、Kernel WS 和 Terminal WS 均保留前缀。"""
     import socket as sockets
     from wiserec_cli.jupyter.notebook import run_notebook
@@ -149,6 +150,39 @@ def test_real_server_with_url_prefix(tmp_path):
                     if time.monotonic() > deadline or process.poll() is not None:
                         raise
                     time.sleep(0.1)
+            if mode == "webstudio":
+                # 平台接口模拟响应，Jupyter HTTP/WebSocket 使用真实服务。
+                from unittest.mock import Mock, patch
+                import httpx
+                from wiserec_cli.business import Department, Tenant
+                from wiserec_cli.models import Credentials
+                from wiserec_cli.client import PlatformClient
+                from wiserec_cli.webstudio.resolve import resolve
+                from wiserec_cli.webstudio.store import SelectionStore
+                config_path = tmp_path / "cli-config.json"
+                config_path.write_text(json.dumps({"current": "mock-platform", "profiles": [{
+                    "name": "mock-platform", "api_endpoint": "https://platform.invalid/dashboard",
+                    "jupyter": {"mode": "webstudio", "server_url": f"http://127.0.0.1:{port}"}}]}))
+                runtime = Runtime(config_path=config_path, business_path=tmp_path / "business.json")
+                runtime.auth = Mock()
+                runtime.auth.ensure_credentials.return_value = Credentials.create("mock-platform", "c", "x", "viewer", 3600)
+                runtime.business.refresh("mock-platform", "viewer", [Department("d", "d", (Tenant("b", "b", (), ()),))], browser_business_id="b")
+                def platform_response(request):
+                    body = json.loads(request.content)
+                    assert body["businessId"] == request.headers["businessid"] == "b"
+                    if request.url.path.endswith("queryEnvList"):
+                        result = {"code": 0, "count": 1, "envs": [{"envId": "platform-id", "status": "online", "operator": "creator"}]}
+                    else:
+                        assert body["operator"] == "viewer"
+                        result = {"code": 0, "accessUrl": "/user/local/lab?token=" + token}
+                    return httpx.Response(200, json={"result": result})
+                with patch("wiserec_cli.webstudio.resolve.PlatformClient", side_effect=lambda *a, **kw: PlatformClient(*a, transport=httpx.MockTransport(platform_response), **kw)):
+                    selected = SelectionStore(tmp_path / "selection.json")
+                    dynamic = resolve(runtime, "platform-id", login=True, store=selected)
+                    assert token not in selected.path.read_text()
+                # 替换仅用于等待启动的探针连接，后续所有操作走动态发现结果。
+                prefixed.http.close()
+                prefixed.__init__(dynamic)
             source = tmp_path / "prefix.ipynb"
             nbformat.write(nbformat.v4.new_notebook(cells=[nbformat.v4.new_code_cell("print('PREFIX_OK')")]), source)
             result = run_notebook(prefixed, source, tmp_path / "results", emit=lambda _: None)

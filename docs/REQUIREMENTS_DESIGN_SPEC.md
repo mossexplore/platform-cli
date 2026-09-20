@@ -7,7 +7,7 @@
 | 项目名称 | WiseRec Python CLI |
 | Python 包名 | `wiserec-cli` |
 | 命令名 | `ml` |
-| 当前代码版本 | `1.0.1` |
+| 当前代码版本 | `1.0.2` |
 | 目标平台 | Windows 优先，兼容 macOS/Linux 的基础路径逻辑 |
 | 文档整理日期 | 2026-08-16 |
 | 代码仓库 | `mossexplore/platform-cli` |

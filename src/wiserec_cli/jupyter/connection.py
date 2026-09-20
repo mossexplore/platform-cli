@@ -29,10 +29,19 @@ class Connection:
     kernel: str = "python3"
     verify: Any = True
     timeout: float = 30
+    studio_id: str = ""
 
 
-def from_runtime(runtime) -> Connection:
+def from_runtime(runtime, studio_id=None, report=None) -> Connection:
     settings = runtime.config.jupyter_settings()
+    mode = settings.get("mode", "direct")
+    if mode == "webstudio":
+        from ..webstudio.resolve import resolve
+        return resolve(runtime, studio_id, report=report)
+    if mode != "direct":
+        raise JupyterError("jupyter.mode 仅支持 direct 或 webstudio")
+    if studio_id:
+        raise JupyterError("--studio-id 需要 jupyter.mode=webstudio")
     profile = runtime.config.current_profile()
     url = settings.get("server_url", profile.api_endpoint)
     parts = urlsplit(url)
@@ -105,7 +114,7 @@ class JupyterClient:
         except httpx.HTTPError as exc:
             raise JupyterError("Jupyter 网络请求失败；未自动重试") from exc
         if response.status_code in {401, 403}:
-            raise JupyterError(f"Jupyter 认证或权限失败（HTTP {response.status_code}）")
+            raise JupyterError(f"Jupyter {method} {path.split(chr(63))[0]} 认证或权限失败（HTTP {response.status_code}）；请检查动态凭据与接口权限")
         if not response.is_success:
             raise JupyterError(f"Jupyter 请求失败（HTTP {response.status_code}）；请检查地址、路径和服务能力")
         if response.status_code == 204 or not response.content:

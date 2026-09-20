@@ -32,8 +32,11 @@ def text_output(value):
     typer.echo(_CONTROL.sub("", value), nl=False, err=True)
 
 
-def client_for(context):
-    return JupyterClient(from_runtime(runtime_from_context(context)))
+def client_for(context, studio_id=None, report=None):
+    connection = from_runtime(runtime_from_context(context), studio_id, report=report)
+    if connection.studio_id:
+        typer.echo(f"目标 Web Studio：{connection.studio_id}", err=True)
+    return JupyterClient(connection)
 
 
 def display_time(value):
@@ -49,11 +52,12 @@ def display_time(value):
 
 
 @jupyter_app.command("doctor")
-def doctor(context: typer.Context):
+def doctor(context: typer.Context, studio_id: Optional[str] = typer.Option(None, "--studio-id")):
     """验证 Token、业务上下文、Kernel 与终端管理接口（不创建资源）。"""
     try:
-        with client_for(context) as client:
+        with client_for(context, studio_id, report=lambda value: typer.echo(value, err=True)) as client:
             specs = client.request("GET", "api/kernelspecs")
+            typer.echo("Kernel 接口：通过")
             terminals = client.request("GET", "api/terminals")
             typer.echo("Jupyter HTTP 认证成功；businessid 已携带")
             typer.echo("可用 Kernel：" + ", ".join(specs.get("kernelspecs", {})))
@@ -71,14 +75,15 @@ def run(context: typer.Context,
         cwd: str = typer.Option("", "--cwd", help="相对服务器根目录的工作目录；默认使用本次独立目录"),
         timeout: float = typer.Option(600, "--timeout", min=0.1, help="全部单元格执行时限（秒）"),
         startup_timeout: float = typer.Option(60, "--startup-timeout", min=0.1, help="Kernel 就绪等待（秒）"),
-        output: str = typer.Option("text", "--output", help="text 或 json")):
+        output: str = typer.Option("text", "--output", help="text 或 json"),
+        studio_id: Optional[str] = typer.Option(None, "--studio-id")):
     """上传并按顺序执行 Notebook；失败也保存部分结果，不自动重试。"""
     if output not in {"text", "json"}:
         fail("--output 仅支持 text 或 json")
     if source.suffix.lower() != ".ipynb":
         fail("输入必须为 .ipynb 文件")
     try:
-        with client_for(context) as client:
+        with client_for(context, studio_id) as client:
             result = run_notebook(client, source, download, kernel=kernel, cwd=cwd,
                                   timeout=timeout, startup_timeout=startup_timeout, emit=text_output)
     except Exception as exc:
@@ -97,10 +102,10 @@ def run(context: typer.Context,
 
 
 @terminal_app.command("list")
-def list_terminals(context: typer.Context):
+def list_terminals(context: typer.Context, studio_id: Optional[str] = typer.Option(None, "--studio-id")):
     """列出当前 Jupyter 身份可见的终端。"""
     try:
-        with client_for(context) as client:
+        with client_for(context, studio_id) as client:
             items = client.request("GET", "api/terminals")
         table = Table()
         table.add_column("终端名称", min_width=36, max_width=36, width=36, no_wrap=True, overflow="ignore")
@@ -113,11 +118,11 @@ def list_terminals(context: typer.Context):
 
 
 @terminal_app.command("open")
-def open_terminal(context: typer.Context):
+def open_terminal(context: typer.Context, studio_id: Optional[str] = typer.Option(None, "--studio-id")):
     """创建终端并连接，Ctrl+] 仅断开本地连接。"""
     try:
         require_tty()
-        with client_for(context) as client:
+        with client_for(context, studio_id) as client:
             terminal = client.request("POST", "api/terminals", {})
             typer.echo(f"终端名称：{terminal['name']}；按 Ctrl+] 断开，exit 关闭远程 Shell。")
             attach(client, terminal["name"])
@@ -126,11 +131,12 @@ def open_terminal(context: typer.Context):
 
 
 @terminal_app.command("attach")
-def attach_terminal(context: typer.Context, name: str = typer.Argument(...)):
+def attach_terminal(context: typer.Context, name: str = typer.Argument(...),
+                    studio_id: Optional[str] = typer.Option(None, "--studio-id")):
     """连接已有终端，不保证补取完整历史输出。"""
     try:
         require_tty()
-        with client_for(context) as client:
+        with client_for(context, studio_id) as client:
             typer.echo(f"连接终端 {name}；按 Ctrl+] 断开。")
             attach(client, name)
     except Exception as exc:
@@ -138,10 +144,11 @@ def attach_terminal(context: typer.Context, name: str = typer.Argument(...)):
 
 
 @terminal_app.command("close")
-def close_terminal(context: typer.Context, name: str = typer.Argument(...)):
+def close_terminal(context: typer.Context, name: str = typer.Argument(...),
+                    studio_id: Optional[str] = typer.Option(None, "--studio-id")):
     """关闭指定远程终端及其 Shell，会影响在其中运行的进程。"""
     try:
-        with client_for(context) as client:
+        with client_for(context, studio_id) as client:
             client.request("DELETE", "api/terminals/" + quote(name, safe=""))
         typer.echo("已关闭远程终端：" + name)
     except Exception as exc:
