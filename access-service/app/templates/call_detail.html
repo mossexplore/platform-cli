@@ -2,7 +2,7 @@
 <div class="drawer-heading"><div><p class="eyebrow">CALL DETAILS</p><h2 id="call-title-{{ item.id }}">调用详情</h2></div><button type="button" class="text-button" data-close>关闭</button></div>
 <div class="drawer-body">
 <div class="call-detail-result"><span class="badge {{ 'positive' if item.allowed else 'danger' }}">{{ '通过' if item.allowed else '拒绝或异常' }}</span><p>{{ '授权检查通过，不代表业务执行成功。' if item.allowed else reason_labels.get(item.reason, '未知原因，请联系管理员') }}</p></div>
-<dl class="detail-list"><dt>调用时间</dt><dd>{{ item.created_at|beijing }}</dd><dt>账号</dt><dd>{{ item.actor }}</dd><dt>环境</dt><dd>{{ item.environment }}</dd><dt>业务 ID</dt><dd class="mono">{{ item.business_id }}</dd><dt>命令</dt><dd class="mono">{{ item.command }}</dd></dl>
+<dl class="detail-list"><dt>调用时间</dt><dd>{{ item.created_at|beijing }}</dd><dt>用户名</dt><dd>{{ item.actor }}</dd><dt>环境</dt><dd>{{ item.environment }}</dd><dt>业务 ID</dt><dd class="mono">{{ item.business_id }}</dd><dt>命令名称</dt><dd class="mono">{{ item.command }}</dd></dl>
 <div class="call-detail-section"><h3>完整命令</h3><button type="button" class="text-button" data-copy-call="call-command-{{ item.id }}" {% if not item.full_command %}disabled{% endif %}>复制命令</button></div>
 <pre id="call-command-{{ item.id }}" class="call-command" tabindex="0">{{ item.full_command or '未上报（旧客户端或历史记录）' }}</pre><p class="call-copy-status" aria-live="polite" data-copy-status></p>
 <h3 class="call-section-title">版本判断</h3>
