@@ -9,18 +9,18 @@
 
 启用权限校验后，CLI 在执行业务命令前向权限系统检查当前账号和环境的授权，通过后再调用平台接口。权限系统独立部署，数据保存在 MySQL；客户端校验不替代平台自身的权限控制。
 
-当前源码版本：**1.0.3**（新增 CLI 版本上报与服务端版本准入）。本地开发参见 [Jupyter 本地开发指南](docs/Jupyter本地开发指南.md)。下方链接仍为已发布的 1.0.0 安装包。
+当前源码版本：**1.0.3**（新增 CLI 版本上报与服务端版本准入）。本地开发参见 [Jupyter 本地开发指南](docs/Jupyter本地开发指南.md)。本版发布说明见 [1.0.3 发布说明](docs/RELEASE_NOTES_1.0.3.md)。
 
-## 下载 1.0.0
+## 下载 1.0.3
 
-前往 [GitHub 正式版本](https://github.com/mossexplore/platform-cli/releases/tag/v1.0.0)，按需要下载：
+前往 [GitHub 正式版本](https://github.com/mossexplore/platform-cli/releases/tag/v1.0.3)，按需要下载：
 
 | 文件 | 用途 |
 | --- | --- |
-| `wiserec-cli-1.0.0-windows-py3-online.zip` | Windows 联网安装，支持企业 Python 包源 |
-| `wiserec-cli-1.0.0-windows-x64-py312-offline.zip` | Windows x64、Python 3.12 离线安装 |
-| `wiserec_cli-1.0.0-py3-none-any.whl` | 通过 pip 安装 CLI，依赖另行准备 |
-| `cli-access-1.0.0-linux-amd64.tar.gz` | Linux x86_64 权限系统 Docker 镜像 |
+| `wiserec-cli-1.0.3-windows-py3-online.zip` | Windows 联网安装，支持企业 Python 包源 |
+| `wiserec-cli-1.0.3-windows-x64-py312-offline.zip` | Windows x64、Python 3.12 离线安装 |
+| `wiserec_cli-1.0.3-py3-none-any.whl` | 通过 pip 安装 CLI，依赖另行准备 |
+| `cli-access-1.0.3-linux-amd64.tar.gz` | Linux x86_64 权限系统 Docker 镜像 |
 
 Release 同时提供配置示例、安装指南和 `SHA256SUMS` 校验文件。
 
@@ -48,18 +48,18 @@ ml --help
 服务支持 Docker 部署，复用现有 MySQL 8.x。内网服务器无需拉取镜像，可下载 Release 中的离线镜像后导入：
 
 ```bash
-docker load -i cli-access-1.0.0-linux-amd64.tar.gz
+docker load -i cli-access-1.0.3-linux-amd64.tar.gz
 ```
 
 接着按 [Docker 部署速查](docs/权限管理系统Docker安装部署与调试指南.md) 完成配置和启动：
 
 - 配置保存在宿主机 `/opt/cli-access-config/service.env`，只读挂载到容器 `/run/cli-access`。
-- 使用镜像 `cli-access:1.0.0` 启动，默认端口 `8008`。
+- 使用镜像 `cli-access:1.0.3` 启动，默认端口 `8008`。
 - 管理页面：`http://服务器IP:8008/cli-permission`。
 - 管理员添加与平台登录账号一致的人员、配置对应环境并授予访问权限。
 - 修改挂载配置后执行 `docker restart cli-access`；运行日志使用 `docker logs -f cli-access`。
 
-新数据库需要初始化并创建管理员；已有结构版本 7 且管理员正常的数据库无需重新初始化。
+新数据库需要初始化并创建管理员；已有结构版本 8 且管理员正常时无需重新初始化。由 1.0.0 升级必须完成数据库结构 7 → 8 迁移，步骤见 [升级与回滚指南](docs/权限管理系统1.0.0升级至1.0.3指南.md)。
 
 ## CLI 接入权限系统
 

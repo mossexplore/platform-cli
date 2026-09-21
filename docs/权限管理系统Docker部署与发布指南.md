@@ -1,6 +1,6 @@
 # 权限管理系统 Docker 部署与 GitHub 镜像发布
 
-适用项目版本：1.0.0；数据库结构版本：7。Docker 仅部署 access-service，终端 ml 客户端仍按原方式安装。
+适用项目版本：1.0.3；数据库结构版本：8。Docker 仅部署 access-service，终端 ml 客户端仍按原方式安装。
 
 ## 1. 架构与前提
 
@@ -128,7 +128,7 @@ restart:unless-stopped 在进程退出后恢复，Docker 服务需开机启动�
 
 ```bash
 docker buildx build --platform linux/amd64 --load \
-  --build-arg VERSION=1.0.0 \
+  --build-arg VERSION=1.0.3 \
   -t cli-access:local access-service
 ```
 
