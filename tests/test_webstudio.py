@@ -64,11 +64,14 @@ def requests(rt):
 
 def test_dynamic_connection_current_operator_and_business(rt, requests, monkeypatch):
     monkeypatch.setenv('ML_JUPYTER_TOKEN', 'wrong-static-token')
-    connection = from_runtime(rt, ENV_ID)
+    reports = []
+    connection = from_runtime(rt, ENV_ID, report=reports.append)
     assert connection.token == TOKEN
     assert connection.url == 'https://gateway.example' + ROUTE
     assert connection.studio_id == ENV_ID
     assert TOKEN not in repr(connection)
+    assert ('Jupyter 完整访问地址（包含 token，请谨慎保管）：'
+            'https://gateway.example' + ROUTE + 'lab?token=' + TOKEN) in reports
     assert len(requests) == 2
     assert requests[0][1]['envId'] == ENV_ID
     assert requests[1][1]['operator'] == 'current-user'
@@ -196,6 +199,15 @@ def test_non_online_does_not_request_access(rt, requests):
         with pytest.raises(JupyterError, match='online'):
             resolve(rt, ENV_ID)
     assert not requests
+
+
+def test_invalid_access_url_is_reported_before_validation(rt, requests):
+    reports = []
+    with patch.object(WebStudioService, 'access', return_value='/broken?token=' + TOKEN):
+        with pytest.raises(JupyterError, match='访问地址无效'):
+            resolve(rt, ENV_ID, report=reports.append)
+    assert reports[-1] == ('Jupyter 完整访问地址（包含 token，请谨慎保管）：'
+                           'https://gateway.example/broken?token=' + TOKEN)
 
 
 def test_business_mismatch_rejected_before_any_request(rt, requests):

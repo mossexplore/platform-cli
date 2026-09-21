@@ -1095,7 +1095,7 @@ ml jupyter terminal attach 1 --studio-id f925886d-072c-48fc-a4ec-636ab3ba9a60
 ml jupyter terminal close 1 --studio-id f925886d-072c-48fc-a4ec-636ab3ba9a60
 ```
 
-终端名称仅在所属实例内有效。操作前打印目标 envId；Notebook 摘要记录 studio_id 与不带 Token 的服务地址。
+终端名称仅在所属实例内有效。操作前打印目标 envId；Notebook 摘要记录 studio_id 与不带 Token 的服务地址。`ml webstudio login` 以及所有通过 Web Studio 模式运行的 `ml jupyter` 命令，都会在地址校验和连接前将包含 Token 的完整 Jupyter 访问地址输出到 stderr，便于定位网关路径问题，且不会污染 `--output json` 的 stdout。
 
 ### 凭据、默认选择与故障处理
 
@@ -1105,7 +1105,7 @@ ml jupyter terminal close 1 --studio-id f925886d-072c-48fc-a4ec-636ab3ba9a60
 - 管理台认证本地过期沿用现有认证获取机制。平台或 Jupyter 拒绝凭据时，本版本不自动重发 accessUrl；先检查 `ml login`、业务选择、网关权限后重试命令。执行已开始时请先核查远程结果，勿盲目重跑。
 - doctor 逐步报告管理台、实例、地址获取及 Kernel/Terminal HTTP 检查；WebSocket 在实际执行或 attach 时验证。登录成功不表示 Terminal 必然有权限。
 - 访问 URL 必须含唯一有效 Token，路径入口为 /lab 或 /lab/。拒绝跨域地址、路径穿越、重复 Token、额外未知查询参数；遇到新的网关格式需明确适配，不盲目转发。
-- 普通错误不输出含 Token 的平台响应正文。当前只适配提供的接口与 Token 头模式，生产网关额外 Cookie/SSO 要求仍需实际联调。
+- 完整 Jupyter 访问地址中的 Token 等同临时凭据，请勿将命令输出转发到群聊、工单或公共日志。CLI 不会将该地址或 Token 保存到默认实例文件；普通错误仍不输出其他含 Token 的平台响应正文。当前只适配提供的接口与 Token 头模式，生产网关额外 Cookie/SSO 要求仍需实际联调。
 - 查询结果为空正常显示；找不到指定实例、业务不一致、状态不可用、认证拒绝和配置无效均返回非零退出码。
 
 Windows 联网/离线打包脚本保持不变，新模块自动进入 Wheel；Jupyter 服务端仍非默认安装依赖。本地开发示例继续使用 direct 模式。

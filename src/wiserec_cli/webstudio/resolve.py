@@ -4,6 +4,7 @@ import ssl
 from contextlib import contextmanager, redirect_stdout
 from pathlib import Path
 import sys
+from urllib.parse import urljoin
 
 from ..access import check_access
 from ..client import PlatformClient
@@ -54,7 +55,10 @@ def resolve(runtime, studio_id=None, *, login=False, store=None, report=None):
         if item.get('status') != 'online':
             raise JupyterError('Web Studio 当前不是 online 状态；请在管理台确认或启动实例')
         notify(f'实例查询：通过；Web Studio {target}')
-        url, token = parse_access_url(settings.get('server_url'), service.access(target))
+        access_url = service.access(target)
+        full_access_url = urljoin(settings['server_url'].rstrip('/') + '/', access_url)
+        notify(f'Jupyter 完整访问地址（包含 token，请谨慎保管）：{full_access_url}')
+        url, token = parse_access_url(settings.get('server_url'), access_url)
         notify('访问地址获取：通过')
     verify = runtime.config.verify_ssl
     if settings.get('ca_file'):
