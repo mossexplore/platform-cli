@@ -1,11 +1,11 @@
 {% extends 'base.html' %}
 {% from 'version_components.html' import policy_status, exception_status, confirm_action, policy_detail %}
-{% set tab = 'versions' %}{% set page_title = 'CLI 版本管理' %}
+{% set tab = 'versions' %}{% set page_title = '版本管理' %}
 {% set titles = {'policies':'版本策略','usage':'版本使用','exceptions':'临时例外'} %}
-{% block title %}CLI 版本管理{% endblock %}
+{% block title %}版本管理{% endblock %}
 {% block content %}
 <div class="page-heading version-heading">
-  <h1>CLI 版本管理</h1>
+  <h1>版本管理</h1>
   <div class="version-heading-actions"><button type="button" class="secondary" data-open="version-help">管控说明</button>
   {% if admin.role == 'super_admin' %}<button type="button" data-open="{{ 'exception-create' if view == 'exceptions' else 'policy-create' }}">{{ '新增例外' if view == 'exceptions' else '新增策略' }}</button>{% endif %}</div>
 </div>

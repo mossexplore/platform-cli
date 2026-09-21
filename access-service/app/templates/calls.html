@@ -10,10 +10,10 @@
     'CLI_VERSION_INVALID': 'CLI 版本格式不合法',
     'CLI_PROTOCOL_UNSUPPORTED': 'CLI 上报协议不受支持'
 } %}
-{% set tab = 'calls' %}{% set page_title = 'CLI 调用日志' %}
-{% block title %}CLI 调用日志{% endblock %}
+{% set tab = 'calls' %}{% set page_title = '调用日志' %}
+{% block title %}调用日志{% endblock %}
 {% block content %}
-<div class="page-heading"><div><p class="eyebrow">ACCESS ACTIVITY</p><h1>CLI 调用日志</h1><p class="subtitle">追踪每次业务命令的授权检查，快速定位访问被拒绝的原因。</p></div></div>
+<div class="page-heading"><div><p class="eyebrow">ACCESS ACTIVITY</p><h1>调用日志</h1><p class="subtitle">追踪每次业务命令的授权检查，快速定位访问被拒绝的原因。</p></div></div>
 <section class="panel query-panel call-query">
 <form class="call-filters" method="get" action="/cli-permission/admin/calls">
 <label>业务 ID<input name="business_id" value="{{ business_id }}" maxlength="256"></label><label>CLI 版本<input name="cli_version" value="{{ cli_version }}" maxlength="64"></label><label>用户名<input name="username" value="{{ username }}" maxlength="128"></label><label>环境标识<input name="environment" value="{{ environment }}" maxlength="64"></label><label>命令名称<input name="command" value="{{ command }}" maxlength="128" placeholder="例如 ml train list"></label><label>授权结果<select name="result"><option value="">全部</option><option value="allowed" {% if result=='allowed' %}selected{% endif %}>通过</option><option value="denied" {% if result=='denied' %}selected{% endif %}>拒绝或异常</option></select></label><div class="time-range" data-time-range><span class="time-range-label">时间范围（北京时间 UTC+8）{% if begin or end %}<em>已设置</em>{% endif %}</span><div class="time-range-box"><input type="datetime-local" name="begin" value="{{ begin }}" step="1" aria-label="开始时间（北京时间 UTC+8）"><span class="time-range-sep">至</span><input type="datetime-local" name="end" value="{{ end }}" step="1" aria-label="结束时间（北京时间 UTC+8）"></div><div class="time-presets"><button type="button" class="preset-chip" data-preset="1h">最近 1 小时</button><button type="button" class="preset-chip" data-preset="24h">最近 24 小时</button><button type="button" class="preset-chip" data-preset="7d">最近 7 天</button><button type="button" class="preset-chip" data-preset="30d">最近 30 天</button></div></div><div class="filter-actions"><button>查询</button><a class="secondary" href="/cli-permission/admin/calls">清空筛选</a></div></form></section>

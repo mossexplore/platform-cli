@@ -13,22 +13,22 @@ def test_effective_grant_counts_and_filters(system):
         grant.expires_at = now() + timedelta(days=2)
         db.commit()
         assert overview(db) == {'users': 1, 'environments': 1, 'active': 1, 'expiring': 1}
-    assert '人员与授权 <span class="count">1 人' in client.get('/cli-permission/admin?tab=grants&status=expiring').text
+    assert '人员授权 <span class="count">1 人' in client.get('/cli-permission/admin?tab=grants&status=expiring').text
     with app.state.sessions() as db:
         db.scalar(select(User)).enabled = False
         db.commit()
         assert overview(db)['active'] == 0
         assert overview(db)['expiring'] == 0
-    assert '人员与授权 <span class="count">0 人' in client.get('/cli-permission/admin?tab=grants&status=active').text
+    assert '人员授权 <span class="count">0 人' in client.get('/cli-permission/admin?tab=grants&status=active').text
     assert '人员已停用' in client.get('/cli-permission/admin?tab=grants&status=disabled').text
 
 
 def test_name_and_environment_search(system):
     _, client, _ = system
     login(client)
-    assert '人员与授权 <span class="count">1 人' in client.get('/cli-permission/admin?tab=users&q=Alice').text
+    assert '人员授权 <span class="count">1 人' in client.get('/cli-permission/admin?tab=users&q=Alice').text
     assert '环境列表 <span class="count">1 条' in client.get('/cli-permission/admin?tab=environments&q=生产').text
-    assert '人员与授权 <span class="count">1 人' in client.get('/cli-permission/admin?tab=grants&q=prod').text
+    assert '人员授权 <span class="count">1 人' in client.get('/cli-permission/admin?tab=grants&q=prod').text
     assert client.get('/cli-permission/admin?tab=users&status=expired').status_code == 400
 
 
@@ -41,7 +41,7 @@ def test_search_pagination_keeps_status(system):
     page = client.get('/cli-permission/admin?tab=users&q=person&status=enabled').text
     assert 'status=enabled&amp;page=2' in page
     page2 = client.get('/cli-permission/admin?tab=users&q=person&status=enabled&page=2').text
-    assert '人员与授权 <span class="count">21 人' in page2
+    assert '人员授权 <span class="count">21 人' in page2
 
 
 def test_expired_grant_and_environment_disabled(system):
