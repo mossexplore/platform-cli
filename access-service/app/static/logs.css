@@ -160,3 +160,21 @@
   .call-query .time-range-box input { width: 100%; flex: auto; }
   .call-query .time-range-sep { padding: 0 8px; }
 }
+
+/* Keep common filters on one row; expand secondary conditions only when needed. */
+.management-page .call-query .call-filters { display: block; }
+.call-filter-primary { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)) auto; gap: 12px; align-items: end; }
+.call-filter-primary .filter-actions { grid-column: auto; }
+.call-filter-advanced { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 12px; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border); }
+.call-filter-advanced[hidden] { display: none; }
+.call-filter-advanced .time-range { grid-column: 1 / -1; }
+.call-query [data-toggle-call-filters] { padding: 0 4px; }
+@media (max-width: 1100px) {
+  .call-filter-primary { grid-template-columns: repeat(3,minmax(0,1fr)); }
+  .call-filter-primary .filter-actions { grid-column: 1 / -1; justify-self: end; }
+}
+@media (max-width: 520px) {
+  .call-filter-primary, .call-filter-advanced { grid-template-columns: repeat(2,minmax(0,1fr)); }
+  .call-filter-primary .filter-actions { flex-wrap: wrap; justify-self: start; }
+  .call-filter-advanced > label:last-of-type { grid-column: 1 / -1; }
+}

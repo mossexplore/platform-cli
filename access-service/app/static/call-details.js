@@ -16,3 +16,13 @@ document.querySelectorAll('[data-copy-call]').forEach((button) => {
     }
   });
 });
+
+const filterToggle = document.querySelector('[data-toggle-call-filters]');
+if (filterToggle) {
+  filterToggle.addEventListener('click', () => {
+    const fields = document.getElementById(filterToggle.getAttribute('aria-controls'));
+    fields.hidden = !fields.hidden;
+    filterToggle.setAttribute('aria-expanded', String(!fields.hidden));
+    filterToggle.textContent = fields.hidden ? '更多筛选' : '收起筛选';
+  });
+}
