@@ -1,3 +1,4 @@
+import hashlib
 import json
 from pathlib import Path
 from unittest.mock import Mock, patch
@@ -27,7 +28,7 @@ def studio():
     return {'envId': ENV_ID, 'labelName': 'a long name ' * 4, 'clusterType': 'CCE',
             'imageSpecific': '4C32G0GPU', 'status': 'online', 'operator': 'creator',
             'modifier': 'modifier', 'accessTime': '2026-09-20T01:55:29.000Z', 'businessId': 'pps',
-            'extraField': {'keep': True}}
+            'region': 'cn-north-4', 'extraField': {'keep': True}}
 
 
 @pytest.fixture
@@ -79,6 +80,59 @@ def test_dynamic_connection_current_operator_and_business(rt, requests, monkeypa
     assert requests[1][0].url.path == '/ai/backend/webstudio/dataExplorer/accessUrl'
 
 
+def test_region_selects_gateway_within_same_environment(rt, requests):
+    settings = rt.config._data['profiles'][0]['jupyter']
+    settings.pop('server_url')
+    settings['server_urls_by_region'] = {
+        'cn-southwest-2': 'https://southwest.example:8443',
+        'cn-north-4': 'https://north.example:8000',
+    }
+    north = resolve(rt, ENV_ID)
+    assert north.url == 'https://north.example:8000' + ROUTE
+    southwest_item = {**studio(), 'region': 'cn-southwest-2'}
+    with patch.object(WebStudioService, 'get', return_value=southwest_item):
+        southwest = resolve(rt, ENV_ID)
+    assert southwest.url == 'https://southwest.example:8443' + ROUTE
+
+
+@pytest.mark.parametrize('item,match', [
+    ({'envId': ENV_ID, 'status': 'online'}, '缺少 region'),
+    ({'envId': ENV_ID, 'status': 'online', 'region': 'cn-east-3'}, 'cn-east-3 未配置'),
+])
+def test_region_mapping_rejects_missing_or_unknown_region_before_access(rt, requests, item, match):
+    settings = rt.config._data['profiles'][0]['jupyter']
+    # 即使保留旧 server_url，显式区域映射也不得向它回退。
+    settings['server_urls_by_region'] = {'cn-north-4': 'https://north.example:8000'}
+    with patch.object(WebStudioService, 'get', return_value=item):
+        with pytest.raises(JupyterError, match=match):
+            resolve(rt, ENV_ID)
+    assert not requests
+
+
+@pytest.mark.parametrize('mapping', [
+    {},
+    {'cn-north-4': 'https://gateway.example/path'},
+    {' cn-north-4': 'https://gateway.example'},
+    {'cn-north-4': 'https://gateway.example:99999'},
+])
+def test_invalid_region_gateway_config_fails_before_platform_request(rt, requests, mapping):
+    settings = rt.config._data['profiles'][0]['jupyter']
+    settings.pop('server_url')
+    settings['server_urls_by_region'] = mapping
+    with pytest.raises(JupyterError, match='server_urls_by_region'):
+        resolve(rt, ENV_ID)
+    assert not requests
+
+
+def test_region_gateway_rejects_absolute_access_url_from_other_origin(rt, requests):
+    settings = rt.config._data['profiles'][0]['jupyter']
+    settings['server_urls_by_region'] = {'cn-north-4': 'https://north.example:8000'}
+    with patch.object(WebStudioService, 'access',
+                      return_value='https://other.example' + ROUTE + 'lab?token=' + TOKEN):
+        with pytest.raises(JupyterError, match='访问地址无效'):
+            resolve(rt, ENV_ID)
+
+
 def test_login_store_no_token_and_default_resolve(rt, requests, tmp_path):
     store = SelectionStore(tmp_path / 'webstudio.json')
     with patch('wiserec_cli.webstudio.resolve.JupyterClient') as probe:
@@ -105,12 +159,33 @@ def test_failed_login_keeps_previous_choice(rt, requests, tmp_path):
 def test_scope_isolation(rt, tmp_path):
     store = SelectionStore(tmp_path / 'webstudio.json')
     original = store.key(rt, 'user', 'pps')
+    legacy_scope = [str(rt.config.path.resolve()), 'prod', 'https://console.example/dashboard',
+                    'https://gateway.example', 'user', 'pps']
+    assert original == hashlib.sha256(json.dumps(legacy_scope, ensure_ascii=False).encode()).hexdigest()
     assert original != store.key(rt, 'other', 'pps')
     assert original != store.key(rt, 'user', 'other')
     rt.config._data['profiles'][0]['jupyter']['server_url'] = 'https://another.example'
     assert original != store.key(rt, 'user', 'pps')
     rt.config.path = tmp_path / 'another-config.json'
     assert original != store.key(rt, 'user', 'pps')
+
+
+def test_region_mapping_scope_is_order_independent_and_changes_with_address(rt):
+    store = SelectionStore()
+    settings = rt.config._data['profiles'][0]['jupyter']
+    settings.pop('server_url')
+    settings['server_urls_by_region'] = {
+        'cn-north-4': 'https://north.example:8000',
+        'cn-southwest-2': 'https://southwest.example:8443',
+    }
+    original = store.key(rt, 'user', 'pps')
+    settings['server_urls_by_region'] = {
+        'cn-southwest-2': 'https://southwest.example:8443',
+        'cn-north-4': 'https://north.example:8000',
+    }
+    assert store.key(rt, 'user', 'pps') == original
+    settings['server_urls_by_region']['cn-north-4'] = 'https://north.example:9443'
+    assert store.key(rt, 'user', 'pps') != original
 
 
 def test_missing_selection_does_not_pick_first(rt, requests, tmp_path):

@@ -162,7 +162,8 @@ def test_real_server_with_url_prefix(tmp_path, mode):
                 config_path = tmp_path / "cli-config.json"
                 config_path.write_text(json.dumps({"current": "mock-platform", "profiles": [{
                     "name": "mock-platform", "api_endpoint": "https://platform.invalid/dashboard",
-                    "jupyter": {"mode": "webstudio", "server_url": f"http://127.0.0.1:{port}"}}]}))
+                    "jupyter": {"mode": "webstudio", "server_urls_by_region": {
+                        "local": f"http://127.0.0.1:{port}"}}}]}))
                 runtime = Runtime(config_path=config_path, business_path=tmp_path / "business.json")
                 runtime.auth = Mock()
                 runtime.auth.ensure_credentials.return_value = Credentials.create("mock-platform", "c", "x", "viewer", 3600)
@@ -171,7 +172,7 @@ def test_real_server_with_url_prefix(tmp_path, mode):
                     body = json.loads(request.content)
                     assert body["businessId"] == request.headers["businessid"] == "b"
                     if request.url.path.endswith("queryEnvList"):
-                        result = {"code": 0, "count": 1, "envs": [{"envId": "platform-id", "status": "online", "operator": "creator"}]}
+                        result = {"code": 0, "count": 1, "envs": [{"envId": "platform-id", "status": "online", "operator": "creator", "region": "local"}]}
                     else:
                         assert body["operator"] == "viewer"
                         result = {"code": 0, "accessUrl": "/user/local/lab?token=" + token}

@@ -11,7 +11,7 @@ from ..client import PlatformClient
 from ..jupyter.connection import Connection, JupyterClient, JupyterError
 from ..services.webstudio import WebStudioService
 from .store import SelectionStore
-from .urls import parse_access_url
+from .urls import parse_access_url, server_url_for_instance, validate_server_urls
 
 
 @contextmanager
@@ -38,8 +38,8 @@ def resolve(runtime, studio_id=None, *, login=False, store=None, report=None):
         raise JupyterError('此操作需要当前环境 jupyter.mode=webstudio')
     if settings.get('business_file'):
         raise JupyterError('webstudio 模式使用平台业务上下文，请移除 jupyter.business_file')
-    # 提前检查网关配置，避免配置错误时仍调用登录接口。
-    parse_access_url(settings.get('server_url'), '/validate/lab?token=validate')
+    # 提前检查所有网关配置，避免配置错误时仍调用登录接口。
+    validate_server_urls(settings)
     store = store or SelectionStore()
     notify = report or (lambda message: None)
     with platform(runtime) as (service, username, business_id):
@@ -55,10 +55,11 @@ def resolve(runtime, studio_id=None, *, login=False, store=None, report=None):
         if item.get('status') != 'online':
             raise JupyterError('Web Studio 当前不是 online 状态；请在管理台确认或启动实例')
         notify(f'实例查询：通过；Web Studio {target}')
+        server_url = server_url_for_instance(settings, item)
         access_url = service.access(target)
-        full_access_url = urljoin(settings['server_url'].rstrip('/') + '/', access_url)
+        full_access_url = urljoin(server_url.rstrip('/') + '/', access_url)
         notify(f'Jupyter 完整访问地址（包含 token，请谨慎保管）：{full_access_url}')
-        url, token = parse_access_url(settings.get('server_url'), access_url)
+        url, token = parse_access_url(server_url, access_url)
         notify('访问地址获取：通过')
     verify = runtime.config.verify_ssl
     if settings.get('ca_file'):

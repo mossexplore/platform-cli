@@ -1055,16 +1055,22 @@ ml --config .jupyter-local/config.json jupyter terminal close 1
 ```json
 "jupyter": {
   "mode": "webstudio",
-  "server_url": "https://你的Jupyter网关域名",
+  "server_urls_by_region": {
+    "cn-southwest-2": "https://10.1.1.1:8443",
+    "cn-north-4": "https://10.1.1.1:8000"
+  },
   "kernel": "python3"
 }
 ```
 
-webstudio 模式 server_url 只填协议、域名及可选端口，不含路径、/lab、查询参数或 Token。返回 `/explore-env/路由ID/lab?token=...` 后，自动得到 `https://网关/explore-env/路由ID/` 作为 API 根地址。该路由 ID 与平台 envId 不要求相同。每次连接会先访问平台地址语义对应的 `/lab?token=...` 建立 Jupyter 会话，再复用同源 Cookie 调用 API 和 WebSocket。Token 非空时同时携带 Token 认证头；Token 为空时不发送 Authorization 头。写请求仅在服务器下发 `_xsrf` Cookie 时携带对应的 XSRF 请求头。所有请求均携带 businessid，不转发管理台 Cookie。
+webstudio 模式根据实例实时返回的 `region` 从 `server_urls_by_region` 精确选择访问前缀。同一环境中的不同实例可以使用不同域名或端口。每个前缀只填协议、域名及可选端口，不含路径、/lab、查询参数或 Token；缺少实例 region 或对应映射时直接报错，不回退到其他区域。尚未迁移的旧配置如果没有 `server_urls_by_region`，仍可继续使用单一 `server_url`；一旦配置区域映射，它就是唯一选址依据。
+
+平台返回 `/explore-env/路由ID/lab?token=...` 后，CLI 将其与当前 region 的前缀组合，得到 API 根地址。该路由 ID 与平台 envId 不要求相同。每次连接会先访问平台地址语义对应的 `/lab?token=...` 建立 Jupyter 会话，再复用同源 Cookie 调用 API 和 WebSocket。Token 非空时同时携带 Token 认证头；Token 为空时不发送 Authorization 头。写请求仅在服务器下发 `_xsrf` Cookie 时携带对应的 XSRF 请求头。所有请求均携带 businessid，不转发管理台 Cookie。
 
 平台模式忽略 token_env/token_file，拒绝 business_file 覆盖；使用已有平台业务文件。ca_file 和既有 TLS 配置仍有效。未配置 mode 时默认为 direct，继续读取静态 Token。direct 模式不能使用 --studio-id。
 
 **升级配置注意：** 现有安装器/配置同步流程会刷新默认 config.json，升级前请备份自定义配置；长期自定义配置建议放在独立文件，通过 `ml --config 路径` 或 ML_CONFIG 指定。
+从单一 `server_url` 切换到区域映射后，默认实例隔离范围会随路由配置变化；请重新执行一次 `ml webstudio login ENV_ID`。
 
 ### 命令与示例
 
