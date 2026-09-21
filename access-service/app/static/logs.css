@@ -115,7 +115,7 @@
 .call-subline { display: block; margin-top: 5px; line-height: 1.6; overflow-wrap: anywhere; }
 .call-records-table .badge { white-space: normal; max-width: 100%; }
 .call-reason { color: var(--text-2); }
-.call-action { text-align: right; }
+.call-action { text-align: left; }
 .call-records-table .text-button { min-height: 26px; padding: 0; }
 .call-detail[open] { display: flex; flex-direction: column; }
 .call-detail .drawer-heading, .call-detail .drawer-footer { flex-shrink: 0; }
@@ -144,7 +144,7 @@
   .call-records-table tbody tr:last-child { border-bottom: 0; }
   .call-records-table td { display: block; width: auto; border: 0; padding: 0; }
   .call-records-table td::before { content: attr(data-label); display: block; font-size: 12px; color: var(--text-3); margin-bottom: 5px; }
-  .call-records-table td.call-action { display: flex; align-items: end; justify-content: flex-end; }
+  .call-records-table td.call-action { display: flex; align-items: end; justify-content: flex-start; }
   .call-records-table td.call-action::before { display: none; }
   .call-records-table td[colspan] { grid-column: 1 / -1; }
   .call-time time span { display: inline; }

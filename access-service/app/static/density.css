@@ -134,7 +134,7 @@
 .people-table th:nth-child(1) { width: 130px; }
 .people-table th:nth-child(2) { width: 80px; }
 .people-table th:nth-child(3) { width: 90px; }
-.people-actions { white-space: nowrap; text-align: right; }
+.people-actions { white-space: nowrap; text-align: left; }
 .people-actions button + button { margin-left: 6px; }
 .management-page .people-table th:last-child { width: 115px; }
 .management-page .table-scroll th.actions { width: 105px; }

@@ -99,8 +99,17 @@ tbody tr:last-child td { border-bottom: 0; }
 }
 
 .nowrap { white-space: nowrap; font-variant-numeric: tabular-nums; }
-.actions { text-align: right; white-space: nowrap; width: 90px; }
+.actions { text-align: left; white-space: nowrap; width: 90px; }
 .actions button { font-size: 13px; }
+/* Align action text with the header content edge, including text buttons. */
+.management-page table :is(td.actions, td.people-actions, td.call-action) > .text-button {
+  padding-left: 0;
+  padding-right: 0;
+}
+.management-page table :is(td.actions, td.people-actions, td.call-action) > :first-child {
+  margin-left: 0;
+}
+.management-page table td.actions > .text-button + .text-button { margin-left: 6px; }
 .note-cell { max-width: 220px; min-width: 100px; color: var(--text-3); font-size: 12px; }
 .origin { font-family: var(--font-mono); color: var(--text-3); font-size: 12px; }
 
