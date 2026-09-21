@@ -1,29 +1,74 @@
 {% extends 'base.html' %}
+{% from 'version_components.html' import policy_status, exception_status, confirm_action, policy_detail %}
 {% set tab = 'versions' %}{% set page_title = 'CLI 版本管理' %}
+{% set titles = {'policies':'版本策略','usage':'版本使用','exceptions':'临时例外'} %}
 {% block title %}CLI 版本管理{% endblock %}
 {% block content %}
-<div class="page-heading"><div><p class="eyebrow">CLI VERSION CONTROL</p><h1>CLI 版本管理</h1><p class="subtitle">未上报版本按 1.0.0 判断；按业务和环境查看使用分布、配置升级要求。</p></div></div>
-<section class="panel query-panel"><form class="call-filters" method="get">
-<label>统计窗口<select name="days">{% for n in [1,7,30,90] %}<option value="{{ n }}" {% if days==n %}selected{% endif %}>最近 {{ n }} 天</option>{% endfor %}</select></label>
-<label>环境<input name="environment" value="{{ environment }}" maxlength="64"></label><label>业务 ID<input name="business_id" value="{{ business_id }}" maxlength="256"></label><button>查询</button>
-</form></section>
-<section class="panel"><div class="panel-title"><h2>版本使用分布</h2><span class="muted">统计授权检查次数，不代表业务执行成功</span></div>
-<div class="table-scroll"><table><thead><tr><th>环境</th><th>业务 ID</th><th>CLI 版本</th><th>版本来源</th><th>检查入口</th><th>检查次数 / 版本拒绝</th><th>账号数</th><th>最近使用（北京时间）</th></tr></thead><tbody>
-{% for row in rows %}<tr><td>{{ row.environment }}</td><td>{{ row.business_id }}</td><td>{{ row.cli_version }}</td><td>{{ {'reported':'客户端上报','legacy_default':'旧客户端默认','historical_default':'历史默认推定'}.get(row.version_source, row.version_source) }}</td><td>{{ '网关' if row.check_source=='gateway' else '客户端预检查' }}</td><td>{{ row.calls }} / {{ row.denied }}</td><td>{{ row.accounts }}</td><td class="nowrap">{{ row.last_seen|beijing }}</td></tr>{% else %}<tr><td colspan="8" class="empty">暂无调用记录</td></tr>{% endfor %}
-</tbody></table></div>{% include 'pagination.html' %}</section>
-<section class="panel"><div class="panel-title"><h2>策略与历史</h2><span class="muted">适用的强制门槛取最高值；禁用版本不可豁免</span></div>
-<div class="table-scroll"><table><thead><tr><th>策略名称</th><th>范围</th><th>模式 / 状态</th><th>最低 / 推荐</th><th>禁用版本</th><th>生效时间（北京时间）</th><th>操作</th></tr></thead><tbody>
-{% for p in policies %}<tr><td>{{ p.name }}<small> #{{ p.id }}</small></td><td>{{ p.environment or '全部环境' }} / {{ p.business_id or '全部业务' }}</td><td>{{ {'observe':'仅观察','warn':'提醒升级','enforce':'强制拒绝'}[p.mode] }} / {{ '启用' if p.enabled else '停用' }}</td><td>{{ p.minimum_version }} / {{ p.recommended_version or '-' }}</td><td>{{ p.blocked_versions if p.blocked_versions != '[]' else '无' }}</td><td class="nowrap">{{ p.effective_at|beijing }}</td><td>{% if admin.role=='super_admin' %}<form method="post" action="/cli-permission/admin/versions/policies/{{ p.id }}/toggle"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="enabled" value="{{ 'false' if p.enabled else 'true' }}"><button class="secondary">{{ '停用' if p.enabled else '重新启用' }}</button></form>{% endif %}</td></tr>{% else %}<tr><td colspan="7" class="empty">尚未设置版本限制</td></tr>{% endfor %}
-</tbody></table></div></section>
-{% if admin.role=='super_admin' %}
-<section class="panel version-editor"><h2>新增策略</h2><p class="muted">先预览最近 7 天调用的影响，再发布。调整规则请新增策略并停用旧策略；历史策略保留用于回滚。</p>
-<form method="post" action="/cli-permission/admin/versions/policies" class="version-form"><input type="hidden" name="csrf" value="{{ csrf }}">
-<label>策略名称<input name="name" required maxlength="128"></label><label>环境<select name="environment"><option value="">全部环境</option>{% for e in environments %}<option value="{{ e.name }}">{{ e.display_name }} ({{ e.name }})</option>{% endfor %}</select></label>
-<label>业务 ID（留空为全部）<input name="business_id" maxlength="256"></label><label>执行模式<select name="mode"><option value="observe">仅观察</option><option value="warn">提醒升级</option><option value="enforce">强制拒绝</option></select></label>
-<label>最低版本<input name="minimum_version" value="1.0.0" required maxlength="64"></label><label>推荐版本<input name="recommended_version" maxlength="64"></label><label>禁用版本（逗号分隔）<input name="blocked_versions" maxlength="4096"></label><label>升级说明地址<input name="upgrade_url" type="url" maxlength="1024"></label><label>生效时间（北京时间，留空立即生效）<input name="effective_at" type="datetime-local" step="1"></label><div><button name="intent" value="preview">预览影响</button></div></form></section>
-<section class="panel version-editor"><h2>新增临时例外</h2><p class="muted">只豁免指定策略的最低版本要求；账号授权、禁用版本和协议检查仍执行。</p><form method="post" action="/cli-permission/admin/versions/exceptions" class="version-form"><input type="hidden" name="csrf" value="{{ csrf }}">
-<label>策略<select name="policy_id" required>{% for p in policies %}<option value="{{ p.id }}">#{{ p.id }} {{ p.name }}</option>{% endfor %}</select></label><label>环境<input name="environment" required maxlength="64"></label><label>业务 ID<input name="business_id" required maxlength="256"></label><label>账号<input name="username" required maxlength="128"></label><label>最低例外版本<input name="minimum_version" required maxlength="64"></label><label>最高例外版本<input name="maximum_version" required maxlength="64"></label><label>失效时间（北京时间）<input name="expires_at" type="datetime-local" required step="1"></label><label>批准原因<input name="reason" required maxlength="1000"></label><div><button>批准临时例外</button></div></form></section>
-{% endif %}
-<section class="panel"><div class="panel-title"><h2>例外记录</h2></div><div class="table-scroll"><table><thead><tr><th>账号</th><th>策略 / 范围</th><th>版本范围</th><th>失效时间（北京时间）</th><th>原因</th><th>操作</th></tr></thead><tbody>{% for e in exceptions %}<tr><td>{{ e.username }}</td><td>#{{ e.policy_id }} {{ e.environment }} / {{ e.business_id }}</td><td>{{ e.minimum_version }} – {{ e.maximum_version }}</td><td class="nowrap">{{ e.expires_at|beijing }}</td><td>{{ e.reason }}</td><td>{% if e.enabled and admin.role=='super_admin' %}<form method="post" action="/cli-permission/admin/versions/exceptions/{{ e.id }}/revoke"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="secondary">撤销</button></form>{% elif not e.enabled %}已撤销{% endif %}</td></tr>{% else %}<tr><td colspan="6" class="empty">暂无例外</td></tr>{% endfor %}</tbody></table></div></section>
-<details class="list-help"><summary>管控边界</summary><p>版本为客户端声明。客户端预检查可被关闭；只有业务网关接入服务端检查并关闭旁路后，才可强制阻断请求。历史记录的 1.0.0 是兼容推定值。检查入口分别统计，避免把预检查与网关请求当作独立业务执行。</p></details>
+<div class="page-heading version-heading">
+  <h1>CLI 版本管理</h1>
+  <div class="version-heading-actions"><button type="button" class="secondary" data-open="version-help">管控说明</button>
+  {% if admin.role == 'super_admin' %}<button type="button" data-open="{{ 'exception-create' if view == 'exceptions' else 'policy-create' }}">{{ '新增例外' if view == 'exceptions' else '新增策略' }}</button>{% endif %}</div>
+</div>
+{% if request.query_params.get('saved') == '1' %}<div class="success" role="status"><strong>操作成功</strong><span>最新配置将在下一次访问检查时生效。</span></div>{% endif %}
+<div class="stats-grid version-stats">
+{% for label,value,unit,target,color in [('生效策略',stats.policies,'项','?view=policies&status=active',''),('近 7 天检查',stats.calls,'次','?view=usage&days=7',''),('版本拒绝',stats.denied,'次','?view=usage&days=7&status=denied','amber'),('有效例外',stats.exceptions,'项','?view=exceptions&status=active','')] %}
+  <a class="stat-card" href="/cli-permission/admin/versions{{ target }}"><span>{{ label }}</span><strong class="{{ color }}">{{ value }}<small>{{ unit }}</small></strong></a>
+{% endfor %}
+</div>
+<section class="panel version-panel">
+  <nav class="version-tabs" aria-label="版本管理分类">
+  {% for key,label in [('policies','策略管理'),('usage','版本使用'),('exceptions','临时例外')] %}<a href="/cli-permission/admin/versions?view={{ key }}" {% if view==key %}aria-current="page"{% endif %}>{{ label }}</a>{% endfor %}
+  </nav>
+  <div class="panel-title"><h2>{{ titles[view] }} <span class="count">{{ count }} 条</span></h2><span class="muted">{{ {'policies':'按业务和环境配置版本准入','usage':'检查次数不等于业务执行次数','exceptions':'到期后自动恢复版本限制'}[view] }}</span></div>
+  <form method="get" class="filter-bar version-filters">
+    <input type="hidden" name="view" value="{{ view }}">
+    <input class="search-input" name="q" value="{{ q }}" maxlength="128" aria-label="{{ '搜索策略名称' if view=='policies' else '搜索 CLI 版本' if view=='usage' else '搜索账号' }}" placeholder="{{ '搜索策略名称' if view=='policies' else '搜索 CLI 版本' if view=='usage' else '搜索账号' }}">
+    <select name="environment" aria-label="筛选环境"><option value="">全部环境</option>{% for env in environments %}<option value="{{ env.name }}" {% if environment==env.name %}selected{% endif %}>{{ env.display_name }}</option>{% endfor %}</select>
+    <input name="business_id" value="{{ business_id }}" maxlength="256" aria-label="筛选业务 ID" placeholder="业务 ID">
+    {% if view=='usage' %}<select name="days" aria-label="统计时间范围">{% for n in [1,7,30,90] %}<option value="{{ n }}" {% if days==n %}selected{% endif %}>最近 {{ n }} 天</option>{% endfor %}{% if days not in [1,7,30,90] %}<option value="{{ days }}" selected>最近 {{ days }} 天</option>{% endif %}</select>{% endif %}
+    <select name="status" aria-label="筛选状态"><option value="">全部{{ '结果' if view=='usage' else '状态' }}</option>
+      {% set options = [('active','生效中'),('scheduled','待生效'),('disabled','已停用')] if view=='policies' else [('denied','存在版本拒绝')] if view=='usage' else [('active','有效'),('expired','已到期'),('disabled','已撤销')] %}
+      {% for key,label in options %}<option value="{{ key }}" {% if status==key %}selected{% endif %}>{{ label }}</option>{% endfor %}
+    </select>
+    <button type="submit" class="secondary">查询</button>{% if q or status or environment or business_id %}<a class="reset-link" href="/cli-permission/admin/versions?view={{ view }}">重置</a>{% endif %}
+  </form>
+  <div class="table-scroll">
+  {% if view=='policies' %}
+    <table class="version-policy-table"><thead><tr><th>策略名称</th><th>适用范围</th><th>版本要求</th><th>执行模式</th><th>状态</th><th class="actions">操作</th></tr></thead><tbody>
+    {% for p in policies %}<tr>
+      <td><button type="button" class="text-button version-name" data-open="policy-detail-{{ p.id }}">{{ p.name }}</button><small class="version-subline">{{ p.created_by }} · 策略 #{{ p.id }}</small></td>
+      <td><strong>{{ environment_names.get(p.environment, p.environment) or '全部环境' }}</strong><small class="version-subline">{{ p.business_id or '全部业务' }}</small></td>
+      <td><span class="mono">≥ {{ p.minimum_version }}</span><small class="version-subline">推荐 {{ p.recommended_version or '未设置' }}{% if p.blocked_list %} · 禁用 {{ p.blocked_list|length }} 个{% endif %}</small></td>
+      <td><span class="badge {{ 'danger' if p.mode=='enforce' else 'warning' if p.mode=='warn' else 'neutral' }}">{{ modes[p.mode] }}</span></td>
+      <td>{{ policy_status(p, now) }}</td>
+      <td class="actions"><button type="button" class="text-button" data-open="policy-detail-{{ p.id }}">详情</button>{% if admin.role=='super_admin' %}<button type="button" class="text-button {{ 'delete-link' if p.enabled else '' }}" data-open="policy-toggle-{{ p.id }}">{{ '停用' if p.enabled else '启用' }}</button>{% endif %}</td>
+    </tr>{% else %}<tr><td colspan="6"><div class="empty"><strong>{{ '暂无匹配策略' if q or status or environment or business_id else '尚未配置版本策略' }}</strong><p>{{ '请调整筛选条件后重试。' if q or status or environment or business_id else '添加最低版本要求，先观察使用情况，再逐步启用限制。' }}</p>{% if admin.role=='super_admin' %}<button type="button" class="secondary" data-open="policy-create">新增策略</button>{% endif %}</div></td></tr>{% endfor %}
+    </tbody></table>
+  {% elif view=='usage' %}
+    <table class="version-usage-table"><thead><tr><th>环境 / 业务</th><th>CLI 版本</th><th>检查入口</th><th>检查 / 拒绝</th><th>账号数</th><th>最近使用</th><th class="actions">操作</th></tr></thead><tbody>
+    {% for row in rows %}<tr><td><strong>{{ environment_names.get(row.environment, row.environment) }}</strong><small class="version-subline">{{ row.business_id }}</small></td>
+      <td><span class="code-chip">{{ row.cli_version }}</span><small class="version-subline">{{ {'reported':'客户端上报','legacy_default':'旧客户端默认','historical_default':'历史默认推定'}.get(row.version_source, row.version_source) }}</small></td>
+      <td>{{ '网关检查' if row.check_source=='gateway' else '客户端预检查' }}</td><td><span class="version-number">{{ row.calls }}</span> / <span class="{{ 'version-danger' if row.denied else 'muted' }}">{{ row.denied }}</span></td><td>{{ row.accounts }}</td><td class="version-date">{{ row.last_seen|beijing }}</td>
+      <td class="actions"><a href="{{ request.url.replace(path='/cli-permission/admin/calls', query='').include_query_params(environment=row.environment, business_id=row.business_id, cli_version=row.cli_version) }}">调用日志</a></td></tr>
+    {% else %}<tr><td colspan="7"><div class="empty"><strong>暂无匹配的版本使用记录</strong><p>请调整时间范围或筛选条件；客户端发起检查后会自动记录。</p></div></td></tr>{% endfor %}</tbody></table>
+  {% else %}
+    <table class="version-exception-table"><thead><tr><th>账号 / 策略</th><th>适用范围</th><th>例外版本</th><th>到期时间</th><th>状态</th><th class="actions">操作</th></tr></thead><tbody>
+    {% for e in exceptions %}<tr><td><strong>{{ e.username }}</strong><small class="version-subline">{{ policy_names.get(e.policy_id, '策略 #' ~ e.policy_id) }}</small></td><td><strong>{{ environment_names.get(e.environment,e.environment) }}</strong><small class="version-subline">{{ e.business_id }}</small></td><td class="mono">{{ e.minimum_version }} – {{ e.maximum_version }}</td><td class="version-date">{{ e.expires_at|beijing }}</td><td>{{ exception_status(e, now) }}</td><td class="actions"><button type="button" class="text-button" data-open="exception-detail-{{ e.id }}">详情</button>{% if e.enabled and e.expires_at > now and admin.role=='super_admin' %}<button type="button" class="text-button delete-link" data-open="exception-revoke-{{ e.id }}">撤销</button>{% endif %}</td></tr>
+    {% else %}<tr><td colspan="6"><div class="empty"><strong>{{ '暂无匹配的临时例外' if q or status or environment or business_id else '暂无临时例外' }}</strong><p>为暂时无法升级的账号设置有期限的版本例外。</p>{% if admin.role=='super_admin' %}<button type="button" class="secondary" data-open="exception-create">新增例外</button>{% endif %}</div></td></tr>{% endfor %}</tbody></table>
+  {% endif %}
+  </div>
+  {% include 'pagination.html' %}
+</section>
+<p class="version-footnote">未上报版本按 <span class="mono">1.0.0</span> 判断。所有时间均为北京时间（UTC+8）。</p>
+{% for p in policies %}
+  {{ policy_detail(p, modes, now, environment_names, admin) }}
+  {% if admin.role=='super_admin' %}{{ confirm_action('policy-toggle-' ~ p.id, ('停用' if p.enabled else '启用') ~ '策略', p.name, '停用后不再执行此策略，其他适用策略继续生效。' if p.enabled else '启用后将在下一次检查时执行；预约策略仍按生效时间执行。', '/cli-permission/admin/versions/policies/' ~ p.id ~ '/toggle', csrf, 'false' if p.enabled else 'true') }}{% endif %}
+{% endfor %}
+{% for e in exceptions %}
+<dialog id="exception-detail-{{ e.id }}" class="drawer version-drawer" aria-labelledby="exception-title-{{ e.id }}"><div class="drawer-heading"><h2 id="exception-title-{{ e.id }}">例外详情</h2><button type="button" class="text-button" data-close>关闭</button></div><div class="drawer-body"><dl class="detail-list"><dt>账号</dt><dd>{{ e.username }}</dd><dt>策略</dt><dd>{{ policy_names.get(e.policy_id, '#' ~ e.policy_id) }}</dd><dt>环境</dt><dd>{{ e.environment }}</dd><dt>业务 ID</dt><dd>{{ e.business_id }}</dd><dt>版本范围</dt><dd>{{ e.minimum_version }} – {{ e.maximum_version }}</dd><dt>到期时间</dt><dd>{{ e.expires_at|beijing }}</dd><dt>状态</dt><dd>{{ exception_status(e, now) }}</dd><dt>批准原因</dt><dd>{{ e.reason }}</dd><dt>批准人</dt><dd>{{ e.created_by }}</dd><dt>创建时间</dt><dd>{{ e.created_at|beijing }}</dd></dl></div><div class="drawer-footer"><button type="button" class="secondary" data-close>关闭</button></div></dialog>
+{% if e.enabled and e.expires_at > now and admin.role=='super_admin' %}{{ confirm_action('exception-revoke-' ~ e.id, '撤销临时例外', e.username, '撤销后，该账号恢复执行指定策略的最低版本要求。', '/cli-permission/admin/versions/exceptions/' ~ e.id ~ '/revoke', csrf) }}{% endif %}
+{% endfor %}
+{% if admin.role=='super_admin' %}{% include 'version_editors.html' %}{% endif %}
+<dialog id="version-help" class="drawer version-drawer" aria-labelledby="version-help-title"><div class="drawer-heading"><h2 id="version-help-title">版本管控说明</h2><button type="button" class="text-button" data-close>关闭</button></div><div class="drawer-body version-help"><h3>从观察到强制</h3><p>仅观察记录版本判断；提醒升级会提示用户但仍允许访问；强制拒绝会阻止不符合要求的版本。</p><h3>多条策略如何生效</h3><p>全局、环境和业务策略可以叠加。最低版本取适用强制策略的最高要求；禁用版本不能通过临时例外放行。</p><h3>调整与回滚</h3><p>在详情中复制策略，修改后预览并发布，再停用旧策略。历史策略可以重新启用，操作均保留审计记录。</p><h3>统计口径</h3><p>顶部统计为全部业务，检查次数及版本拒绝统计最近 7 天。列表筛选不改变顶部统计。客户端预检查和网关检查分开记录，均不代表业务执行成功。</p><h3>旧客户端与管控范围</h3><p>未上报版本按 1.0.0 判断，历史默认值为推定值。版本为客户端声明；实际网关接入并关闭旁路后，才可强制阻断绕过客户端检查的请求。</p></div><div class="drawer-footer"><button type="button" class="secondary" data-close>知道了</button></div></dialog>
+<script src="/cli-permission/static/versions.js" defer></script>
 {% endblock %}

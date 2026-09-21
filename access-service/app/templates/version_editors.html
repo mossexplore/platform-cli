@@ -1,0 +1,36 @@
+<dialog id="policy-create" class="drawer version-drawer" aria-labelledby="policy-create-title">
+<form method="post" action="/cli-permission/admin/versions/policies" class="editor-form" data-version-editor>
+<input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="intent" value="preview">
+<div class="drawer-heading"><div><p class="eyebrow">VERSION POLICY</p><h2 id="policy-create-title">新增版本策略</h2></div><button type="button" class="text-button" data-close>关闭</button></div>
+<div class="version-steps" aria-label="发布步骤"><span data-version-step="1" aria-current="step">1 填写策略</span><span data-version-step="2">2 预览并发布</span></div>
+<div class="drawer-body"><div class="form-error" role="alert" hidden></div>
+<div data-policy-fields>
+  <h3 class="version-section-title">基本信息</h3>
+  <label>策略名称 <span class="required">*</span><input name="name" required maxlength="128" placeholder="例如：生产环境 CLI 最低版本要求"></label>
+  <div class="version-field-grid"><label>适用环境<select name="environment" data-policy-environment><option value="">全部环境</option>{% for e in environments %}<option value="{{ e.name }}">{{ e.display_name }}（{{ e.name }}）</option>{% endfor %}</select></label><label>业务 ID<input name="business_id" maxlength="256" placeholder="留空为全部业务" data-policy-business><small>指定业务前请先选择环境。</small></label></div>
+  <h3 class="version-section-title">版本规则</h3>
+  <label>执行模式 <span class="required">*</span><select name="mode" data-policy-mode><option value="observe">仅观察</option><option value="warn">提醒升级</option><option value="enforce">强制拒绝</option></select><small data-mode-help>记录版本判断，不提醒、不拒绝，适合首次接入。</small></label>
+  <div class="version-field-grid"><label>最低允许版本 <span class="required">*</span><input name="minimum_version" value="1.0.0" required maxlength="64" placeholder="例如 1.0.3"></label><label>推荐版本<input name="recommended_version" maxlength="64" placeholder="例如 1.0.3"></label></div>
+  <label>禁用版本<input name="blocked_versions" maxlength="4096" placeholder="例如 1.0.1, 1.0.2"><small>多个版本用逗号分隔。禁用版本不能通过临时例外放行。</small></label>
+  <h3 class="version-section-title">发布设置</h3>
+  <label>生效时间<input name="effective_at" type="datetime-local" step="1"><small>北京时间（UTC+8），留空立即生效。</small></label>
+  <label>升级说明地址<input name="upgrade_url" type="url" maxlength="1024" placeholder="https://…"><small>用户被提醒或拒绝时展示的升级文档或安装包地址。</small></label>
+</div>
+<div data-policy-preview hidden aria-live="polite"></div>
+</div>
+<div class="drawer-footer"><button type="button" class="secondary" data-close data-policy-cancel>取消</button><button type="button" class="secondary" data-policy-back hidden>返回修改</button><button type="submit" data-policy-submit>下一步：预览影响</button></div>
+</form></dialog>
+<dialog id="exception-create" class="drawer version-drawer" aria-labelledby="exception-create-title">
+<form method="post" action="/cli-permission/admin/versions/exceptions" class="editor-form" data-editor>
+<input type="hidden" name="csrf" value="{{ csrf }}">
+<div class="drawer-heading"><div><p class="eyebrow">TEMPORARY EXCEPTION</p><h2 id="exception-create-title">新增临时例外</h2></div><button type="button" class="text-button" data-close>关闭</button></div>
+<div class="drawer-body"><div class="form-error" role="alert" hidden></div><p class="version-inline-note">只豁免指定策略的最低版本要求，账号授权和禁用版本仍然生效。</p>
+{% if not policy_options %}<p class="version-inline-note">暂无启用策略，请先新增并启用策略。</p>{% endif %}
+<label>关联策略 <span class="required">*</span><select name="policy_id" required data-exception-policy><option value="">请选择启用的策略</option>{% for p in policy_options %}<option value="{{ p.id }}" data-environment="{{ p.environment }}" data-business="{{ p.business_id }}">{{ p.name }}（#{{ p.id }}）</option>{% endfor %}</select></label>
+<div class="version-field-grid"><label>环境 <span class="required">*</span><select name="environment" required><option value="">请选择环境</option>{% for e in environments %}<option value="{{ e.name }}">{{ e.display_name }}（{{ e.name }}）</option>{% endfor %}</select></label><label>业务 ID <span class="required">*</span><input name="business_id" required maxlength="256" placeholder="填写完整业务 ID"></label></div>
+<label>平台账号 <span class="required">*</span><input name="username" required maxlength="128" placeholder="填写需要临时放行的账号"></label>
+<div class="version-field-grid"><label>最低例外版本 <span class="required">*</span><input name="minimum_version" required maxlength="64" placeholder="例如 1.0.0"></label><label>最高例外版本 <span class="required">*</span><input name="maximum_version" required maxlength="64" placeholder="例如 1.0.2"></label></div>
+<label>到期时间 <span class="required">*</span><input name="expires_at" type="datetime-local" required step="1"><small>北京时间，到期后自动恢复版本限制。</small></label>
+<label>批准原因 <span class="required">*</span><textarea name="reason" required maxlength="1000" rows="3" placeholder="说明用途、升级安排或关联申请"></textarea></label>
+</div><div class="drawer-footer"><button type="button" class="secondary" data-close>取消</button><button type="submit" {% if not policy_options %}disabled{% endif %}>确认批准</button></div>
+</form></dialog>

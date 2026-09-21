@@ -136,7 +136,7 @@ def test_admin_preview_publish_revoke_and_audit(system):
     assert not call(client).json()['allowed']
     with app.state.sessions() as db:
         assert len(db.scalars(select(Audit).where(Audit.action.like('version_policy.%'))).all()) == 3
-    html = client.get('/cli-permission/admin/versions').text
+    html = client.get('/cli-permission/admin/versions?view=usage').text
     assert '1.0.0' in html and '旧客户端默认' in html
     assert '暂无匹配记录' in client.get('/cli-permission/admin/calls?cli_version=9.0.0').text
 

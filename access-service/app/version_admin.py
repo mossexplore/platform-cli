@@ -3,14 +3,14 @@ import json
 from datetime import timedelta
 from urllib.parse import urlsplit
 from fastapi import APIRouter, Form, HTTPException, Query, Request
-from fastapi.responses import RedirectResponse
-from sqlalchemy import case, func, select
+from fastapi.responses import RedirectResponse, JSONResponse
+from sqlalchemy import func, select
 from .admin_auth import admin_session, authorize_form
 from .models import Audit, CallLog, Environment, now
 from .security import expiry
 from .version_models import VersionPolicy, VersionException
 from .version_policy import evaluate_version, policies_for, version_tuple
-from .pagination import PAGE_SIZE
+from .version_views import page_context
 
 router = APIRouter()
 
@@ -66,7 +66,8 @@ def snapshot(item):
 @router.get('/admin/versions')
 def versions(request: Request, days: int = Query(7, ge=1, le=90),
              environment: str = Query('', max_length=64), business_id: str = Query('', max_length=256),
-             page: int = Query(1, ge=1)):
+             page: int = Query(1, ge=1), view: str = Query('policies', pattern='^(policies|usage|exceptions)$'),
+             q: str = Query('', max_length=128), status: str = Query('', pattern='^(|active|scheduled|disabled|expired|denied)$')):
     with request.app.state.sessions() as db:
         try:
             admin, session = admin_session(request, db)
@@ -74,28 +75,10 @@ def versions(request: Request, days: int = Query(7, ge=1, le=90),
             if exc.status_code == 401:
                 return RedirectResponse('/cli-permission/login', status_code=303)
             raise
-        groups = [CallLog.environment, CallLog.business_id, CallLog.cli_version, CallLog.version_source, CallLog.check_source]
-        query = select(*groups, func.count().label('calls'),
-                       func.max(CallLog.created_at).label('last_seen'),
-                       func.sum(case((CallLog.reason.in_(['CLI_VERSION_TOO_OLD', 'CLI_VERSION_BLOCKED',
-                           'CLI_VERSION_INVALID', 'CLI_PROTOCOL_UNSUPPORTED']), 1), else_=0)).label('denied'),
-                       func.count(func.distinct(CallLog.actor)).label('accounts')).where(CallLog.created_at >= now() - timedelta(days=days))
-        if environment:
-            query = query.where(CallLog.environment == environment)
-        if business_id:
-            query = query.where(CallLog.business_id == business_id)
-        query = query.group_by(*groups)
-        count = db.scalar(select(func.count()).select_from(query.subquery()))
-        rows = db.execute(query.order_by(func.max(CallLog.created_at).desc(), *groups)
-                          .offset((page-1)*PAGE_SIZE).limit(PAGE_SIZE)).all()
+        context = page_context(db, view=view, days=days, environment=environment,
+                               business_id=business_id, q=q, status=status, page=page)
         return request.app.state.templates.TemplateResponse(request=request, name='versions.html', context={
-            'admin': admin, 'csrf': session.csrf, 'rows': rows, 'days': days, 'environment': environment,
-            'business_id': business_id, 'count': count, 'page': page,
-            'previous': str(request.url.include_query_params(page=page-1)),
-            'next': str(request.url.include_query_params(page=page+1)),
-            'policies': db.scalars(select(VersionPolicy).order_by(VersionPolicy.id.desc())).all(),
-            'exceptions': db.scalars(select(VersionException).order_by(VersionException.id.desc())).all(),
-            'environments': db.scalars(select(Environment).order_by(Environment.name)).all()})
+            'admin': admin, 'csrf': session.csrf, **context})
 
 
 @router.post('/admin/versions/policies')
@@ -135,6 +118,10 @@ def save_policy(request: Request, csrf: str = Form(max_length=64),
                 checked += total
                 if not result['allowed']:
                     affected += total
+            if 'application/json' in request.headers.get('accept', ''):
+                html = request.app.state.templates.get_template('version_preview_summary.html').render(
+                    values=values, checked=checked, affected=affected, effective_at=item.effective_at)
+                return JSONResponse({'preview_html': html})
             return request.app.state.templates.TemplateResponse(request=request, name='version_preview.html', context={
                 'admin': admin, 'csrf': csrf, 'values': values, 'checked': checked, 'affected': affected,
                 'effective_at': item.effective_at})
@@ -144,7 +131,7 @@ def save_policy(request: Request, csrf: str = Form(max_length=64),
         db.flush()
         db.add(Audit(actor=admin.username, action='version_policy.publish', detail=json.dumps(snapshot(item), ensure_ascii=False)))
         db.commit()
-    return RedirectResponse('/cli-permission/admin/versions', status_code=303)
+    return RedirectResponse('/cli-permission/admin/versions?saved=1', status_code=303)
 
 
 @router.post('/admin/versions/policies/{policy_id}/toggle')
@@ -159,7 +146,7 @@ def toggle_policy(policy_id: int, request: Request, csrf: str = Form(max_length=
         db.add(Audit(actor=admin.username, action='version_policy.toggle',
                      detail=json.dumps({'before': before, 'after': snapshot(item)}, ensure_ascii=False)))
         db.commit()
-    return RedirectResponse('/cli-permission/admin/versions', status_code=303)
+    return RedirectResponse('/cli-permission/admin/versions?saved=1', status_code=303)
 
 
 @router.post('/admin/versions/exceptions')
@@ -185,7 +172,7 @@ def add_exception(request: Request, csrf: str = Form(max_length=64), policy_id: 
         db.flush()
         db.add(Audit(actor=admin.username, action='version_exception.create', detail=json.dumps(snapshot(item), ensure_ascii=False)))
         db.commit()
-    return RedirectResponse('/cli-permission/admin/versions', status_code=303)
+    return RedirectResponse('/cli-permission/admin/versions?view=exceptions&saved=1', status_code=303)
 
 
 @router.post('/admin/versions/exceptions/{item_id}/revoke')
@@ -198,4 +185,4 @@ def revoke_exception(item_id: int, request: Request, csrf: str = Form(max_length
         item.enabled = False
         db.add(Audit(actor=admin.username, action='version_exception.revoke', detail=json.dumps(snapshot(item), ensure_ascii=False)))
         db.commit()
-    return RedirectResponse('/cli-permission/admin/versions', status_code=303)
+    return RedirectResponse('/cli-permission/admin/versions?view=exceptions&saved=1', status_code=303)

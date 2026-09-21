@@ -1,6 +1,86 @@
-.version-editor { padding: 24px; margin-top: 20px; }
-.version-form { display: grid; grid-template-columns: repeat(auto-fit,minmax(240px,1fr)); gap: 18px; margin-top: 20px; }
-.version-form label { display: flex; flex-direction: column; gap: 8px; }
-.version-form input,.version-form select { width: 100%; }
-.version-editor dd { margin: 4px 0 16px; overflow-wrap: anywhere; }
-.version-editor dt { font-weight: 600; }
+/* Version management reuses the shared list, badges, dialogs and design tokens. */
+.version-heading-actions { display: flex; gap: 8px; margin-left: auto; }
+.management-page .version-stats .stat-card { justify-content: space-between; gap: 8px; min-width: 0; }
+.version-stats .stat-card > span { white-space: nowrap; font-size: 13px; }
+.version-tabs { display: flex; gap: 26px; padding: 0 16px; border-bottom: 1px solid var(--border); }
+.version-tabs a { padding: 13px 0 11px; border-bottom: 2px solid transparent; color: var(--text-2); font-size: 14px; white-space: nowrap; }
+.version-tabs a[aria-current] { border-bottom-color: var(--brand); color: var(--brand); font-weight: 500; }
+.version-tabs a:hover { color: var(--brand); }
+.version-panel .version-filters { flex-wrap: wrap; }
+.version-filters .search-input { flex: 1 1 180px; max-width: 260px; }
+.version-filters input[name="business_id"] { width: 160px; }
+.version-filters select { max-width: 180px; }
+.management-page .version-panel table { table-layout: fixed; min-width: 880px; }
+.version-policy-table th:nth-child(1), .version-exception-table th:nth-child(1) { width: 23%; }
+.version-policy-table th:nth-child(2), .version-exception-table th:nth-child(2) { width: 22%; }
+.version-policy-table th:nth-child(3) { width: 19%; }
+.version-policy-table th:nth-child(4) { width: 108px; }
+.version-policy-table th:nth-child(5) { width: 86px; }
+.version-subline { display: block; margin-top: 2px; line-height: 18px; overflow-wrap: anywhere; }
+.management-page .version-name { padding: 0; font-weight: 500; text-align: left; justify-content: flex-start; white-space: normal; }
+.version-panel .actions { position: sticky; right: 0; background: var(--card-bg); box-shadow: -1px 0 var(--border); white-space: nowrap; }
+.version-panel th.actions { background: #f7f8fa; z-index: 1; }
+.version-panel td.actions .text-button + .text-button { margin-left: 6px; }
+.version-panel tr:hover td.actions { background: #f5f8ff; }
+.version-panel .badge { white-space: nowrap; }
+.version-panel .version-date { white-space: nowrap; font-variant-numeric: tabular-nums; }
+.version-usage-table th:first-child { width: 210px; }
+.version-usage-table th:nth-child(2) { width: 140px; }
+.version-usage-table th:nth-child(3) { width: 130px; }
+.version-usage-table th:nth-child(4) { width: 110px; }
+.version-usage-table th:nth-child(5) { width: 70px; }
+.version-usage-table th:nth-child(6), .version-exception-table th:nth-child(4) { width: 176px; }
+.version-exception-table th:nth-child(3) { width: 140px; }
+.version-exception-table th:nth-child(5) { width: 86px; }
+.version-number { font-variant-numeric: tabular-nums; }
+.version-danger { color: var(--danger); font-weight: 500; }
+.version-footnote { margin: 12px 2px; color: var(--text-3); font-size: 12px; }
+.version-drawer[open] { display: flex; flex-direction: column; }
+.version-drawer .drawer-heading, .version-drawer .drawer-footer { flex-shrink: 0; }
+.version-drawer > .editor-form { min-height: 0; flex: 1; }
+.version-drawer .drawer-body { min-height: 0; }
+.version-field-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.version-field-grid > label { min-width: 0; }
+.version-section-title { padding-bottom: 10px; margin: 4px 0 16px; border-bottom: 1px solid var(--border); }
+.version-steps { display: flex; padding: 14px 24px; gap: 32px; font-size: 12px; color: var(--text-3); background: #f7f8fa; border-bottom: 1px solid var(--border); }
+.version-steps [aria-current] { color: var(--brand); font-weight: 500; }
+.version-detail-heading, .version-preview-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; margin-bottom: 24px; }
+.version-detail-heading h3, .version-preview-heading h3 { font-size: 17px; overflow-wrap: anywhere; }
+.version-impact { display: grid; grid-template-columns: 1fr auto 1fr auto; align-items: center; gap: 12px; padding: 16px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--fill); font-size: 12px; color: var(--text-2); }
+.version-impact strong { font-size: 24px; font-variant-numeric: tabular-nums; color: var(--text-1); }
+.version-impact strong small { display: inline; margin-left: 4px; }
+.version-impact.has-impact strong:last-child { color: var(--danger); }
+.version-inline-note { padding: 12px 14px; border-radius: var(--radius); background: var(--brand-light); color: var(--text-2); font-size: 12px; line-height: 1.8; margin-bottom: 20px; }
+.version-warning-note { background: var(--warning-bg); }
+.version-help h3 { margin-bottom: 8px; }
+.version-help p { font-size: 13px; line-height: 1.85; color: var(--text-2); margin-bottom: 24px; }
+.version-confirm-note { margin-top: 14px; font-size: 13px; color: var(--text-3); }
+.version-standalone-preview { max-width: 720px; padding: 24px; margin: 0 auto; }
+.version-standalone-preview .drawer-footer { padding: 20px 0 0; }
+.version-drawer [hidden] { display: none !important; }
+@media (max-width: 1100px) {
+  .management-page .version-stats { flex-wrap: wrap; }
+  .management-page .version-stats .stat-card { flex: 1 1 50%; }
+  .version-stats .stat-card:nth-child(3) { border-left: 0; }
+  .version-stats .stat-card:nth-child(n+3) { border-top: 1px solid var(--border); }
+}
+@media (max-width: 520px) {
+  .version-heading { flex-wrap: wrap; }
+  .version-heading-actions { margin-left: 0; }
+  .version-tabs { gap: 20px; }
+  .version-field-grid { grid-template-columns: 1fr; gap: 0; }
+  .version-panel .panel-title > .muted { display: none; }
+  .version-steps { gap: 20px; }
+}
+
+/* Empty results stay centered inside the visible panel, not a wide offscreen table. */
+.management-page .version-panel table:has(.empty) { min-width: 0; }
+.management-page .version-panel table:has(.empty) th { width: auto; }
+.management-page .version-panel table:has(.empty) th.actions { position: static; box-shadow: none; }
+@media (max-width: 1100px) {
+  .version-panel .version-filters { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); }
+  .version-filters .search-input { grid-column: span 2; }
+  .version-panel .version-filters input, .version-panel .version-filters select { width: 100%; max-width: none; }
+}
+/* Allow the shared two-line version/source cell to fit without an extra expand control. */
+.version-panel .cell-preview { max-height: 46px; }

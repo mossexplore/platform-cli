@@ -1,0 +1,8 @@
+<div class="version-preview-heading"><h3>{{ values.name }}</h3><span class="badge {{ 'danger' if values.mode=='enforce' else 'warning' if values.mode=='warn' else 'neutral' }}">{{ {'observe':'仅观察','warn':'提醒升级','enforce':'强制拒绝'}[values.mode] }}</span></div>
+<div class="version-impact {{ 'has-impact' if affected else '' }}"><span>近 7 天历史检查</span><strong>{{ checked }}<small>次</small></strong><span>预计拒绝</span><strong>{{ affected }}<small>次</small></strong></div>
+<p class="field-hint">按生效时刻的策略组合评估：范围内 {{ checked }} 次检查，其中 {{ affected }} 次会被拒绝。包含已有策略影响；不包含尚未使用的客户端。</p>
+<h3 class="version-section-title">确认策略配置</h3>
+<dl class="detail-list">
+<dt>适用环境</dt><dd>{{ values.environment or '全部环境' }}</dd><dt>业务 ID</dt><dd>{{ values.business_id or '全部业务' }}</dd><dt>最低版本</dt><dd class="mono">{{ values.minimum_version }}</dd><dt>推荐版本</dt><dd>{{ values.recommended_version or '未设置' }}</dd><dt>禁用版本</dt><dd>{{ values.blocked_versions or '无' }}</dd><dt>生效时间</dt><dd>{{ effective_at|beijing if values.effective_at else '发布后立即生效' }}</dd><dt>升级说明</dt><dd>{{ values.upgrade_url or '未设置' }}</dd>
+</dl>
+{% if values.mode=='enforce' %}<p class="version-inline-note version-warning-note">发布后，不符合版本要求的请求将被拒绝。请确认相关业务已完成升级准备。</p>{% endif %}

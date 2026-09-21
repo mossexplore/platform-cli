@@ -1,0 +1,16 @@
+{% macro policy_status(p, now) %}
+{% if not p.enabled %}<span class="badge neutral">已停用</span>{% elif p.effective_at > now %}<span class="badge warning">待生效</span>{% else %}<span class="badge positive">生效中</span>{% endif %}
+{% endmacro %}
+{% macro exception_status(e, now) %}
+{% if not e.enabled %}<span class="badge neutral">已撤销</span>{% elif e.expires_at <= now %}<span class="badge neutral">已到期</span>{% else %}<span class="badge positive">有效</span>{% endif %}
+{% endmacro %}
+{% macro confirm_action(id, title, name, explanation, action, csrf, enabled=none) %}
+<dialog id="{{ id }}" class="delete-dialog" aria-labelledby="{{ id }}-title"><form method="post" action="{{ action }}" data-editor><input type="hidden" name="csrf" value="{{ csrf }}">{% if enabled is not none %}<input type="hidden" name="enabled" value="{{ enabled }}">{% endif %}<div class="delete-heading"><h2 id="{{ id }}-title">{{ title }}</h2><button type="button" class="text-button" data-close>关闭</button></div><div class="delete-body"><div class="form-error" role="alert" hidden></div><p>确定{{ title }}「<strong>{{ name }}</strong>」？</p><p class="version-confirm-note">{{ explanation }}</p></div><div class="delete-footer"><button type="button" class="secondary" data-close>取消</button><button type="submit">确认{{ title[:2] }}</button></div></form></dialog>
+{% endmacro %}
+{% macro policy_detail(p, modes, now, environment_names, admin) %}
+<dialog id="policy-detail-{{ p.id }}" class="drawer version-drawer" aria-labelledby="policy-title-{{ p.id }}">
+<div class="drawer-heading"><h2 id="policy-title-{{ p.id }}">策略详情</h2><button type="button" class="text-button" data-close>关闭</button></div>
+<div class="drawer-body"><div class="version-detail-heading"><h3>{{ p.name }}</h3>{{ policy_status(p, now) }}</div><dl class="detail-list">
+<dt>策略编号</dt><dd>#{{ p.id }}</dd><dt>适用环境</dt><dd>{{ environment_names.get(p.environment,p.environment) or '全部环境' }}</dd><dt>业务 ID</dt><dd>{{ p.business_id or '全部业务' }}</dd><dt>执行模式</dt><dd>{{ modes[p.mode] }}</dd><dt>最低版本</dt><dd class="mono">{{ p.minimum_version }}</dd><dt>推荐版本</dt><dd class="mono">{{ p.recommended_version or '未设置' }}</dd><dt>禁用版本</dt><dd>{{ p.blocked_list|join('、') or '无' }}</dd><dt>生效时间</dt><dd>{{ p.effective_at|beijing }}</dd><dt>升级说明</dt><dd>{% if p.upgrade_url %}<a href="{{ p.upgrade_url }}" target="_blank" rel="noopener noreferrer">{{ p.upgrade_url }}</a>{% else %}未设置{% endif %}</dd><dt>创建人</dt><dd>{{ p.created_by }}</dd><dt>创建时间</dt><dd>{{ p.created_at|beijing }}</dd></dl><p class="field-hint">已发布规则保留历史记录。需要调整时，可复制为新策略，发布后再停用旧策略。</p></div>
+<div class="drawer-footer"><button type="button" class="secondary" data-close>关闭</button>{% if admin.role=='super_admin' %}<button type="button" data-copy-policy='{{ p.copy_fields|tojson }}'>复制为新策略</button>{% endif %}</div></dialog>
+{% endmacro %}
