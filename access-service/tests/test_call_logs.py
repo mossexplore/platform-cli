@@ -106,7 +106,7 @@ def test_full_command_is_stored_and_escaped(system):
         assert db.scalar(select(CallLog)).full_command == command
     login(client)
     html = client.get('/cli-permission/admin/calls').text
-    assert '<th>完整命令</th>' in html
+    assert '<h3>完整命令</h3>' in html and 'data-copy-call=' in html
     assert '&lt;script&gt;' in html and '<script>alert(1)</script>' not in html
     assert check(client, full_command='x' * 8193).status_code == 422
 
@@ -151,7 +151,27 @@ def test_log_table_hides_source_ip_and_explains_denials(system):
     for reason, label in cases:
         assert reason not in html and label in html
     row = html.split('allowed-user')[1].split('</tr>')[0]
-    assert '>通过</span>' in row and '<td>-</td>' in row and 'ALLOWED' not in html
-    assert 'colspan="10"' in client.get('/cli-permission/admin/calls?username=no-match').text
+    assert '>通过</span>' in row and 'data-open="call-detail-' in row and 'ALLOWED' not in html
+    assert 'colspan="6"' in client.get('/cli-permission/admin/calls?username=no-match').text
     with app.state.sessions() as db:
         assert db.scalar(select(CallLog).where(CallLog.reason == 'NOT_GRANTED')).source_ip == '192.0.2.123'
+
+
+def test_long_call_fields_remain_complete_in_details(system):
+    app, client, _ = system
+    actor, business, command = 'account-' + 'a' * 120, 'b' * 256, 'ml train start ' + 'x' * 8177
+    with app.state.sessions() as db:
+        record = CallLog(actor=actor, command='ml train start', environment='prod',
+            business_id=business, full_command=command, source_ip='192.0.2.123',
+            allowed=False, reason='CLI_VERSION_TOO_OLD', cli_version='1.0.0')
+        db.add(record)
+        db.commit()
+        record_id = record.id
+    login(client)
+    html = client.get('/cli-permission/admin/calls').text
+    assert actor in html and business in html and command in html
+    assert f'data-open="call-detail-{record_id}"' in html
+    assert f'id="call-detail-{record_id}"' in html
+    table = html.split('<tbody>')[1].split('</tbody>')[0]
+    assert command not in table and 'CLI 版本低于最低要求' in table
+    assert '192.0.2.123' not in html

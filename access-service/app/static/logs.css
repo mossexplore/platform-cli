@@ -82,16 +82,6 @@
   font-weight: 500;
 }
 
-.logs-table { min-width: 1000px; }
-.logs-table .full-command {
-  min-width: 260px;
-  max-width: 480px;
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-  font-family: var(--font-mono);
-  font-size: 12px;
-}
-
 .list-help { font-size: 13px; color: var(--text-3); margin: 4px 0; }
 .list-help summary { cursor: pointer; width: fit-content; }
 .list-help p {
@@ -103,4 +93,70 @@
   line-height: 1.8;
   font-size: 13px;
   color: #3d5a99;
+}
+
+/* Fit the available content width. Long audit payloads live in the details drawer. */
+.call-results { container-type: inline-size; }
+.call-records { width: 100%; min-width: 0; }
+.call-records-table { width: 100%; min-width: 0; table-layout: fixed; }
+.call-records-table th:nth-child(1) { width: 14%; }
+.call-records-table th:nth-child(2) { width: 19%; }
+.call-records-table th:nth-child(3) { width: 25%; }
+.call-records-table th:nth-child(4) { width: 14%; }
+.call-records-table th:nth-child(5) { width: 20%; }
+.call-records-table th:nth-child(6) { width: 8%; }
+.call-records-table th, .call-records-table td { padding: 12px; min-width: 0; max-width: none; white-space: normal; overflow-wrap: anywhere; vertical-align: top; }
+.call-records-table th { padding-top: 10px; padding-bottom: 10px; }
+.call-records-table .call-time { font-variant-numeric: tabular-nums; }
+.call-time time span { display: block; }
+.call-time time span:first-child { white-space: nowrap; }
+.call-time time span + span { color: var(--text-3); }
+.call-wrap { display: block; overflow-wrap: anywhere; }
+.call-subline { display: block; margin-top: 5px; line-height: 1.6; overflow-wrap: anywhere; }
+.call-records-table .badge { white-space: normal; max-width: 100%; }
+.call-reason { color: var(--text-2); }
+.call-action { text-align: right; }
+.call-records-table .text-button { min-height: 26px; padding: 0; }
+.call-detail[open] { display: flex; flex-direction: column; }
+.call-detail .drawer-heading, .call-detail .drawer-footer { flex-shrink: 0; }
+.call-detail .drawer-body { min-width: 0; min-height: 0; }
+.call-detail .detail-list { grid-template-columns: 76px minmax(0,1fr); }
+.call-detail .detail-list dd { min-width: 0; user-select: text; }
+.call-detail-result { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 24px; }
+.call-detail-result .badge { flex-shrink: 0; }
+.call-detail-result p { font-size: 13px; color: var(--text-2); }
+.call-detail-section { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.call-command { max-width: 100%; white-space: pre-wrap; overflow-wrap: anywhere; word-break: break-word; user-select: text; }
+.call-copy-status { min-height: 18px; font-size: 12px; color: var(--text-3); }
+.call-section-title { padding: 12px 0; margin: 8px 0 16px; border-bottom: 1px solid var(--border); }
+.call-policy-results { list-style: none; padding: 0; margin: 0; }
+.call-policy-results li { display: flex; justify-content: space-between; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--border); font-size: 13px; overflow-wrap: anywhere; }
+.call-policy-results strong { flex-shrink: 0; }
+.call-trace .detail-list { margin-top: 16px; }
+.management-page .call-query .call-filters { grid-template-columns: repeat(4,minmax(0,1fr)); }
+.call-query label, .call-query input, .call-query select { min-width: 0; }
+.call-query .time-range-box { width: 100%; min-width: 0; max-width: none; }
+.call-query .time-range-box input { min-width: 0; width: 0; }
+@container (max-width: 720px) {
+  .call-records-table, .call-records-table tbody { display: block; }
+  .call-records-table thead { position: absolute; width: 1px; height: 1px; clip-path: inset(50%); overflow: hidden; }
+  .call-records-table tbody tr { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); padding: 14px 16px; gap: 12px 24px; border-bottom: 1px solid var(--border); }
+  .call-records-table tbody tr:last-child { border-bottom: 0; }
+  .call-records-table td { display: block; width: auto; border: 0; padding: 0; }
+  .call-records-table td::before { content: attr(data-label); display: block; font-size: 12px; color: var(--text-3); margin-bottom: 5px; }
+  .call-records-table td.call-action { display: flex; align-items: end; justify-content: flex-end; }
+  .call-records-table td.call-action::before { display: none; }
+  .call-records-table td[colspan] { grid-column: 1 / -1; }
+  .call-time time span { display: inline; }
+  .call-time time span + span { margin-left: 6px; }
+}
+@media (max-width: 1100px) {
+  .management-page .call-query .call-filters { grid-template-columns: repeat(2,minmax(0,1fr)); }
+  .call-query .time-range { grid-column: 1 / -1; }
+  .call-query .filter-actions { grid-column: 1 / -1; }
+}
+@media (max-width: 520px) {
+  .call-query .time-range-box { flex-direction: column; align-items: stretch; gap: 2px; }
+  .call-query .time-range-box input { width: 100%; flex: auto; }
+  .call-query .time-range-sep { padding: 0 8px; }
 }

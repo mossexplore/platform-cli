@@ -14,9 +14,28 @@
 {% block title %}CLI 调用日志{% endblock %}
 {% block content %}
 <div class="page-heading"><div><p class="eyebrow">ACCESS ACTIVITY</p><h1>CLI 调用日志</h1><p class="subtitle">追踪每次业务命令的授权检查，快速定位访问被拒绝的原因。</p></div></div>
-<section class="panel query-panel">
+<section class="panel query-panel call-query">
 <form class="call-filters" method="get" action="/cli-permission/admin/calls">
 <label>业务 ID<input name="business_id" value="{{ business_id }}" maxlength="256"></label><label>CLI 版本<input name="cli_version" value="{{ cli_version }}" maxlength="64"></label><label>用户名<input name="username" value="{{ username }}" maxlength="128"></label><label>环境标识<input name="environment" value="{{ environment }}" maxlength="64"></label><label>命令名称<input name="command" value="{{ command }}" maxlength="128" placeholder="例如 ml train list"></label><label>授权结果<select name="result"><option value="">全部</option><option value="allowed" {% if result=='allowed' %}selected{% endif %}>通过</option><option value="denied" {% if result=='denied' %}selected{% endif %}>拒绝或异常</option></select></label><div class="time-range" data-time-range><span class="time-range-label">时间范围（北京时间 UTC+8）{% if begin or end %}<em>已设置</em>{% endif %}</span><div class="time-range-box"><input type="datetime-local" name="begin" value="{{ begin }}" step="1" aria-label="开始时间（北京时间 UTC+8）"><span class="time-range-sep">至</span><input type="datetime-local" name="end" value="{{ end }}" step="1" aria-label="结束时间（北京时间 UTC+8）"></div><div class="time-presets"><button type="button" class="preset-chip" data-preset="1h">最近 1 小时</button><button type="button" class="preset-chip" data-preset="24h">最近 24 小时</button><button type="button" class="preset-chip" data-preset="7d">最近 7 天</button><button type="button" class="preset-chip" data-preset="30d">最近 30 天</button></div></div><div class="filter-actions"><button>查询</button><a class="secondary" href="/cli-permission/admin/calls">清空筛选</a></div></form></section>
-<section class="panel call-results"><div class="panel-title"><h2>调用记录 <span class="count">{{ count }} 条</span></h2><span class="muted">按调用时间倒序排列</span></div><div class="table-scroll"><table class="logs-table"><thead><tr><th>调用时间</th><th>用户名</th><th>命令</th><th>完整命令</th><th>环境</th><th>业务 ID</th><th>CLI 版本 / 来源</th><th>版本判断</th><th>授权结果</th><th>原因</th></tr></thead><tbody>{% for item in items %}<tr><td class="nowrap">{{ item.created_at|beijing }}</td><td>{{ item.actor }}</td><td>{{ item.command }}</td><td class="full-command">{{ item.full_command or "未上报（旧客户端或历史记录）" }}</td><td>{{ item.environment }}</td><td>{{ item.business_id }}</td><td>{{ item.cli_version }}<small>{{ {'reported':'客户端上报','legacy_default':'旧客户端默认','historical_default':'历史默认推定'}.get(item.version_source, item.version_source) }} / {{ '网关' if item.check_source=='gateway' else '预检查' }}</small></td><td><details><summary>查看策略结果</summary><p>最低版本：{{ item.version_info.get('minimum_version') or '不限' }}；推荐版本：{{ item.version_info.get('recommended_version') or '不限' }}</p><p>提醒升级：{{ '是' if item.version_info.get('warning') else '否' }}</p>{% for decision in item.version_info.get('checks', []) %}<p>策略 #{{ decision.policy_id }}：{{ reason_labels.get(decision.reason, '通过') }}{{ '（临时例外）' if decision.exempt else '' }}</p>{% endfor %}<p>安装实例：{{ item.installation_id or '未上报' }}</p><p>命令关联：{{ item.invocation_id or '未上报' }}</p></details></td><td><span class="badge {{ 'positive' if item.allowed else 'danger' }}">{{ '通过' if item.allowed else '拒绝或异常' }}</span></td><td>{{ '-' if item.allowed else reason_labels.get(item.reason, '未知原因，请联系管理员') }}</td></tr>{% else %}<tr><td colspan="10" class="empty">暂无匹配记录</td></tr>{% endfor %}</tbody></table></div>{% include 'pagination.html' %}</section>
+<section class="panel call-results">
+<div class="panel-title"><h2>调用记录 <span class="count">{{ count }} 条</span></h2><span class="muted">按调用时间倒序排列</span></div>
+<div class="call-records"><table class="call-records-table" aria-label="CLI 调用记录">
+<thead><tr><th scope="col">调用时间</th><th scope="col">账号 / 环境</th><th scope="col">命令 / 业务</th><th scope="col">CLI 版本</th><th scope="col">授权结果</th><th scope="col">操作</th></tr></thead>
+<tbody>{% for item in items %}
+{% set timestamp = item.created_at|beijing %}
+<tr>
+  <td data-label="调用时间" class="call-time"><time><span>{{ timestamp[:10] }}</span><span>{{ timestamp[11:] }}</span></time></td>
+  <td data-label="账号 / 环境"><strong class="call-wrap">{{ item.actor }}</strong><small class="call-subline">{{ item.environment }}</small></td>
+  <td data-label="命令 / 业务"><span class="mono call-wrap">{{ item.command }}</span><small class="call-subline call-business">{{ item.business_id }}</small></td>
+  <td data-label="CLI 版本"><span class="mono call-wrap">{{ item.cli_version }}</span><small class="call-subline">{{ '网关检查' if item.check_source=='gateway' else '客户端预检查' }}</small></td>
+  <td data-label="授权结果"><span class="badge {{ 'positive' if item.allowed else 'danger' }}">{{ '通过' if item.allowed else '拒绝或异常' }}</span>{% if not item.allowed %}<small class="call-subline call-reason">{{ reason_labels.get(item.reason, '未知原因，请联系管理员') }}</small>{% endif %}</td>
+  <td class="call-action"><button type="button" class="text-button" data-open="call-detail-{{ item.id }}" aria-label="查看 {{ item.actor }} 的调用详情">详情</button></td>
+</tr>
+{% else %}<tr><td colspan="6"><div class="empty"><strong>暂无匹配记录</strong><p>请调整账号、环境或时间范围后重试。</p></div></td></tr>{% endfor %}
+</tbody></table></div>
+{% include 'pagination.html' %}
+</section>
+{% for item in items %}{% include 'call_detail.html' %}{% endfor %}
 <details class="list-help"><summary>日志说明</summary><p>账号由 CLI 上报。授权通过不代表业务执行成功；完整命令由新版 CLI 上报，包含参数；已识别的敏感参数会脱敏。历史记录无法补齐，超过 8192 字符会标记截断。</p></details>
+<script src="/cli-permission/static/call-details.js" defer></script>
 {% endblock %}

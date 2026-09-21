@@ -13,7 +13,7 @@ def test_ungranted_people_and_combined_filters(system):
     html = client.get('/cli-permission/admin?tab=users').text
     assert 'data-account="bob"' in html and '未授权' in html
     assert 'data-account="alice"' in html
-    assert html.count('>人员与授权</a>') == 1
+    assert html.count('>人员授权</a>') == 1
     assert '>人员管理</a>' not in html and '>访问授权</a>' not in html
     ids = re.findall(r'<dialog[^>]+id="([^"]+)"', html)
     assert len(ids) == len(set(ids))

@@ -1,0 +1,13 @@
+<dialog id="call-detail-{{ item.id }}" class="drawer call-detail" aria-labelledby="call-title-{{ item.id }}">
+<div class="drawer-heading"><div><p class="eyebrow">CALL DETAILS</p><h2 id="call-title-{{ item.id }}">调用详情</h2></div><button type="button" class="text-button" data-close>关闭</button></div>
+<div class="drawer-body">
+<div class="call-detail-result"><span class="badge {{ 'positive' if item.allowed else 'danger' }}">{{ '通过' if item.allowed else '拒绝或异常' }}</span><p>{{ '授权检查通过，不代表业务执行成功。' if item.allowed else reason_labels.get(item.reason, '未知原因，请联系管理员') }}</p></div>
+<dl class="detail-list"><dt>调用时间</dt><dd>{{ item.created_at|beijing }}</dd><dt>账号</dt><dd>{{ item.actor }}</dd><dt>环境</dt><dd>{{ item.environment }}</dd><dt>业务 ID</dt><dd class="mono">{{ item.business_id }}</dd><dt>命令</dt><dd class="mono">{{ item.command }}</dd></dl>
+<div class="call-detail-section"><h3>完整命令</h3><button type="button" class="text-button" data-copy-call="call-command-{{ item.id }}" {% if not item.full_command %}disabled{% endif %}>复制命令</button></div>
+<pre id="call-command-{{ item.id }}" class="call-command" tabindex="0">{{ item.full_command or '未上报（旧客户端或历史记录）' }}</pre><p class="call-copy-status" aria-live="polite" data-copy-status></p>
+<h3 class="call-section-title">版本判断</h3>
+<dl class="detail-list"><dt>CLI 版本</dt><dd>{{ item.cli_version }}</dd><dt>版本来源</dt><dd>{{ {'reported':'客户端上报','legacy_default':'旧客户端默认','historical_default':'历史默认推定'}.get(item.version_source, item.version_source) }}</dd><dt>检查入口</dt><dd>{{ '网关检查' if item.check_source=='gateway' else '客户端预检查' }}</dd><dt>最低要求</dt><dd>{{ item.version_info.get('minimum_version') or '不限' }}</dd><dt>推荐版本</dt><dd>{{ item.version_info.get('recommended_version') or '未设置' }}</dd><dt>升级提醒</dt><dd>{{ '是' if item.version_info.get('warning') else '否' }}</dd></dl>
+{% if item.version_info.get('checks') %}<ul class="call-policy-results">{% for decision in item.version_info.get('checks', []) %}<li><strong>策略 #{{ decision.policy_id }}</strong><span>{{ reason_labels.get(decision.reason, '通过') }}{{ '（临时例外）' if decision.exempt else '' }}</span></li>{% endfor %}</ul>{% else %}<p class="muted">未记录命中策略。</p>{% endif %}
+<details class="call-trace"><summary>查看追踪信息</summary><dl class="detail-list"><dt>请求标识</dt><dd class="mono">{{ item.request_id or '未上报' }}</dd><dt>安装实例</dt><dd class="mono">{{ item.installation_id or '未上报' }}</dd><dt>命令关联</dt><dd class="mono">{{ item.invocation_id or '未上报' }}</dd></dl></details>
+</div><div class="drawer-footer"><button type="button" class="secondary" data-close>关闭</button></div>
+</dialog>

@@ -108,20 +108,6 @@
   user-select: text;
 }
 
-/* 日志列宽 */
-.management-page .logs-table { min-width: 1200px; }
-.management-page .logs-table th:nth-child(1) { width: 184px; }
-.management-page .logs-table th:nth-child(2) { width: 100px; }
-.management-page .logs-table th:nth-child(5) { width: 80px; }
-.management-page .logs-table th:nth-child(3) { width: 320px; }
-.management-page .logs-table th:nth-child(4) { width: 280px; }
-.management-page .logs-table th:nth-child(6) { width: 120px; }
-.management-page .logs-table th:nth-child(7) { width: 124px; }
-.management-page .logs-table td:nth-child(1), .management-page .logs-table td:nth-child(7) { white-space: nowrap; overflow-wrap: normal; }
-.management-page .logs-table td:nth-child(7) .badge { white-space: nowrap; }
-.management-page .logs-table th:nth-child(8) { width: 200px; }
-.management-page .table-scroll .full-command { white-space: normal; min-width: 0; }
-
 /* 侧栏紧凑 */
 .management-page .sidebar { padding-top: 16px; }
 .management-page .sidebar nav { margin-top: 24px; }
