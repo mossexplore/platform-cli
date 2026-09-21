@@ -18,6 +18,127 @@
 - Push 到远程时，必须直接 Push 到 `main` 分支。
 - 禁止 Push 到其他分支。
 
+## 正式版本发布强制流程
+
+后续所有正式版本必须沿用 v1.0.0、v1.0.3 已验证的统一出包方式：**main 上确定发布提交 → GitHub 正式工作流测试与构建 → Release 草稿 → 下载复核 → 发布正式版 → 验证结果**。不得仅创建 Git 标签、上传本地临时包或只触发工作流后就宣称发布完成。
+
+### 1. 确认范围、版本与授权
+
+- 明确目标版本、上一正式版本、本次新增能力及兼容性变化。以 GitHub 实际 Release、标签及源码为准，不把源码版本等同于已发布版本。
+- `pyproject.toml` 的 `project.version`、`src/wiserec_cli/__init__.py` 的 `__version__`、发布说明、附件版本和镜像版本必须一致。版本已递增到目标值时不重复递增。
+- 用户明确要求“发布正式版本”时，授权包含本流程中的 main 提交与推送、构建、草稿核验及最终发布，无需再次确认同一发布动作；只要求分析、准备、出包或草稿时，不擅自正式发布。
+- GitHub 发布不等于部署生产。没有另行授权，不连接生产库执行迁移、不替换生产容器、不调整业务版本准入策略。
+
+### 2. 发布前检查
+
+- 检查分支、工作区、远程、待推送提交。仅向 `main` 推送；明确纳入的文件，不使用不加选择的 `git add .`，不提交个人文件、临时验证文件、真实配置、密码或 Token。
+- 用 `gh release view`、远程标签和镜像仓库检查目标版本是否已存在。正式 Release、正式标签和正式镜像不得覆盖、移动或删除重发；同版本已有草稿时先核对其源提交与原工作流，不直接重复创建。
+- 核对上一正式版本的附件清单与 `.github/workflows/release.yml`、`access-image.yml`、`release-recover.yml`、`scripts/releasing/prepare-assets.py`、`verify-windows.ps1`。
+- 工作流必须读取目标版本的发布说明，不得固定引用旧版说明。Windows 升级测试必须使用明确的上一正式版本提交，并同步升级前版本断言和 manifest 的验证描述。
+- 检查组装脚本中的升级指南文件名、附件名及版本常量，按本次发布更新。v1.0.3 时这些地方曾固定为 1.0.0 升级基线及 `Docker-upgrade-1.0.3.md`，后续不得照搬旧值。
+- 检查 GitHub 凭据权限。若 HTTPS 推送因缺少 `workflow` scope 被拒，可使用本机**已有且有权访问同一仓库**的 SSH 身份，不改变账号授权或安全设置；没有可用身份时说明具体缺失权限。不得输出 Token、私钥或自动扩大凭据权限。
+
+### 3. 文档必须先于构建完成
+
+- 新建 `docs/RELEASE_NOTES_<版本>.md`，说明相较上一正式版本的能力、下载附件与平台要求、使用前提、升级影响、验证范围和未验证限制。不得把跳过的真实业务/Jupyter 联调写成已验证。
+- 同步 `README.md`、`access-service/README.md`、`docs/CLI参考使用指南.md` 中的当前版本、下载入口、命令名称和配置要求；保留历史发布说明，不批量改写历史版本含义。
+- 更新以下部署资料，避免结构版本、示例镜像标签和迁移要求互相矛盾：
+  - `docs/权限管理系统Docker安装部署与调试指南.md`（Release 的 `Docker-runbook.md` 来源）；
+  - `docs/权限管理系统Docker离线导入与运行.md`（镜像附件 `README.md` 的生成模板）；
+  - `docs/权限管理系统Docker部署与发布指南.md`；
+  - 涉及升级时，提供独立的“旧版本升级至新版本指南”，并加入正式附件和校验清单。
+- 数据库升级结论必须比较旧版及目标版迁移代码、实际 schema 版本要求，不能只根据应用版本号推断。明确备份恢复演练、停写后的最终备份、单进程显式迁移、数据核对、验收放行和回滚条件。
+- 保留原配置与外部数据库，不指导用户覆盖真实 service.env 或重新创建已有管理员。停止服务、最终备份、执行迁移必须分成清晰步骤，禁止可直接整段复制而跳过备份的命令序列。
+- 说明结构变化后能否直接回滚镜像、有无降级迁移，以及恢复备份对新增数据的影响。禁止通过手改 schema_versions 冒充迁移或回滚。
+- 发布说明和部署指南定稿后再启动正式构建；如果发布提交中的文档或代码仍需修正，应在正式发布前停止未完成的旧构建、提交修正并从新提交重新出包。已有草稿/正式镜像时先按失败恢复规则处理。
+
+### 4. 测试、提交与 main 推送
+
+提交前完成适用的本地测试及差异检查，使用安装了项目依赖的 Python/Node 环境：
+
+```bash
+python -m pytest tests -q
+PYTHONPATH=access-service python -m pytest access-service/tests -q
+node --test access-service/tests/test_time_presets.cjs
+git diff --check
+```
+
+- 检查测试的退出状态，记录通过和跳过的范围；失败先修复，不能绕过测试。
+- 仅文档修改可采用文档、路径、示例与差异检查，不为纯文字变更添加无意义测试；正式出包的 CI 门禁仍必须完整通过。
+- 按文件提交并推送 `main`，记录待发布完整 commit SHA。未经提交的本地修改不会进入远程构建。
+
+### 5. 启动并跟踪正式工作流
+
+```bash
+gh workflow run release.yml --ref main
+gh run list --workflow release.yml --limit 5 --json databaseId,headSha,status,conclusion,url
+```
+
+- 选择与本次触发和预期 SHA 匹配的 run ID，不凭列表第一项猜测。确认 head_branch 为 main，head_sha 为本次发布提交。
+- 跟踪到完成，阶段性告知结果；不反复高频轮询，不在构建仍运行时结束为“发布成功”。
+- 正式流程必须包括：
+  1. 校验版本和发布说明存在；
+  2. CLI、权限服务、浏览器时区测试；
+  3. Windows 联网/离线包构建、全新安装、重复安装、禁止联网取包的离线安装，以及上一正式 CLI 升级验证；
+  4. 构建 linux/amd64 权限系统候选镜像，测试最终分发的同一镜像摘要；
+  5. MySQL 容器健康、管理员登录、授权允许/拒绝、日志落库、重启及目录挂载配置更新验证；
+  6. 镜像来源证明、Docker save/load 往返、离线镜像导出；
+  7. `prepare-assets.py` 验证与组装、标记已经测试的镜像摘要、上传 Release 草稿。
+- 不为正式标签重新构建另一份未经验证的镜像。不能用普通 main 镜像构建成功替代正式工作流的 Windows 与附件组装验证。
+
+### 6. 必须交付的附件
+
+沿用统一命名（以目标版本替换 `<版本>`）：
+
+| 附件 | 必须核对的内容 |
+| --- | --- |
+| `wiserec-cli-<版本>-windows-py3-online.zip` | 联网安装脚本、配置、release.json、CLI Wheel |
+| `wiserec-cli-<版本>-windows-x64-py312-offline.zip` | Python 3.12 x64 离线依赖、安装脚本及同一 CLI Wheel |
+| `wiserec_cli-<版本>-py3-none-any.whl` | 包元数据与 CLI 运行版本一致、新模块包含在包中 |
+| `cli-access-<版本>-linux-amd64.tar.gz` | 可由 docker load 导入，镜像平台、版本和源提交正确 |
+| `CLI-install.md`、`CLI-reference.md` | 当前安装方式和完整命令指导 |
+| `Docker-runbook.md`、适用的 `Docker-upgrade-<版本>.md` | 当前部署及明确的升级、迁移、回滚步骤 |
+| `README.md`、`service.env.example` | 离线镜像信息和无真实凭据的配置示例 |
+| `manifest.json`、`SHA256SUMS` | 构建来源、平台、镜像身份、附件完整性 |
+
+若以后更改 Python 或 CPU 平台，必须同步文件名、构建/安装验证、manifest 和文档，不能仅改附件名。CLI 离线包不包含 Python/Edge 本体；权限系统镜像不包含 MySQL 或 Jupyter Server，说明中必须明确。
+
+### 7. 下载草稿附件并独立复核
+
+所有构建 job 成功后，检查草稿的 isDraft、isPrerelease、targetCommitish、标题、正文及完整附件清单。下载到新的独立临时目录，至少完成：
+
+- `SHA256SUMS` 中每个文件的哈希匹配，清单覆盖全部预期附件（校验文件自身除外），没有遗漏、额外临时文件或凭据。
+- 独立 Wheel 的 METADATA Version、包内 __version__、CI 安装后 `ml --version` 均为目标版本。
+- 两个 Windows ZIP 的 release.json 版本与目标一致；离线目标为声明的 Python/架构；包内 CLI Wheel 与独立 Wheel 字节一致。
+- manifest 的 image_version、release_tag、image_tag、image_revision 与本次版本和测试提交一致。
+- Docker 归档的镜像配置哈希对应 manifest.image_id；版本与 revision 标签、平台及导入标签正确；来源摘要为已通过测试的摘要。
+- 文件 SHA256、Docker image ID 和仓库镜像摘要属于不同对象，分别验证，不能混用。
+- 附件中的部署指南、升级指南和 CLI 参考与发布提交中的对应文件一致，发布正文引用本次版本的说明。
+
+任一项不通过，保持草稿，修复并重新验证，不能带问题发布。
+
+### 8. 正式发布及最终确认
+
+仅在用户已授权正式发布且以上门禁全部通过后执行发布。将下面变量替换为已核对值；命令中的说明文件必须存在：
+
+```bash
+gh release edit "v$RELEASE_VERSION" --draft=false --prerelease=false --latest   --title "$RELEASE_TITLE" --notes-file "docs/RELEASE_NOTES_${RELEASE_VERSION}.md"
+gh release view "v$RELEASE_VERSION" --json isDraft,isPrerelease,publishedAt,url,targetCommitish,assets
+```
+
+- 对新的最高稳定版本设置 latest；历史维护版本不得无意替换较新的 latest。
+- 核实 isDraft=false、isPrerelease=false、publishedAt 非空，正式标签指向测试提交，附件齐全；若设 latest，查询 GitHub latest 接口确认目标版本。
+- 在右侧浏览器展示正式 Release 链接，最终说明下载地址、附件类型、验证结果和升级指南入口；涉及数据库变化时强调必须迁移，明确生产未自动升级。
+- 最后检查工作区与 main 推送状态，报告有意保留的未提交文件。不得把“已创建草稿”说成“已正式发布”。
+
+### 9. 失败恢复与不可变产物
+
+- 测试或构建失败：先读失败步骤日志并定位原因，不跳过门禁、不拿别的提交产物凑包。只有确定是临时基础设施故障时才重试相同构建。
+- CLI 和镜像成功、草稿附件组装失败：核实原 run ID、源提交及成功 job；可以使用 `release-recover.yml` 的 source_run 恢复**已存在且指向该提交的草稿**。该工作流不是任意失败的通用重发工具。
+- 恢复必须保留原二进制和已验证镜像摘要，重新校验组装代码、文档及 SHA256SUMS。若修复涉及应用代码，必须重新构建和测试，不得只替换说明冒充新代码。
+- 已生成正式镜像标签但没有可恢复草稿时，先确认标签对应的原始 run、commit 和摘要，制定可验证的恢复路径；不得覆盖标签或盲目反复触发创建流程。
+- 已发布版本的代码、标签、镜像及二进制附件不可变；修复用新版本发布。修改已发布说明或补充附件需要明确范围和授权，不得悄悄替换。
+
 ## 上下文压缩
 
 整理或压缩当前任务上下文时：
