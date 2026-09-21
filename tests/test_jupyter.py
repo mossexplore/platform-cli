@@ -79,11 +79,31 @@ def test_empty_token_omits_authorization_header():
         seen.append(req)
         return httpx.Response(200, json={"kernelspecs": {}})
 
-    with JupyterClient(Connection("https://localhost/base/", "", "business"),
+    with JupyterClient(Connection("https://localhost/base/", "", "business", studio_id="studio"),
                        transport=httpx.MockTransport(handler)) as client:
         client.request("GET", "api/kernelspecs")
-    assert seen[0].headers["businessid"] == "business"
-    assert "authorization" not in seen[0].headers
+    assert [request.url.path for request in seen] == ["/base/lab", "/base/api/kernelspecs"]
+    assert seen[1].headers["businessid"] == "business"
+    assert "authorization" not in seen[1].headers
+
+
+def test_webstudio_token_bootstraps_lab_session_before_api():
+    seen = []
+
+    def handler(req):
+        seen.append(req)
+        if req.url.path == "/base/lab":
+            return httpx.Response(200, headers={"set-cookie": "jupyter-session=active; Path=/base/"})
+        return httpx.Response(200, json={"kernelspecs": {}})
+
+    with JupyterClient(Connection("https://localhost/base/", "a+b=", "business",
+                                  studio_id="studio"),
+                       transport=httpx.MockTransport(handler)) as client:
+        client.request("GET", "api/kernelspecs")
+    assert [request.url.path for request in seen] == ["/base/lab", "/base/api/kernelspecs"]
+    assert seen[0].url.query == b"token=a%2Bb%3D"
+    assert seen[1].headers["authorization"] == "token a+b="
+    assert "jupyter-session=active" in seen[1].headers["cookie"]
 
 
 def test_empty_token_uses_lab_xsrf_cookie_for_write_request():
@@ -95,7 +115,7 @@ def test_empty_token_uses_lab_xsrf_cookie_for_write_request():
             return httpx.Response(200, headers={"set-cookie": "_xsrf=session-token; Path=/base/"})
         return httpx.Response(200, json={"name": "terminal-id"})
 
-    with JupyterClient(Connection("https://localhost/base/", "", "business"),
+    with JupyterClient(Connection("https://localhost/base/", "", "business", studio_id="studio"),
                        transport=httpx.MockTransport(handler)) as client:
         client.request("POST", "api/terminals", {})
     assert [request.url.path for request in seen] == ["/base/lab", "/base/api/terminals"]
@@ -110,7 +130,7 @@ def test_empty_token_websocket_reuses_lab_cookie():
 
     with patch("wiserec_cli.jupyter.connection.websocket.create_connection") as create:
         create.return_value.getstatus.return_value = 101
-        with JupyterClient(Connection("https://localhost/base/", "", "business"),
+        with JupyterClient(Connection("https://localhost/base/", "", "business", studio_id="studio"),
                            transport=httpx.MockTransport(handler)) as client:
             client.socket("api/terminals/1/channels")
     assert create.call_args.kwargs["cookie"] == "_xsrf=session-token"

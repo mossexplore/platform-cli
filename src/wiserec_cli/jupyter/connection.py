@@ -97,7 +97,7 @@ def remote_path(value: str) -> str:
 class JupyterClient:
     def __init__(self, connection: Connection, transport=None):
         self.connection = connection
-        self._tokenless_session_ready = False
+        self._webstudio_session_ready = False
         self.headers = {**client_headers(), "businessid": connection.business_id}
         if connection.token:
             self.headers["Authorization"] = "token " + connection.token
@@ -111,12 +111,15 @@ class JupyterClient:
     def __exit__(self, *_):
         self.http.close()
 
-    def _prepare_tokenless_session(self):
-        if self.connection.token or self._tokenless_session_ready:
+    def _prepare_webstudio_session(self):
+        if not self.connection.studio_id or self._webstudio_session_ready:
             return
-        # Jupyter 在无 Token 模式下仍可能要求写请求携带页面下发的 XSRF Cookie。
-        self.http.get("lab", headers=client_headers())
-        self._tokenless_session_ready = True
+        # 部分网关只在访问平台返回的 /lab?token=... 后建立 Jupyter 会话。
+        path = "lab"
+        if self.connection.token:
+            path += "?token=" + quote(self.connection.token, safe="")
+        self.http.get(path, headers=client_headers())
+        self._webstudio_session_ready = True
 
     def _xsrf_token(self):
         for cookie in self.http.cookies.jar:
@@ -131,9 +134,9 @@ class JupyterClient:
 
     def request(self, method, path, body=None):
         try:
+            self._prepare_webstudio_session()
             headers = client_headers()
             if method.upper() in {"POST", "PUT", "PATCH", "DELETE"}:
-                self._prepare_tokenless_session()
                 xsrf_token = self._xsrf_token()
                 if xsrf_token:
                     headers["X-XSRFToken"] = xsrf_token
@@ -160,7 +163,7 @@ class JupyterClient:
         sslopt = ({"context": verify} if isinstance(verify, ssl.SSLContext)
                   else {} if verify else {"cert_reqs": ssl.CERT_NONE, "check_hostname": False})
         try:
-            self._prepare_tokenless_session()
+            self._prepare_webstudio_session()
             cookie_header = self._cookie_header()
             cookie_options = {"cookie": cookie_header} if cookie_header else {}
             socket = websocket.create_connection(
