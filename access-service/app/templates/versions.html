@@ -59,7 +59,6 @@
   </div>
   {% include 'pagination.html' %}
 </section>
-<p class="version-footnote">未上报版本按 <span class="mono">1.0.0</span> 判断。所有时间均为北京时间（UTC+8）。</p>
 {% for p in policies %}
   {{ policy_detail(p, modes, now, environment_names, admin) }}
   {% if admin.role=='super_admin' %}{{ confirm_action('policy-toggle-' ~ p.id, ('停用' if p.enabled else '启用') ~ '策略', p.name, '停用后不再执行此策略，其他适用策略继续生效。' if p.enabled else '启用后将在下一次检查时执行；预约策略仍按生效时间执行。', '/cli-permission/admin/versions/policies/' ~ p.id ~ '/toggle', csrf, 'false' if p.enabled else 'true') }}{% endif %}
