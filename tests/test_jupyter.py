@@ -86,6 +86,37 @@ def test_empty_token_omits_authorization_header():
     assert "authorization" not in seen[0].headers
 
 
+def test_empty_token_uses_lab_xsrf_cookie_for_write_request():
+    seen = []
+
+    def handler(req):
+        seen.append(req)
+        if req.url.path == "/base/lab":
+            return httpx.Response(200, headers={"set-cookie": "_xsrf=session-token; Path=/base/"})
+        return httpx.Response(200, json={"name": "terminal-id"})
+
+    with JupyterClient(Connection("https://localhost/base/", "", "business"),
+                       transport=httpx.MockTransport(handler)) as client:
+        client.request("POST", "api/terminals", {})
+    assert [request.url.path for request in seen] == ["/base/lab", "/base/api/terminals"]
+    assert seen[1].headers["x-xsrftoken"] == "session-token"
+    assert "_xsrf=session-token" in seen[1].headers["cookie"]
+    assert "authorization" not in seen[1].headers
+
+
+def test_empty_token_websocket_reuses_lab_cookie():
+    def handler(req):
+        return httpx.Response(200, headers={"set-cookie": "_xsrf=session-token; Path=/base/"})
+
+    with patch("wiserec_cli.jupyter.connection.websocket.create_connection") as create:
+        create.return_value.getstatus.return_value = 101
+        with JupyterClient(Connection("https://localhost/base/", "", "business"),
+                           transport=httpx.MockTransport(handler)) as client:
+            client.socket("api/terminals/1/channels")
+    assert create.call_args.kwargs["cookie"] == "_xsrf=session-token"
+    assert "Authorization" not in create.call_args.kwargs["header"]
+
+
 def test_websocket_headers_prefix_and_no_redirect():
     with patch("wiserec_cli.jupyter.connection.websocket.create_connection") as create:
         create.return_value.getstatus.return_value = 101

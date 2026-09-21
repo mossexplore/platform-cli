@@ -1060,7 +1060,7 @@ ml --config .jupyter-local/config.json jupyter terminal close 1
 }
 ```
 
-webstudio 模式 server_url 只填协议、域名及可选端口，不含路径、/lab、查询参数或 Token。返回 `/explore-env/路由ID/lab?token=...` 后，自动得到 `https://网关/explore-env/路由ID/` 作为 API 根地址。该路由 ID 与平台 envId 不要求相同。Token 非空时，HTTP 和 WebSocket 携带 Token 认证头；Token 为空时，按平台返回的真实地址访问且不发送 Authorization 头。两种情况均携带 businessid，不转发管理台 Cookie。
+webstudio 模式 server_url 只填协议、域名及可选端口，不含路径、/lab、查询参数或 Token。返回 `/explore-env/路由ID/lab?token=...` 后，自动得到 `https://网关/explore-env/路由ID/` 作为 API 根地址。该路由 ID 与平台 envId 不要求相同。Token 非空时，HTTP 和 WebSocket 携带 Token 认证头；Token 为空时，按平台返回的真实地址访问且不发送 Authorization 头，并在首次写请求或 WebSocket 连接前访问 `/lab` 获取 Jupyter 会话及 XSRF Cookie。两种情况均携带 businessid，不转发管理台 Cookie。
 
 平台模式忽略 token_env/token_file，拒绝 business_file 覆盖；使用已有平台业务文件。ca_file 和既有 TLS 配置仍有效。未配置 mode 时默认为 direct，继续读取静态 Token。direct 模式不能使用 --studio-id。
 

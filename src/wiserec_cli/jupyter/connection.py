@@ -97,6 +97,7 @@ def remote_path(value: str) -> str:
 class JupyterClient:
     def __init__(self, connection: Connection, transport=None):
         self.connection = connection
+        self._tokenless_session_ready = False
         self.headers = {**client_headers(), "businessid": connection.business_id}
         if connection.token:
             self.headers["Authorization"] = "token " + connection.token
@@ -110,9 +111,33 @@ class JupyterClient:
     def __exit__(self, *_):
         self.http.close()
 
+    def _prepare_tokenless_session(self):
+        if self.connection.token or self._tokenless_session_ready:
+            return
+        # Jupyter 在无 Token 模式下仍可能要求写请求携带页面下发的 XSRF Cookie。
+        self.http.get("lab", headers=client_headers())
+        self._tokenless_session_ready = True
+
+    def _xsrf_token(self):
+        for cookie in self.http.cookies.jar:
+            if cookie.name == "_xsrf":
+                return cookie.value
+        return ""
+
+    def _cookie_header(self):
+        return "; ".join(
+            f"{cookie.name}={cookie.value}" for cookie in self.http.cookies.jar
+        )
+
     def request(self, method, path, body=None):
         try:
-            response = self.http.request(method, path, json=body, headers=client_headers())
+            headers = client_headers()
+            if method.upper() in {"POST", "PUT", "PATCH", "DELETE"}:
+                self._prepare_tokenless_session()
+                xsrf_token = self._xsrf_token()
+                if xsrf_token:
+                    headers["X-XSRFToken"] = xsrf_token
+            response = self.http.request(method, path, json=body, headers=headers)
         except httpx.HTTPError as exc:
             raise JupyterError("Jupyter 网络请求失败；未自动重试") from exc
         check_version_response(response)
@@ -135,11 +160,14 @@ class JupyterClient:
         sslopt = ({"context": verify} if isinstance(verify, ssl.SSLContext)
                   else {} if verify else {"cert_reqs": ssl.CERT_NONE, "check_hostname": False})
         try:
+            self._prepare_tokenless_session()
+            cookie_header = self._cookie_header()
+            cookie_options = {"cookie": cookie_header} if cookie_header else {}
             socket = websocket.create_connection(
                 url, header={**self.headers, **client_headers()}, timeout=self.connection.timeout,
                 origin=urlunsplit((urlsplit(self.connection.url).scheme, parts.netloc, "", "", "")),
                 sslopt=sslopt, http_no_proxy=[parts.hostname], enable_multithread=True,
-                redirect_limit=0,
+                redirect_limit=0, **cookie_options,
             )
             if socket.getstatus() != 101:
                 socket.close()
