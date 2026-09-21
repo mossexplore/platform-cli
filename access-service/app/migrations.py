@@ -2,14 +2,16 @@
 from sqlalchemy import inspect, select, text
 from .models import Base, CallLog, SchemaVersion, AccessApplication, ApplicationAttempt
 
-SCHEMA_VERSION = 7
+from .version_models import VersionPolicy, VersionException
+
+SCHEMA_VERSION = 8
 
 
 def migrate(engine, sessions):
     SchemaVersion.__table__.create(engine, checkfirst=True)
     with sessions() as db:
         versions = db.scalars(select(SchemaVersion.version)).all()
-        if versions not in ([], [1], [2], [3], [4], [5], [6], [7]):
+        if versions not in ([], [1], [2], [3], [4], [5], [6], [7], [8]):
             raise RuntimeError('数据库版本不兼容，不能自动迁移')
         if not versions:
             Base.metadata.create_all(engine)
@@ -47,6 +49,22 @@ def migrate(engine, sessions):
     if version < 7:
         AccessApplication.__table__.create(engine, checkfirst=True)
         ApplicationAttempt.__table__.create(engine, checkfirst=True)
+    if version < 8:
+        VersionPolicy.__table__.create(engine, checkfirst=True)
+        VersionException.__table__.create(engine, checkfirst=True)
+        columns = {column['name'] for column in inspect(engine).get_columns('cli_call_logs')}
+        additions = {'cli_version': "VARCHAR(64) NOT NULL DEFAULT '1.0.0'",
+            'version_source': "VARCHAR(32) NOT NULL DEFAULT 'historical_default'",
+            'protocol_version': "VARCHAR(32) NOT NULL DEFAULT '1'",
+            'installation_id': "VARCHAR(64) NOT NULL DEFAULT ''",
+            'invocation_id': "VARCHAR(64) NOT NULL DEFAULT ''",
+            'request_id': "VARCHAR(64) NOT NULL DEFAULT ''",
+            'check_source': "VARCHAR(16) NOT NULL DEFAULT 'client'",
+            'version_decision': 'TEXT NULL'}
+        for name, definition in additions.items():
+            if name not in columns:
+                with engine.begin() as connection:
+                    connection.execute(text(f'ALTER TABLE cli_call_logs ADD COLUMN {name} {definition}'))
     with sessions() as db:
         db.get(SchemaVersion, version).version = SCHEMA_VERSION
         db.commit()

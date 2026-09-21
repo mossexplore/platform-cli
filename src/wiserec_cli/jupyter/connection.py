@@ -13,6 +13,7 @@ import httpx
 import websocket
 
 from ..access import check_access
+from ..client_metadata import client_headers, check_version_response, VersionPolicyError
 from ..business import BusinessStore
 from ..errors import MlError
 
@@ -96,7 +97,7 @@ def remote_path(value: str) -> str:
 class JupyterClient:
     def __init__(self, connection: Connection, transport=None):
         self.connection = connection
-        self.headers = {"Authorization": "token " + connection.token,
+        self.headers = {**client_headers(), "Authorization": "token " + connection.token,
                         "businessid": connection.business_id}
         self.http = httpx.Client(base_url=connection.url, headers=self.headers,
                                  timeout=connection.timeout, verify=connection.verify,
@@ -110,9 +111,10 @@ class JupyterClient:
 
     def request(self, method, path, body=None):
         try:
-            response = self.http.request(method, path, json=body)
+            response = self.http.request(method, path, json=body, headers=client_headers())
         except httpx.HTTPError as exc:
             raise JupyterError("Jupyter 网络请求失败；未自动重试") from exc
+        check_version_response(response)
         if response.status_code in {401, 403}:
             raise JupyterError(f"Jupyter {method} {path.split(chr(63))[0]} 认证或权限失败（HTTP {response.status_code}）；请检查动态凭据与接口权限")
         if not response.is_success:
@@ -133,7 +135,7 @@ class JupyterClient:
                   else {} if verify else {"cert_reqs": ssl.CERT_NONE, "check_hostname": False})
         try:
             socket = websocket.create_connection(
-                url, header=self.headers, timeout=self.connection.timeout,
+                url, header={**self.headers, **client_headers()}, timeout=self.connection.timeout,
                 origin=urlunsplit((urlsplit(self.connection.url).scheme, parts.netloc, "", "", "")),
                 sslopt=sslopt, http_no_proxy=[parts.hostname], enable_multithread=True,
                 redirect_limit=0,
@@ -142,6 +144,16 @@ class JupyterClient:
                 socket.close()
                 raise JupyterError("Jupyter WebSocket 被重定向或未完成协议升级")
             return socket
+        except websocket.WebSocketBadStatusException as exc:
+            if exc.resp_body:
+                try:
+                    from ..client_metadata import handle_version_result
+                    handle_version_result(json.loads(exc.resp_body))
+                except (ValueError, TypeError):
+                    pass
+            raise JupyterError("Jupyter WebSocket 握手被拒绝；请检查版本策略和访问权限") from exc
+        except VersionPolicyError:
+            raise
         except Exception as exc:
             raise JupyterError("Jupyter WebSocket 连接失败；请检查 Token 和代理 Upgrade 配置") from exc
 

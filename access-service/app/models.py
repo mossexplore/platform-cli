@@ -132,3 +132,12 @@ class CallLog(Base):
     allowed: Mapped[bool] = mapped_column(Boolean, index=True)
     reason: Mapped[str] = mapped_column(String(64))
     created_at: Mapped[datetime] = mapped_column(DateTime, default=now, index=True)
+
+    cli_version: Mapped[str] = mapped_column(String(64), default='1.0.0')
+    version_source: Mapped[str] = mapped_column(String(32), default='legacy_default')
+    protocol_version: Mapped[str] = mapped_column(String(32), default='1')
+    installation_id: Mapped[str] = mapped_column(String(64), default='')
+    invocation_id: Mapped[str] = mapped_column(String(64), default='')
+    request_id: Mapped[str] = mapped_column(String(64), default='')
+    check_source: Mapped[str] = mapped_column(String(16), default='client')
+    version_decision: Mapped[str] = mapped_column(Text, default='{}')

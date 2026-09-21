@@ -4,6 +4,7 @@ import re
 import shlex
 import subprocess
 from typer.core import TyperGroup
+from .client_metadata import begin_invocation
 
 MAX_COMMAND_LENGTH = 8192
 _SECRET = re.compile(r'password|passwd|secret|token|cookie|csrf|authorization|api[-_]?key|credential', re.I)
@@ -39,6 +40,7 @@ def format_invocation(args):
 
 class InvocationGroup(TyperGroup):
     def parse_args(self, ctx, args):
+        begin_invocation()
         # 必须在 Click 消费参数前捕获；兼容真实入口和 CliRunner，不读取其他进程参数。
         ctx.meta['full_command'] = format_invocation(args)
         return super().parse_args(ctx, args)

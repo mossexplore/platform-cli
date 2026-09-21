@@ -1,4 +1,5 @@
 """调用日志查询；全部筛选在数据库完成，管理会话验证后才能访问。"""
+import json
 from .pagination import PAGE_SIZE
 from fastapi import APIRouter, Query, Request, HTTPException
 from fastapi.responses import RedirectResponse
@@ -13,6 +14,7 @@ router = APIRouter()
 @router.get('/admin/calls')
 def calls(request: Request, username: str = Query('', max_length=128),
           environment: str = Query('', max_length=64), command: str = Query('', max_length=128),
+          business_id: str = Query('', max_length=256), cli_version: str = Query('', max_length=64),
           result: str = '', begin: str = Query('', max_length=32), end: str = Query('', max_length=32),
           page: int = Query(1, ge=1)):
     if result not in ('', 'allowed', 'denied'):
@@ -28,6 +30,10 @@ def calls(request: Request, username: str = Query('', max_length=128),
                 return RedirectResponse('/cli-permission/login', status_code=303)
             raise
         query = select(CallLog)
+        if business_id:
+            query = query.where(CallLog.business_id == business_id)
+        if cli_version:
+            query = query.where(CallLog.cli_version == cli_version)
         if username:
             query = query.where(CallLog.actor.contains(username, autoescape=True))
         if environment:
@@ -42,9 +48,14 @@ def calls(request: Request, username: str = Query('', max_length=128),
             query = query.where(CallLog.created_at <= stop)
         count = db.scalar(select(func.count()).select_from(query.subquery()))
         items = db.scalars(query.order_by(CallLog.created_at.desc(), CallLog.id.desc()).offset((page-1)*PAGE_SIZE).limit(PAGE_SIZE)).all()
+        for item in items:
+            try:
+                item.version_info = json.loads(item.version_decision or '{}')
+            except (ValueError, TypeError):
+                item.version_info = {}
         return request.app.state.templates.TemplateResponse(request=request, name='calls.html', context={
             'admin': admin, 'csrf': session.csrf, 'items': items, 'count': count, 'page': page,
-            'username': username, 'environment': environment, 'command': command, 'result': result,
+            'business_id': business_id, 'cli_version': cli_version, 'username': username, 'environment': environment, 'command': command, 'result': result,
             'begin': begin, 'end': end,
             'previous': str(request.url.include_query_params(page=page-1)),
             'next': str(request.url.include_query_params(page=page+1))})

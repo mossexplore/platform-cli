@@ -7,6 +7,7 @@ from typing import Any, Dict, Mapping, Optional
 import httpx
 
 from .business import BusinessSelection
+from .client_metadata import client_headers, check_version_response
 from .errors import ApiError, AuthenticationError
 from .models import Credentials, Profile
 
@@ -66,6 +67,15 @@ class PlatformClient:
         """返回当前认证信息中的登录账号。"""
         return self._username
 
+    @staticmethod
+    def _request_headers(headers):
+        merged = httpx.Headers(headers or {})
+        generated = client_headers()
+        if 'x-request-id' in merged:
+            generated.pop('X-Request-ID')
+        merged.update(generated)
+        return merged
+
     def request(
         self,
         method: str,
@@ -80,11 +90,12 @@ class PlatformClient:
                 path,
                 json=json_body,
                 params=params,
-                headers=headers,
+                headers=self._request_headers(headers),
             )
         except httpx.HTTPError as exc:
             raise ApiError(f"请求失败: {exc}") from exc
 
+        check_version_response(response)
         if response.status_code in {401, 403, 419, 440}:
             raise AuthenticationError(
                 f"认证信息已被服务端拒绝，HTTP {response.status_code}"

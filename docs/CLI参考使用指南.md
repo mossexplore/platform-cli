@@ -2,7 +2,7 @@
 
 只需查看版本、选择环境、登录和查询训练任务，请阅读 [CLI 快速使用指南](CLI快速使用指南.md)。
 
-`ml` 是 **WiseRec 平台** 的 Python 命令行客户端（包名 `wiserec-cli`，当前版本 `1.0.2`）。
+`ml` 是 **WiseRec 平台** 的 Python 命令行客户端（包名 `wiserec-cli`，当前版本 `1.0.3`）。
 本文档覆盖命令参数、配置项与退出行为；2026-09-20 新增 Jupyter Notebook 与 Terminal 使用说明。示例中的 `TASK_ID`、`JOB_ID`、`PROJECT_ID`、`NAMESPACE_ID`、`EXPERIMENT_ID`、`SET_ID` 均须替换为对应资源的真实 ID；它们不是同一种 ID。
 
 > 阅读前提：查询平台数据前建议先完成 `ml login` 和 `ml business use`。`user`、`mep`、`mtp`、`offline`、`train`、`featureset` 需要有效认证和业务选择；`business list/use/refresh` 用于建立或维护业务上下文，不要求预先选好业务。没有认证或认证过期时，相关命令会自动启动 Edge 登录。
@@ -1109,3 +1109,19 @@ ml jupyter terminal close 1 --studio-id f925886d-072c-48fc-a4ec-636ab3ba9a60
 - 查询结果为空正常显示；找不到指定实例、业务不一致、状态不可用、认证拒绝和配置无效均返回非零退出码。
 
 Windows 联网/离线打包脚本保持不变，新模块自动进入 Wheel；Jupyter 服务端仍非默认安装依赖。本地开发示例继续使用 direct 模式。
+
+## CLI 版本准入（1.0.3）
+
+CLI 现在会自动上报当前运行版本。管理员可在权限管理台的“CLI 版本管理”中按环境、业务设置最低版本、推荐版本、禁用版本和临时例外。旧客户端未上报版本时按 **1.0.0** 判断。
+
+使用前提：当前环境已登录并选择业务，且权限服务已部署新版。执行 `ml access status` 可验证访问授权；`ml access status --diagnose` 可查看当前版本和连接诊断，参数不变，无需额外传入版本选项。示例：
+
+```bash
+ml --version
+ml access status
+ml access status --diagnose
+```
+
+若版本低于要求，命令返回非零退出码，并提示当前版本、最低版本和升级说明；不会反复打开浏览器登录。升级提醒写入 stderr，JSON 输出不受影响。帮助与版本查询仍可使用。旧客户端的提示可能为通用权限拒绝，请按管理员提供的安装包升级。
+
+策略配置、数据库迁移、版本统计与网关强制管控边界参见 [CLI 版本管控与网关接入](CLI版本管控与网关接入.md)。

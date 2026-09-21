@@ -5,6 +5,7 @@ from typing import Any, Dict
 from urllib.parse import urlsplit
 import httpx
 from .errors import ConfigError, MlError
+from .client_metadata import client_headers, handle_version_result
 from .access_transport import permission_url, tls_verify
 
 
@@ -59,7 +60,7 @@ def check_access(settings, profile, credentials, selection, *, command="unknown"
                           verify=tls_verify(), follow_redirects=False,
                           trust_env=settings.get('use_env_proxy', False)) as client:
             response = client.post(url,
-                                   headers={'businessid': selection.business_id},
+                                   headers={**client_headers(), 'businessid': selection.business_id},
                                    json={'username': credentials.username,
                                          'environment': profile.name,
                                          'platform_origin': profile.base_url,
@@ -92,6 +93,7 @@ def check_access(settings, profile, credentials, selection, *, command="unknown"
             diagnostics.finish()
     if not isinstance(result, dict) or type(result.get('allowed')) is not bool:
         raise MlError('权限服务响应格式错误，业务请求已停止')
+    handle_version_result(result)
     if not result['allowed']:
         messages = {
             'ENVIRONMENT_DISABLED': '当前环境未启用权限访问',

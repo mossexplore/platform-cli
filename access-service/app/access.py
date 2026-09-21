@@ -1,8 +1,12 @@
-from fastapi import APIRouter, Header, Request
+import json
+import secrets
+from fastapi import APIRouter, Header, Request, HTTPException
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 from .models import Environment, User, Grant, CallLog, now
 from .security import origin
+from .version_policy import metadata, evaluate_version
 
 router = APIRouter()
 
@@ -22,13 +26,44 @@ def denied(reason, message):
 @router.post('/api/v1/access/check')
 def check_access(body: Check, request: Request,
                  businessid: str = Header(min_length=1, max_length=256)):
+    return recorded_check(body, request, businessid)
+
+
+@router.post('/api/v1/gateway/check')
+def gateway_check(body: Check, request: Request,
+                  businessid: str = Header(min_length=1, max_length=256)):
+    # Server-to-server only. Gateway must authenticate the platform identity and
+    # business membership before constructing the body; never forward client identity fields.
+    expected = request.app.state.settings.gateway_token
+    if not expected or len(expected) < 32:
+        raise HTTPException(503, '网关检查未配置')
+    provided = request.headers.get('authorization', '')
+    if not secrets.compare_digest(provided.encode(), ('Bearer ' + expected).encode()):
+        raise HTTPException(401, '网关认证失败')
+    result = recorded_check(body, request, businessid, source='gateway')
+    return JSONResponse(result, status_code=200 if result['allowed'] else 403)
+
+
+def recorded_check(body, request, businessid, source='client'):
     result = evaluate_access(body, request)
-    # 账号由 CLI 上报，日志不表示已通过平台身份核验。
+    info = metadata(request)
     with request.app.state.sessions() as db:
+        decision = evaluate_version(db, body.environment, businessid, body.username, info)
+        if result['allowed']:
+            if not decision['allowed']:
+                result = {**decision, 'code': decision['reason'], 'request_id': info['request_id']}
+            elif decision['policy_ids']:
+                result['version_policy'] = decision
+        # Client-reported identity is not platform-verified. Gateway records are
+        # trusted only under the documented gateway authentication contract.
         db.add(CallLog(actor=body.username,
             command=body.command, full_command=body.full_command, environment=body.environment, business_id=businessid,
             source_ip=(request.client.host if request.client else '')[:64],
-            allowed=result['allowed'], reason=result.get('reason', 'ALLOWED')))
+            allowed=result['allowed'], reason=result.get('reason', 'ALLOWED'),
+            cli_version=info['version'], version_source=info['source'], protocol_version=info['protocol'],
+            installation_id=info['installation_id'], invocation_id=info['invocation_id'],
+            request_id=info['request_id'], check_source=source,
+            version_decision=json.dumps(decision, ensure_ascii=False)))
         db.commit()
     return result
 
