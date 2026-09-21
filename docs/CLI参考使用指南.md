@@ -1105,13 +1105,13 @@ ml jupyter terminal close 1 --studio-id f925886d-072c-48fc-a4ec-636ab3ba9a60
 
 ### 凭据、默认选择与故障处理
 
-- 默认实例存于用户配置目录 webstudio.json，仅保存 envId、名称和北京时间的选择时间，不保存 Token。按配置文件路径、平台地址、profile、网关、账号、businessId 隔离。
+- 默认实例存于用户配置目录 webstudio.json，仅保存 envId、名称、region 和北京时间的选择时间，不保存 Token。按配置文件路径、平台地址、profile、区域网关配置、账号、businessId 隔离。
 - 每次 Jupyter 命令重新获取一次访问地址/Token，执行期间固定该连接。不会因认证失败重放 Notebook、创建终端或在新实例清理旧实例资源。
 - 只连接 online 实例；其他状态提示在管理台处理。不自动启动、重启或删除 Web Studio。
 - 管理台认证本地过期沿用现有认证获取机制。平台或 Jupyter 拒绝凭据时，本版本不自动重发 accessUrl；先检查 `ml login`、业务选择、网关权限后重试命令。执行已开始时请先核查远程结果，勿盲目重跑。
 - doctor 逐步报告管理台、实例、地址获取及 Kernel/Terminal HTTP 检查；WebSocket 在实际执行或 attach 时验证。登录成功不表示 Terminal 必然有权限。
 - 访问 URL 必须含唯一的 token 参数，允许参数值为空；路径入口为 /lab 或 /lab/。拒绝跨域地址、路径穿越、重复 token 参数、额外未知查询参数；遇到新的网关格式需明确适配，不盲目转发。
-- 完整 Jupyter 访问地址中的 Token 等同临时凭据，请勿将命令输出转发到群聊、工单或公共日志。CLI 不会将该地址或 Token 保存到默认实例文件；普通错误仍不输出其他含 Token 的平台响应正文。当前只适配提供的接口与 Token 头模式，生产网关额外 Cookie/SSO 要求仍需实际联调。
+- 完整 Jupyter 访问地址中的 Token 等同临时凭据，请勿将命令输出转发到群聊、工单或公共日志。CLI 不会将该地址或 Token 保存到默认实例文件；普通错误仍不输出其他含 Token 的平台响应正文。CLI 支持 Token 头以及 `/lab` 建立的同源 Cookie/XSRF 会话；生产网关额外的跨域 SSO 要求仍需实际联调。
 - 查询结果为空正常显示；找不到指定实例、业务不一致、状态不可用、认证拒绝和配置无效均返回非零退出码。
 
 Windows 联网/离线打包脚本保持不变，新模块自动进入 Wheel；Jupyter 服务端仍非默认安装依赖。本地开发示例继续使用 direct 模式。

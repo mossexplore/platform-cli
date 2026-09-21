@@ -19,6 +19,7 @@
 - [核心概念](#核心概念)
 - [配套权限管理系统](#5-配套权限管理系统)
 - [命令速查](#命令速查)
+- [Jupyter 与 Web Studio](#jupyter-与-web-studio)
 - [输出与脚本化](#输出与脚本化)
 - [配置文件](#配置文件)
 - [本地文件布局](#本地文件布局)
@@ -48,7 +49,7 @@ ml offline experiment list --name "训练" --page-size 50 -o json | jq '.items[]
 
 ## 快速开始
 
-普通用户请从 [GitHub v1.0.0](https://github.com/mossexplore/platform-cli/releases/tag/v1.0.0) 下载 Windows 联网或离线安装包，解压运行 `install.cmd`。离线包要求 Python 3.12 x64，Python 和 Edge 需另行安装。以下源码安装步骤用于开发，先将仓库下载到本地并进入项目根目录。
+普通用户请从 [GitHub v1.0.3](https://github.com/mossexplore/platform-cli/releases/tag/v1.0.3) 下载 Windows 联网或离线安装包，解压运行 `install.cmd`。离线包要求 Python 3.12 x64，Python 和 Edge 需另行安装。以下源码安装步骤用于开发，先将仓库下载到本地并进入项目根目录。
 
 ```bash
 # 1. 安装（开发模式，建议在虚拟环境中执行）
@@ -151,6 +152,8 @@ ml business refresh                 # 重开 Edge 重新读取目录
 | 训练任务 | `train` | 任务与实例查询、执行记录、日志下载、启动任务、更新配置 |
 | 特征集 | `featureset` | 宽表与模型特征集列表、配置查询 |
 | 在线授权 | `access` | 检查当前账号和环境的访问授权 |
+| Web Studio | `webstudio` | 查询实例、选择默认实例、动态获取 Jupyter 会话 |
+| Jupyter | `jupyter` | 连通性检查、Notebook 前台执行、交互 Terminal |
 
 ### 5. 配套权限管理系统
 
@@ -211,6 +214,17 @@ ml
 │       └── clone <projectId>         克隆实验（仅改名称）
 ├── access
 │   └── status [--diagnose]           当前账号与环境授权
+├── webstudio
+│   ├── list                           当前业务的 Web Studio 实例
+│   ├── login <env-id>                 验证并选择默认实例
+│   └── show                           查看默认实例记录
+├── jupyter
+│   ├── doctor [--studio-id ID]        检查 Kernel 与 Terminal HTTP 接口
+│   ├── notebook run <file.ipynb>      前台执行完整 Notebook
+│   └── terminal
+│       ├── open | list                创建连接 / 列出现有终端
+│       ├── attach <name>              连接已有终端
+│       └── close <name>               关闭远程终端
 ├── train
 │   ├── list                         训练任务列表
 │   ├── start <task-id>               启动训练任务
@@ -263,6 +277,13 @@ ml offline experiment trial list <projectId> --type batch --page-size 20
 ml offline experiment clone <projectId> --name "训练-副本"          # 会先确认
 ml offline experiment clone <projectId> --name "训练-副本" -y       # 跳过确认
 ml offline experiment clone <projectId> --name "训练-副本" --dry-run # 只看请求体
+
+# Web Studio 与 Jupyter
+ml webstudio list --status online
+ml webstudio login <envId>
+ml jupyter doctor
+ml jupyter notebook run analysis.ipynb --download results
+ml jupyter terminal open
 ```
 
 ### 过滤参数速查
@@ -276,6 +297,47 @@ ml offline experiment clone <projectId> --name "训练-副本" --dry-run # 只�
 | `offline experiment clone` | `--name`（必填）`--yes/-y` `--dry-run` |
 
 > 完整的逐命令参数说明见 [docs/CLI参考使用指南.md](CLI参考使用指南.md)。
+
+---
+
+## Jupyter 与 Web Studio
+
+生产环境推荐使用 Web Studio 动态模式。CLI 先用当前管理台账号和 `business.json` 中当前环境的 `selected.businessId` 查询实例，再根据实例实时返回的 `region` 选择 Jupyter 网关，最后获取平台提供的 `accessUrl`。
+
+当前 profile 的配置示例：
+
+```json
+"jupyter": {
+  "mode": "webstudio",
+  "server_urls_by_region": {
+    "cn-southwest-2": "https://10.1.1.1:8443",
+    "cn-north-4": "https://10.1.1.1:8000"
+  },
+  "kernel": "python3"
+}
+```
+
+区域前缀只能包含协议、主机和可选端口。配置了 `server_urls_by_region` 后，实例缺少 region 或 region 没有映射都会直接失败，不会回退到其他区域。未迁移的历史配置仍可使用单一 `server_url`。从单地址切换到区域映射后，需要重新执行一次 `ml webstudio login ENV_ID`。
+
+推荐操作顺序：
+
+```bash
+ml login
+ml business use
+ml webstudio list --status online
+ml webstudio login <envId>
+ml jupyter doctor
+ml jupyter notebook run analysis.ipynb --download results --timeout 1800
+ml jupyter terminal open
+```
+
+`webstudio login` 会验证 Kernel 接口并保存默认实例，但不保存 Token。以后每条 Jupyter 命令都会重新查询实例状态、region 和访问地址。`--studio-id ENV_ID` 只覆盖本次目标，不改变默认选择。
+
+Notebook 命令按顺序执行非空代码单元格，失败、超时或中断时仍保存已经收到的结果；不会自动重跑。`--cwd` 是服务器目录，不会自动上传 Notebook 引用的数据或依赖文件。`--output json` 时最终摘要写 stdout，进度和诊断信息写 stderr。
+
+Terminal 要求真实交互终端。`Ctrl+C` 发送给远程进程，`Ctrl+D` 发送 EOF，`Ctrl+]` 只断开客户端。远程终端要通过 `exit` 或 `ml jupyter terminal close NAME` 关闭。
+
+平台 Token 非空时，CLI 先访问 `/lab?token=...` 建立会话，并继续携带 Token 认证头；Token 为空时不发送 Authorization。服务器下发 `_xsrf` Cookie 后，写请求自动携带对应 XSRF 请求头，WebSocket 复用同源 Cookie。所有 Jupyter HTTP 与 WebSocket 请求均携带当前业务的 `businessid`。
 
 ---
 
@@ -333,6 +395,11 @@ $env:ML_CONFIG = "C:\path\to\config.json"
 | `profiles[].api_endpoint` | string | — | 环境地址，必须 http/https |
 | `profiles[].output_format` | string | `table` | `table` 或 `json` |
 | `profiles[].verify_ssl` | bool? | 继承全局 | 单环境覆盖证书校验 |
+| `profiles[].jupyter.mode` | string | `direct` | `direct` 或 `webstudio` |
+| `profiles[].jupyter.server_url` | string | 当前平台地址 | direct 地址；也兼容旧版单网关 webstudio 配置 |
+| `profiles[].jupyter.server_urls_by_region` | object | — | webstudio 模式下 region 到 Jupyter 前缀的精确映射 |
+| `profiles[].jupyter.kernel` | string | `python3` | 默认 Kernel 名称 |
+| `profiles[].jupyter.ca_file` | string | — | Jupyter 内部 CA 文件，相对 config.json 解析 |
 
 ### 示例
 
@@ -400,6 +467,7 @@ ml/
 ├── .config.json.installed         # 覆盖标记：版本、内容哈希及安装时间戳
 ├── credentials.json               # 认证缓存，按 profile 分组；POSIX 权限 0600
 ├── business.json                  # 业务目录与当前选择，按 profile 分组
+├── webstudio.json                 # 默认 Web Studio，按配置/环境/账号/业务隔离；不含 Token
 └── browser-profiles/
     ├── profile-dev/               # 环境 dev 的 Edge 持久数据
     └── profile-test/              # 环境 test 的 Edge 持久数据
@@ -444,8 +512,10 @@ src/wiserec_cli/
 ├── client.py              # HTTP 客户端
 ├── models.py              # 数据模型
 ├── output.py / errors.py  # 输出与异常
-├── commands/              # access auth business env featureset mep mtp offline train user
-└── services/              # experiment featureset mep swanboard train user
+├── commands/              # access auth business env featureset jupyter mep mtp offline train user webstudio
+├── jupyter/               # HTTP/WebSocket、Notebook 与 Terminal 协议
+├── webstudio/             # 动态地址解析、region 网关与默认实例
+└── services/              # experiment featureset mep swanboard train user webstudio
 ```
 
 ### 增加一个新接口
@@ -469,7 +539,7 @@ py -m pytest
 
 CLI 测试位于 `tests/`，使用 mock 与临时目录验证逻辑，不访问真实业务平台；用例数量以测试输出为准。覆盖：
 配置解析与覆盖、认证信息读写、业务目录解析与选择、HTTP 客户端错误分类、运行时重试、
-各 service 的响应校验、命令可用性与 Windows 打包脚本约束。权限服务另有 `access-service/tests/`；GitHub 发布流程还会验证 Windows 安装升级、Docker 离线导入和真实 MySQL，不能用 CLI 单元测试代替这些验证。
+各 service 的响应校验、命令可用性、Jupyter HTTP/WebSocket、Web Studio region 路由与 Windows 打包脚本约束。权限服务另有 `access-service/tests/`；GitHub 发布流程还会验证 Windows 安装升级、Docker 离线导入和真实 MySQL，不能用 CLI 单元测试代替这些验证。
 
 > 仓库根目录的 `capture_auth.py` 是早期用于单独验证登录流程的独立脚本，不属于安装包，
 > 日常使用无需关心。
@@ -544,6 +614,10 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass `
 | `配置文件不存在: …` | 路径不对 | 用 `--config` 或 `ML_CONFIG` 指定 |
 | `profiles 中不存在 current 指定的环境: X` | `current` 与 `profiles` 不一致 | 修正 `config.json` |
 | `团队 'X' 当前状态为 '…'，不可选择` | 团队非 `available` | 换团队，或联系管理员 |
+| `Web Studio 响应缺少 region` | 管理台实例数据没有区域字段 | 核对 queryEnvList 响应及实例元数据 |
+| `Web Studio region X 未配置 Jupyter 访问前缀` | 当前区域不在 `server_urls_by_region` | 为该 region 增加准确的网关前缀，不要借用其他区域地址 |
+| `Jupyter 网络请求失败` | 网络不通、证书不受信任或地址错误 | 先用完整地址核对路由；生产安装可信证书，可信内网调试可临时关闭当前环境证书校验 |
+| `Jupyter ... 认证或权限失败（HTTP 403）` | Token、会话 Cookie、XSRF 或服务端能力不足 | 执行 `ml jupyter doctor`；再确认浏览器是否能在同一实例创建 Terminal |
 | 找不到 `ml` 命令 | `PATH` 未刷新 | 重新打开终端 |
 
 想确认当前状态时，先跑这三条：
@@ -560,6 +634,7 @@ ml business show
 
 - **凭据保存在本地**：CLI 将 Cookie / CSRF Token 写入用户目录的 credentials.json，并尝试限制文件权限；Edge 持久化目录也包含登录会话。Windows 应同时依靠用户目录 ACL，勿上传这些文件。
 - **默认不打印敏感值**：只有显式加 `--show-secrets` 才会输出 Cookie，请勿在共享终端或日志中使用。
+- **Jupyter 地址可能含 Token**：Web Studio/Jupyter 命令会为排障打印完整访问地址到 stderr；不要转发到群聊、工单或公共日志。
 - **关闭证书校验有风险**：`verify_ssl: false` 应仅用于完全可信的内网地址。
 - **发布包不带凭据**：内网源地址不得包含用户名、密码或令牌；认证请通过 `PIP_INDEX_URL` 等安全环境变量提供。
 - **认证有效期有限**：默认 30 分钟是 CLI 的有效期检查，不代表缓存内容到期自动删除；清理登录缓存用 ml logout，清理专用浏览器会话需加 --forget-browser。

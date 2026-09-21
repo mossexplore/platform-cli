@@ -1,4 +1,4 @@
-# Jupyter 本地开发（CLI 1.0.1）
+# Jupyter 本地开发与 Web Studio 联调
 
 第一阶段：真实 Jupyter Server + CLI 直连，支持完整 Notebook 前台执行和交互 Terminal。执行期间保持本地 CLI 运行；不提供后台托管、自动重跑或恢复 Kernel 内存状态。
 
@@ -57,7 +57,7 @@ ml jupyter terminal close 1
 
 将 `1` 换成实际终端名称。close 会终止指定远程终端，可能影响其中的进程。退出客户端不承诺保留任务，重连不承诺完整历史回放。
 
-## 生产配置迁移
+## direct 模式生产配置
 
 在生产环境 profile 中增加 `jupyter` 对象：
 
@@ -79,7 +79,43 @@ Token 来源优先为指定环境变量（默认 ML_JUPYTER_TOKEN），否则读
 
 生产不设置 business_file 时读取 CLI 原有 business.json，要求当前环境已有有效业务选择。每次 HTTP 与 WebSocket 握手都携带该环境 selected.businessId；错误或不一致时拒绝连接。access_control 开启时继续进行平台认证与权限检查，关闭时仅使用 Jupyter Token，不自动打开管理台登录。
 
-原生 Jupyter 不按 businessid 提供租户隔离；生产仍须由 Jupyter 身份、工作空间权限及网关完成真正隔离。前期支持 Token 直连，Cookie/SSO/JupyterHub 动态实例发现需要后续适配。
+原生 Jupyter 不按 businessid 提供租户隔离；生产仍须由 Jupyter 身份、工作空间权限及网关完成真正隔离。
+
+## Web Studio 动态模式
+
+Web Studio 模式通过当前平台登录态查询实例并动态获取 Jupyter 地址，不读取 direct 模式的 `token_env`、`token_file` 或 `business_file`。配置示例：
+
+```json
+{
+  "name": "production",
+  "api_endpoint": "https://console.example.com/dashboard",
+  "jupyter": {
+    "mode": "webstudio",
+    "server_urls_by_region": {
+      "cn-southwest-2": "https://10.1.1.1:8443",
+      "cn-north-4": "https://10.1.1.1:8000"
+    },
+    "kernel": "python3"
+  }
+}
+```
+
+CLI 使用 queryEnvList 返回的实例 `region` 精确选择网关前缀，再拼接 accessUrl 返回的 `/lab?token=...` 路径。同一平台环境下的不同实例可以使用不同前缀。映射模式不向单一 `server_url` 或其他 region 回退；缺少 region、缺少映射或绝对 accessUrl 跨源时拒绝连接。
+
+```bash
+ml login
+ml business use
+ml webstudio list --status online
+ml webstudio login <envId>
+ml webstudio show
+ml jupyter doctor
+ml jupyter notebook run examples/jupyter/hello.ipynb --download results
+ml jupyter terminal open
+```
+
+所有 Jupyter 命令均支持 `--studio-id ENV_ID` 临时指定实例。未指定时使用 `webstudio login` 保存的默认实例；每次操作仍重新查询实例状态、region 和访问地址，不复用旧 Token。
+
+Token 非空时，CLI 访问 `/lab?token=...` 建立会话并发送 Token 认证头；Token 为空时不发送 Authorization。HTTP 写请求复用 Jupyter 下发的 Cookie 与 XSRF 信息，WebSocket 复用同源 Cookie。平台登录 Cookie 和 CSRF 不会转发给 Jupyter。
 
 ## 已知边界
 
@@ -90,6 +126,8 @@ Token 来源优先为指定环境变量（默认 ML_JUPYTER_TOKEN），否则读
 - 前台执行退出、断线或休眠可能导致结果不完整；绝不自动重放执行请求。收到 Ctrl+C 会尝试中断并清理本次 Kernel。
 - Kernel 清理不能撤销已经发生的外部写入，也不保证回收代码自行分离的后台进程。
 - 同一 Terminal 多端连接共享 Shell；避免多人同时输入。
+- Web Studio 命令会将包含 Token 的完整访问地址输出到 stderr 用于排障，不要把输出上传到公共日志。
+- `doctor` 的 Kernel 和 Terminal GET 检查通过，不代表 Terminal 创建权限或 WebSocket 一定可用；实际执行和 attach 才会验证对应能力。
 
 ## 验证与打包
 
