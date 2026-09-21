@@ -72,6 +72,20 @@ def test_http_path_headers_and_no_redirect():
     assert seen[0].headers["authorization"] == "token secret"
 
 
+def test_empty_token_omits_authorization_header():
+    seen = []
+
+    def handler(req):
+        seen.append(req)
+        return httpx.Response(200, json={"kernelspecs": {}})
+
+    with JupyterClient(Connection("https://localhost/base/", "", "business"),
+                       transport=httpx.MockTransport(handler)) as client:
+        client.request("GET", "api/kernelspecs")
+    assert seen[0].headers["businessid"] == "business"
+    assert "authorization" not in seen[0].headers
+
+
 def test_websocket_headers_prefix_and_no_redirect():
     with patch("wiserec_cli.jupyter.connection.websocket.create_connection") as create:
         create.return_value.getstatus.return_value = 101

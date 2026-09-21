@@ -143,7 +143,7 @@ def test_access_failure_does_not_retry_or_leak():
 
 @pytest.mark.parametrize('url', [
     '//evil.example/x/lab?token=a', 'https://evil.example/x/lab?token=a',
-    '/x/lab', '/x/lab?token=', '/x/lab?token=a&token=b',
+    '/x/lab', '/x/lab?token=a&token=b',
     '/x/../y/lab?token=a', '/x/%2e%2e/y/lab?token=a', '/x/%252e%252e/y/lab?token=a',
     '/x/lab?token=a%0Ab', '/x/lab?token=a#fragment', '/x/lab?token=a&unknown=x',
     '/x/lab/tree/a.ipynb?token=a', '/x/lab?token=a\n', '/x\\y/lab?token=a',
@@ -157,6 +157,12 @@ def test_url_encoding_and_same_origin():
     base, token = parse_access_url('https://gateway.example/', 'https://gateway.example' + ROUTE + 'lab/?token=a%2Bb%3D')
     assert base.endswith(ROUTE)
     assert token == 'a+b='
+
+
+def test_empty_platform_token_is_allowed():
+    base, token = parse_access_url('https://gateway.example', ROUTE + 'lab?token=')
+    assert base == 'https://gateway.example' + ROUTE
+    assert token == ''
 
 
 @pytest.mark.parametrize('base', ['https://gateway.example/lab', 'https://u:p@gateway.example',

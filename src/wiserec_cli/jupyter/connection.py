@@ -97,8 +97,9 @@ def remote_path(value: str) -> str:
 class JupyterClient:
     def __init__(self, connection: Connection, transport=None):
         self.connection = connection
-        self.headers = {**client_headers(), "Authorization": "token " + connection.token,
-                        "businessid": connection.business_id}
+        self.headers = {**client_headers(), "businessid": connection.business_id}
+        if connection.token:
+            self.headers["Authorization"] = "token " + connection.token
         self.http = httpx.Client(base_url=connection.url, headers=self.headers,
                                  timeout=connection.timeout, verify=connection.verify,
                                  follow_redirects=False, trust_env=False, transport=transport)

@@ -1060,7 +1060,7 @@ ml --config .jupyter-local/config.json jupyter terminal close 1
 }
 ```
 
-webstudio 模式 server_url 只填协议、域名及可选端口，不含路径、/lab、查询参数或 Token。返回 `/explore-env/路由ID/lab?token=...` 后，自动得到 `https://网关/explore-env/路由ID/` 作为 API 根地址。该路由 ID 与平台 envId 不要求相同。HTTP 和 WebSocket 均携带 Token 认证头及 businessid，不转发管理台 Cookie。
+webstudio 模式 server_url 只填协议、域名及可选端口，不含路径、/lab、查询参数或 Token。返回 `/explore-env/路由ID/lab?token=...` 后，自动得到 `https://网关/explore-env/路由ID/` 作为 API 根地址。该路由 ID 与平台 envId 不要求相同。Token 非空时，HTTP 和 WebSocket 携带 Token 认证头；Token 为空时，按平台返回的真实地址访问且不发送 Authorization 头。两种情况均携带 businessid，不转发管理台 Cookie。
 
 平台模式忽略 token_env/token_file，拒绝 business_file 覆盖；使用已有平台业务文件。ca_file 和既有 TLS 配置仍有效。未配置 mode 时默认为 direct，继续读取静态 Token。direct 模式不能使用 --studio-id。
 
@@ -1104,7 +1104,7 @@ ml jupyter terminal close 1 --studio-id f925886d-072c-48fc-a4ec-636ab3ba9a60
 - 只连接 online 实例；其他状态提示在管理台处理。不自动启动、重启或删除 Web Studio。
 - 管理台认证本地过期沿用现有认证获取机制。平台或 Jupyter 拒绝凭据时，本版本不自动重发 accessUrl；先检查 `ml login`、业务选择、网关权限后重试命令。执行已开始时请先核查远程结果，勿盲目重跑。
 - doctor 逐步报告管理台、实例、地址获取及 Kernel/Terminal HTTP 检查；WebSocket 在实际执行或 attach 时验证。登录成功不表示 Terminal 必然有权限。
-- 访问 URL 必须含唯一有效 Token，路径入口为 /lab 或 /lab/。拒绝跨域地址、路径穿越、重复 Token、额外未知查询参数；遇到新的网关格式需明确适配，不盲目转发。
+- 访问 URL 必须含唯一的 token 参数，允许参数值为空；路径入口为 /lab 或 /lab/。拒绝跨域地址、路径穿越、重复 token 参数、额外未知查询参数；遇到新的网关格式需明确适配，不盲目转发。
 - 完整 Jupyter 访问地址中的 Token 等同临时凭据，请勿将命令输出转发到群聊、工单或公共日志。CLI 不会将该地址或 Token 保存到默认实例文件；普通错误仍不输出其他含 Token 的平台响应正文。当前只适配提供的接口与 Token 头模式，生产网关额外 Cookie/SSO 要求仍需实际联调。
 - 查询结果为空正常显示；找不到指定实例、业务不一致、状态不可用、认证拒绝和配置无效均返回非零退出码。
 

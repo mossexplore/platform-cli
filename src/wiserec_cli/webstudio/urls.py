@@ -33,10 +33,10 @@ def parse_access_url(server_url, access_url):
             raise ValueError()
         params = parse_qsl(access.query, keep_blank_values=True, encoding='utf-8', errors='strict')
         tokens = [v for k, v in params if k == 'token']
-        if len(tokens) != 1 or not tokens[0] or any(ord(c) < 32 or ord(c) == 127 for c in tokens[0]):
+        if len(tokens) != 1 or any(ord(c) < 32 or ord(c) == 127 for c in tokens[0]):
             raise ValueError()
         if any(k != 'token' for k, _ in params):
             raise JupyterError('accessUrl 含未支持的查询参数，需要先确认网关路由含义')
         return urlunsplit((base.scheme, base.netloc, match[1] + '/', '', '')), tokens[0]
     except (ValueError, TypeError, UnicodeError):
-        raise JupyterError('Web Studio 访问地址无效：检查网关源站、/lab 路径及唯一有效的 token 参数') from None
+        raise JupyterError('Web Studio 访问地址无效：检查网关源站、/lab 路径及唯一的 token 参数') from None
