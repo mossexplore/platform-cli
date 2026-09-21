@@ -47,10 +47,11 @@ manifest['validation'] = [
     'CLI and service unit tests', 'Browser timezone tests',
     'MySQL Docker smoke, directory mount and configuration restart',
     'Docker save/load round trip', 'Windows online and offline install',
-    'Windows upgrade from 0.3.42',
+    'Windows upgrade from 1.0.0',
 ]
 (out / 'manifest.json').write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + '\n')
 shutil.copyfile('docs/权限管理系统Docker安装部署与调试指南.md', out / 'Docker-runbook.md')
+shutil.copyfile('docs/权限管理系统1.0.0升级至1.0.3指南.md', out / 'Docker-upgrade-1.0.3.md')
 shutil.copyfile('scripts/windows/INSTALL.md', out / 'CLI-install.md')
 shutil.copyfile('docs/CLI参考使用指南.md', out / 'CLI-reference.md')
 lines = []

@@ -22,6 +22,7 @@ jobs:
           import os, re, pathlib, tomllib
           version = tomllib.loads(pathlib.Path('pyproject.toml').read_text())['project']['version']
           assert re.fullmatch(r'\d+\.\d+\.\d+', version)
+          assert pathlib.Path(f'docs/RELEASE_NOTES_{version}.md').is_file()
           assert f'__version__ = "{version}"' in pathlib.Path('src/wiserec_cli/__init__.py').read_text()
           with open(os.environ['GITHUB_OUTPUT'], 'a') as f:
               f.write(f'version={version}\n')
@@ -63,7 +64,7 @@ jobs:
       - name: Build previous CLI for upgrade test
         shell: powershell
         run: |
-          git worktree add --detach "$env:RUNNER_TEMP/previous-cli" aa3978da77a4ce29e45434ac2a01f28d7aaf6183
+          git worktree add --detach "$env:RUNNER_TEMP/previous-cli" 10b979da116356cead5667fbadaf4057678307a2
           if ($LASTEXITCODE -ne 0) { throw 'Previous checkout failed' }
           py -3 -m build --wheel --no-isolation --outdir "$env:RUNNER_TEMP/previous-wheel" "$env:RUNNER_TEMP/previous-cli"
           if ($LASTEXITCODE -ne 0) { throw 'Previous build failed' }
@@ -128,5 +129,5 @@ jobs:
           docker buildx imagetools create --tag "$image:$VERSION" "$image@$DIGEST"
           gh release create "v$VERSION" --target "$GITHUB_SHA" --draft \
             --title "v$VERSION — CLI 与权限管理系统" \
-            --notes-file docs/RELEASE_NOTES_1.0.0.md release-assets/*
+            --notes-file "docs/RELEASE_NOTES_${VERSION}.md" release-assets/*
           echo 'Draft ready. Verify assets and publish after review.' >> "$GITHUB_STEP_SUMMARY"

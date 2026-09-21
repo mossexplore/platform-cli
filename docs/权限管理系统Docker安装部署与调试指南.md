@@ -1,6 +1,6 @@
 # 权限管理系统 Docker 部署速查
 
-适用：Linux x86_64、已有 MySQL，通过离线镜像部署。以下使用 `1.0.0` 镜像；升级时替换为新附件中的镜像文件名和标签。
+适用：Linux x86_64、已有 MySQL，通过离线镜像部署。以下使用 `1.0.3` 镜像；升级时替换为新附件中的镜像文件名和标签。
 
 ## 1. 检查 Docker
 
@@ -20,13 +20,13 @@ sudo systemctl enable --now docker
 
 ## 2. 下载并导入镜像
 
-从 [GitHub v1.0.0 正式版本](https://github.com/mossexplore/platform-cli/releases/tag/v1.0.0) 下载 Docker 镜像、`SHA256SUMS`、`manifest.json` 和 `service.env.example`，复制到 Linux 同一目录。
+从 [GitHub v1.0.3 正式版本](https://github.com/mossexplore/platform-cli/releases/tag/v1.0.3) 下载 Docker 镜像、`SHA256SUMS`、`manifest.json` 和 `service.env.example`，复制到 Linux 同一目录。
 
 在解压目录执行：
 
 ```bash
 sha256sum --ignore-missing -c SHA256SUMS
-docker load -i cli-access-1.0.0-linux-amd64.tar.gz
+docker load -i cli-access-1.0.3-linux-amd64.tar.gz
 ```
 
 SHA256SUMS 包含全部发布附件。只下载 Docker 文件时使用 `sha256sum --ignore-missing -c SHA256SUMS`，已下载文件应显示 OK。Release 附件不采用 Actions 的 30 天保留期。
@@ -57,16 +57,16 @@ FORWARDED_ALLOW_IPS=
 - 密码含 `@`、`:`、`/`、`%` 等特殊字符时，需要 URL 百分号编码。
 - 不把真实配置上传 GitHub；文件挂载不等于加密，Docker 管理员仍可读取。
 
-已有数据库结构版本为 7、数据和管理员正常时，直接进入下一步，无需初始化。
+本版要求数据库结构版本 8。仅当现有结构已为 8、数据和管理员正常时可跳过迁移。1.0.0 的结构版本 7 必须先备份、停写，再用新镜像迁移，不能直接启动新版。
 
 只有新数据库才执行：
 
 ```bash
 docker run --rm -v /opt/cli-access-config:/run/cli-access:ro \
-  cli-access:1.0.0 python -m app.manage migrate
+  cli-access:1.0.3 python -m app.manage migrate
 
 docker run --rm -it -v /opt/cli-access-config:/run/cli-access:ro \
-  cli-access:1.0.0 python -m app.manage create-admin
+  cli-access:1.0.3 python -m app.manage create-admin
 ```
 
 管理员密码按提示输入，至少 12 个字符。旧数据库需要升级结构时，先备份再迁移。
@@ -88,7 +88,7 @@ docker run -d \
   --log-driver local \
   --log-opt max-size=10m \
   --log-opt max-file=5 \
-  cli-access:1.0.0
+  cli-access:1.0.3
 ```
 
 服务自动读取挂载配置，镜像名后面不用追加命令。这里不使用旧 Docker 不支持的 `--pull` 和缺少 docker-init 时无法使用的 `--init`。
@@ -153,20 +153,40 @@ sudo chmod 750 /opt/cli-access-config
 sudo chmod 640 /opt/cli-access-config/service.env
 ```
 
-## 7. 升级与回滚
+## 7. 从 1.0.0 升级到 1.0.3
 
-1. 下载新附件，校验并 docker load，记录旧镜像标签。
-2. 备份数据库、配置及需要保留的日志。
-3. 停止并删除旧应用容器：
+本次数据库结构从 7 升至 8，必须执行迁移。完整备份、演练、核验和回滚见仓库的《权限管理系统1.0.0升级至1.0.3指南.md》；正式附件对应 Docker-upgrade-1.0.3.md。
+
+1. 校验、导入新镜像，保留旧镜像和原配置；先在生产备份恢复出的隔离测试库演练。
+2. 进入维护窗口，停止全部旧应用和其他写入来源，完成最终数据库备份并核实恢复能力。
+3. 挂载原配置，运行新镜像迁移；成功退出后确认 schema_versions 只有一条记录且为 8：
 
 ```bash
 docker stop --time 30 cli-access
-docker rm cli-access
 ```
 
-4. 重新执行第 4 节启动命令，末尾换成新镜像标签，继续挂载原配置目录。
-5. 检查健康接口、管理员登录和一次实际业务调用。
+完成最终数据库备份和配置备份、确认恢复方案后，才执行：
 
-删除应用容器不会删除外部 MySQL 数据。同数据库结构且配置兼容时，换回旧镜像标签重建即可回滚；涉及数据库结构升级时，需要单独评估迁移和恢复。
+```bash
+docker run --rm -v /opt/cli-access-config:/run/cli-access:ro \
+  cli-access:1.0.3 python -m app.manage migrate
+```
+
+迁移容器需沿用实际数据库网络配置；仅允许单个迁移进程。失败时保持服务停止，先排查，不手工修改结构版本。
+
+4. 迁移成功后保留已停止的旧容器：
+
+```bash
+docker rename cli-access cli-access-1.0.0-backup
+```
+
+若备份名称已存在，先确认归属并改用唯一名称，不删除未知容器。旧容器必须一直保持停止。
+
+5. 重新执行第 4 节，以 cli-access:1.0.3 启动；不覆盖原 service.env，不执行 create-admin。
+6. 核验旧数据、健康接口、原管理员登录和授权通过/拒绝，确认新日志可写后恢复业务访问。先观察版本分布，再单独启用强制限制。
+
+迁移仅新增版本策略/例外表和日志字段，不清空业务数据。历史日志版本补为 1.0.0，来源 historical_default；升级后旧客户端未上报版本的新请求来源为 legacy_default。
+
+**回滚：** 旧版健康检查要求结构 7，因此迁移后不能只换回 1.0.0 镜像。先停新服务、保留故障库，将升级前备份恢复至独立回滚库，再使用旧镜像和指向回滚库的独立配置启动。恢复旧备份会缺失备份后的写入，业务放行后的回滚必须先处理这段增量。禁止手工将版本号改回 7 冒充回滚。
 
 HTTPS、Compose 和 GitHub 构建流程见 [Docker 部署与发布指南](权限管理系统Docker部署与发布指南.md)。
