@@ -1014,7 +1014,7 @@ ml --config "C:\Users\l00123456\AppData\Roaming\ml\config.json" access status --
 | 命令 | 参数和选项 | 输出与行为 |
 |---|---|---|
 | `ml jupyter doctor` | 无 | 检查 HTTP 认证、Kernel 列表、Terminal 接口；不会创建资源，不代表 WebSocket 已验证 |
-| `ml jupyter notebook run SOURCE` | SOURCE 为本地 .ipynb；`--download` 结果根目录（默认 results）；`--kernel` 覆盖环境 Kernel；`--cwd` 服务器根目录下的相对工作目录；`--timeout` 全部代码执行时限（默认 600 秒）；`--startup-timeout` Kernel 就绪等待（默认 60 秒）；`--output text/json` | 顺序执行非空代码单元格，遇错停止。每次创建 UUID 结果目录，保存 executed.ipynb 和 summary.json；不覆盖输入 |
+| `ml jupyter notebook run SOURCE` | SOURCE 为本地 .ipynb；`--download` 结果根目录（默认 results）；`--kernel` 覆盖环境 Kernel；`--cwd` 服务器根目录下的相对工作目录；`--timeout` 全部代码执行时限（默认 600 秒）；`--startup-timeout` Kernel 就绪等待（默认 60 秒）；`--output` / `-o` 取 text/json | 顺序执行非空代码单元格，遇错停止。每次创建 UUID 结果目录，保存 executed.ipynb 和 summary.json；不覆盖输入 |
 | `ml jupyter terminal open` | 无，需真实 TTY | 创建并连接，输出终端名称；Ctrl+] 离开连接 |
 | `ml jupyter terminal list` | 无 | 终端名称、北京时间的最后活动时间 |
 | `ml jupyter terminal attach NAME` | 服务器返回的终端名称 | 重连现存终端，不保证补取全部历史输出 |
@@ -1076,7 +1076,7 @@ webstudio 模式根据实例实时返回的 `region` 从 `server_urls_by_region`
 
 | 命令 | 参数和选项 | 输出 |
 |---|---|---|
-| `ml webstudio list` | `--page` 默认 1、`--page-size` 默认 10，均须正整数；`--name` 名称模糊匹配；`--status`、`--relator`、`--env-id` 精确匹配；可选 `--business-id` 必须与当前选择一致；`--output table/json` | 当前页、总数及实例记录 |
+| `ml webstudio list` | `--page` 默认 1、`--page-size` 默认 10，均须正整数；`--name` 名称模糊匹配；`--status`、`--relator`、`--env-id` 精确匹配；可选 `--business-id` 必须与当前选择一致；`--output` / `-o` 取 table/json | 当前页、总数及实例记录 |
 | `ml webstudio login ENV_ID` | 必填 Web Studio ID | 定位实例、取得动态凭据、验证 Kernel HTTP 接口，成功后保存默认目标；失败不覆盖旧选择 |
 | `ml webstudio show` | 无 | 当前配置、环境、账号和业务下的默认实例（保存时的名称，不是实时状态） |
 

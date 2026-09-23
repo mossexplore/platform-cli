@@ -247,10 +247,11 @@ def test_invalid_gateway(base):
         parse_access_url(base, ROUTE + 'lab?token=a')
 
 
-def test_cli_json_and_narrow_id(rt, requests, monkeypatch):
+@pytest.mark.parametrize('output_option', ['--output', '-o'])
+def test_cli_json_and_narrow_id(rt, requests, monkeypatch, output_option):
     runner = CliRunner()
     with patch('wiserec_cli.commands.webstudio.runtime_from_context', return_value=rt):
-        result = runner.invoke(app, ['--config', str(rt.config.path), 'webstudio', 'list', '--output', 'json'])
+        result = runner.invoke(app, ['--config', str(rt.config.path), 'webstudio', 'list', output_option, 'json'])
         assert result.exit_code == 0, result.output
         assert json.loads(result.stdout)['result']['envs'][0]['extraField']['keep'] is True
         console = Console(width=65, color_system=None)

@@ -65,11 +65,11 @@
 
 | 命令 | 用途与关键选项 |
 | --- | --- |
-| `ml webstudio list --output json` | 实例列表；可用 `--page`、`--page-size`、`--name`、`--status`、`--relator`、`--env-id` |
+| `ml webstudio list -o json` | 实例列表；可用 `--page`、`--page-size`、`--name`、`--status`、`--relator`、`--env-id` |
 | `ml webstudio show` | 查看当前默认实例；保存的名称可能不是实时状态 |
 | `ml webstudio login ENV_ID` | 连接 online 实例并保存默认目标；可能打印含 Token 的访问 URL |
 | `ml jupyter doctor [--studio-id ENV_ID]` | 检查 HTTP、Kernel、Terminal 接口；不验证 WebSocket |
-| `ml jupyter notebook run SOURCE --output json [--studio-id ENV_ID]` | 执行本地 `.ipynb`，可用 `--download`、`--kernel`、`--cwd`、`--timeout`、`--startup-timeout` |
+| `ml jupyter notebook run SOURCE -o json [--studio-id ENV_ID]` | 执行本地 `.ipynb`，可用 `--download`、`--kernel`、`--cwd`、`--timeout`、`--startup-timeout` |
 | `ml jupyter terminal list [--studio-id ENV_ID]` | 当前实例终端列表 |
 | `ml jupyter terminal open [--studio-id ENV_ID]` | 创建并连接；必须使用真实 TTY |
 | `ml jupyter terminal attach NAME [--studio-id ENV_ID]` | 重连该实例内的终端；必须使用真实 TTY |

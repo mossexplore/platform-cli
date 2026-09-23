@@ -38,7 +38,7 @@ def list_studios(context: typer.Context,
                  relator: str = typer.Option('', '--relator'),
                  env_id: str = typer.Option('', '--env-id'),
                  business_id: Optional[str] = typer.Option(None, '--business-id'),
-                 output: str = typer.Option('table', '--output')):
+                 output: str = typer.Option('table', '--output', '-o')):
     """当前业务的实例列表；name 模糊匹配，其余条件精确匹配。"""
     try:
         if output not in ('table', 'json'):

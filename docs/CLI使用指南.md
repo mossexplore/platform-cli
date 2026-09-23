@@ -1391,7 +1391,7 @@ ml jupyter notebook run [OPTIONS] SOURCE
 | `--cwd TEXT` | 本次独立目录 | 相对服务器根目录的工作目录 |
 | `--timeout FLOAT` | `600` | 全部代码单元格执行时限（秒），≥ 0.1 |
 | `--startup-timeout FLOAT` | `60` | Kernel 就绪等待时间（秒），≥ 0.1 |
-| `--output TEXT` | `text` | `text` 或 `json` |
+| `--output TEXT` / `-o TEXT` | `text` | `text` 或 `json` |
 | `--studio-id TEXT` | 无 | 指定本次目标 Web Studio 实例 |
 
 **说明**
@@ -1409,6 +1409,7 @@ ml jupyter notebook run [OPTIONS] SOURCE
 ml jupyter notebook run analysis.ipynb
 ml jupyter notebook run analysis.ipynb --download results
 ml jupyter notebook run analysis.ipynb --cwd projects/demo --kernel python3 --timeout 1800 --output json
+ml jupyter notebook run analysis.ipynb -o json
 ml jupyter notebook run analysis.ipynb --studio-id ENV_ID
 ```
 
@@ -1565,7 +1566,7 @@ ml webstudio list [OPTIONS]
 | `--relator TEXT` | 无 | 按关联人精确匹配 |
 | `--env-id TEXT` | 无 | 按实例 ID 精确匹配 |
 | `--business-id TEXT` | 无 | 必须与当前业务选择一致 |
-| `--output TEXT` | `table` | `table` 或 `json` |
+| `--output TEXT` / `-o TEXT` | `table` | `table` 或 `json` |
 
 **说明**
 
@@ -1582,6 +1583,7 @@ ml webstudio list
 ml webstudio list --status online --name l001
 ml webstudio list --relator l00123456 --page 2 --page-size 20
 ml webstudio list --output json
+ml webstudio list -o json
 ```
 
 ### `ml webstudio login`

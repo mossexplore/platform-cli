@@ -76,7 +76,7 @@ def run(context: typer.Context,
         cwd: str = typer.Option("", "--cwd", help="相对服务器根目录的工作目录；默认使用本次独立目录"),
         timeout: float = typer.Option(600, "--timeout", min=0.1, help="全部单元格执行时限（秒）"),
         startup_timeout: float = typer.Option(60, "--startup-timeout", min=0.1, help="Kernel 就绪等待（秒）"),
-        output: str = typer.Option("text", "--output", help="text 或 json"),
+        output: str = typer.Option("text", "--output", "-o", help="text 或 json"),
         studio_id: Optional[str] = typer.Option(None, "--studio-id")):
     """上传并按顺序执行 Notebook；失败也保存部分结果，不自动重试。"""
     if output not in {"text", "json"}:
