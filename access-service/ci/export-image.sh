@@ -15,7 +15,7 @@ docker pull --platform linux/amd64 "$IMAGE_REFERENCE"
 image_id=$(docker image inspect --format '{{.Id}}' "$IMAGE_REFERENCE")
 version=$(docker image inspect --format '{{index .Config.Labels "org.opencontainers.image.version"}}' "$IMAGE_REFERENCE")
 revision=$(docker image inspect --format '{{index .Config.Labels "org.opencontainers.image.revision"}}' "$IMAGE_REFERENCE")
-[[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ && "$revision" =~ ^[a-f0-9]{40}$ ]] || {
+[[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+(\.[0-9]+)?$ && "$revision" =~ ^[a-f0-9]{40}$ ]] || {
   echo 'Missing valid version/revision labels' >&2; exit 1;
 }
 [[ $(docker image inspect --format '{{.Os}}/{{.Architecture}}' "$IMAGE_REFERENCE") == linux/amd64 ]]

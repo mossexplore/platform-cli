@@ -10,7 +10,10 @@ from zipfile import ZipFile
 
 out = Path('release-assets')
 version = os.environ['VERSION']
+cli_version = os.environ['CLI_VERSION']
 revision = os.environ['GITHUB_SHA']
+assert version == Path('access-service/VERSION').read_text().strip()
+assert cli_version == '1.0.3'
 subprocess.run(['sha256sum', '-c', 'SHA256SUMS'], cwd=out, check=True)
 manifest = json.loads((out / 'manifest.json').read_text())
 assert manifest['image_version'] == version
@@ -18,12 +21,12 @@ assert manifest['image_revision'] == revision
 assert manifest['image_reference'].endswith('@' + os.environ['IMAGE_DIGEST'])
 assert manifest['image_tag'] == f'cli-access:{version}'
 assert (out / manifest['image_file']).is_file()
-wheel = out / f'wiserec_cli-{version}-py3-none-any.whl'
+wheel = out / f'wiserec_cli-{cli_version}-py3-none-any.whl'
 assert wheel.is_file()
 with ZipFile(wheel) as z:
     metadata = [n for n in z.namelist() if n.endswith('.dist-info/METADATA')]
     assert len(metadata) == 1
-    assert BytesParser().parsebytes(z.read(metadata[0]))['Version'] == version
+    assert BytesParser().parsebytes(z.read(metadata[0]))['Version'] == cli_version
 archives = sorted(out.glob('*.zip'))
 assert len(archives) == 2
 cli = []
@@ -33,7 +36,7 @@ for archive in archives:
         meta = [n for n in names if n.endswith('/release.json')]
         assert len(meta) == 1
         data = json.loads(z.read(names[meta[0]]).decode('utf-8-sig'))
-        assert data['version'] == version
+        assert data['version'] == cli_version
         if data['mode'] == 'offline':
             assert data['architecture'] == 'x64'
             assert (data['python_major'], data['python_minor']) == (3, 12)
@@ -42,18 +45,19 @@ for archive in archives:
         assert z.read(names[inner_wheels[0]]) == wheel.read_bytes(), 'CLI bundles must share the same wheel'
         cli.append({'file': archive.name, **data})
 manifest['cli_packages'] = cli
+manifest['cli_version'] = cli_version
+manifest['cli_source_release'] = 'v' + cli_version
 manifest['release_tag'] = 'v' + version
 manifest['validation'] = [
     'CLI and service unit tests', 'Browser timezone tests',
     'MySQL Docker smoke, directory mount and configuration restart',
     'Docker save/load round trip', 'Windows online and offline install',
-    'Windows upgrade from 1.0.0',
+    'Published CLI 1.0.3 checksum verification and Windows upgrade from 1.0.0',
 ]
 (out / 'manifest.json').write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + '\n')
 shutil.copyfile('docs/权限管理系统Docker安装部署与调试指南.md', out / 'Docker-runbook.md')
-shutil.copyfile('docs/权限管理系统1.0.0升级至1.0.3指南.md', out / 'Docker-upgrade-1.0.3.md')
-shutil.copyfile('scripts/windows/INSTALL.md', out / 'CLI-install.md')
-shutil.copyfile('docs/CLI参考使用指南.md', out / 'CLI-reference.md')
+shutil.copyfile('docs/权限管理系统1.0.3升级至1.0.3.1指南.md', out / 'Docker-upgrade-1.0.3.1.md')
+assert (out / 'CLI-install.md').is_file() and (out / 'CLI-reference.md').is_file()
 lines = []
 for path in sorted(out.iterdir()):
     if path.name != 'SHA256SUMS':

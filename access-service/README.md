@@ -1,4 +1,4 @@
-# CLI 权限管理服务
+# CLI 权限管理服务（1.0.3.1；CLI 仍为 1.0.3）
 
 支持 Docker Compose 部署与 GitHub Actions → GHCR 自动制作镜像，详见 [Docker 部署与发布指南](../docs/权限管理系统Docker部署与发布指南.md)。下面保留原内网离线包部署方式。
 

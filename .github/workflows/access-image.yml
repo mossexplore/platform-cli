@@ -56,16 +56,18 @@ jobs:
         run: |
           python - <<'PY'
           import os, pathlib, re, tomllib
-          version = tomllib.loads(pathlib.Path('pyproject.toml').read_text())['project']['version']
+          cli_version = tomllib.loads(pathlib.Path('pyproject.toml').read_text())['project']['version']
           cli = pathlib.Path('src/wiserec_cli/__init__.py').read_text()
-          assert f'__version__ = "{version}"' in cli
-          assert re.fullmatch(r'\d+\.\d+\.\d+', version)
+          assert f'__version__ = "{cli_version}"' in cli
+          assert re.fullmatch(r'\d+\.\d+\.\d+', cli_version)
+          version = pathlib.Path('access-service/VERSION').read_text().strip()
+          assert re.fullmatch(r'\d+\.\d+\.\d+(?:\.\d+)?', version)
           event, ref = os.environ['EVENT'], os.environ['REF']
           publish = ref == 'refs/heads/main' and event in ('push', 'workflow_dispatch')
           image = 'ghcr.io/' + os.environ['OWNER'].lower() + '/cli-access'
           candidate = image + ':candidate-' + os.environ['GITHUB_RUN_ID'] + '-' + os.environ['GITHUB_RUN_ATTEMPT']
           with open(os.environ['GITHUB_OUTPUT'], 'a') as out:
-              out.write(f'version={version}\nimage={image}\ncandidate={candidate}\npublish={str(publish).lower()}\n')
+              out.write(f'version={version}\ncli_version={cli_version}\nimage={image}\ncandidate={candidate}\npublish={str(publish).lower()}\n')
           PY
       - name: Install test dependencies
         run: python -m pip install -e . -r access-service/requirements.lock pytest
@@ -136,7 +138,7 @@ jobs:
           {
             echo '### Tested Linux amd64 image'
             echo "Image: \`$IMAGE@$DIGEST\`"
-            echo "Commit: \`$GITHUB_SHA\`; project version: \`$VERSION\`"
+            echo "Commit: \`$GITHUB_SHA\`; permission service version: \`$VERSION\`"
             echo 'Tests: CLI + access service + timezones + MySQL image smoke/restart.'
             echo 'Set CLI_ACCESS_IMAGE to the digest above; production is not deployed automatically.'
           } >> "$GITHUB_STEP_SUMMARY"

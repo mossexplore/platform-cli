@@ -2,7 +2,7 @@
 
 只需查看版本、选择环境、登录和查询训练任务，请阅读 [CLI 快速使用指南](CLI快速使用指南.md)。
 
-`ml` 是 **WiseRec 平台** 的 Python 命令行客户端（包名 `wiserec-cli`，当前版本 `1.0.3`）。
+`ml` 是 **WiseRec 平台** 的 Python 命令行客户端（包名 `wiserec-cli`，当前正式版本 `1.0.3`）。权限管理系统 1.0.3.1 未改变 CLI 版本或已发布二进制。
 本文档覆盖命令参数、配置项与退出行为；2026-09-20 新增 Jupyter Notebook 与 Terminal 使用说明。示例中的 `TASK_ID`、`JOB_ID`、`PROJECT_ID`、`NAMESPACE_ID`、`EXPERIMENT_ID`、`SET_ID` 均须替换为对应资源的真实 ID；它们不是同一种 ID。
 
 > 阅读前提：查询平台数据前建议先完成 `ml login` 和 `ml business use`。`user`、`mep`、`mtp`、`offline`、`train`、`featureset` 需要有效认证和业务选择；`business list/use/refresh` 用于建立或维护业务上下文，不要求预先选好业务。没有认证或认证过期时，相关命令会自动启动 Edge 登录。
