@@ -63,19 +63,18 @@ docker load -i cli-access-1.0.3.1-linux-amd64.tar.gz
 
 ## CLI 接入权限系统
 
-**CLI 默认关闭权限校验。** 部署好服务后，在 CLI 使用的 `config.json` 中修改以下字段，保留其他配置：
+**CLI 默认开启权限校验。** 部署好服务后，在 CLI 使用的 `config.json` 中填写权限服务地址，保留其他配置：
 
 ```json
 {
   "access_control": {
-    "enabled": true,
     "url": "http://服务器IP:8008/cli-permission",
     "timeout_seconds": 15
   }
 }
 ```
 
-替换为客户端实际可访问的地址。完成登录和业务选择后，执行 `ml access status` 验证授权。
+替换为客户端实际可访问的地址。地址为空或未配置时，业务调用会报配置错误并停止。确需关闭时，在 `access_control` 中显式设置 `"enable": false`；默认配置无需写 `enable`。完成登录和业务选择后，执行 `ml access status` 验证授权。
 
 升级或重装 CLI 会覆盖用户默认配置，请先备份自定义设置，安装后核对平台地址和权限服务配置。配置位置、覆盖规则和授权排查见 [CLI 使用指南](docs/CLI参考使用指南.md)。
 

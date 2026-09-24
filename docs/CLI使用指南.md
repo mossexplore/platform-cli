@@ -308,7 +308,7 @@ ml env list
 
 **说明**
 
-- 输出字段：`current`（`*` 表示当前环境）、`name`、`api_endpoint`、`output_format`、`verify_ssl`。
+- 输出字段：`current`（`*` 表示当前环境）、`name`、`api_endpoint`、`access_status`（逐环境实时查询当前账号权限）、`output_format`、`verify_ssl`。查询需要对应环境已有的登录信息及 `business.json` 中的业务选择；不会自动登录，在线查询会留下调用日志。未登录、未配置权限服务或查询失败会单独显示，不代表已开通。
 - 固定表格输出。
 
 **示例**

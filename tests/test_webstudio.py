@@ -34,7 +34,7 @@ def studio():
 @pytest.fixture
 def rt(tmp_path):
     path = tmp_path / 'config.json'
-    path.write_text(json.dumps({'current': 'prod', 'profiles': [{
+    path.write_text(json.dumps({'current': 'prod', 'access_control': {'enable': False}, 'profiles': [{
         'name': 'prod', 'api_endpoint': 'https://console.example/dashboard',
         'jupyter': {'mode': 'webstudio', 'server_url': 'https://gateway.example'}}]}))
     runtime = Runtime(config_path=path, credential_path=tmp_path / 'credentials.json',
@@ -205,6 +205,53 @@ def test_query_filters_and_extra_fields():
     assert payload['result']['envs'][0]['extraField'] == {'keep': True}
     with pytest.raises(ValueError, match='当前选择'):
         WebStudioService(client).list(business_id='other')
+
+
+def test_start_stop_requests_use_selected_business_and_current_operator(rt, requests):
+    runner = CliRunner()
+    with patch('wiserec_cli.commands.webstudio.runtime_from_context', return_value=rt):
+        start = runner.invoke(app, ['--config', str(rt.config.path), 'webstudio', 'start', ENV_ID])
+        stop = runner.invoke(app, ['--config', str(rt.config.path), 'webstudio', 'stop', ENV_ID])
+    assert start.exit_code == 0, start.output
+    assert stop.exit_code == 0, stop.output
+    assert ENV_ID in start.output and ENV_ID in stop.output
+    assert [request.url.path for request, _ in requests] == [
+        '/ai/backend/webstudio/dataExplorer/start',
+        '/ai/backend/webstudio/dataExplorer/stop',
+    ]
+    assert requests[0][1] == {'businessId': 'pps', 'envId': ENV_ID, 'operator': 'current-user'}
+    assert requests[1][1] == {'businessId': 'pps', 'envId': ENV_ID}
+    assert all(request.url.host == 'console.example' for request, _ in requests)
+
+
+def test_start_uses_longer_timeout_and_does_not_retry(rt):
+    rt.config._data['api'] = {'timeout': 1000}
+    seen = []
+
+    def create_client(*args, **kwargs):
+        seen.append(args)
+        return RealClient(*args, transport=httpx.MockTransport(
+            lambda request: httpx.Response(200, json={'result': {'code': 0, 'des': 'success'}})), **kwargs)
+
+    with patch('wiserec_cli.webstudio.resolve.PlatformClient', side_effect=create_client):
+        with patch('wiserec_cli.commands.webstudio.runtime_from_context', return_value=rt):
+            result = CliRunner().invoke(app, ['--config', str(rt.config.path), 'webstudio', 'start', ENV_ID])
+    assert result.exit_code == 0, result.output
+    assert seen[0][2] == 60_000
+    assert seen[0][3] == 0
+
+
+def test_start_failure_does_not_report_success_or_retry(rt):
+    client = Mock(business_id='pps', username='current-user')
+    client.request.return_value = {'result': {'code': 1, 'des': 'failed'}}
+    with pytest.raises(Exception, match='业务响应失败'):
+        WebStudioService(client).start(ENV_ID)
+    assert client.request.call_count == 1
+    client.username = ''
+    client.request.reset_mock()
+    with pytest.raises(Exception, match='登录账号为空'):
+        WebStudioService(client).start(ENV_ID)
+    client.request.assert_not_called()
 
 
 def test_access_failure_does_not_retry_or_leak():

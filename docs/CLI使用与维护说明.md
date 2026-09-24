@@ -100,7 +100,7 @@ Python 依赖：`typer`（命令框架）、`rich`（表格输出）、`httpx`�
 切换环境只影响"连哪个平台"，不会互相污染：
 
 ```bash
-ml env list          # 列出全部环境，* 标记当前
+ml env list          # 列出全部环境及逐环境实时权限状态，* 标记当前
 ml env show          # 当前环境详情
 ml env use dev       # 切换环境（写回 config.json）
 ```
@@ -157,14 +157,13 @@ ml business refresh                 # 重开 Edge 重新读取目录
 
 ### 5. 配套权限管理系统
 
-管理员通过独立 Web 服务管理人员、环境授权、有效期及调用审计。CLI 的 `access_control` 默认关闭，启用后会在执行业务命令前检查当前账号与环境授权；拒绝或服务故障会阻止该次业务调用。客户端校验不替代平台后端鉴权，也不负责创建平台本身的租户权限。
+管理员通过独立 Web 服务管理人员、环境授权、有效期及调用审计。CLI 的权限校验默认开启，在执行业务命令前检查当前账号与环境授权；未配置权限服务地址、拒绝或服务故障都会阻止该次业务调用。确需关闭时显式配置 `access_control.enable: false`。客户端校验不替代平台后端鉴权，也不负责创建平台本身的租户权限。
 
 服务使用 MySQL，支持 Docker 离线部署，详见 [Docker 部署速查](权限管理系统Docker安装部署与调试指南.md)。部署后在 CLI 配置中合并以下字段，保留其他设置：
 
 ```json
 {
   "access_control": {
-    "enabled": true,
     "url": "http://服务器IP:8008/cli-permission",
     "timeout_seconds": 15,
     "use_env_proxy": false
@@ -381,7 +380,7 @@ $env:ML_CONFIG = "C:\path\to\config.json"
 | `api.timeout` | int(ms) | `30000` | HTTP 请求超时 |
 | `api.retry_times` | int | `3` | 传输层重试次数 |
 | `api.verify_ssl` | bool | `true` | 全局 HTTPS 证书校验开关 |
-| `access_control.enabled` | bool | `false` | 是否启用在线权限校验 |
+| `access_control.enable` | bool | `true`（省略） | 显式 `false` 关闭在线权限校验；旧字段 `enabled` 仍兼容 |
 | `access_control.url` | string | 空 | 权限服务地址，包含 /cli-permission |
 | `access_control.timeout_seconds` | int(s) | `15` | 权限检查超时，范围 1–120 |
 | `access_control.use_env_proxy` | bool | `false` | 权限请求是否采用环境代理 |
@@ -415,7 +414,6 @@ $env:ML_CONFIG = "C:\path\to\config.json"
     "expires_in_seconds": 1800
   },
   "access_control": {
-    "enabled": false,
     "url": "",
     "timeout_seconds": 15,
     "use_env_proxy": false

@@ -2,7 +2,7 @@
 
 只需查看版本、选择环境、登录和查询训练任务，请阅读 [CLI 快速使用指南](CLI快速使用指南.md)。
 
-`ml` 是 **WiseRec 平台** 的 Python 命令行客户端（包名 `wiserec-cli`，当前正式版本 `1.0.3.1`）。与权限管理系统 1.0.3.1 同版发布；Windows 安装包和 Wheel 均重新构建。
+`ml` 是 **WiseRec 平台** 的 Python 命令行客户端（包名 `wiserec-cli`，当前源码版本 `1.0.3.2`；最新正式发布版本仍为 `1.0.3.1`）。正式版与权限管理系统 1.0.3.1 同版发布；本次新增的 Web Studio 启停命令尚未正式发布。
 本文档覆盖命令参数、配置项与退出行为；2026-09-20 新增 Jupyter Notebook 与 Terminal 使用说明。示例中的 `TASK_ID`、`JOB_ID`、`PROJECT_ID`、`NAMESPACE_ID`、`EXPERIMENT_ID`、`SET_ID` 均须替换为对应资源的真实 ID；它们不是同一种 ID。
 
 > 阅读前提：查询平台数据前建议先完成 `ml login` 和 `ml business use`。`user`、`mep`、`mtp`、`offline`、`train`、`featureset` 需要有效认证和业务选择；`business list/use/refresh` 用于建立或维护业务上下文，不要求预先选好业务。没有认证或认证过期时，相关命令会自动启动 Edge 登录。
@@ -106,6 +106,8 @@ ml - WiseRec平台命令行客户端
 | `ml featureset model list` | 分页查询模型特征集 |
 | `ml featureset wide config SET_ID` | 查询宽表特征集配置，固定 JSON 输出 |
 | `ml featureset model config SET_ID` | 查询模型特征集配置，固定 JSON 输出 |
+| `ml webstudio start ENV_ID` | 启动指定 Web Studio 实例 |
+| `ml webstudio stop ENV_ID` | 停止指定 Web Studio 实例 |
 
 ---
 
@@ -222,13 +224,13 @@ ml auth status
 
 ### `ml env list`
 
-列出全部环境。
+列出全部环境，并逐个实时检查当前账号在各环境的权限开通状态。查询只读取各环境已有的本地登录信息与 `business.json` 中该环境的 `selected.businessId`，不会切换当前环境或自动打开浏览器登录。
 
 ```text
 ml env list
 ```
 
-输出字段：`current`（`*` 表示当前）、`name`、`api_endpoint`、`output_format`、`verify_ssl`。
+输出字段：`current`（`*` 表示当前）、`name`、`api_endpoint`、`access_status`（权限开通状态）、`output_format`、`verify_ssl`。`access_status` 位于 `api_endpoint` 后：通过为“已开通”，授权拒绝为“未开通”等具体状态；缺少登录或业务选择、权限服务地址未配置、校验关闭以及网络查询失败会分别标明，不能视为已开通。每个具备登录信息与业务选择的环境都会发起一次在线检查，并在权限系统留下调用日志；环境较多时命令耗时会相应增加。
 
 ### `ml env show`
 
@@ -888,7 +890,7 @@ AGENTS.md 要求时间适合人类阅读、首列 ID 固定 36 宽且不换行/�
 
 ## 在线访问授权：`ml access status`
 
-默认 `config.json` 已包含 `access_control`：`enabled` 为 `false`、`url` 为空、`timeout_seconds` 为 `15`。启用时填写实际权限服务地址，并将 `enabled` 改为 `true`。
+默认 `config.json` 已包含 `access_control`，不包含 `enable`，权限校验默认开启。安装后必须填写实际权限服务 `url`；地址为空时业务调用会报配置错误并停止。
 
 用于实时检查当前登录账号是否获准在当前环境使用 CLI 业务功能。权限管理页面和离线部署说明见 [权限服务说明](../access-service/README.md)。
 
@@ -896,13 +898,12 @@ AGENTS.md 要求时间适合人类阅读、首列 ID 固定 36 宽且不换行/�
 
 ```json
 "access_control": {
-  "enabled": true,
   "url": "https://permissions.internal:8008/cli-permission",
   "timeout_seconds": 15
 }
 ```
 
-权限服务地址支持 HTTP 或 HTTPS，并统一使用 `/cli-permission` 前缀。可信内网使用 HTTP 时，服务配置 `COOKIE_SECURE=false` 并清空两个 TLS 路径。`enabled` 是布尔值（对象存在时默认 true），`timeout_seconds` 为 1–120 秒（默认 15）。没有该对象时兼容旧版不执行在线检查；生产分发需由管理员启用，安装时默认配置全部以包内文件为准，不保留既有设置。客户端配置可被本地修改，此机制不替代业务平台或网关的权限校验。
+权限服务地址支持 HTTP 或 HTTPS，并统一使用 `/cli-permission` 前缀。可信内网使用 HTTP 时，服务配置 `COOKIE_SECURE=false` 并清空两个 TLS 路径。`enable` 省略时默认为 `true`，只有显式设置 `"enable": false` 才关闭校验；旧配置的 `enabled` 布尔字段仍兼容，但不可与 `enable` 同时设置。`timeout_seconds` 为 1–120 秒（默认 15）。即使没有 `access_control` 对象，业务调用也不会跳过校验，而是提示先配置 URL。安装时默认配置全部以包内文件为准，不保留既有设置。客户端配置可被本地修改，此机制不替代业务平台或网关的权限校验。
 
 ```bash
 ml login
@@ -988,7 +989,6 @@ ml --config "C:\Users\l00123456\AppData\Roaming\ml\config.json" access status --
 
 ```json
 "access_control": {
-  "enabled": true,
   "url": "https://管理域名/cli-permission",
   "timeout_seconds": 15,
   "use_env_proxy": false
@@ -1044,11 +1044,11 @@ ml --config .jupyter-local/config.json jupyter terminal close 1
 
 ## Web Studio 与动态 Jupyter 登录（1.0.2 新增）
 
-用途：使用管理台认证查询 Web Studio，选择默认实例，自动取得 Jupyter 路由和 Token。无需手动复制 Token，既有 direct 模式保持兼容。以下两个平台接口按 POST 调用：`/ai/backend/webstudio/dataExplorer/queryEnvList`、`/ai/backend/webstudio/dataExplorer/accessUrl`；域名取自当前 profile.api_endpoint 的源站。
+用途：使用管理台认证查询、启动和停止 Web Studio，选择默认实例，自动取得 Jupyter 路由和 Token。无需手动复制 Token，既有 direct 模式保持兼容。`queryEnvList`、`accessUrl`、`start`、`stop` 均调用 `/ai/backend/webstudio/dataExplorer/` 下的同名 POST 接口；域名取自当前 profile.api_endpoint 的源站。
 
 ### 使用前提与配置
 
-先完成 `ml login` 和 `ml business use`。当前环境 business.json 的 selected.businessId 同时用于请求体和 businessid 请求头。accessUrl 的 operator 使用当前登录账号，不使用列表创建者。平台模式即使未启用额外权限服务，也需要管理台认证；已启用时继续进行命令权限检查。
+先完成 `ml login` 和 `ml business use`。当前环境 business.json 的 selected.businessId 同时用于请求体和 businessid 请求头。accessUrl 与 start 的 operator 使用当前登录账号，不使用列表创建者；stop 不发送 operator。平台模式需要管理台认证；启用权限服务时还会检查命令权限。
 
 在当前 profile 增加以下配置（保留该环境已有字段）：
 
@@ -1077,6 +1077,8 @@ webstudio 模式根据实例实时返回的 `region` 从 `server_urls_by_region`
 | 命令 | 参数和选项 | 输出 |
 |---|---|---|
 | `ml webstudio list` | `--page` 默认 1、`--page-size` 默认 10，均须正整数；`--name` 名称模糊匹配；`--status`、`--relator`、`--env-id` 精确匹配；可选 `--business-id` 必须与当前选择一致；`--output` / `-o` 取 table/json | 当前页、总数及实例记录 |
+| `ml webstudio start ENV_ID` | 必填 Web Studio 实例 ID；无专有选项 | 接口返回 `result.code=0` 后显示启动成功和 ID；通常约 15 秒返回，最长等待至少 60 秒 |
+| `ml webstudio stop ENV_ID` | 必填 Web Studio 实例 ID；无专有选项 | 接口返回 `result.code=0` 后显示停止成功和 ID |
 | `ml webstudio login ENV_ID` | 必填 Web Studio ID | 定位实例、取得动态凭据、验证 Kernel HTTP 接口，成功后保存默认目标；失败不覆盖旧选择 |
 | `ml webstudio show` | 无 | 当前配置、环境、账号和业务下的默认实例（保存时的名称，不是实时状态） |
 
@@ -1084,14 +1086,18 @@ webstudio 模式根据实例实时返回的 `region` 从 `server_urls_by_region`
 ml webstudio list --status online --name l001
 ml webstudio list --relator l00123456 --page 2 --page-size 20
 ml webstudio list --output json
+ml webstudio start f925886d-072c-48fc-a4ec-636ab3ba9a60
 ml webstudio login f925886d-072c-48fc-a4ec-636ab3ba9a60
 ml webstudio show
+ml webstudio stop f925886d-072c-48fc-a4ec-636ab3ba9a60
 ml jupyter doctor
 ml jupyter terminal open
 ml jupyter notebook run analysis.ipynb --download results
 ```
 
 列表按 envId、名称、集群类型、资源规格、状态、创建者、修改者、启动时间展示。首列固定 36，不换行截断；启动时间使用 accessTime，转换为北京时间 YYYY-MM-DD HH:mm:ss。JSON 保留原始响应字段及原始机器时间，敏感字段脱敏；不能把原始 UTC 时间当作北京时间展示。
+
+`start` 请求体为 `{"businessId":"当前业务 ID","envId":"ENV_ID","operator":"当前登录账号"}`；`stop` 请求体为 `{"businessId":"当前业务 ID","envId":"ENV_ID"}`。两者均使用当前配置的管理台地址、登录认证和 `businessid` 请求头；仅在接口明确返回成功后输出成功。启动请求不会自动重试；若超时或中断，远端状态可能已经改变，请先用 `ml webstudio list --env-id ENV_ID` 核实，再决定是否重新执行。启停命令不会修改本地默认实例选择。
 
 已有 `jupyter doctor`、`notebook run`、`terminal open/list/attach/close` 均新增 `--studio-id ENV_ID`，只覆盖本次目标、不修改默认选择：
 
@@ -1107,7 +1113,7 @@ ml jupyter terminal close 1 --studio-id f925886d-072c-48fc-a4ec-636ab3ba9a60
 
 - 默认实例存于用户配置目录 webstudio.json，仅保存 envId、名称、region 和北京时间的选择时间，不保存 Token。按配置文件路径、平台地址、profile、区域网关配置、账号、businessId 隔离。
 - 每次 Jupyter 命令重新获取一次访问地址/Token，执行期间固定该连接。不会因认证失败重放 Notebook、创建终端或在新实例清理旧实例资源。
-- 只连接 online 实例；其他状态提示在管理台处理。不自动启动、重启或删除 Web Studio。
+- Jupyter 连接只使用 online 实例；其他状态可用 `ml webstudio start ENV_ID` 启动后重新查询。Jupyter 命令自身不会自动启动、重启或删除 Web Studio。
 - 管理台认证本地过期沿用现有认证获取机制。平台或 Jupyter 拒绝凭据时，本版本不自动重发 accessUrl；先检查 `ml login`、业务选择、网关权限后重试命令。执行已开始时请先核查远程结果，勿盲目重跑。
 - doctor 逐步报告管理台、实例、地址获取及 Kernel/Terminal HTTP 检查；WebSocket 在实际执行或 attach 时验证。登录成功不表示 Terminal 必然有权限。
 - 访问 URL 必须含唯一的 token 参数，允许参数值为空；路径入口为 /lab 或 /lab/。拒绝跨域地址、路径穿越、重复 token 参数、额外未知查询参数；遇到新的网关格式需明确适配，不盲目转发。

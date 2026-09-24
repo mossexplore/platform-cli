@@ -12,7 +12,7 @@ from urllib.parse import quote, urlsplit, urlunsplit
 import httpx
 import websocket
 
-from ..access import check_access
+from ..access import access_enabled, check_access
 from ..client_metadata import client_headers, check_version_response, VersionPolicyError
 from ..business import BusinessStore
 from ..errors import MlError
@@ -64,7 +64,7 @@ def from_runtime(runtime, studio_id=None, report=None) -> Connection:
              if settings.get("business_file") else runtime.business)
     username = ""
     credentials = None
-    if runtime.config.access_control.get("enabled"):
+    if access_enabled(runtime.config.access_control):
         credentials = runtime.auth.ensure_credentials()
         username = credentials.username
     selection = store.require_selection(profile.name, username)

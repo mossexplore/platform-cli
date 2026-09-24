@@ -58,3 +58,12 @@ class WebStudioService:
         if not isinstance(result.get('accessUrl'), str) or not result['accessUrl']:
             raise ApiError('Web Studio 响应缺少 accessUrl')
         return result['accessUrl']
+
+    def start(self, env_id):
+        if not self.client.username:
+            raise ApiError('当前登录账号为空，请重新登录管理台')
+        return self._call('start', {'businessId': self.client.business_id,
+                                    'envId': env_id, 'operator': self.client.username})
+
+    def stop(self, env_id):
+        return self._call('stop', {'businessId': self.client.business_id, 'envId': env_id})

@@ -15,7 +15,7 @@ from .urls import parse_access_url, server_url_for_instance, validate_server_url
 
 
 @contextmanager
-def platform(runtime):
+def platform(runtime, *, timeout_ms=None):
     # 平台认证输出不污染 --output json 的 stdout。
     with redirect_stdout(sys.stderr):
         credentials = runtime.auth.ensure_credentials()
@@ -27,7 +27,7 @@ def platform(runtime):
         raise JupyterError('当前环境 selected.businessId 无效，请重新选择业务')
     check_access(runtime.config.access_control, profile, credentials, selection,
                  command=runtime.invocation_command, full_command=getattr(runtime, 'full_command', ''))
-    with PlatformClient(profile, credentials, runtime.config.timeout_ms, 0,
+    with PlatformClient(profile, credentials, timeout_ms or runtime.config.timeout_ms, 0,
                         runtime.config.verify_ssl, business_selection=selection) as client:
         yield WebStudioService(client), credentials.username, stored
 

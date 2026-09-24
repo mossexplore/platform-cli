@@ -9,14 +9,30 @@ from .client_metadata import client_headers, handle_version_result
 from .access_transport import permission_url, tls_verify
 
 
+class AccessDeniedError(MlError):
+    def __init__(self, reason: str, message: str):
+        super().__init__(message)
+        self.reason = reason
+
+
+def access_enabled(settings):
+    """The legacy `enabled` key remains valid for existing installations."""
+    settings = settings or {}
+    return settings.get('enable', settings.get('enabled', True)) is not False
+
+
 def validate_settings(value: Any) -> Dict[str, Any]:
     if value is None:
         return {}
     if not isinstance(value, dict):
         raise ConfigError('access_control 必须是对象')
-    if not isinstance(value.get('enabled', True), bool):
-        raise ConfigError('access_control.enabled 必须是布尔值')
-    if value.get('enabled', True):
+    if 'enable' in value and 'enabled' in value:
+        raise ConfigError('access_control.enable 和 enabled 不能同时设置')
+    for key in ('enable', 'enabled'):
+        if key in value and not isinstance(value[key], bool):
+            raise ConfigError(f'access_control.{key} 必须是布尔值')
+    # The packaged config has no URL until deployment; protected calls fail closed below.
+    if access_enabled(value) and (value.get('url', '') != '' or 'enable' in value or 'enabled' in value):
         url = value.get('url', '')
         try:
             if not isinstance(url, str):
@@ -49,8 +65,10 @@ def command_name(context):
 
 
 def check_access(settings, profile, credentials, selection, *, command="unknown", full_command="", diagnostics=None):
-    if not settings or not settings.get('enabled', True):
+    if not access_enabled(settings):
         return None
+    if not settings or not settings.get('url'):
+        raise ConfigError('默认已开启权限校验，请先在 config.json 中配置 access_control.url，或设置 access_control.enable 为 false')
     url = permission_url(settings['url'])
     if diagnostics:
         diagnostics.begin(url, profile, credentials, selection, command, settings.get('timeout_seconds', 15))
@@ -104,7 +122,7 @@ def check_access(settings, profile, credentials, selection, *, command="unknown"
         }
         reason = result.get('reason')
         message = messages.get(reason, '当前账号没有访问权限') if isinstance(reason, str) else '当前账号没有访问权限'
-        raise MlError(message + '，请联系管理员')
+        raise AccessDeniedError(reason if isinstance(reason, str) else '', message + '，请联系管理员')
     if result.get('username') != credentials.username or result.get('environment') != profile.name:
         raise MlError('权限服务返回的账号或环境与当前登录不一致，请重新登录')
     return result

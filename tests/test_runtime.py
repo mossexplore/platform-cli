@@ -2,10 +2,12 @@ import json
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 from wiserec_cli.business import BusinessStore, parse_business_list
+from wiserec_cli.config import ConfigManager
 from wiserec_cli.credentials import CredentialStore
-from wiserec_cli.errors import BusinessError
+from wiserec_cli.errors import BusinessError, ConfigError
 from wiserec_cli.models import Credentials
 from wiserec_cli.runtime import Runtime
 
@@ -21,6 +23,7 @@ class RuntimeBusinessContextTest(unittest.TestCase):
             json.dumps(
                 {
                     "current": "dev",
+                    "access_control": {"enable": False},
                     "profiles": [
                         {
                             "name": "dev",
@@ -77,6 +80,17 @@ class RuntimeBusinessContextTest(unittest.TestCase):
         )
 
         self.assertEqual(business_id, "mep")
+
+    def test_missing_access_configuration_stops_business_call(self):
+        self.store.select("dev", "jack", tenant_id="mep")
+        data = json.loads(self.config_path.read_text(encoding="utf-8"))
+        del data["access_control"]
+        self.config_path.write_text(json.dumps(data), encoding="utf-8")
+        self.runtime.config = ConfigManager(self.config_path)
+        with patch("wiserec_cli.runtime.PlatformClient") as client:
+            with self.assertRaisesRegex(ConfigError, "access_control.url"):
+                self.runtime.authenticated_call(lambda _: None)
+            client.assert_not_called()
 
 
 if __name__ == "__main__":

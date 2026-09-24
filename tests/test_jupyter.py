@@ -12,6 +12,7 @@ from typer.testing import CliRunner
 from wiserec_cli.business import BusinessStore, Department, Tenant
 from wiserec_cli.cli import app
 from wiserec_cli.config import ConfigManager
+from wiserec_cli.models import Credentials
 from wiserec_cli.jupyter.connection import Connection, JupyterClient, JupyterError, from_runtime, remote_path
 from wiserec_cli.jupyter.notebook import run_notebook
 from wiserec_cli.jupyter.protocol import KernelChannel, Outputs, decode_message, execute_cell
@@ -21,7 +22,7 @@ from wiserec_cli.commands.jupyter import display_time
 def runtime(tmp_path):
     config = tmp_path / "config.json"
     (tmp_path / "token").write_text("secret-value")
-    config.write_text(json.dumps({"current": "local", "profiles": [
+    config.write_text(json.dumps({"current": "local", "access_control": {"enable": False}, "profiles": [
         {"name": "other", "api_endpoint": "http://other/"},
         {"name": "local", "api_endpoint": "http://127.0.0.1:8888/user/local/",
          "jupyter": {"token_env": "TEST_JUPYTER_TOKEN", "token_file": "token", "business_file": "business.json"}}]}))
@@ -37,6 +38,23 @@ def test_current_environment_business_and_no_token_repr(tmp_path):
     assert config.business_id == "local-business"
     assert config.url.endswith("/user/local/")
     assert "secret-value" not in repr(config)
+
+
+def test_jupyter_checks_access_when_switch_is_omitted(tmp_path):
+    rt = runtime(tmp_path)
+    data = json.loads(rt.config.path.read_text())
+    data['access_control'] = {'url': 'https://access.example.com'}
+    rt.config.path.write_text(json.dumps(data))
+    rt.config = ConfigManager(rt.config.path)
+    rt.auth = Mock()
+    rt.auth.ensure_credentials.return_value = Credentials.create('local', 'cookie', 'csrf', 'user', 60)
+    rt.invocation_command = 'ml jupyter doctor'
+    rt.full_command = 'ml jupyter doctor'
+    with patch('wiserec_cli.jupyter.connection.check_access') as check:
+        from_runtime(rt)
+    assert check.call_count == 1
+    assert check.call_args.args[0] == {'url': 'https://access.example.com'}
+    assert check.call_args.args[3].business_id == 'local-business'
 
 
 def test_mismatched_selected_id_is_rejected(tmp_path):

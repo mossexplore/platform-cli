@@ -5,6 +5,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
+from wiserec_cli.access import access_enabled
 from wiserec_cli.config import (
     ConfigManager,
     _install_packaged_config,
@@ -87,6 +88,9 @@ class ConfigManagerTest(unittest.TestCase):
         self.assertTrue(destination.exists())
         manager = ConfigManager(destination)
         self.assertEqual(manager.current_name, "dev")
+        self.assertNotIn("enable", manager.access_control)
+        self.assertNotIn("enabled", manager.access_control)
+        self.assertTrue(access_enabled(manager.access_control))
         self.assertEqual(
             manager.current_profile().api_endpoint,
             "https://console-dev.cloudtest.cn/dashboard",

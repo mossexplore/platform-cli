@@ -363,7 +363,6 @@ sudo .venv/bin/python -m app.manage --env-file /etc/cli-access/env reset-passwor
 ```json
 {
   "access_control": {
-    "enabled": true,
     "url": "http://权限服务器IP:8008/cli-permission",
     "timeout_seconds": 15,
     "use_env_proxy": false

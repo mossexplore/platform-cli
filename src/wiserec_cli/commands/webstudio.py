@@ -11,7 +11,7 @@ from .jupyter import display_time
 from ..output import console
 from ..webstudio.resolve import platform, resolve, show
 
-webstudio_app = typer.Typer(no_args_is_help=True, help='Web Studio 查询与 Jupyter 动态登录')
+webstudio_app = typer.Typer(no_args_is_help=True, help='Web Studio 查询、启动、停止与 Jupyter 动态登录')
 COLUMNS = [('envId', 'envId'), ('名称', 'labelName'), ('集群类型', 'clusterType'),
            ('资源规格', 'imageSpecific'), ('状态', 'status'), ('创建者', 'operator'),
            ('修改者', 'modifier'), ('启动时间', 'accessTime')]
@@ -70,6 +70,29 @@ def login_studio(context: typer.Context, env_id: str = typer.Argument(...)):
         connection = resolve(runtime_from_context(context), env_id, login=True,
                              report=lambda value: typer.echo(value, err=True))
         typer.echo(f'Web Studio 登录成功，默认实例：{connection.studio_id}')
+    except Exception as exc:
+        fail(exc)
+
+
+@webstudio_app.command('start')
+def start_studio(context: typer.Context, env_id: str = typer.Argument(...)):
+    """启动指定 Web Studio；接口可能需要约 15 秒才返回。"""
+    try:
+        runtime = runtime_from_context(context)
+        with platform(runtime, timeout_ms=max(runtime.config.timeout_ms, 60_000)) as (service, _, __):
+            service.start(env_id)
+        typer.echo(f'Web Studio 启动成功：{env_id}')
+    except Exception as exc:
+        fail(exc)
+
+
+@webstudio_app.command('stop')
+def stop_studio(context: typer.Context, env_id: str = typer.Argument(...)):
+    """停止指定 Web Studio。"""
+    try:
+        with platform(runtime_from_context(context)) as (service, _, __):
+            service.stop(env_id)
+        typer.echo(f'Web Studio 停止成功：{env_id}')
     except Exception as exc:
         fail(exc)
 

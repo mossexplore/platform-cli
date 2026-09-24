@@ -35,7 +35,7 @@ def test_authorization_headers_and_environment(inputs):
     args, kwargs = manager.__enter__().post.call_args
     assert args[0] == 'https://access.example.com/cli-permission/api/v1/access/check'
     assert kwargs['headers']['businessid'] == 'current-business'
-    assert kwargs['headers']['X-CLI-Version'] == '1.0.3.1'
+    assert kwargs['headers']['X-CLI-Version'] == '1.0.3.2'
     assert kwargs['json'] == {'username': 'alice', 'environment': 'dev', 'platform_origin': 'https://platform.example.com', 'command': 'unknown', 'full_command': ''}
     assert ctor.call_args.kwargs['verify'] is True
     assert ctor.call_args.kwargs['follow_redirects'] is False
@@ -89,15 +89,33 @@ def test_runtime_blocks_operation_and_rechecks_each_command(inputs):
 
 @pytest.mark.parametrize('settings', [{'url': 'ftp://access.example.com'}, {'url': 'https://u:p@access.example.com'},
     {'url': 'https://access.example.com/path'}, {'enabled': 'false'}, {'enabled': True},
+    {'enable': 'false'}, {'enable': 0}, {'enable': True}, {'enable': False, 'enabled': True},
     {'enabled': False, 'timeout_seconds': True}, {'enabled': False, 'timeout_seconds': float('nan')}])
 def test_bad_settings(settings):
     with pytest.raises(ConfigError):
         validate_settings(settings)
 
 
-def test_disabled_does_not_connect(inputs):
+@pytest.mark.parametrize('settings', [{'enable': False}, {'enabled': False}])
+def test_disabled_does_not_connect(inputs, settings):
     with patch('wiserec_cli.access.httpx.Client') as client:
-        assert check_access({}, *inputs[1:]) is None
+        assert check_access(settings, *inputs[1:]) is None
+        client.assert_not_called()
+
+
+def test_missing_switch_checks_access_by_default(inputs):
+    response = httpx.Response(200, json={'allowed': True, 'username': 'alice', 'environment': 'dev'})
+    manager = response_mock(response)
+    with patch('wiserec_cli.access.httpx.Client', return_value=manager):
+        assert check_access({'url': 'https://access.example.com'}, *inputs[1:])['allowed']
+    assert manager.__enter__().post.call_count == 1
+
+
+@pytest.mark.parametrize('settings', [{}, None, {'url': ''}])
+def test_missing_access_url_fails_closed(inputs, settings):
+    with patch('wiserec_cli.access.httpx.Client') as client:
+        with pytest.raises(ConfigError, match='access_control.url'):
+            check_access(settings, *inputs[1:])
         client.assert_not_called()
 
 

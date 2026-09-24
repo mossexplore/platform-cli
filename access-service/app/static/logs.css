@@ -121,7 +121,7 @@
 /* Ten rows use the available viewport height; long values remain in the detail drawer. */
 .management-page .call-results-full { flex: 1; display: flex; flex-direction: column; }
 .management-page .call-results-full .call-records { flex: 1; display: flex; min-height: 0; }
-.management-page .call-results-full .call-records-table { height: 100%; }
+.management-page .call-results-full .call-records-table { flex: 1; height: auto; }
 .management-page .call-records-table th,
 .management-page .call-records-table td { padding: 3px 8px; vertical-align: middle; }
 .management-page .call-records-table .call-wrap,

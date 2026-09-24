@@ -2,6 +2,7 @@
 import typer
 from ..output import console
 from ..access_diagnostics import AccessDiagnostics
+from ..access import access_enabled
 from .. import __version__
 from .common import runtime_from_context, fail
 
@@ -18,8 +19,8 @@ def status(context: typer.Context, diagnose: bool = typer.Option(False, "--diagn
             runtime.access_diagnostics.line('CLI 版本', __version__)
             runtime.access_diagnostics.line('配置文件', runtime.config.path)
         settings = runtime.config.access_control
-        if not settings or not settings.get('enabled', True):
-            console.print('未启用在线权限检查，请联系管理员配置 access_control。')
+        if not access_enabled(settings):
+            console.print('已关闭在线权限检查。')
             return
         runtime.authenticated_call(lambda client: None)
         console.print('当前账号已获当前环境访问授权。')

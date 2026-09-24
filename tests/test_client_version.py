@@ -100,7 +100,7 @@ def test_business_payload_with_non_string_code_is_unchanged():
 def test_gateway_denial_does_not_relogin_or_repeat_operation():
     from wiserec_cli.runtime import Runtime
     runtime = Runtime.__new__(Runtime)
-    runtime.config = Mock(access_control={}, timeout_ms=1000,retry_times=0,verify_ssl=True)
+    runtime.config = Mock(access_control={'enable': False}, timeout_ms=1000,retry_times=0,verify_ssl=True)
     runtime.config.current_profile.return_value = Profile('prod','https://example.com')
     runtime.auth = Mock()
     runtime.auth.ensure_credentials.return_value = Credentials.create('prod','c','s','alice',100)

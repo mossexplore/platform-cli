@@ -296,6 +296,17 @@ class BusinessStore:
             )
         return selection
 
+    def selected_business_id(self, profile: str, username: str = "") -> str:
+        """Read the exact selected.businessId stored for this environment."""
+        selected = self._entry(profile, username).get("selected")
+        business_id = selected.get("businessId") if isinstance(selected, dict) else None
+        if not isinstance(business_id, str) or not business_id or any(c in business_id for c in "\r\n"):
+            raise BusinessError("当前环境 selected.businessId 无效")
+        return business_id
+
+    def has_profile(self, profile: str) -> bool:
+        return isinstance(self._read().get("profiles", {}).get(profile), dict)
+
     def select(
         self,
         profile: str,

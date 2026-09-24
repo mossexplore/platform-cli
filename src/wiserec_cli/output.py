@@ -13,7 +13,7 @@ console = Console()
 error_console = Console(stderr=True)
 
 
-def print_result(value: Any, output_format: str = "table") -> None:
+def print_result(value: Any, output_format: str = "table", *, wrap_columns=()) -> None:
     selected = output_format.lower()
     if selected == "json":
         console.print_json(json.dumps(value, ensure_ascii=False, default=str))
@@ -35,7 +35,7 @@ def print_result(value: Any, output_format: str = "table") -> None:
     elif isinstance(value, list) and all(isinstance(item, dict) for item in value):
         keys = list(dict.fromkeys(key for item in value for key in item))
         for key in keys:
-            table.add_column(str(key))
+            table.add_column(str(key), overflow="fold" if key in wrap_columns else "ellipsis")
         for item in value:
             table.add_row(*(str(item.get(key, "")) for key in keys))
     else:
