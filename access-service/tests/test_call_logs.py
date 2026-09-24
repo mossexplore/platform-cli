@@ -59,6 +59,22 @@ def test_unknown_reported_account_recorded(system):
         assert row.reason == 'USER_DISABLED'
 
 
+def test_log_list_shows_current_person_name_and_unknown_fallback(system):
+    app, client, _ = system
+    with app.state.sessions() as db:
+        db.get(User, 1).display_name = '张三'
+        for actor in ('alice', 'unregistered'):
+            db.add(CallLog(actor=actor, command='ml train list', environment='prod',
+                business_id='selected', source_ip='127.0.0.1', allowed=True, reason='ALLOWED'))
+        db.commit()
+    login(client)
+    html = client.get('/cli-permission/admin/calls').text
+    table = html.split('<tbody>')[1].split('</tbody>')[0]
+    assert '<th scope="col">姓名</th>' in html
+    assert '<td data-label="姓名">张三</td>' in table.split('alice')[1].split('</tr>')[0]
+    assert '<td data-label="姓名">—</td>' in table.split('unregistered')[1].split('</tr>')[0]
+
+
 def test_log_query_requires_admin_and_filters_with_pagination(system):
     app, client, _ = system
     assert client.get('/cli-permission/admin/calls', follow_redirects=False).status_code == 303
@@ -152,7 +168,7 @@ def test_log_table_hides_source_ip_and_explains_denials(system):
         assert reason not in html and label in html
     row = html.split('allowed-user')[1].split('</tr>')[0]
     assert '>通过</span>' in row and 'data-open="call-detail-' in row and 'ALLOWED' not in html
-    assert 'colspan="6"' in client.get('/cli-permission/admin/calls?username=no-match').text
+    assert 'colspan="7"' in client.get('/cli-permission/admin/calls?username=no-match').text
     with app.state.sessions() as db:
         assert db.scalar(select(CallLog).where(CallLog.reason == 'NOT_GRANTED')).source_ip == '192.0.2.123'
 

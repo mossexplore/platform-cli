@@ -5,7 +5,7 @@ from fastapi import APIRouter, Query, Request, HTTPException
 from fastapi.responses import RedirectResponse
 from sqlalchemy import select, func
 from .admin_auth import admin_session
-from .models import CallLog
+from .models import CallLog, User
 from .security import expiry
 
 router = APIRouter()
@@ -59,13 +59,16 @@ def calls(request: Request, username: str = Query('', max_length=128),
             query = query.where(CallLog.created_at < stop if end_exclusive else CallLog.created_at <= stop)
         count = db.scalar(select(func.count()).select_from(query.subquery()))
         items = db.scalars(query.order_by(CallLog.created_at.desc(), CallLog.id.desc()).offset((page-1)*PAGE_SIZE).limit(PAGE_SIZE)).all()
+        names = dict(db.execute(select(User.username, User.display_name).where(
+            User.username.in_({item.actor for item in items}))).all()) if items else {}
         for item in items:
             try:
                 item.version_info = json.loads(item.version_decision or '{}')
             except (ValueError, TypeError):
                 item.version_info = {}
         return request.app.state.templates.TemplateResponse(request=request, name='calls.html', context={
-            'admin': admin, 'csrf': session.csrf, 'items': items, 'count': count, 'page': page,
+            'admin': admin, 'csrf': session.csrf, 'items': items, 'names': names,
+            'count': count, 'page': page,
             'business_id': business_id, 'cli_version': cli_version, 'username': username, 'environment': environment, 'command': command, 'result': result,
             'begin': begin, 'end': end, 'end_exclusive': end_exclusive,
             'username_exact': username_exact, 'command_exact': command_exact, 'reason': reason,
