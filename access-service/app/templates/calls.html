@@ -13,7 +13,7 @@
 {% set tab = 'calls' %}{% set page_title = '调用日志' %}
 {% block title %}调用日志{% endblock %}
 {% block content %}
-<div class="page-heading"><div><p class="eyebrow">ACCESS ACTIVITY</p><h1>调用日志</h1><p class="subtitle">追踪每次业务命令的授权检查，快速定位访问被拒绝的原因。</p></div><a href="/cli-permission/admin/analytics">返回数据看板</a></div>
+<div class="page-heading call-page-heading"><div><p class="eyebrow">ACCESS ACTIVITY</p><h1>调用日志</h1><p class="subtitle">追踪每次业务命令的授权检查，快速定位访问被拒绝的原因。</p></div><a href="/cli-permission/admin/analytics">返回数据看板</a></div>
 <section class="panel query-panel call-query">
 {% set advanced_active = business_id or cli_version or result or reason or begin or end or end_exclusive or username_exact or command_exact %}
 <form class="call-filters" method="get" action="/cli-permission/admin/calls">
@@ -26,7 +26,7 @@
 <label>业务 ID<input name="business_id" value="{{ business_id }}" maxlength="256"></label><label>CLI 版本<input name="cli_version" value="{{ cli_version }}" maxlength="64"></label><label>授权结果<select name="result"><option value="">全部</option><option value="allowed" {% if result=='allowed' %}selected{% endif %}>通过</option><option value="denied" {% if result=='denied' %}selected{% endif %}>拒绝或异常</option></select></label><div class="time-range" data-time-range><span class="time-range-label">时间范围（北京时间 UTC+8）{% if begin or end or end_exclusive %}<em>已设置</em>{% endif %}</span><div class="time-range-box"><input type="datetime-local" name="begin" value="{{ begin }}" step="1" aria-label="开始时间（北京时间 UTC+8）"><span class="time-range-sep">{{ '至（不含）' if end_exclusive else '至' }}</span><input type="datetime-local" name="{{ 'end_exclusive' if end_exclusive else 'end' }}" value="{{ end_exclusive or end }}" step="1" aria-label="结束时间（北京时间 UTC+8）"></div><div class="time-presets"><button type="button" class="preset-chip" data-preset="1h">最近 1 小时</button><button type="button" class="preset-chip" data-preset="24h">最近 24 小时</button><button type="button" class="preset-chip" data-preset="7d">最近 7 天</button><button type="button" class="preset-chip" data-preset="30d">最近 30 天</button></div></div></div>
 </form></section>
 {% if username_exact or command_exact or reason %}<p class="analytics-window">来自数据看板的精确筛选：{% if username_exact %}用户 {{ username_exact }} {% endif %}{% if command_exact %}命令 {{ command_exact }} {% endif %}{% if reason %}原因 {{ reason }}{% endif %}。点击“重置”可清除。</p>{% endif %}
-<section class="panel call-results">
+<section class="panel call-results{% if items|length == 10 %} call-results-full{% endif %}">
 <div class="panel-title"><h2>调用记录 <span class="count">{{ count }} 条</span></h2><span class="muted">按调用时间倒序排列</span></div>
 <div class="call-records"><table class="call-records-table" aria-label="CLI 调用记录">
 <thead><tr><th scope="col">调用时间</th><th scope="col">用户名 / 环境</th><th scope="col">姓名</th><th scope="col">命令名称 / 业务 ID</th><th scope="col">CLI 版本</th><th scope="col">授权结果</th><th scope="col">操作</th></tr></thead>
@@ -34,11 +34,11 @@
 {% set timestamp = item.created_at|beijing %}
 <tr>
   <td data-label="调用时间" class="call-time"><time><span>{{ timestamp[:10] }}</span><span>{{ timestamp[11:] }}</span></time></td>
-  <td data-label="用户名 / 环境"><strong class="call-wrap">{{ item.actor }}</strong><small class="call-subline">环境：{{ item.environment }}</small></td>
+  <td data-label="用户名 / 环境"><strong class="call-wrap">{{ item.actor }}</strong><small class="call-subline" title="环境：{{ item.environment }}">环境：{{ item.environment }}</small></td>
   <td data-label="姓名">{{ names.get(item.actor) or '—' }}</td>
-  <td data-label="命令名称 / 业务 ID"><span class="mono call-wrap">{{ item.command }}</span><small class="call-subline call-business">业务 ID：{{ item.business_id }}</small></td>
-  <td data-label="CLI 版本"><span class="mono call-wrap">{{ item.cli_version }}</span><small class="call-subline">{{ '网关检查' if item.check_source=='gateway' else '客户端预检查' }}</small></td>
-  <td data-label="授权结果"><span class="badge {{ 'positive' if item.allowed else 'danger' }}">{{ '通过' if item.allowed else '拒绝或异常' }}</span>{% if not item.allowed %}<small class="call-subline call-reason">{{ reason_labels.get(item.reason, '未知原因，请联系管理员') }}</small>{% endif %}</td>
+  <td data-label="命令名称 / 业务 ID"><span class="mono call-wrap" title="{{ item.command }}">{{ item.command }}</span><small class="call-subline call-business" title="业务 ID：{{ item.business_id }}">业务 ID：{{ item.business_id }}</small></td>
+  <td data-label="CLI 版本"><span class="mono call-wrap" title="{{ item.cli_version }}">{{ item.cli_version }}</span><small class="call-subline">{{ '网关检查' if item.check_source=='gateway' else '客户端预检查' }}</small></td>
+  <td data-label="授权结果"><span class="badge {{ 'positive' if item.allowed else 'danger' }}">{{ '通过' if item.allowed else '拒绝或异常' }}</span>{% if not item.allowed %}<small class="call-subline call-reason" title="{{ reason_labels.get(item.reason, '未知原因，请联系管理员') }}">{{ reason_labels.get(item.reason, '未知原因，请联系管理员') }}</small>{% endif %}</td>
   <td class="call-action"><button type="button" class="text-button" data-open="call-detail-{{ item.id }}" aria-label="查看 {{ item.actor }} 的调用详情">详情</button></td>
 </tr>
 {% else %}<tr><td colspan="7"><div class="empty"><strong>暂无匹配记录</strong><p>请调整用户名、环境或时间范围后重试。</p></div></td></tr>{% endfor %}
