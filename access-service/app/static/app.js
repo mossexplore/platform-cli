@@ -98,7 +98,11 @@ document.addEventListener('click', (event) => {
   const beijing = (d) => new Date(d.getTime() + 8 * 3600000).toISOString().slice(0, 19);
   const end = new Date();
   range.querySelector('[name="begin"]').value = beijing(new Date(end.getTime() - hours * 3600000));
-  range.querySelector('[name="end"]').value = beijing(end);
+  const endInput = range.querySelector('[name="end"], [name="end_exclusive"]');
+  if (!endInput) return;
+  endInput.name = 'end';
+  endInput.value = beijing(end);
+  range.querySelector('.time-range-sep').textContent = '至';
   range.querySelectorAll('.preset-chip').forEach((c) => c.classList.toggle('active', c === chip));
 });
 // Typing a custom range clears the preset highlight.

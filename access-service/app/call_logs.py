@@ -16,10 +16,15 @@ def calls(request: Request, username: str = Query('', max_length=128),
           environment: str = Query('', max_length=64), command: str = Query('', max_length=128),
           business_id: str = Query('', max_length=256), cli_version: str = Query('', max_length=64),
           result: str = '', begin: str = Query('', max_length=32), end: str = Query('', max_length=32),
+          end_exclusive: str = Query('', max_length=32),
+          username_exact: str = Query('', max_length=128), command_exact: str = Query('', max_length=128),
+          reason: str = Query('', max_length=64),
           page: int = Query(1, ge=1)):
     if result not in ('', 'allowed', 'denied'):
         raise HTTPException(400, '授权结果筛选无效')
-    start, stop = expiry(begin), expiry(end)
+    if end and end_exclusive:
+        raise HTTPException(400, '结束时间筛选不能重复')
+    start, stop = expiry(begin), expiry(end or end_exclusive)
     if start and stop and start > stop:
         raise HTTPException(400, '开始时间不能晚于结束时间')
     with request.app.state.sessions() as db:
@@ -36,16 +41,22 @@ def calls(request: Request, username: str = Query('', max_length=128),
             query = query.where(CallLog.cli_version == cli_version)
         if username:
             query = query.where(CallLog.actor.contains(username, autoescape=True))
+        if username_exact:
+            query = query.where(CallLog.actor == username_exact)
         if environment:
             query = query.where(CallLog.environment == environment)
         if command:
             query = query.where(CallLog.command.contains(command, autoescape=True))
+        if command_exact:
+            query = query.where(CallLog.command == command_exact)
+        if reason:
+            query = query.where(CallLog.reason == reason)
         if result:
             query = query.where(CallLog.allowed.is_(result == 'allowed'))
         if start:
             query = query.where(CallLog.created_at >= start)
         if stop:
-            query = query.where(CallLog.created_at <= stop)
+            query = query.where(CallLog.created_at < stop if end_exclusive else CallLog.created_at <= stop)
         count = db.scalar(select(func.count()).select_from(query.subquery()))
         items = db.scalars(query.order_by(CallLog.created_at.desc(), CallLog.id.desc()).offset((page-1)*PAGE_SIZE).limit(PAGE_SIZE)).all()
         for item in items:
@@ -56,6 +67,7 @@ def calls(request: Request, username: str = Query('', max_length=128),
         return request.app.state.templates.TemplateResponse(request=request, name='calls.html', context={
             'admin': admin, 'csrf': session.csrf, 'items': items, 'count': count, 'page': page,
             'business_id': business_id, 'cli_version': cli_version, 'username': username, 'environment': environment, 'command': command, 'result': result,
-            'begin': begin, 'end': end,
+            'begin': begin, 'end': end, 'end_exclusive': end_exclusive,
+            'username_exact': username_exact, 'command_exact': command_exact, 'reason': reason,
             'previous': str(request.url.include_query_params(page=page-1)),
             'next': str(request.url.include_query_params(page=page+1))})

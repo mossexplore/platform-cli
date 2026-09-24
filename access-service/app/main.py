@@ -8,7 +8,7 @@ from starlette.exceptions import HTTPException
 from fastapi.templating import Jinja2Templates
 from sqlalchemy import select, func
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
-from . import access, admin, admin_auth, call_logs, administrators, deletions, grant_selection, applications
+from . import access, admin, admin_auth, call_logs, analytics, administrators, deletions, grant_selection, applications
 from . import version_admin
 from .models import SchemaVersion, AccessApplication, database
 from .migrations import SCHEMA_VERSION
@@ -42,6 +42,7 @@ def create_app(settings=None):
     app.include_router(version_admin.router, prefix="/cli-permission")
     app.include_router(access.router, prefix="/cli-permission")
     app.include_router(call_logs.router, prefix="/cli-permission")
+    app.include_router(analytics.router, prefix="/cli-permission")
     app.include_router(administrators.router, prefix="/cli-permission")
     app.include_router(deletions.router, prefix="/cli-permission")
     app.include_router(grant_selection.router, prefix="/cli-permission")
