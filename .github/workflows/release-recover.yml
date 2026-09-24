@@ -45,7 +45,7 @@ jobs:
           version = subprocess.check_output(['git', 'show', f'{sha}:access-service/VERSION']).decode().strip()
           cli_version = tomllib.loads(subprocess.check_output(['git', 'show', f'{sha}:pyproject.toml']).decode())['project']['version']
           assert re.fullmatch(r'\d+\.\d+\.\d+\.\d+', version)
-          assert cli_version == '1.0.3'
+          assert cli_version == version
           release = gh('release', 'view', 'v'+version, '--json', 'isDraft,targetCommitish')
           assert release['isDraft'] and release['targetCommitish'] == sha
           # Preserve corrected assembly code and release notes before checking out original source.
@@ -71,15 +71,10 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
       - name: Revalidate exact artifacts
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           VERSION: ${{ steps.source.outputs.version }}
           CLI_VERSION: ${{ steps.source.outputs.cli_version }}
           SOURCE_SHA: ${{ steps.source.outputs.sha }}
         run: |
-          mkdir -p /tmp/cli-baseline
-          gh release download "v$CLI_VERSION" --pattern SHA256SUMS --pattern CLI-install.md --pattern CLI-reference.md --dir /tmp/cli-baseline
-          cp /tmp/cli-baseline/CLI-install.md /tmp/cli-baseline/CLI-reference.md release-assets/
-          python scripts/releasing/verify-cli-baseline.py release-assets /tmp/cli-baseline/SHA256SUMS
           export GITHUB_SHA="$SOURCE_SHA"
           export IMAGE_DIGEST=$(python -c 'import json; print(json.load(open("release-assets/manifest.json"))["image_reference"].split("@")[1])')
           python /tmp/prepare-assets.py

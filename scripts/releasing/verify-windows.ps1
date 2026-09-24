@@ -34,7 +34,7 @@ $oldWheel = @(Get-ChildItem "$env:RUNNER_TEMP/previous-wheel" -Filter '*.whl')[0
 & $python -m pip install --no-index --find-links "$bundle/packages" $oldWheel
 if ($LASTEXITCODE -ne 0) { throw 'Previous install failed' }
 $before = & "$upgrade/venv/Scripts/ml.exe" --version
-if ($before -notmatch '1\.0\.0') { throw 'Wrong previous version' }
+if ($before -notmatch 'ml 1\.0\.3$') { throw 'Wrong previous version' }
 $env:PIP_NO_INDEX = '1'
 $env:PIP_NO_CACHE_DIR = '1'
 & "$bundle/install.ps1" -InstallDirectory $upgrade

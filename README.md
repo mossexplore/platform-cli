@@ -9,17 +9,17 @@
 
 启用权限校验后，CLI 在执行业务命令前向权限系统检查当前账号和环境的授权，通过后再调用平台接口。权限系统独立部署，数据保存在 MySQL；客户端校验不替代平台自身的权限控制。
 
-当前版本：**权限管理系统 1.0.3.1、CLI 1.0.3**。本次只更新权限管理系统；CLI 安装包和 Wheel 与 v1.0.3 正式版相同。本地开发参见 [Jupyter 本地开发指南](docs/Jupyter本地开发指南.md)，发布内容见 [1.0.3.1 发布说明](docs/RELEASE_NOTES_1.0.3.1.md)。
+当前版本：**权限管理系统与 CLI 均为 1.0.3.1**。本地开发参见 [Jupyter 本地开发指南](docs/Jupyter本地开发指南.md)，发布内容见 [1.0.3.1 发布说明](docs/RELEASE_NOTES_1.0.3.1.md)。
 
-## 下载权限管理系统 1.0.3.1（CLI 1.0.3）
+## 下载 1.0.3.1 正式版本
 
 前往 [GitHub 正式版本](https://github.com/mossexplore/platform-cli/releases/tag/v1.0.3.1)，按需要下载：
 
 | 文件 | 用途 |
 | --- | --- |
-| `wiserec-cli-1.0.3-windows-py3-online.zip` | Windows 联网安装，支持企业 Python 包源 |
-| `wiserec-cli-1.0.3-windows-x64-py312-offline.zip` | Windows x64、Python 3.12 离线安装 |
-| `wiserec_cli-1.0.3-py3-none-any.whl` | 通过 pip 安装 CLI，依赖另行准备 |
+| `wiserec-cli-1.0.3.1-windows-py3-online.zip` | Windows 联网安装，支持企业 Python 包源 |
+| `wiserec-cli-1.0.3.1-windows-x64-py312-offline.zip` | Windows x64、Python 3.12 离线安装 |
+| `wiserec_cli-1.0.3.1-py3-none-any.whl` | 通过 pip 安装 CLI，依赖另行准备 |
 | `cli-access-1.0.3.1-linux-amd64.tar.gz` | Linux x86_64 权限系统 Docker 镜像 |
 
 Release 同时提供配置示例、安装指南和 `SHA256SUMS` 校验文件。

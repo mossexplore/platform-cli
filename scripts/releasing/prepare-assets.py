@@ -13,7 +13,7 @@ version = os.environ['VERSION']
 cli_version = os.environ['CLI_VERSION']
 revision = os.environ['GITHUB_SHA']
 assert version == Path('access-service/VERSION').read_text().strip()
-assert cli_version == '1.0.3'
+assert cli_version == version
 subprocess.run(['sha256sum', '-c', 'SHA256SUMS'], cwd=out, check=True)
 manifest = json.loads((out / 'manifest.json').read_text())
 assert manifest['image_version'] == version
@@ -46,18 +46,18 @@ for archive in archives:
         cli.append({'file': archive.name, **data})
 manifest['cli_packages'] = cli
 manifest['cli_version'] = cli_version
-manifest['cli_source_release'] = 'v' + cli_version
 manifest['release_tag'] = 'v' + version
 manifest['validation'] = [
     'CLI and service unit tests', 'Browser timezone tests',
     'MySQL Docker smoke, directory mount and configuration restart',
     'Docker save/load round trip', 'Windows online and offline install',
-    'Published CLI 1.0.3 checksum verification and Windows upgrade from 1.0.0',
+    'Windows CLI upgrade from published 1.0.3',
 ]
 (out / 'manifest.json').write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + '\n')
 shutil.copyfile('docs/权限管理系统Docker安装部署与调试指南.md', out / 'Docker-runbook.md')
 shutil.copyfile('docs/权限管理系统1.0.3升级至1.0.3.1指南.md', out / 'Docker-upgrade-1.0.3.1.md')
-assert (out / 'CLI-install.md').is_file() and (out / 'CLI-reference.md').is_file()
+shutil.copyfile('scripts/windows/INSTALL.md', out / 'CLI-install.md')
+shutil.copyfile('docs/CLI参考使用指南.md', out / 'CLI-reference.md')
 lines = []
 for path in sorted(out.iterdir()):
     if path.name != 'SHA256SUMS':

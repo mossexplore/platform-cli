@@ -1,6 +1,6 @@
 # 权限管理系统 Docker 部署与 GitHub 镜像发布
 
-适用权限系统版本：1.0.3.1；CLI 版本：1.0.3；数据库结构版本：10。Docker 仅部署 access-service，终端 ml 客户端仍按原方式安装。
+适用权限系统与 CLI 版本：1.0.3.1；数据库结构版本：10。Docker 仅部署 access-service，终端 ml 客户端仍按原方式安装。
 
 ## 1. 架构与前提
 
@@ -15,7 +15,7 @@ GitHub 托管 Ubuntu 构建镜像，GHCR 保存镜像，Linux 服务器通过 Do
 - 推送 main 且涉及服务、CLI、测试、项目版本或工作流时运行；纯 docs 修改不触发。
 - Pull Request 运行测试和本地候选镜像验证，不登录、不发布 GHCR。
 - Actions → 对应工作流 → Run workflow → 选择 main，可手动构建。
-- 正式版在 main 手动运行 **Prepare formal release**：复用镜像测试，复用经原版校验和验证的 Windows CLI 1.0.3 安装包，完成后创建带全部附件的 Release 草稿。核验后发布草稿，不再通过 release.published 重新构建。权限镜像和 Release 使用 access-service/VERSION（1.0.3.1）；CLI 保持 pyproject.toml 中的 1.0.3，并复用 v1.0.3 正式附件。正式标签不覆盖。
+- 正式版在 main 手动运行 **Prepare formal release**：构建并验证 Windows CLI 1.0.3.1 安装包，测试权限镜像，完成后创建带全部附件的 Release 草稿。核验后发布草稿，不再通过 release.published 重新构建。权限镜像、CLI 和 Release 均使用 1.0.3.1；正式标签不覆盖。
 
 流程：版本校验 → CLI/服务/时区测试 → Buildx 构建候选镜像 → 按摘要拉取 → 临时 MySQL 8.4 迁移两次 → 健康检查、静态资源、管理员登录、授权允许/拒绝、日志和重启检查 → 来源证明 → 提升标签。测试使用临时数据和测试专用密码，不访问业务平台或生产 MySQL。
 
@@ -156,4 +156,4 @@ docker buildx build --platform linux/amd64 --load \
 
 ## 固定目录挂载配置（1.0.0 起）
 
-使用 docker run 时推荐将 `/opt/cli-access-config` 只读挂载到 `/run/cli-access`，镜像自动加载其中的 `service.env`，无需追加启动命令。完整的权限设置、启动命令和离线操作见 [离线运行指南](权限管理系统Docker离线导入与运行.md)。配置文件优先于环境变量，修改文件后重启容器生效；不进行 `${VAR}` 插值。服务、健康检查和管理命令均支持该配置入口。原 Compose/env_file 部署仍受支持。1.0.3.1 数据库结构为 10，从结构 8 升级必须显式迁移；CLI 仍为 1.0.3。
+使用 docker run 时推荐将 `/opt/cli-access-config` 只读挂载到 `/run/cli-access`，镜像自动加载其中的 `service.env`，无需追加启动命令。完整的权限设置、启动命令和离线操作见 [离线运行指南](权限管理系统Docker离线导入与运行.md)。配置文件优先于环境变量，修改文件后重启容器生效；不进行 `${VAR}` 插值。服务、健康检查和管理命令均支持该配置入口。原 Compose/env_file 部署仍受支持。1.0.3.1 数据库结构为 10，从结构 8 升级必须显式迁移；CLI 同为 1.0.3.1。

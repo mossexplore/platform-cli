@@ -24,7 +24,7 @@ jobs:
           version = pathlib.Path('access-service/VERSION').read_text().strip()
           cli_version = tomllib.loads(pathlib.Path('pyproject.toml').read_text())['project']['version']
           assert re.fullmatch(r'\d+\.\d+\.\d+\.\d+', version)
-          assert cli_version == '1.0.3', 'This service-only release reuses the published CLI 1.0.3 binaries'
+          assert cli_version == version, 'CLI and permission service release versions must match'
           assert pathlib.Path(f'docs/RELEASE_NOTES_{version}.md').is_file()
           assert f'__version__ = "{cli_version}"' in pathlib.Path('src/wiserec_cli/__init__.py').read_text()
           with open(os.environ['GITHUB_OUTPUT'], 'a') as f:
@@ -55,22 +55,21 @@ jobs:
         with:
           python-version: '3.12'
           architecture: x64
-      - name: Download immutable CLI 1.0.3 release assets
+      - name: Build Windows online and offline packages
         shell: powershell
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          New-Item -ItemType Directory release | Out-Null
-          gh release download v1.0.3 --pattern 'wiserec-cli-1.0.3-*.zip' --pattern 'wiserec_cli-1.0.3-*.whl' --pattern SHA256SUMS --dir release
-          if ($LASTEXITCODE -ne 0) { throw 'CLI source release download failed' }
-          py -3 scripts/releasing/verify-cli-baseline.py release
-          if ($LASTEXITCODE -ne 0) { throw 'CLI baseline checksum failed' }
+          $env:SOURCE_DATE_EPOCH = git show -s --format=%ct HEAD
+          py -3 -c "import sys; assert sys.version_info[:2] == (3, 12)"
+          ./scripts/windows/build-release.ps1 -Online
+          ./scripts/windows/build-release.ps1 -Offline
+          $offline = Get-Content release/wiserec-cli-*-offline/release.json | ConvertFrom-Json
+          if ($offline.python_minor -ne 12 -or $offline.architecture -ne 'x64') { throw 'Wrong offline target' }
       - name: Build previous CLI for upgrade test
         shell: powershell
         run: |
           py -3 -m pip install build 'setuptools>=68'
           if ($LASTEXITCODE -ne 0) { throw 'Previous build tools installation failed' }
-          git worktree add --detach "$env:RUNNER_TEMP/previous-cli" 10b979da116356cead5667fbadaf4057678307a2
+          git worktree add --detach "$env:RUNNER_TEMP/previous-cli" 3688e5e84d024e25efb2cc5defc8a518c95f8c40
           if ($LASTEXITCODE -ne 0) { throw 'Previous checkout failed' }
           py -3 -m build --wheel --no-isolation --outdir "$env:RUNNER_TEMP/previous-wheel" "$env:RUNNER_TEMP/previous-cli"
           if ($LASTEXITCODE -ne 0) { throw 'Previous build failed' }
@@ -82,7 +81,7 @@ jobs:
         run: |
           New-Item -ItemType Directory assets | Out-Null
           Copy-Item release/*.zip assets/
-          Copy-Item release/*.whl assets/
+          Copy-Item release/wiserec-cli-*-online/*.whl assets/
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: release-cli
@@ -116,13 +115,7 @@ jobs:
           VERSION: ${{ needs.validate.outputs.version }}
           CLI_VERSION: ${{ needs.validate.outputs.cli_version }}
           IMAGE_DIGEST: ${{ needs.image.outputs.digest }}
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          mkdir -p /tmp/cli-baseline
-          gh release download "v$CLI_VERSION" --pattern SHA256SUMS --pattern CLI-install.md --pattern CLI-reference.md --dir /tmp/cli-baseline
-          cp /tmp/cli-baseline/CLI-install.md /tmp/cli-baseline/CLI-reference.md release-assets/
-          python scripts/releasing/verify-cli-baseline.py release-assets /tmp/cli-baseline/SHA256SUMS
-          python scripts/releasing/prepare-assets.py
+        run: python scripts/releasing/prepare-assets.py
       - name: Tag exact tested image and upload draft
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -141,6 +134,6 @@ jobs:
           fi
           docker buildx imagetools create --tag "$image:$VERSION" "$image@$DIGEST"
           gh release create "v$VERSION" --target "$GITHUB_SHA" --draft \
-            --title "v$VERSION — 权限管理系统（CLI 1.0.3）" \
+            --title "v$VERSION — CLI 与权限管理系统" \
             --notes-file "docs/RELEASE_NOTES_${VERSION}.md" release-assets/*
           echo 'Draft ready. Verify assets and publish after review.' >> "$GITHUB_STEP_SUMMARY"

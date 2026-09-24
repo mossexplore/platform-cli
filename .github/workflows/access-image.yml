@@ -59,7 +59,7 @@ jobs:
           cli_version = tomllib.loads(pathlib.Path('pyproject.toml').read_text())['project']['version']
           cli = pathlib.Path('src/wiserec_cli/__init__.py').read_text()
           assert f'__version__ = "{cli_version}"' in cli
-          assert re.fullmatch(r'\d+\.\d+\.\d+', cli_version)
+          assert re.fullmatch(r'\d+\.\d+\.\d+(?:\.\d+)?', cli_version)
           version = pathlib.Path('access-service/VERSION').read_text().strip()
           assert re.fullmatch(r'\d+\.\d+\.\d+(?:\.\d+)?', version)
           event, ref = os.environ['EVENT'], os.environ['REF']
