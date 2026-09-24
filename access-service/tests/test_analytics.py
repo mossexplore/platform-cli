@@ -31,6 +31,7 @@ def test_dashboard_requires_admin_and_aggregates_beijing_days(system):
     assert '拒绝率 50.0%' in response.text
     assert 'ml train start' in response.text and 'ml train list' in response.text
     assert '未获得当前环境授权' in response.text
+    assert '拒绝较多的环境' in response.text and '拒绝较多的命令' in response.text
     assert response.text.count('class="analytics-trend-row"') == 24
     assert '09-10 00:00，检查 2 次，拒绝 1 次' in response.text
 
@@ -55,6 +56,8 @@ def test_dashboard_filters_and_drilldown_exactly_match_records(system):
     assert '2 条' in client.get(command_link).text
     reason_link = unescape(re.search(r'href="([^"]+reason=NOT_GRANTED[^"]*)"', response.text)[1])
     assert '1 条' in client.get(reason_link).text
+    denied_command_link = unescape(re.search(r'href="([^"]+result=denied[^"]+command_exact=ml\+train\+list[^"]*)"', response.text)[1])
+    assert '1 条' in client.get(denied_command_link).text
     point_link = unescape(re.search(r'class="analytics-trend-row"[^>]*href="([^"]+)"', response.text)[1])
     assert '3 条' in client.get(point_link).text
 

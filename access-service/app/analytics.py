@@ -120,7 +120,10 @@ def analytics(request: Request, period: str = Query('7d', max_length=16),
         max_point = max((item['total'] for item in points), default=0) or 1
         commands = top_rows(db, filters, CallLog.command)
         actors = top_rows(db, filters, CallLog.actor)
-        reasons = top_rows(db, [*filters, CallLog.allowed.is_(False)], CallLog.reason)
+        denied_filters = [*filters, CallLog.allowed.is_(False)]
+        reasons = top_rows(db, denied_filters, CallLog.reason)
+        denied_environments = top_rows(db, denied_filters, CallLog.environment)
+        denied_commands = top_rows(db, denied_filters, CallLog.command)
         return request.app.state.templates.TemplateResponse(request=request, name='analytics.html', context={
             'admin': admin, 'csrf': session.csrf, 'tab': 'analytics', 'period': period,
             'begin': begin, 'end': end, 'start_label': display_time(start),
@@ -129,5 +132,6 @@ def analytics(request: Request, period: str = Query('7d', max_length=16),
             'rejection_rate': f'{rejected / total * 100:.1f}' if total else '0.0',
             'users': users, 'points': points, 'max_point': max_point,
             'commands': commands, 'actors': actors, 'reasons': reasons,
+            'denied_environments': denied_environments, 'denied_commands': denied_commands,
             'reason_labels': REASONS, 'log_link': lambda **extra: log_link(params, start, stop, **extra),
             'point_link': lambda point: log_link(params, point['start'], point['stop'])})
