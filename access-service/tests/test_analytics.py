@@ -1,4 +1,5 @@
 from datetime import datetime
+from decimal import Decimal
 from html import unescape
 import json
 import re
@@ -83,6 +84,55 @@ def test_dashboard_week_grain_groups_at_beijing_monday(system):
             for point in chart['points']] == [
                 ('09-07 周', 1, 0, [1]), ('09-14 周', 1, 1, [1])]
     assert chart['distribution'][0]['value'] == 2
+
+
+def test_dashboard_renders_decimal_aggregates_from_mysql(system, monkeypatch):
+    app, client, _ = system
+    with app.state.sessions() as db:
+        record(db, actor='alice', command='ml train list', timestamp='2026-09-09T16:00:00',
+               allowed=False, reason='NOT_GRANTED')
+        record(db, actor='bob', command='ml train start', timestamp='2026-09-10T16:00:00')
+        db.commit()
+    login(client)
+
+    session_type = app.state.sessions.class_
+    original_execute = session_type.execute
+
+    class DecimalAggregateResult:
+        def __init__(self, result, has_sum):
+            self.result = result
+            self.has_sum = has_sum
+
+        def one(self):
+            total, denied, users = self.result.one()
+            return Decimal(total), Decimal(denied), Decimal(users)
+
+        def all(self):
+            rows = self.result.all()
+            if self.has_sum:
+                return [(key, Decimal(total), Decimal(denied))
+                        for key, total, denied in rows]
+            return [(*row[:-1], Decimal(row[-1])) for row in rows]
+
+    def execute_with_decimal_sum(self, statement, *args, **kwargs):
+        result = original_execute(self, statement, *args, **kwargs)
+        sql = str(statement).lower()
+        return DecimalAggregateResult(result, 'sum(' in sql) if (
+            'cli_call_logs' in sql and ('sum(' in sql or 'count(' in sql)) else result
+
+    monkeypatch.setattr(session_type, 'execute', execute_with_decimal_sum)
+    response = client.get('/cli-permission/admin/analytics', params={
+        'begin': '2026-09-10T00:00:00', 'end': '2026-09-11T23:59:59'})
+    assert response.status_code == 200
+    chart = json.loads(unescape(re.search(r"data-analysis-chart='([^']+)'", response.text)[1]))
+    assert chart['points'][0]['total'] == 1
+    assert chart['points'][0]['denied'] == 1
+    assert chart['points'][0]['allowed'] == 0
+    assert chart['points'][1]['denied'] == 0
+    assert chart['points'][1]['allowed'] == 1
+    assert all(isinstance(item['value'], int) for item in chart['ranking'])
+    assert all(isinstance(item['value'], int) for item in chart['distribution'])
+    assert '<strong class="analytics-danger">1<small>次</small></strong>' in response.text
 
 
 def test_dashboard_rejects_bad_ranges_and_escapes_command(system):

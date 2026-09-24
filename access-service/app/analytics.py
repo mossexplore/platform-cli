@@ -14,6 +14,11 @@ router = APIRouter()
 GRAINS = {'hour': '小时', 'day': '天', 'week': '周'}
 
 
+def count_value(value):
+    """Normalize database aggregate counts before they reach chart JSON."""
+    return int(value) if value is not None else 0
+
+
 def bounds(begin, end, grain):
     if grain not in GRAINS:
         raise HTTPException(400, '时间粒度无效')
@@ -61,7 +66,7 @@ def trend_rows(db, filters, start, stop, grain):
     for key, count, rejected in rows:
         group = bucket_key(key, grain)
         previous = counts.get(group, (0, 0))
-        counts[group] = (previous[0] + count, previous[1] + (rejected or 0))
+        counts[group] = (previous[0] + count_value(count), previous[1] + count_value(rejected))
     local = start.replace(tzinfo=timezone.utc).astimezone(BEIJING)
     local = local.replace(minute=0, second=0, microsecond=0) if grain == 'hour' else local.replace(hour=0, minute=0, second=0, microsecond=0)
     if grain == 'week':
@@ -89,13 +94,14 @@ def command_series(db, filters, grain, names):
     result = {}
     for key, command, count in rows:
         grouped = result.setdefault(bucket_key(key, grain), {})
-        grouped[command] = grouped.get(command, 0) + count
+        grouped[command] = grouped.get(command, 0) + count_value(count)
     return result
 
 
 def top_rows(db, filters, field):
-    return db.execute(select(field, func.count().label('total')).where(*filters).group_by(field)
+    rows = db.execute(select(field, func.count().label('total')).where(*filters).group_by(field)
                       .order_by(func.count().desc(), field).limit(10)).all()
+    return [(name, count_value(count)) for name, count in rows]
 
 
 def log_link(params, start, stop, **extra):
@@ -131,8 +137,8 @@ def analytics(request: Request, grain: str = Query('day', max_length=8),
         if username:
             filters.append(CallLog.actor.contains(username, autoescape=True))
         denied = func.sum(case((CallLog.allowed.is_(False), 1), else_=0))
-        total, rejected, users = db.execute(select(func.count(), denied, func.count(func.distinct(CallLog.actor))).where(*filters)).one()
-        rejected = rejected or 0
+        totals = db.execute(select(func.count(), denied, func.count(func.distinct(CallLog.actor))).where(*filters)).one()
+        total, rejected, users = (count_value(value) for value in totals)
         points = trend_rows(db, filters, start, stop, grain)
         commands = top_rows(db, filters, CallLog.command)
         chart_commands = [name for name, _ in commands[:5]]
