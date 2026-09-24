@@ -5,6 +5,7 @@ from sqlalchemy import case, func, select
 from .models import CallLog, Environment, now
 from .version_models import VersionPolicy, VersionException
 from .pagination import PAGE_SIZE
+from .security import display_time
 
 MODES = {'observe': '仅观察', 'warn': '提醒升级', 'enforce': '强制拒绝'}
 REASONS = ['CLI_VERSION_TOO_OLD', 'CLI_VERSION_BLOCKED', 'CLI_VERSION_INVALID', 'CLI_PROTOCOL_UNSUPPORTED']
@@ -70,6 +71,8 @@ def page_context(db, *, view, days, environment, business_id, q, status, page):
             'minimum_version','recommended_version','upgrade_url')}
         policy.copy_fields['blocked_versions'] = ', '.join(policy.blocked_list)
         policy.copy_fields['effective_at'] = ''
+        policy.edit_fields = {**policy.copy_fields,
+            'effective_at': display_time(policy.effective_at).replace(' ', 'T')}
     context.update({key: items, 'count': count, 'page': page,
         'environments': db.scalars(select(Environment).order_by(Environment.name)).all(),
         'policy_options': db.scalars(select(VersionPolicy).where(

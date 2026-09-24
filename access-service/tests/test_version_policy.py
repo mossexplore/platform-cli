@@ -3,7 +3,7 @@ import json
 from datetime import timedelta
 import pytest
 from sqlalchemy import select, text
-from app.models import Admin, Audit, CallLog, Grant, SchemaVersion, now
+from app.models import Admin, Audit, CallLog, Environment, Grant, SchemaVersion, now
 from app.migrations import migrate, SCHEMA_VERSION
 from app.version_models import VersionPolicy, VersionException
 from app.version_policy import version_tuple
@@ -34,9 +34,11 @@ def call(client, version=None, business='selected', protocol=None, gateway=False
 
 @pytest.mark.parametrize('version,allowed,reason', [
     (None, False, 'CLI_VERSION_TOO_OLD'), ('1.0.2', False, 'CLI_VERSION_TOO_OLD'),
-    ('1.0.3', True, None), ('1.0.10', True, None), ('2.0.0', True, None),
+    ('1.0.3', True, None), ('1.0.3.0', True, None), ('1.0.3.2', True, None),
+    ('1.0.10', True, None), ('2.0.0', True, None),
     ('', False, 'CLI_VERSION_INVALID'), ('v1.0.3', False, 'CLI_VERSION_INVALID'),
     ('1.0.3rc1', False, 'CLI_VERSION_INVALID'), ('01.0.3', False, 'CLI_VERSION_INVALID'),
+    ('1.0.3.2.1', False, 'CLI_VERSION_INVALID'), ('1.0.03.2', False, 'CLI_VERSION_INVALID'),
     ('x' * 100, False, 'CLI_VERSION_INVALID')])
 def test_version_gate_and_logs(system, version, allowed, reason):
     app, client, _ = system
@@ -58,6 +60,8 @@ def test_missing_all_identifiers_defaults_and_no_policy_compatibility(system):
     policy(app, minimum_version='1.0.0')
     assert call(client).json()['allowed']
     assert version_tuple('1.0.10') > version_tuple('1.0.9')
+    assert version_tuple('1.0.3') == version_tuple('1.0.3.0')
+    assert version_tuple('1.0.3.2') > version_tuple('1.0.3')
 
 
 @pytest.mark.parametrize('mode,allowed,warning', [('observe', True, False), ('warn', True, True), ('enforce', False, False)])
@@ -141,6 +145,61 @@ def test_admin_preview_publish_revoke_and_audit(system):
     assert '暂无匹配记录' in client.get('/cli-permission/admin/calls?cli_version=9.0.0').text
 
 
+def test_edit_existing_policy_previews_then_updates_four_part_version(system):
+    app, client, _ = system
+    policy_id = policy(app)
+    csrf = login(client)
+    page = client.get('/cli-permission/admin/versions').text
+    assert f'data-policy-id="{policy_id}"' in page and 'data-edit-policy=' in page
+    path = f'/cli-permission/admin/versions/policies/{policy_id}'
+    data = {'csrf': csrf, 'name': 'four-part rollout', 'minimum_version': '1.0.3.2',
+            'recommended_version': '1.0.3.3', 'blocked_versions': '1.0.3.4',
+            'mode': 'enforce', 'intent': 'preview'}
+    assert client.post(path, data={**data, 'csrf': 'wrong'}).status_code == 403
+    preview = client.post(path, headers={'accept': 'application/json'}, data=data)
+    assert preview.status_code == 200 and '1.0.3.2' in preview.json()['preview_html']
+    with app.state.sessions() as db:
+        assert db.get(VersionPolicy, policy_id).minimum_version == '1.0.3'
+    saved = client.post(path, data={**data, 'intent': 'publish'}, follow_redirects=False)
+    assert saved.status_code == 303
+    assert call(client, '1.0.3.1').json()['reason'] == 'CLI_VERSION_TOO_OLD'
+    assert call(client, '1.0.3.2').json()['allowed']
+    assert call(client, '1.0.3.4').json()['reason'] == 'CLI_VERSION_BLOCKED'
+    with app.state.sessions() as db:
+        edited = db.get(VersionPolicy, policy_id)
+        assert edited.name == 'four-part rollout' and edited.minimum_version == '1.0.3.2'
+        audit = db.scalar(select(Audit).where(Audit.action == 'version_policy.update'))
+        detail = json.loads(audit.detail)
+        assert detail['before']['minimum_version'] == '1.0.3'
+        assert detail['after']['minimum_version'] == '1.0.3.2'
+    assert '编辑版本策略' in client.get('/cli-permission/admin?tab=audit').text
+
+
+def test_three_and_four_part_blocked_versions_match(system):
+    app, client, _ = system
+    policy(app, minimum_version='1.0.0', blocked_versions='["1.0.3"]')
+    assert call(client, '1.0.3.0').json()['reason'] == 'CLI_VERSION_BLOCKED'
+    assert call(client, '1.0.3.1').json()['allowed']
+
+
+def test_edit_scope_preview_includes_checks_from_old_scope(system):
+    app, client, _ = system
+    policy_id = policy(app, environment='prod', minimum_version='9.0.0')
+    assert call(client, '1.0.3.2').json()['reason'] == 'CLI_VERSION_TOO_OLD'
+    with app.state.sessions() as db:
+        db.add(Environment(name='dev', display_name='开发', platform_origin='https://dev.example.com'))
+        db.commit()
+    csrf = login(client)
+    path = f'/cli-permission/admin/versions/policies/{policy_id}'
+    data = {'csrf': csrf, 'name': 'development only', 'environment': 'dev',
+            'minimum_version': '9.0.0', 'mode': 'enforce'}
+    preview = client.post(path, headers={'accept': 'application/json'}, data=data)
+    assert preview.status_code == 200
+    assert '范围内 1 次检查，其中 0 次会被拒绝' in preview.json()['preview_html']
+    assert client.post(path, data={**data, 'intent': 'publish'}, follow_redirects=False).status_code == 303
+    assert call(client, '1.0.3.2').json()['allowed']
+
+
 def test_only_disabled_policy_can_be_deleted_and_history_is_kept(system):
     app, client, _ = system
     policy_id = policy(app)
@@ -180,7 +239,8 @@ def test_only_disabled_policy_can_be_deleted_and_history_is_kept(system):
 @pytest.mark.parametrize('overrides', [
     {'minimum_version':'1.0'}, {'recommended_version':'0.1.0'}, {'blocked_versions':'bad'},
     {'upgrade_url':'javascript:alert(1)'}, {'mode':'bad'}, {'business_id':'biz'},
-    {'environment':'missing'}, {'recommended_version':'1.0.3','blocked_versions':'1.0.3'}])
+    {'environment':'missing'}, {'recommended_version':'1.0.3','blocked_versions':'1.0.3'},
+    {'recommended_version':'1.0.3.0','blocked_versions':'1.0.3'}])
 def test_invalid_admin_policy(system, overrides):
     _, client, _ = system
     csrf = login(client)
@@ -200,6 +260,8 @@ def test_regular_admin_cannot_change_versions(system):
         'csrf':csrf,'name':'bad','intent':'publish'}).status_code == 403
     assert client.post('/cli-permission/admin/versions/policies/1/delete', data={
         'csrf':csrf,'confirmation':'yes'}).status_code == 403
+    assert client.post('/cli-permission/admin/versions/policies/1', data={
+        'csrf':csrf,'name':'blocked','minimum_version':'1.0.3.2','intent':'publish'}).status_code == 403
 
 
 def test_v7_migration_preserves_logs_and_is_repeatable(system):

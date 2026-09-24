@@ -42,8 +42,12 @@ def validate_policy(db, values):
         parse_version(values['recommended_version'])
         if version_tuple(values['recommended_version']) < version_tuple(values['minimum_version']):
             raise HTTPException(400, '推荐版本不能低于最低版本')
-    blocked = sorted(set(values['blocked_versions'].replace(',', ' ').split()), key=parse_version)
-    if values['recommended_version'] in blocked:
+    blocked = set(values['blocked_versions'].replace(',', ' ').split())
+    for item in blocked:
+        parse_version(item)
+    blocked = sorted(blocked, key=version_tuple)
+    if values['recommended_version'] and any(
+            version_tuple(values['recommended_version']) == version_tuple(item) for item in blocked):
         raise HTTPException(400, '推荐版本不能同时被禁用')
     url = values['upgrade_url']
     if url:
@@ -61,6 +65,77 @@ def validate_policy(db, values):
 def snapshot(item):
     return {key: (value.isoformat() if hasattr(value, 'isoformat') else value)
             for key, value in vars(item).items() if not key.startswith('_')}
+
+
+def policy_values(name, environment, business_id, mode, minimum_version,
+                  recommended_version, blocked_versions, upgrade_url, effective_at):
+    return dict(name=name.strip(), environment=environment, business_id=business_id, mode=mode,
+                minimum_version=minimum_version, recommended_version=recommended_version,
+                blocked_versions=blocked_versions, upgrade_url=upgrade_url, effective_at=effective_at)
+
+
+def persist_policy(request, csrf, values, intent, policy_id=None):
+    if not values['name']:
+        raise HTTPException(400, '策略名称不能为空')
+    with request.app.state.sessions() as db:
+        admin = privileged(request, db, csrf)
+        existing = db.get(VersionPolicy, policy_id) if policy_id is not None else None
+        if policy_id is not None and (existing is None or existing.deleted_at is not None):
+            raise HTTPException(404, '策略不存在')
+        validated = validate_policy(db, values)
+        item = VersionPolicy(**validated, id=policy_id, created_by=existing.created_by if existing else admin.username,
+                             enabled=existing.enabled if existing else True)
+        if intent == 'preview':
+            # Compare the edited rule with the same rules that will be active after saving.
+            groups = [CallLog.environment, CallLog.business_id, CallLog.actor, CallLog.cli_version, CallLog.protocol_version]
+            samples = db.execute(select(*groups, func.count()).where(
+                CallLog.created_at >= now() - timedelta(days=7)).group_by(*groups)).all()
+            affected, checked = 0, 0
+            for env, business, actor, version, protocol, total in samples:
+                new_scope = (not values['environment'] or env == values['environment']) and (
+                    not values['business_id'] or business == values['business_id'])
+                old_scope = existing is not None and (
+                    not existing.environment or env == existing.environment) and (
+                    not existing.business_id or business == existing.business_id)
+                if not new_scope and not old_scope:
+                    continue
+                try:
+                    version_tuple(version)
+                    valid = True
+                except ValueError:
+                    valid = False
+                info = dict(version=version, valid=valid, protocol_valid=protocol == '1', source='preview')
+                timestamp = item.effective_at
+                policies = [p for p in policies_for(db, env, business, timestamp) if p.id != policy_id]
+                if item.enabled and new_scope:
+                    item.id = policy_id if policy_id is not None else -1
+                    policies.append(item)
+                result = evaluate_version(db, env, business, actor, info, timestamp, policies)
+                checked += total
+                if not result['allowed']:
+                    affected += total
+            if 'application/json' in request.headers.get('accept', ''):
+                html = request.app.state.templates.get_template('version_preview_summary.html').render(
+                    values=values, checked=checked, affected=affected, effective_at=item.effective_at)
+                return JSONResponse({'preview_html': html})
+            return request.app.state.templates.TemplateResponse(request=request, name='version_preview.html', context={
+                'admin': admin, 'csrf': csrf, 'values': values, 'checked': checked, 'affected': affected,
+                'effective_at': item.effective_at, 'policy_id': policy_id})
+        if intent != 'publish':
+            raise HTTPException(400, '策略操作无效')
+        if existing:
+            before = snapshot(existing)
+            for field, value in validated.items():
+                setattr(existing, field, value)
+            db.add(Audit(actor=admin.username, action='version_policy.update',
+                         detail=json.dumps({'before': before, 'after': snapshot(existing)}, ensure_ascii=False)))
+        else:
+            db.add(item)
+            db.flush()
+            db.add(Audit(actor=admin.username, action='version_policy.publish',
+                         detail=json.dumps(snapshot(item), ensure_ascii=False)))
+        db.commit()
+    return RedirectResponse('/cli-permission/admin/versions?saved=1', status_code=303)
 
 
 @router.get('/admin/versions')
@@ -88,50 +163,21 @@ def save_policy(request: Request, csrf: str = Form(max_length=64),
                 minimum_version: str = Form('1.0.0', max_length=64), recommended_version: str = Form('', max_length=64),
                 blocked_versions: str = Form('', max_length=4096), upgrade_url: str = Form('', max_length=1024),
                 effective_at: str = Form('', max_length=32), intent: str = Form('preview')):
-    values = dict(name=name.strip(), environment=environment, business_id=business_id, mode=mode,
-                  minimum_version=minimum_version, recommended_version=recommended_version,
-                  blocked_versions=blocked_versions, upgrade_url=upgrade_url, effective_at=effective_at)
-    if not values['name']:
-        raise HTTPException(400, '策略名称不能为空')
-    with request.app.state.sessions() as db:
-        admin = privileged(request, db, csrf)
-        validated = validate_policy(db, values)
-        item = VersionPolicy(**validated, created_by=admin.username, enabled=True)
-        if intent == 'preview':
-            # Aggregate historical checks, not business executions or physical devices.
-            groups = [CallLog.environment, CallLog.business_id, CallLog.actor, CallLog.cli_version, CallLog.protocol_version]
-            samples = db.execute(select(*groups, func.count()).where(
-                CallLog.created_at >= now() - timedelta(days=7)).group_by(*groups)).all()
-            affected, checked = 0, 0
-            for env, business, actor, version, protocol, total in samples:
-                if (environment and env != environment) or (business_id and business != business_id):
-                    continue
-                try:
-                    version_tuple(version)
-                    valid = True
-                except ValueError:
-                    valid = False
-                info = dict(version=version, valid=valid, protocol_valid=protocol == '1', source='preview')
-                item.id = -1
-                existing = policies_for(db, env, business, item.effective_at)
-                result = evaluate_version(db, env, business, actor, info, item.effective_at, [*existing, item])
-                checked += total
-                if not result['allowed']:
-                    affected += total
-            if 'application/json' in request.headers.get('accept', ''):
-                html = request.app.state.templates.get_template('version_preview_summary.html').render(
-                    values=values, checked=checked, affected=affected, effective_at=item.effective_at)
-                return JSONResponse({'preview_html': html})
-            return request.app.state.templates.TemplateResponse(request=request, name='version_preview.html', context={
-                'admin': admin, 'csrf': csrf, 'values': values, 'checked': checked, 'affected': affected,
-                'effective_at': item.effective_at})
-        if intent != 'publish':
-            raise HTTPException(400, '策略操作无效')
-        db.add(item)
-        db.flush()
-        db.add(Audit(actor=admin.username, action='version_policy.publish', detail=json.dumps(snapshot(item), ensure_ascii=False)))
-        db.commit()
-    return RedirectResponse('/cli-permission/admin/versions?saved=1', status_code=303)
+    values = policy_values(name, environment, business_id, mode, minimum_version,
+                           recommended_version, blocked_versions, upgrade_url, effective_at)
+    return persist_policy(request, csrf, values, intent)
+
+
+@router.post('/admin/versions/policies/{policy_id}')
+def edit_policy(policy_id: int, request: Request, csrf: str = Form(max_length=64),
+                name: str = Form(min_length=1, max_length=128), environment: str = Form('', max_length=64),
+                business_id: str = Form('', max_length=256), mode: str = Form('observe'),
+                minimum_version: str = Form('1.0.0', max_length=64), recommended_version: str = Form('', max_length=64),
+                blocked_versions: str = Form('', max_length=4096), upgrade_url: str = Form('', max_length=1024),
+                effective_at: str = Form('', max_length=32), intent: str = Form('preview')):
+    values = policy_values(name, environment, business_id, mode, minimum_version,
+                           recommended_version, blocked_versions, upgrade_url, effective_at)
+    return persist_policy(request, csrf, values, intent, policy_id)
 
 
 @router.post('/admin/versions/policies/{policy_id}/toggle')

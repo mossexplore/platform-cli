@@ -1,4 +1,4 @@
-"""版本策略采用追加修订，历史规则和审计可追溯。"""
+"""版本策略及临时例外；策略编辑前后值保存在操作审计中。"""
 from datetime import datetime
 from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column

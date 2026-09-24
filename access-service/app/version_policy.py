@@ -5,13 +5,14 @@ from sqlalchemy import or_, select
 from .models import now
 from .version_models import VersionPolicy, VersionException
 
-VERSION = re.compile(r'(0|[1-9][0-9]{0,8})\.(0|[1-9][0-9]{0,8})\.(0|[1-9][0-9]{0,8})', re.ASCII)
+VERSION = re.compile(r'(0|[1-9][0-9]{0,8})(?:\.(0|[1-9][0-9]{0,8})){2,3}', re.ASCII)
 
 
 def version_tuple(value):
     if not isinstance(value, str) or not VERSION.fullmatch(value):
-        raise ValueError('版本须为正式的三段数字，例如 1.0.3（每段最多 9 位，不含前导零）')
-    return tuple(map(int, value.split('.')))
+        raise ValueError('版本须为三段或四段数字，例如 1.0.3 或 1.0.3.2（每段最多 9 位，不含前导零）')
+    parts = tuple(map(int, value.split('.')))
+    return parts + (0,) * (4 - len(parts))
 
 
 def metadata(request):
@@ -54,7 +55,7 @@ def evaluate_version(db, environment, business_id, username, info, timestamp=Non
             reason = 'CLI_VERSION_INVALID'
         elif not info['protocol_valid']:
             reason = 'CLI_PROTOCOL_UNSUPPORTED'
-        elif info['version'] in json.loads(policy.blocked_versions):
+        elif any(current == version_tuple(blocked) for blocked in json.loads(policy.blocked_versions)):
             reason = 'CLI_VERSION_BLOCKED'
         elif current < version_tuple(policy.minimum_version):
             reason = 'CLI_VERSION_TOO_OLD'

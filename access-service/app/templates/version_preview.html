@@ -3,5 +3,5 @@
 {% block content %}
 <div class="page-heading"><h1>发布前确认</h1></div>
 <section class="panel version-standalone-preview">{% include 'version_preview_summary.html' %}
-<form method="post" action="/cli-permission/admin/versions/policies"><input type="hidden" name="csrf" value="{{ csrf }}">{% for key,value in values.items() %}<input type="hidden" name="{{ key }}" value="{{ value }}">{% endfor %}<div class="drawer-footer"><a class="secondary" href="/cli-permission/admin/versions">返回版本管理</a><button name="intent" value="publish">确认发布策略</button></div></form></section>
+<form method="post" action="/cli-permission/admin/versions/policies{% if policy_id is not none %}/{{ policy_id }}{% endif %}"><input type="hidden" name="csrf" value="{{ csrf }}">{% for key,value in values.items() %}<input type="hidden" name="{{ key }}" value="{{ value }}">{% endfor %}<div class="drawer-footer"><a class="secondary" href="/cli-permission/admin/versions">返回版本管理</a><button name="intent" value="publish">{{ '确认保存策略' if policy_id is not none else '确认发布策略' }}</button></div></form></section>
 {% endblock %}

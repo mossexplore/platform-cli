@@ -1,7 +1,9 @@
 'use strict';
-// Two-step publishing keeps the original form and server-side validation intact.
+// Creating and editing share the same two-step preview and server-side validation.
 const policyForm = document.querySelector('[data-version-editor]');
 if (policyForm) {
+  const createAction = policyForm.action;
+  const title = policyForm.querySelector('#policy-create-title');
   const fields = policyForm.querySelector('[data-policy-fields]');
   const preview = policyForm.querySelector('[data-policy-preview]');
   const submit = policyForm.querySelector('[data-policy-submit]');
@@ -10,6 +12,9 @@ if (policyForm) {
   const error = policyForm.querySelector('.form-error');
   let stage = 'preview';
   let busy = false;
+  let editing = false;
+  const submitLabel = () => stage === 'publish'
+    ? (editing ? '确认保存策略' : '确认发布策略') : '下一步：预览影响';
   const changeStage = (next) => {
     stage = next;
     fields.hidden = next === 'publish';
@@ -17,7 +22,8 @@ if (policyForm) {
     back.hidden = next !== 'publish';
     cancel.hidden = next === 'publish';
     policyForm.elements.intent.value = next;
-    submit.textContent = next === 'publish' ? '确认发布策略' : '下一步：预览影响';
+    submit.textContent = submitLabel();
+    policyForm.querySelector('[data-version-step="2"]').textContent = editing ? '2 预览并保存' : '2 预览并发布';
     policyForm.querySelectorAll('[data-version-step]').forEach((step) => {
       if (step.dataset.versionStep === (next === 'publish' ? '2' : '1')) step.setAttribute('aria-current', 'step');
       else step.removeAttribute('aria-current');
@@ -70,21 +76,40 @@ if (policyForm) {
       busy = false;
       submit.disabled = false;
       back.disabled = false;
-      submit.textContent = stage === 'publish' ? '确认发布策略' : '下一步：预览影响';
+      submit.textContent = submitLabel();
       if (error.hidden && stage === 'publish') submit.focus();
     }
   });
   // Reopening starts at the fields, preserving unfinished inputs for review.
-  policyForm.closest('dialog').addEventListener('close', () => { if (!busy) changeStage('preview'); });
-  document.querySelectorAll('[data-copy-policy]').forEach((button) => button.addEventListener('click', () => {
+  policyForm.closest('dialog').addEventListener('close', () => {
+    if (!busy) {
+      changeStage('preview');
+      if (editing) {
+        editing = false;
+        policyForm.action = createAction;
+        title.textContent = '新增版本策略';
+        policyForm.reset();
+        syncScope(); syncMode();
+      }
+    }
+  });
+  const openWithValues = (button, values, policyId) => {
     policyForm.reset();
-    const values = JSON.parse(button.dataset.copyPolicy);
+    editing = policyId !== null;
+    policyForm.action = editing ? `${createAction}/${policyId}` : createAction;
+    title.textContent = editing ? '编辑版本策略' : '新增版本策略';
     for (const [key,value] of Object.entries(values)) if (policyForm.elements[key]) policyForm.elements[key].value = value;
-    policyForm.elements.name.value = (values.name + '（副本）').slice(0,128);
     changeStage('preview'); syncScope(); syncMode(); error.hidden = true;
-    button.closest('dialog').close();
+    button.closest('dialog')?.close();
     policyForm.closest('dialog').showModal();
     policyForm.elements.name.focus();
+  };
+  document.querySelectorAll('[data-edit-policy]').forEach((button) => button.addEventListener('click', () => {
+    openWithValues(button, JSON.parse(button.dataset.editPolicy), button.dataset.policyId);
+  }));
+  document.querySelectorAll('[data-copy-policy]').forEach((button) => button.addEventListener('click', () => {
+    const values = JSON.parse(button.dataset.copyPolicy);
+    openWithValues(button, {...values, name:(values.name + '（副本）').slice(0,128)}, null);
   }));
 }
 const exceptionPolicy = document.querySelector('[data-exception-policy]');
