@@ -39,9 +39,7 @@ ml login
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\install.ps1
 ```
 
-重新创建虚拟环境：
-
-需要修复安装或强制重装相同版本时，也可执行 `install.cmd -Force`。
+需要重建整个虚拟环境（包括所有依赖）时，执行 `install.cmd -Force`：
 
 ```powershell
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\install.ps1 -Force
@@ -108,11 +106,10 @@ Typer 的命令补全。
 解压新版本发布包，再次运行其中的 `install.cmd` 即可。CLI 程序会被升级，用户目录
 中的登录缓存和 Edge Profile 不会因升级虚拟环境而删除。
 
-安装器会读取发布包 Wheel 中的版本，并与目标安装目录的虚拟环境中已安装的
-`wiserec-cli` 版本比较。版本一致时跳过包安装，不卸载或重装 CLI 及依赖；
-尚未安装或版本不同时正常安装，复用已满足要求的依赖。
-跳过包安装后仍会刷新用户 `config.json`、注册命令并验证 `ml --version`。
-如需修复损坏的环境，运行 `install.cmd -Force`，强制重建虚拟环境并安装。
+每次执行安装器都会在目标虚拟环境中卸载旧的 `wiserec-cli`，再安装本次解压包内的
+Wheel，即使新旧版本号相同也会替换 CLI 文件。已有且满足要求的依赖继续复用；
+离线包只使用包内依赖。随后安装器刷新用户 `config.json`、注册命令并验证
+`ml --version`。如需连依赖一起重建，运行 `install.cmd -Force`。
 
 ## 常见问题
 

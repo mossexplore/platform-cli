@@ -19,7 +19,14 @@ foreach ($mode in @('online', 'offline')) {
     if ($LASTEXITCODE -ne 0 -or $actual -notmatch "ml $version") { throw "Version check failed: $actual" }
     & $exe --help
     if ($LASTEXITCODE -ne 0) { throw 'Help failed' }
+    $installedPython = Join-Path $install 'venv/Scripts/python.exe'
+    $modulePath = (& $installedPython -c 'import wiserec_cli; print(wiserec_cli.__file__)' | Select-Object -Last 1).Trim()
+    if ($LASTEXITCODE -ne 0 -or -not (Test-Path -LiteralPath $modulePath)) { throw 'Installed CLI package was not found' }
+    Add-Content -LiteralPath $modulePath -Value '# same-version-reinstall-probe'
     & "$bundle/install.ps1" -InstallDirectory $install
+    if (Select-String -LiteralPath $modulePath -Pattern 'same-version-reinstall-probe' -Quiet) {
+        throw 'Same-version installation did not replace the CLI Wheel'
+    }
     if ($mode -eq 'offline') {
         Remove-Item Env:PIP_NO_INDEX, Env:PIP_INDEX_URL, Env:PIP_NO_CACHE_DIR
     }

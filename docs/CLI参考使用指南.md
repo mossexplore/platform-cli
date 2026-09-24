@@ -9,7 +9,7 @@
 
 ## 安装与首次使用
 
-需要 Python 3.9+ 和 Microsoft Edge。Windows 安装包用户完整解压后运行 `install.cmd`，安装完成后重新打开终端；版本一致时跳过 CLI 和依赖的安装，仍刷新配置并注册命令，使用 `install.cmd -Force` 可强制重建安装环境。详见 [Windows 安装说明](../scripts/windows/INSTALL.md)。从源码安装时，在项目根目录执行：
+需要 Python 3.9+ 和 Microsoft Edge。Windows 安装包用户完整解压后运行 `install.cmd`，安装完成后重新打开终端；每次都会卸载旧 CLI 并安装本次包内 Wheel，即使版本号一致也会替换，已有依赖可继续复用。使用 `install.cmd -Force` 可重建整个安装环境。详见 [Windows 安装说明](../scripts/windows/INSTALL.md)。从源码安装时，在项目根目录执行：
 
 ```bash
 python3 -m venv .venv
