@@ -4,15 +4,15 @@
 {% block content %}
 <div class="page-heading analytics-heading"><div><p class="eyebrow">ACCESS ANALYTICS</p><h1>数据看板</h1><p class="subtitle">了解授权检查量、常用命令与拒绝原因。统计不代表业务命令执行结果。</p></div><a href="{{ log_link() }}">查看调用日志</a></div>
 <section class="panel analytics-filters" aria-labelledby="analytics-filter-title">
-<div class="panel-title"><h2 id="analytics-filter-title">统计范围</h2><span class="muted">统一应用于下方所有图表 · 北京时间 UTC+8</span></div>
+<div class="panel-title"><h2 id="analytics-filter-title">查询条件</h2><span class="muted">统一应用于下方所有统计 · 北京时间 UTC+8</span></div>
 <form method="get" action="/cli-permission/admin/analytics" class="analytics-filter-form">
-  <label>时间范围<select name="period" data-analytics-period><option value="24h" {% if period=='24h' %}selected{% endif %}>最近 24 小时</option><option value="7d" {% if period=='7d' %}selected{% endif %}>最近 7 天</option><option value="30d" {% if period=='30d' %}selected{% endif %}>最近 30 天</option><option value="custom" {% if period=='custom' %}selected{% endif %}>自定义（最多 90 天）</option></select></label>
+  <label>开始时间<input type="datetime-local" name="begin" value="{{ begin }}" step="1" required></label>
+  <label>结束时间<input type="datetime-local" name="end" value="{{ end }}" step="1" required></label>
+  <label>时间粒度<select name="grain"><option value="hour" {% if grain=='hour' %}selected{% endif %}>小时</option><option value="day" {% if grain=='day' %}selected{% endif %}>天</option><option value="week" {% if grain=='week' %}selected{% endif %}>周</option></select></label>
   <label>环境<input name="environment" value="{{ params.environment }}" maxlength="64" placeholder="全部环境"></label>
-  <label>业务 ID<input name="business_id" value="{{ params.business_id }}" maxlength="256" placeholder="全部业务"></label>
   <label>用户名<input name="username" value="{{ params.username }}" maxlength="128" placeholder="包含匹配"></label>
-  <label>命令名称<input name="command" value="{{ params.command }}" maxlength="128" placeholder="例如 ml train list"></label>
+  <label>业务ID<input name="business_id" value="{{ params.business_id }}" maxlength="256" placeholder="全部业务"></label>
   <label>CLI 版本<input name="cli_version" value="{{ params.cli_version }}" maxlength="64" placeholder="全部版本"></label>
-  <div class="analytics-custom-range" data-analytics-custom {% if period!='custom' %}hidden{% endif %}><label>开始时间<input type="datetime-local" name="begin" value="{{ begin }}" step="1"></label><label>结束时间<input type="datetime-local" name="end" value="{{ end }}" step="1"></label></div>
   <div class="analytics-filter-actions"><button>查询</button><a class="secondary" href="/cli-permission/admin/analytics">重置</a></div>
 </form></section>
 <p class="analytics-window">统计时段：{{ start_label }} 至 {{ stop_label }}（北京时间）</p>
@@ -22,11 +22,11 @@
   <a class="stat-card" href="{{ log_link(result='denied') }}"><span>拒绝次数</span><strong class="analytics-danger">{{ rejected }}<small>次</small></strong><p>拒绝率 {{ rejection_rate }}%</p></a>
   <div class="stat-card"><span>活跃用户</span><strong>{{ users }}<small>人</small></strong><p>时段内上报的去重用户名</p></div>
 </div>
-<section class="panel analytics-trend" aria-labelledby="analytics-trend-title">
-  <div class="panel-title"><h2 id="analytics-trend-title">检查趋势</h2><span class="muted">{{ '按小时' if period=='24h' or (period=='custom' and points|length<=49) else '按天' }} · 点击时段查看日志</span></div>
-  {% if total %}<div class="analytics-trend-list">
-  {% for point in points %}<a class="analytics-trend-row" href="{{ point_link(point) }}" aria-label="{{ point.label }}，检查 {{ point.total }} 次，拒绝 {{ point.denied }} 次，查看日志"><span class="analytics-trend-label">{{ point.label }}</span><progress value="{{ point.total }}" max="{{ max_point }}" aria-label="检查次数"></progress><strong>{{ point.total }}</strong><span class="analytics-denied">拒绝 {{ point.denied }}</span></a>{% endfor %}
-  </div>{% else %}<div class="empty"><strong>所选范围暂无调用记录</strong><p>调整筛选条件，或等待 CLI 发起在线授权检查。</p></div>{% endif %}
+<section class="panel analytics-analysis" aria-labelledby="analytics-analysis-title">
+  <div class="panel-title analytics-analysis-heading"><div><h2 id="analytics-analysis-title">数据分析</h2><span class="muted" data-analysis-description>按{{ chart.grain }}查看各命令的调用分布</span></div><div class="analytics-view-switch" role="group" aria-label="数据分析视图"><button type="button" class="analytics-view active" data-analysis-view="commands" aria-pressed="true">命令分布</button><button type="button" class="analytics-view" data-analysis-view="trend" aria-pressed="false">调用趋势</button><button type="button" class="analytics-view" data-analysis-view="distribution" aria-pressed="false">调用次数分布</button><button type="button" class="analytics-view" data-analysis-view="ranking" aria-pressed="false">调用次数排行</button></div></div>
+  {% if total %}<div class="analytics-plot" data-analysis-chart='{{ chart|tojson }}'><p class="analytics-scroll-hint" hidden>左右滑动可查看完整图表</p><div class="analytics-plot-scroll"><div class="analytics-plot-graphic" role="img" aria-label="按{{ chart.grain }}展示的命令调用分布图"></div></div><div class="analytics-plot-legend" aria-label="图例"></div></div>
+  <details class="analytics-data-table"><summary>查看趋势数据表</summary><div class="table-scroll"><table><thead><tr><th>时段</th><th>检查次数</th><th>通过</th><th>拒绝</th><th>明细</th></tr></thead><tbody>{% for point in points %}<tr><td>{{ point.label }}</td><td>{{ point.total }}</td><td>{{ point.total - point.denied }}</td><td>{{ point.denied }}</td><td><a href="{{ point_link(point) }}">调用日志</a></td></tr>{% endfor %}</tbody></table></div></details>
+  {% else %}<div class="empty"><strong>所选范围暂无调用记录</strong><p>调整筛选条件，或等待 CLI 发起在线授权检查。</p></div>{% endif %}
 </section>
 <div class="analytics-grid">
   <section class="panel" aria-labelledby="analytics-commands-title"><div class="panel-title"><h2 id="analytics-commands-title">常用命令 <span class="count">Top 10</span></h2><span class="muted">按检查次数排序</span></div><div class="table-scroll"><table><thead><tr><th>命令名称</th><th>检查次数</th><th>占比</th></tr></thead><tbody>{% for name,count in commands %}<tr><td><a class="mono" href="{{ log_link(command_exact=name) }}">{{ name or 'unknown' }}</a></td><td>{{ count }}</td><td>{{ '%.1f'|format(count / total * 100) }}%</td></tr>{% else %}<tr><td colspan="3"><div class="empty">暂无命令记录</div></td></tr>{% endfor %}</tbody></table></div></section>
