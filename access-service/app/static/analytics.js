@@ -151,24 +151,42 @@ if (host) {
   }
 
   function rankingBars() {
-    const width = Math.max(560, graphic.clientWidth);
-    const height = Math.max(300, data.ranking.length * 42 + 64);
-    const left = 210;
+    const width = Math.max(560, graphic.clientWidth, data.ranking.length * 130 + 70);
+    const height = 390;
+    const left = 50;
+    const bottom = 96;
     const svg = canvas(width, height);
     const maximum = Math.max(1, ...data.ranking.map(item => item.value));
-    const barArea = width - left - 95;
+    const {top, plotHeight, plotWidth} = axes(svg, width, height, left, bottom, maximum, []);
+    const slot = plotWidth / data.ranking.length;
+    const barWidth = Math.min(64, slot * 0.62);
+    add(svg, 'text', {x: 10, y: 16, class: 'analysis-axis-label'}, '次数');
     data.ranking.forEach((item, index) => {
-      const y = 38 + index * 42;
-      add(svg, 'line', {x1: left, y1: y + 24, x2: width - 20, y2: y + 24, class: 'analysis-grid-line'});
+      const x = left + slot * (index + 0.5);
+      const barHeight = item.value / maximum * plotHeight;
+      const y = top + plotHeight - barHeight;
+      const label = String(item.label);
+      let split = label.lastIndexOf(' ', 16);
+      if (split < 7) split = 16;
+      const lines = label.length <= 16 ? [label] : [label.slice(0, split), label.slice(split).trimStart()];
+      if (lines[1]?.length > 16) lines[1] = `${lines[1].slice(0, 15)}…`;
       linked(svg, item.href, `${item.label}：${item.value} 次`, target => {
-        add(target, 'text', {x: left - 12, y: y + 16, 'text-anchor': 'end', class: 'analysis-rank-label'},
-          item.label.length > 23 ? `${item.label.slice(0, 22)}…` : item.label);
-        add(target, 'rect', {x: left, y, width: barArea * item.value / maximum,
-          height: 24, rx: 4, fill: colors[0], class: 'analysis-mark'});
+        add(target, 'rect', {x: x - barWidth / 2, y, width: barWidth,
+          height: barHeight, rx: 4, fill: colors[0], class: 'analysis-mark'});
+        const text = add(target, 'text', {x, y: height - bottom + 22,
+          'text-anchor': 'middle', class: 'analysis-rank-label'});
+        lines.forEach((line, lineIndex) => {
+          const span = add(text, 'tspan', {x, dy: lineIndex ? 16 : 0}, line);
+          while (span.getComputedTextLength() > slot - 12 && span.textContent.length > 1) {
+            span.textContent = `${span.textContent.replace(/…$/, '').slice(0, -1)}…`;
+          }
+        });
       });
-      add(svg, 'text', {x: left + barArea * item.value / maximum + 10, y: y + 17,
+      add(svg, 'text', {x, y: y - 8, 'text-anchor': 'middle',
         class: 'analysis-rank-value'}, String(item.value));
     });
+    add(svg, 'text', {x: left + plotWidth / 2, y: height - 12,
+      'text-anchor': 'middle', class: 'analysis-axis-label'}, '命令名称');
     legendItems(['按命令汇总的授权检查次数']);
   }
 
