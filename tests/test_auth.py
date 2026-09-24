@@ -325,7 +325,7 @@ class AuthManagerTest(unittest.TestCase):
                 "账号": "jack",
                 "中文名": "张三",
                 "部门": "技术部",
-                "租户": "mep",
+                "businessId": "mep",
             }
         )
         print_mock.assert_any_call(

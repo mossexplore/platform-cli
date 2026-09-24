@@ -192,7 +192,7 @@ ml login [OPTIONS]
 - 认证默认有效 1800 秒（30 分钟）；过期时自动打开 Edge，优先复用已有平台会话，无需重复输入验证码。
 - 等待用户登录最长 5 分钟；等待读取业务目录最长 30 秒。
 - 需本机安装 Microsoft Edge；无需安装 Playwright Chromium。
-- 登录可能恢复浏览器中已有的业务选择，可用 `ml business show` 核实。
+- 登录结果中的 `businessId` 来自当前环境 `business.json` 的 `selected.businessId`，与 `ml business show` 完全一致；租户级选择时为租户 ID，团队级选择时为团队的业务 ID。显示“未选择”时执行 `ml business use`。
 
 **示例**
 

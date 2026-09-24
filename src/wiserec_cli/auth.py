@@ -13,7 +13,7 @@ from typing import Any, Deque, Dict, Optional
 from .business import BusinessStore, parse_business_list
 from .config import ConfigManager
 from .credentials import CredentialStore
-from .errors import AuthenticationError, CredentialError
+from .errors import AuthenticationError, BusinessError, CredentialError
 from .models import Credentials, Profile
 from .output import print_result
 
@@ -148,6 +148,14 @@ class BrowserAuthenticator:
                     ),
                 )
                 self.store.save(credentials)
+                business_id = "未选择"
+                if self.business_store is not None:
+                    try:
+                        business_id = self.business_store.require_selection(
+                            profile.name, credentials.username
+                        ).business_id
+                    except BusinessError:
+                        pass
                 source = "持久 Edge 会话" if reused_session else "用户登录"
                 print(
                     f"已通过{source}刷新认证信息，有效期 {ttl_seconds} 秒"
@@ -158,7 +166,7 @@ class BrowserAuthenticator:
                         "账号": credentials.username,
                         "中文名": credentials.cn_name,
                         "部门": credentials.department,
-                        "租户": credentials.business_id,
+                        "businessId": business_id,
                     }
                 )
                 if business_warning:

@@ -148,6 +148,7 @@ ml login [OPTIONS]
 - 执行命令前会检查有效期；过期时自动打开 Edge 专用 Profile，优先复用已有平台会话，无需重复输入验证码。
 - 若平台接口返回 401 / 403 / 419 / 440 或 HTTP 重定向，会刷新认证并重试整次业务操作一次；再次失败则报错。
 - `login_timeout`（默认 300000 毫秒 = 5 分钟）控制等待用户登录的最长时间；`business_catalog_timeout`（默认 30000 毫秒）控制读取业务目录的最长等待。
+- 登录成功输出的 `businessId` 读取当前环境 `business.json` 的 `selected.businessId`，与 `ml business show` 的 `businessId` 完全一致；租户级选择时是租户 ID，团队级选择时是该团队的业务 ID。若尚未选中业务，显示“未选择”，可运行 `ml business use`。
 
 ### 示例
 
