@@ -2,18 +2,21 @@
 {% set page_title = '数据看板' %}
 {% block title %}数据看板{% endblock %}
 {% block content %}
-<div class="page-heading analytics-heading"><div><p class="eyebrow">ACCESS ANALYTICS</p><h1>数据看板</h1><p class="subtitle">了解授权检查量、常用命令与拒绝原因。统计不代表业务命令执行结果。</p></div><a href="{{ log_link() }}">查看调用日志</a></div>
-<section class="panel analytics-filters" aria-labelledby="analytics-filter-title">
-<div class="panel-title"><h2 id="analytics-filter-title">查询条件</h2><span class="muted">统一应用于下方所有统计 · 北京时间 UTC+8</span></div>
+<div class="page-heading analytics-heading"><div><p class="eyebrow">ACCESS ANALYTICS</p><h1>数据看板</h1><p class="subtitle">了解授权检查量、调用趋势与常用命令。统计不代表业务命令执行结果。</p></div><a href="{{ log_link() }}">查看调用日志</a></div>
+<section class="panel analytics-filters" aria-label="查询条件">
 <form method="get" action="/cli-permission/admin/analytics" class="analytics-filter-form">
-  <label>开始时间<input type="datetime-local" name="begin" value="{{ begin }}" step="1" required></label>
-  <label>结束时间<input type="datetime-local" name="end" value="{{ end }}" step="1" required></label>
-  <label>时间粒度<select name="grain"><option value="hour" {% if grain=='hour' %}selected{% endif %}>小时</option><option value="day" {% if grain=='day' %}selected{% endif %}>天</option><option value="week" {% if grain=='week' %}selected{% endif %}>周</option></select></label>
-  <label>环境<input name="environment" value="{{ params.environment }}" maxlength="64" placeholder="全部环境"></label>
-  <label>用户名<input name="username" value="{{ params.username }}" maxlength="128" placeholder="包含匹配"></label>
-  <label>业务ID<input name="business_id" value="{{ params.business_id }}" maxlength="256" placeholder="全部业务"></label>
-  <label>CLI 版本<input name="cli_version" value="{{ params.cli_version }}" maxlength="64" placeholder="全部版本"></label>
-  <div class="analytics-filter-actions"><button>查询</button><a class="secondary" href="/cli-permission/admin/analytics">重置</a></div>
+  <div class="analytics-filter-primary">
+    <label>开始时间<input type="datetime-local" name="begin" value="{{ begin }}" step="1" required></label>
+    <label>结束时间<input type="datetime-local" name="end" value="{{ end }}" step="1" required></label>
+    <label>时间粒度<select name="grain"><option value="hour" {% if grain=='hour' %}selected{% endif %}>小时</option><option value="day" {% if grain=='day' %}selected{% endif %}>天</option><option value="week" {% if grain=='week' %}selected{% endif %}>周</option></select></label>
+    <div class="analytics-filter-actions"><button>查询</button><a class="secondary" href="/cli-permission/admin/analytics">重置</a><button type="button" class="text-button" data-toggle-analytics-filters aria-controls="analytics-advanced-filters" aria-expanded="{{ 'true' if advanced_active else 'false' }}">{{ '收起筛选' if advanced_active else '更多筛选' }}</button></div>
+  </div>
+  <div id="analytics-advanced-filters" class="analytics-filter-advanced" {% if not advanced_active %}hidden{% endif %}>
+    <label>环境<input name="environment" value="{{ params.environment }}" maxlength="64" placeholder="全部环境"></label>
+    <label>用户名<input name="username" value="{{ params.username }}" maxlength="128" placeholder="包含匹配"></label>
+    <label>业务ID<input name="business_id" value="{{ params.business_id }}" maxlength="256" placeholder="全部业务"></label>
+    <label>CLI 版本<input name="cli_version" value="{{ params.cli_version }}" maxlength="64" placeholder="全部版本"></label>
+  </div>
 </form></section>
 <p class="analytics-window">统计时段：{{ start_label }} 至 {{ stop_label }}（北京时间）</p>
 <div class="stats-grid analytics-stats">
@@ -32,11 +35,6 @@
   <section class="panel" aria-labelledby="analytics-commands-title"><div class="panel-title"><h2 id="analytics-commands-title">常用命令 <span class="count">Top 10</span></h2><span class="muted">按检查次数排序</span></div><div class="table-scroll"><table><thead><tr><th>命令名称</th><th>检查次数</th><th>占比</th></tr></thead><tbody>{% for name,count in commands %}<tr><td><a class="mono" href="{{ log_link(command_exact=name) }}">{{ name or 'unknown' }}</a></td><td>{{ count }}</td><td>{{ '%.1f'|format(count / total * 100) }}%</td></tr>{% else %}<tr><td colspan="3"><div class="empty">暂无命令记录</div></td></tr>{% endfor %}</tbody></table></div></section>
   <section class="panel" aria-labelledby="analytics-users-title"><div class="panel-title"><h2 id="analytics-users-title">活跃用户 <span class="count">Top 10</span></h2><span class="muted">按检查次数排序</span></div><div class="table-scroll"><table><thead><tr><th>用户名</th><th>检查次数</th><th>占比</th></tr></thead><tbody>{% for name,count in actors %}<tr><td><a href="{{ log_link(username_exact=name) }}">{{ name }}</a></td><td>{{ count }}</td><td>{{ '%.1f'|format(count / total * 100) }}%</td></tr>{% else %}<tr><td colspan="3"><div class="empty">暂无用户记录</div></td></tr>{% endfor %}</tbody></table></div></section>
 </div>
-<div class="analytics-grid analytics-denial-grid">
-  <section class="panel" aria-labelledby="analytics-denied-env-title"><div class="panel-title"><h2 id="analytics-denied-env-title">拒绝较多的环境 <span class="count">Top 10</span></h2><span class="muted">按拒绝次数排序</span></div><div class="table-scroll"><table><thead><tr><th>环境</th><th>拒绝次数</th><th>占比</th></tr></thead><tbody>{% for name,count in denied_environments %}<tr><td><a href="{{ log_link(result='denied', environment=name) }}">{{ name }}</a></td><td>{{ count }}</td><td>{{ '%.1f'|format(count / rejected * 100) }}%</td></tr>{% else %}<tr><td colspan="3"><div class="empty">暂无拒绝记录</div></td></tr>{% endfor %}</tbody></table></div></section>
-  <section class="panel" aria-labelledby="analytics-denied-command-title"><div class="panel-title"><h2 id="analytics-denied-command-title">拒绝较多的命令 <span class="count">Top 10</span></h2><span class="muted">按拒绝次数排序</span></div><div class="table-scroll"><table><thead><tr><th>命令名称</th><th>拒绝次数</th><th>占比</th></tr></thead><tbody>{% for name,count in denied_commands %}<tr><td><a class="mono" href="{{ log_link(result='denied', command_exact=name) }}">{{ name or 'unknown' }}</a></td><td>{{ count }}</td><td>{{ '%.1f'|format(count / rejected * 100) }}%</td></tr>{% else %}<tr><td colspan="3"><div class="empty">暂无拒绝记录</div></td></tr>{% endfor %}</tbody></table></div></section>
-</div>
-<section class="panel analytics-reasons" aria-labelledby="analytics-reasons-title"><div class="panel-title"><h2 id="analytics-reasons-title">拒绝原因</h2><a href="{{ log_link(result='denied') }}">查看全部拒绝日志</a></div><div class="table-scroll"><table><thead><tr><th>原因</th><th>次数</th><th>占拒绝比例</th><th>操作</th></tr></thead><tbody>{% for reason,count in reasons %}<tr><td><strong>{{ reason_labels.get(reason, '其他 / 未知原因') }}</strong><small class="analytics-reason-code">{{ reason }}</small></td><td>{{ count }}</td><td>{{ '%.1f'|format(count / rejected * 100) }}%</td><td><a href="{{ log_link(result='denied', reason=reason) }}">查看日志</a></td></tr>{% else %}<tr><td colspan="4"><div class="empty">所选范围没有拒绝记录</div></td></tr>{% endfor %}</tbody></table></div></section>
 <details class="list-help analytics-help"><summary>统计口径与数据范围</summary><p>本页统计权限服务收到并写入数据库的在线授权检查；客户端预检查和网关检查分别计数，不合并为业务执行次数。授权通过不代表业务执行成功。帮助、登录、本地配置以及未触发检查的命令不在范围内。用户名由客户端上报；历史记录和旧客户端可能缺少完整命令等字段。</p></details>
 <script src="/cli-permission/static/analytics.js" defer></script>
 {% endblock %}

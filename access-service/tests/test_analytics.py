@@ -31,8 +31,9 @@ def test_dashboard_requires_admin_and_aggregates_beijing_days(system):
     assert cards == [('2', '次'), ('1', '次'), ('1', '次'), ('2', '人')]
     assert '拒绝率 50.0%' in response.text
     assert 'ml train start' in response.text and 'ml train list' in response.text
-    assert '未获得当前环境授权' in response.text
-    assert '拒绝较多的环境' in response.text and '拒绝较多的命令' in response.text
+    assert all(name not in response.text for name in ('拒绝较多的环境', '拒绝较多的命令', '拒绝原因'))
+    assert 'id="analytics-advanced-filters" class="analytics-filter-advanced" hidden' in response.text
+    assert 'data-toggle-analytics-filters' in response.text
     assert '数据分析' in response.text
     assert all(name in response.text for name in ('命令分布', '调用趋势', '调用次数分布', '调用次数排行'))
     assert response.text.count('<tr><td>09-10</td>') == 1
@@ -53,14 +54,14 @@ def test_dashboard_filters_and_drilldown_exactly_match_records(system):
         'grain': 'hour', 'begin': '2026-09-09T19:00:00', 'end': '2026-09-09T20:00:00',
         'environment': 'prod', 'business_id': 'selected'})
     assert '<strong>3<small>次</small></strong>' in response.text
+    assert 'id="analytics-advanced-filters" class="analytics-filter-advanced" hidden' not in response.text
+    assert 'aria-expanded="true">收起筛选</button>' in response.text
     command_link = unescape(re.search(r'href="([^"]+command_exact=[^"]+)"[^>]*>ml train list</a>', response.text)[1])
     parsed = parse_qs(urlsplit(command_link).query)
     assert parsed['command_exact'] == ['ml train list'] and parsed['business_id'] == ['selected']
     assert '2 条' in client.get(command_link).text
-    reason_link = unescape(re.search(r'href="([^"]+reason=NOT_GRANTED[^"]*)"', response.text)[1])
-    assert '1 条' in client.get(reason_link).text
-    denied_command_link = unescape(re.search(r'href="([^"]+result=denied[^"]+command_exact=ml\+train\+list[^"]*)"', response.text)[1])
-    assert '1 条' in client.get(denied_command_link).text
+    denied_link = unescape(re.search(r'<a class="stat-card" href="([^"]+result=denied)"[^>]*><span>拒绝次数', response.text)[1])
+    assert '1 条' in client.get(denied_link).text
     point_link = unescape(re.search(r'<tr><td>09-09 19:00</td>.*?<a href="([^"]+)"', response.text)[1])
     assert '3 条' in client.get(point_link).text
 

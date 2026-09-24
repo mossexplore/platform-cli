@@ -12,17 +12,6 @@ from .security import BEIJING, display_time, expiry
 
 router = APIRouter()
 GRAINS = {'hour': '小时', 'day': '天', 'week': '周'}
-REASONS = {
-    'ENVIRONMENT_DISABLED': '环境不存在或已停用',
-    'ENVIRONMENT_MISMATCH': '环境与平台地址不匹配',
-    'USER_DISABLED': '账号不存在或已停用',
-    'NOT_GRANTED': '未获得当前环境授权',
-    'GRANT_EXPIRED': '当前环境授权已过期',
-    'CLI_VERSION_TOO_OLD': 'CLI 版本低于最低要求',
-    'CLI_VERSION_BLOCKED': 'CLI 版本已停用',
-    'CLI_VERSION_INVALID': 'CLI 版本格式不合法',
-    'CLI_PROTOCOL_UNSUPPORTED': 'CLI 上报协议不受支持',
-}
 
 
 def bounds(begin, end, grain):
@@ -164,12 +153,9 @@ def analytics(request: Request, grain: str = Query('day', max_length=8),
         chart_ranking = [{'label': name or 'unknown', 'value': count,
             'href': log_link(params, start, stop, command_exact=name)} for name, count in commands]
         actors = top_rows(db, filters, CallLog.actor)
-        denied_filters = [*filters, CallLog.allowed.is_(False)]
-        reasons = top_rows(db, denied_filters, CallLog.reason)
-        denied_environments = top_rows(db, denied_filters, CallLog.environment)
-        denied_commands = top_rows(db, denied_filters, CallLog.command)
         return request.app.state.templates.TemplateResponse(request=request, name='analytics.html', context={
             'admin': admin, 'csrf': session.csrf, 'tab': 'analytics', 'grain': grain,
+            'advanced_active': any(params.values()),
             'begin': display_time(start).replace(' ', 'T'),
             'end': display_time(stop - timedelta(seconds=1)).replace(' ', 'T'),
             'start_label': display_time(start),
@@ -179,7 +165,6 @@ def analytics(request: Request, grain: str = Query('day', max_length=8),
             'users': users, 'points': points,
             'chart': {'points': chart_points, 'commands': [name or 'unknown' for name in chart_commands],
                       'distribution': chart_distribution, 'ranking': chart_ranking, 'grain': GRAINS[grain]},
-            'commands': commands, 'actors': actors, 'reasons': reasons,
-            'denied_environments': denied_environments, 'denied_commands': denied_commands,
-            'reason_labels': REASONS, 'log_link': lambda **extra: log_link(params, start, stop, **extra),
+            'commands': commands, 'actors': actors,
+            'log_link': lambda **extra: log_link(params, start, stop, **extra),
             'point_link': lambda point: log_link(params, point['start'], point['stop'])})

@@ -1,4 +1,13 @@
 'use strict';
+const filterToggle = document.querySelector('[data-toggle-analytics-filters]');
+if (filterToggle) {
+  filterToggle.addEventListener('click', () => {
+    const fields = document.getElementById(filterToggle.getAttribute('aria-controls'));
+    fields.hidden = !fields.hidden;
+    filterToggle.setAttribute('aria-expanded', String(!fields.hidden));
+    filterToggle.textContent = fields.hidden ? '更多筛选' : '收起筛选';
+  });
+}
 // Self-contained charts keep the offline management console independent of CDNs.
 const host = document.querySelector('[data-analysis-chart]');
 if (host) {
