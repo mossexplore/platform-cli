@@ -58,7 +58,7 @@ def test_admin_time_migration_and_status_update(system):
     with app.state.sessions() as db:
         assert db.get(SchemaVersion, SCHEMA_VERSION)
         assert db.get(Admin, 1).updated_at is None
-    response = client.post('/cli-permission/admin/administrators', data={'csrf': csrf, 'username': 'new-admin', 'enabled': 'true'})
+    response = client.post('/cli-permission/admin/administrators', data={'csrf': csrf, 'username': 'new-admin', 'display_name': '新管理员', 'enabled': 'true'})
     assert response.status_code == 201
     with app.state.sessions() as db:
         admin = db.scalar(select(Admin).where(Admin.username == 'new-admin'))

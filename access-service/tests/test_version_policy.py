@@ -4,7 +4,7 @@ from datetime import timedelta
 import pytest
 from sqlalchemy import select, text
 from app.models import Admin, Audit, CallLog, Grant, SchemaVersion, now
-from app.migrations import migrate
+from app.migrations import migrate, SCHEMA_VERSION
 from app.version_models import VersionPolicy, VersionException
 from app.version_policy import version_tuple
 from test_service import system, login, check
@@ -180,7 +180,7 @@ def test_v7_migration_preserves_logs_and_is_repeatable(system):
         row = db.scalar(select(CallLog))
         assert row.actor == 'alice' and row.cli_version == '1.0.0'
         assert row.version_source == 'historical_default'
-        assert db.get(SchemaVersion, 8)
+        assert db.get(SchemaVersion, SCHEMA_VERSION)
     assert call(client).json()['allowed']
 
 

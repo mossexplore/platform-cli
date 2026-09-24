@@ -6,7 +6,7 @@ from fastapi.responses import RedirectResponse
 from sqlalchemy import select, func, or_
 from .people import people_page
 from .admin_auth import admin_session, authorize_form
-from .models import Audit, Environment, Grant, User, now
+from .models import Admin, Audit, Environment, Grant, User, now
 from .security import expiry, origin
 from .admin_views import overview, filter_status, audit_detail
 
@@ -62,11 +62,14 @@ def dashboard(request: Request, tab: str = 'users', page: int = Query(1, ge=1),
         count = db.scalar(select(func.count()).select_from(query.subquery()))
         sort_time = func.coalesce(Environment.updated_at, Environment.created_at) if tab == 'environments' else Audit.created_at
         items = db.scalars(query.order_by(sort_time.desc(), model.id.desc()).offset((page-1)*PAGE_SIZE).limit(PAGE_SIZE)).all()
+        actor_names = dict(db.execute(select(Admin.username, Admin.display_name).where(
+            Admin.username.in_({item.actor for item in items}))).all()) if tab == 'audit' and items else {}
         return request.app.state.templates.TemplateResponse(request=request, name='dashboard.html', context={
             'admin': admin, 'csrf': session.csrf, 'tab': tab, 'items': items, 'page': page,
             'count': count, 'q': q, 'saved': saved, 'status': status, 'stats': overview(db),
             'users': {}, 'environments': {}, 'available_environments': [],
-            'audit_details': {item.id: audit_detail(item) for item in items} if tab == 'audit' else {}})
+            'audit_details': {item.id: audit_detail(item) for item in items} if tab == 'audit' else {},
+            'actor_names': actor_names})
 
 
 

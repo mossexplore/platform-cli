@@ -211,7 +211,7 @@ def test_schema_6_upgrade_is_repeatable(system):
     migrate(app.state.engine, app.state.sessions)
     assert 'access_applications' in inspect(app.state.engine).get_table_names()
     with app.state.sessions() as db:
-        assert db.get(SchemaVersion, 8)
+        assert db.get(SchemaVersion, SCHEMA_VERSION)
         assert db.get(User, 1).username == 'alice'
 
 

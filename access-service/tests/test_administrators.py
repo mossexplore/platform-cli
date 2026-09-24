@@ -2,7 +2,7 @@ import re
 from fastapi.testclient import TestClient
 from sqlalchemy import select, text
 from app.models import Admin, Audit, Base, SchemaVersion, Session, User, database
-from app.migrations import migrate
+from app.migrations import migrate, SCHEMA_VERSION
 from app.security import password_hash, password_matches
 from test_service import system, login
 
@@ -18,8 +18,9 @@ def login_as(client, username, password):
     return re.search('name="csrf" value="([^"]+)"', response.text)[1]
 
 
-def create_admin(client, csrf, username='operator'):
-    response = client.post(MANAGERS, data={'csrf':csrf, 'username':username, 'enabled':'true', 'role':'super_admin', 'password':'ignored-password'})
+def create_admin(client, csrf, username='operator', display_name='操作员'):
+    response = client.post(MANAGERS, data={'csrf':csrf, 'username':username,
+        'display_name':display_name, 'enabled':'true', 'role':'super_admin', 'password':'ignored-password'})
     assert response.status_code == 201, response.text
     return response
 
@@ -36,6 +37,7 @@ def test_generated_password_role_and_no_secret_leaks(system):
     with app.state.sessions() as db:
         item = db.scalar(select(Admin).where(Admin.username == 'operator'))
         assert item.role == 'admin'
+        assert item.display_name == '操作员'
         assert password_matches(password, item.password_hash)
         assert not password_matches('ignored-password', item.password_hash)
         audit = db.scalar(select(Audit).where(Audit.action == 'administrators.create'))
@@ -43,7 +45,33 @@ def test_generated_password_role_and_no_secret_leaks(system):
         assert 'password' not in audit.detail
     page = client.get(MANAGERS).text
     assert password not in page and '复制账号和密码' in page
+    assert '<th>管理员账号</th><th>姓名</th>' in page and '操作员' in page
+    assert 'name="display_name" required' in page
     assert 'nav-index' not in page
+
+
+def test_admin_name_edit_updates_management_and_audit_views(system):
+    app, client, _ = system
+    csrf = login(client)
+    password = create_admin(client, csrf, display_name='王五').json()['password']
+    with TestClient(app) as operator:
+        login_as(operator, 'operator', password)
+        assert operator.post(MANAGERS + '/2/name', data={
+            'csrf': 'invalid', 'display_name': '伪造姓名'}).status_code == 403
+    audit_page = client.get(ROOT + '/admin?tab=audit').text
+    assert '<th>操作人</th><th>姓名</th>' in audit_page
+    assert '<strong>operator</strong></td><td>王五</td>' in audit_page
+    assert client.post(MANAGERS + '/2/name', data={
+        'csrf': csrf, 'display_name': '  李四  '}).status_code == 200
+    with app.state.sessions() as db:
+        assert db.get(Admin, 2).display_name == '李四'
+        assert db.scalar(select(Audit).where(Audit.action == 'administrators.update_name'))
+    assert '李四' in client.get(MANAGERS + '?q=李四').text
+    audit_page = client.get(ROOT + '/admin?tab=audit').text
+    assert '<strong>operator</strong></td><td>李四</td>' in audit_page
+    assert '更新管理员姓名' in audit_page
+    assert client.post(MANAGERS + '/2/name', data={
+        'csrf': csrf, 'display_name': '   '}).status_code == 400
 
 
 def test_regular_admin_cannot_manage_admins_but_can_manage_users(system):
@@ -55,7 +83,9 @@ def test_regular_admin_cannot_manage_admins_but_can_manage_users(system):
         page = operator.get(ROOT+'/admin').text
         assert '管理员管理' not in page
         assert operator.get(MANAGERS).status_code == 403
-        for path, data in [(MANAGERS, {'username':'forged'}), (MANAGERS+'/1/status', {'enabled':'false'}), (MANAGERS+'/1/reset-password', {})]:
+        for path, data in [(MANAGERS, {'username':'forged', 'display_name':'伪造姓名'}),
+                           (MANAGERS+'/1/name', {'display_name':'伪造姓名'}),
+                           (MANAGERS+'/1/status', {'enabled':'false'}), (MANAGERS+'/1/reset-password', {})]:
             assert operator.post(path, data={'csrf':operator_csrf, **data}).status_code == 403
         assert operator.post(ROOT+'/admin/users', data={'csrf':operator_csrf, 'username':'ordinary-user', 'enabled':'true'}).status_code == 200
         assert operator.post(ROOT+'/admin/grants', data={'csrf':operator_csrf, 'username':'alice', 'environment':'prod', 'item_id':1}).status_code == 200
@@ -106,8 +136,9 @@ def test_super_admin_protection_csrf_and_duplicate(system):
     assert client.post(MANAGERS+'/1/status', data={'csrf':csrf,'enabled':'false'}).status_code == 400
     assert client.post(MANAGERS+'/1/reset-password', data={'csrf':csrf}).status_code == 400
     assert client.post(MANAGERS, data={'csrf':csrf,'username':'   '}).status_code == 400
+    assert client.post(MANAGERS, data={'csrf':csrf,'username':'named'}).status_code == 400
     create_admin(client, csrf)
-    assert client.post(MANAGERS, data={'csrf':csrf,'username':'operator'}).status_code == 409
+    assert client.post(MANAGERS, data={'csrf':csrf,'username':'operator','display_name':'重复姓名'}).status_code == 409
     assert client.post(MANAGERS+'/999/status', data={'csrf':csrf,'enabled':'true'}).status_code == 404
     with app.state.sessions() as db:
         assert db.get(Admin,1).enabled
@@ -136,12 +167,31 @@ def test_v2_migration_preserves_existing_admins_and_defaults_new_accounts(tmp_pa
     migrate(engine, sessions)
     migrate(engine, sessions)
     with sessions() as db:
-        assert db.get(SchemaVersion,8)
+        assert db.get(SchemaVersion,SCHEMA_VERSION)
         assert db.get(Admin,1).role == 'super_admin'
         assert db.get(Admin,1).password_hash == 'existing-hash'
+        assert db.get(Admin,1).display_name == ''
         assert db.get(Admin,2).role == 'super_admin' and not db.get(Admin,2).enabled
         item = Admin(username='new',password_hash='new-hash')
         db.add(item)
         db.commit()
         assert item.role == 'admin'
+    engine.dispose()
+
+
+def test_v8_migration_adds_admin_name_without_changing_credentials(tmp_path):
+    engine, sessions = database('sqlite:///'+str(tmp_path/'legacy-v8.db'))
+    with engine.begin() as connection:
+        connection.execute(text('CREATE TABLE admins (id INTEGER PRIMARY KEY, username VARCHAR(128) UNIQUE NOT NULL, password_hash VARCHAR(256) NOT NULL, role VARCHAR(32) NOT NULL, enabled BOOLEAN NOT NULL, created_at DATETIME, updated_at DATETIME)'))
+        connection.execute(text("INSERT INTO admins (id, username, password_hash, role, enabled) VALUES (1, 'legacy', 'existing-hash', 'super_admin', 1)"))
+    Base.metadata.create_all(engine)
+    with sessions() as db:
+        db.add(SchemaVersion(version=8))
+        db.commit()
+    migrate(engine, sessions)
+    migrate(engine, sessions)
+    with sessions() as db:
+        assert db.get(SchemaVersion, SCHEMA_VERSION)
+        assert db.get(Admin, 1).display_name == ''
+        assert db.get(Admin, 1).password_hash == 'existing-hash'
     engine.dispose()

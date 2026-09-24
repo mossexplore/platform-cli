@@ -4,7 +4,7 @@ import json
 import secrets
 from fastapi import APIRouter, Form, HTTPException, Query, Request
 from fastapi.responses import RedirectResponse, JSONResponse
-from sqlalchemy import select, func, delete
+from sqlalchemy import select, func, delete, or_
 from .admin_auth import admin_session, authorize_form
 from .models import Admin, Audit, Session, now
 from .security import password_hash
@@ -19,7 +19,8 @@ def require_super(admin):
 
 def audit_state(item):
     # 不记录密码或哈希，不能复用通用模型快照。
-    return {'username': item.username, 'role': item.role, 'enabled': item.enabled}
+    return {'username': item.username, 'display_name': item.display_name,
+        'role': item.role, 'enabled': item.enabled}
 
 
 def save_audit(db, actor, action, before, item):
@@ -45,7 +46,8 @@ def page(request: Request, q: str = Query('', max_length=128), status: str = '',
         require_super(actor)
         query = select(Admin)
         if q:
-            query = query.where(Admin.username.contains(q, autoescape=True))
+            query = query.where(or_(Admin.username.contains(q, autoescape=True),
+                Admin.display_name.contains(q, autoescape=True)))
         if status:
             query = query.where(Admin.enabled.is_(status == 'enabled'))
         count = db.scalar(select(func.count()).select_from(query.subquery()))
@@ -60,20 +62,42 @@ def page(request: Request, q: str = Query('', max_length=128), status: str = '',
 @router.post('/admin/administrators')
 def create(request: Request, csrf: str = Form(max_length=64),
            username: str = Form(min_length=1, max_length=128),
+           display_name: str = Form('', max_length=128),
            enabled: bool = Form(False)):
     with request.app.state.sessions() as db:
         actor = authorize_form(request, db, csrf)
         require_super(actor)
         username = username.strip()
+        display_name = display_name.strip()
         if not username:
             raise HTTPException(400, '管理员账号不可为空')
+        if not display_name:
+            raise HTTPException(400, '请填写管理员姓名')
         password = secrets.token_urlsafe(24)
         # 不接受客户端提供的 role，新建账号只能是管理员。
-        item = Admin(username=username, password_hash=password_hash(password), role='admin', enabled=enabled)
+        item = Admin(username=username, display_name=display_name,
+            password_hash=password_hash(password), role='admin', enabled=enabled)
         db.add(item)
         db.flush()
         save_audit(db, actor, 'create', None, item)
         return JSONResponse({'username': item.username, 'password': password}, status_code=201)
+
+
+@router.post('/admin/administrators/{item_id}/name')
+def change_name(request: Request, item_id: int, csrf: str = Form(max_length=64),
+                display_name: str = Form('', max_length=128)):
+    with request.app.state.sessions() as db:
+        actor = authorize_form(request, db, csrf)
+        require_super(actor)
+        item = db.get(Admin, item_id)
+        if item is None:
+            raise HTTPException(404, '管理员不存在')
+        display_name = display_name.strip()
+        if not display_name:
+            raise HTTPException(400, '请填写管理员姓名')
+        before = audit_state(item)
+        item.display_name = display_name
+        return save_audit(db, actor, 'update_name', before, item)
 
 
 @router.post('/admin/administrators/{item_id}/status')

@@ -1,7 +1,7 @@
 from datetime import datetime
 from sqlalchemy import text, select
 from app.models import User, Environment, SchemaVersion
-from app.migrations import migrate
+from app.migrations import migrate, SCHEMA_VERSION
 from test_service import system, login
 
 
@@ -40,7 +40,7 @@ def test_v4_metadata_migration_preserves_unknown_history(system):
     migrate(app.state.engine,app.state.sessions)
     migrate(app.state.engine,app.state.sessions)
     with app.state.sessions() as db:
-        assert db.get(SchemaVersion,8)
+        assert db.get(SchemaVersion,SCHEMA_VERSION)
         for model in [User,Environment]:
             row=db.get(model,1)
             assert row.created_at is None and row.updated_at is None and row.updated_by is None
