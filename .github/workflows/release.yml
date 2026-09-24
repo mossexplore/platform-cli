@@ -69,7 +69,7 @@ jobs:
         run: |
           py -3 -m pip install build 'setuptools>=68'
           if ($LASTEXITCODE -ne 0) { throw 'Previous build tools installation failed' }
-          git worktree add --detach "$env:RUNNER_TEMP/previous-cli" 3688e5e84d024e25efb2cc5defc8a518c95f8c40
+          git worktree add --detach "$env:RUNNER_TEMP/previous-cli" 515488d007d1c52143d2ff5575fadb576b400948
           if ($LASTEXITCODE -ne 0) { throw 'Previous checkout failed' }
           py -3 -m build --wheel --no-isolation --outdir "$env:RUNNER_TEMP/previous-wheel" "$env:RUNNER_TEMP/previous-cli"
           if ($LASTEXITCODE -ne 0) { throw 'Previous build failed' }

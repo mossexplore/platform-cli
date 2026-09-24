@@ -2,7 +2,7 @@
 
 只需查看版本、选择环境、登录和查询训练任务，请阅读 [CLI 快速使用指南](CLI快速使用指南.md)。
 
-`ml` 是 **WiseRec 平台** 的 Python 命令行客户端（包名 `wiserec-cli`，当前源码版本 `1.0.3.2`；最新正式发布版本仍为 `1.0.3.1`）。正式版与权限管理系统 1.0.3.1 同版发布；本次新增的 Web Studio 启停命令尚未正式发布。
+`ml` 是 **WiseRec 平台** 的 Python 命令行客户端（包名 `wiserec-cli`，当前版本 `1.0.3.2`）。与权限管理系统 1.0.3.2 同版发布；Windows 安装包和 Wheel 均重新构建。
 本文档覆盖命令参数、配置项与退出行为；2026-09-20 新增 Jupyter Notebook 与 Terminal 使用说明。示例中的 `TASK_ID`、`JOB_ID`、`PROJECT_ID`、`NAMESPACE_ID`、`EXPERIMENT_ID`、`SET_ID` 均须替换为对应资源的真实 ID；它们不是同一种 ID。
 
 > 阅读前提：查询平台数据前建议先完成 `ml login` 和 `ml business use`。`user`、`mep`、`mtp`、`offline`、`train`、`featureset` 需要有效认证和业务选择；`business list/use/refresh` 用于建立或维护业务上下文，不要求预先选好业务。没有认证或认证过期时，相关命令会自动启动 Edge 登录。
@@ -1123,7 +1123,7 @@ ml jupyter terminal close 1 --studio-id f925886d-072c-48fc-a4ec-636ab3ba9a60
 
 Windows 联网/离线打包脚本保持不变，新模块自动进入 Wheel；Jupyter 服务端仍非默认安装依赖。本地开发示例继续使用 direct 模式。
 
-## CLI 版本准入（1.0.3.1）
+## CLI 版本准入（1.0.3.1 起）
 
 CLI 现在会自动上报当前运行版本。管理员可在权限管理台的“版本管理”中按环境、业务设置最低版本、推荐版本、禁用版本和临时例外。旧客户端未上报版本时按 **1.0.0** 判断。
 

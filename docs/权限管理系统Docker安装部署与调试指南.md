@@ -1,6 +1,6 @@
 # 权限管理系统 Docker 部署速查
 
-适用：Linux x86_64、已有 MySQL，通过离线镜像部署。以下使用 `1.0.3.1` 镜像；升级时替换为新附件中的镜像文件名和标签。
+适用：Linux x86_64、已有 MySQL，通过离线镜像部署。以下使用 `1.0.3.2` 镜像；升级时替换为新附件中的镜像文件名和标签。
 
 ## 1. 检查 Docker
 
@@ -20,13 +20,13 @@ sudo systemctl enable --now docker
 
 ## 2. 下载并导入镜像
 
-从 [GitHub v1.0.3.1 正式版本](https://github.com/mossexplore/platform-cli/releases/tag/v1.0.3.1) 下载 Docker 镜像、`SHA256SUMS`、`manifest.json` 和 `service.env.example`，复制到 Linux 同一目录。
+从 [GitHub v1.0.3.2 正式版本](https://github.com/mossexplore/platform-cli/releases/tag/v1.0.3.2) 下载 Docker 镜像、`SHA256SUMS`、`manifest.json` 和 `service.env.example`，复制到 Linux 同一目录。
 
 在解压目录执行：
 
 ```bash
 sha256sum --ignore-missing -c SHA256SUMS
-docker load -i cli-access-1.0.3.1-linux-amd64.tar.gz
+docker load -i cli-access-1.0.3.2-linux-amd64.tar.gz
 ```
 
 SHA256SUMS 包含全部发布附件。只下载 Docker 文件时使用 `sha256sum --ignore-missing -c SHA256SUMS`，已下载文件应显示 OK。Release 附件不采用 Actions 的 30 天保留期。
@@ -57,16 +57,16 @@ FORWARDED_ALLOW_IPS=
 - 密码含 `@`、`:`、`/`、`%` 等特殊字符时，需要 URL 百分号编码。
 - 不把真实配置上传 GitHub；文件挂载不等于加密，Docker 管理员仍可读取。
 
-本版要求数据库结构版本 10。仅当现有结构已为 10、数据和管理员正常时可跳过迁移。1.0.3 的结构版本 8 必须先备份、停写，再用新镜像迁移，不能直接启动新版；见 [1.0.3 → 1.0.3.1 升级指南](权限管理系统1.0.3升级至1.0.3.1指南.md)。
+本版要求数据库结构版本 10。1.0.3.1 与 1.0.3.2 均为结构 10；现有结构、数据及管理员正常时无需迁移或重新创建管理员。升级前仍须完成演练和最终备份；见 [1.0.3.1 → 1.0.3.2 升级指南](权限管理系统1.0.3.1升级至1.0.3.2指南.md)。更早的结构版本须先按历史指南处理，不能直接启动新版。
 
 只有新数据库才执行：
 
 ```bash
 docker run --rm -v /opt/cli-access-config:/run/cli-access:ro \
-  cli-access:1.0.3.1 python -m app.manage migrate
+  cli-access:1.0.3.2 python -m app.manage migrate
 
 docker run --rm -it -v /opt/cli-access-config:/run/cli-access:ro \
-  cli-access:1.0.3.1 python -m app.manage create-admin
+  cli-access:1.0.3.2 python -m app.manage create-admin
 ```
 
 管理员密码按提示输入，至少 12 个字符。旧数据库需要升级结构时，先备份再迁移。
@@ -88,7 +88,7 @@ docker run -d \
   --log-driver local \
   --log-opt max-size=10m \
   --log-opt max-file=5 \
-  cli-access:1.0.3.1
+  cli-access:1.0.3.2
 ```
 
 服务自动读取挂载配置，镜像名后面不用追加命令。这里不使用旧 Docker 不支持的 `--pull` 和缺少 docker-init 时无法使用的 `--init`。
@@ -155,8 +155,12 @@ sudo chmod 640 /opt/cli-access-config/service.env
 
 ## 7. 历史升级：从 1.0.0 到 1.0.3
 
-该历史升级将数据库结构从 7 升至 8，使用 v1.0.3 镜像和当时的部署参数。完整步骤见保留的 [1.0.0 → 1.0.3 指南](权限管理系统1.0.0升级至1.0.3指南.md)；不要把本页 1.0.3.1 的镜像命令混入旧版升级步骤。若当前仍为结构 7，先核对真实部署状态并制定连续升级与备份方案。
+该历史升级将数据库结构从 7 升至 8，使用 v1.0.3 镜像和当时的部署参数。完整步骤见保留的 [1.0.0 → 1.0.3 指南](权限管理系统1.0.0升级至1.0.3指南.md)；不要把本页 1.0.3.2 的镜像命令混入旧版升级步骤。若当前仍为结构 7，先核对真实部署状态并制定连续升级与备份方案。
 
 ## 8. 从 1.0.3 升级到 1.0.3.1
 
 权限系统结构由 8 升至 10，CLI 也升级为 1.0.3.1。先在独立库演练备份恢复和迁移；维护窗口停写后完成最终备份，再用 1.0.3.1 镜像单进程显式迁移。迁移后核对数据、健康和授权，不能仅切回要求结构 8 的旧镜像。完整命令、验收与回滚条件见 [独立升级指南](权限管理系统1.0.3升级至1.0.3.1指南.md)，正式附件为 `Docker-upgrade-1.0.3.1.md`。
+
+## 9. 从 1.0.3.1 升级到 1.0.3.2
+
+两版数据库结构均为 10，不执行迁移或重新创建管理员。先在独立库演练备份恢复；维护窗口停止旧应用和写入后完成最终备份，再替换为 1.0.3.2 镜像。核对健康、授权、日志和有数据的数据看板后放行。完整分步操作和回滚条件见 [1.0.3.1 → 1.0.3.2 升级指南](权限管理系统1.0.3.1升级至1.0.3.2指南.md)，正式附件为 `Docker-upgrade-1.0.3.2.md`。
