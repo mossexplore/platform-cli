@@ -18,6 +18,7 @@ class VersionPolicy(Base):
     upgrade_url: Mapped[str] = mapped_column(String(1024), default='')
     effective_at: Mapped[datetime] = mapped_column(DateTime, default=now)
     enabled: Mapped[bool] = mapped_column(Boolean, default=True)
+    deleted_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, default=None)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=now)
     created_by: Mapped[str] = mapped_column(String(128))
 

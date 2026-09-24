@@ -12,7 +12,7 @@ REASONS = ['CLI_VERSION_TOO_OLD', 'CLI_VERSION_BLOCKED', 'CLI_VERSION_INVALID', 
 
 def page_context(db, *, view, days, environment, business_id, q, status, page):
     timestamp = now()
-    active = (VersionPolicy.enabled.is_(True), VersionPolicy.effective_at <= timestamp)
+    active = (VersionPolicy.enabled.is_(True), VersionPolicy.deleted_at.is_(None), VersionPolicy.effective_at <= timestamp)
     live_exception = (VersionException.enabled.is_(True), VersionException.expires_at > timestamp)
     recent = select(CallLog).where(CallLog.created_at >= timestamp - timedelta(days=7)).subquery()
     stats = {
@@ -41,6 +41,8 @@ def page_context(db, *, view, days, environment, business_id, q, status, page):
     else:
         model = VersionPolicy if view == 'policies' else VersionException
         query = select(model)
+        if view == 'policies':
+            query = query.where(VersionPolicy.deleted_at.is_(None))
         if environment:
             query = query.where(model.environment == environment)
         if business_id:
@@ -70,7 +72,8 @@ def page_context(db, *, view, days, environment, business_id, q, status, page):
         policy.copy_fields['effective_at'] = ''
     context.update({key: items, 'count': count, 'page': page,
         'environments': db.scalars(select(Environment).order_by(Environment.name)).all(),
-        'policy_options': db.scalars(select(VersionPolicy).where(VersionPolicy.enabled.is_(True)).order_by(VersionPolicy.id.desc())).all()})
+        'policy_options': db.scalars(select(VersionPolicy).where(
+            VersionPolicy.enabled.is_(True), VersionPolicy.deleted_at.is_(None)).order_by(VersionPolicy.id.desc())).all()})
     context['environment_names'] = {item.name: item.display_name for item in context['environments']}
     if view == 'exceptions':
         ids = {item.policy_id for item in items}

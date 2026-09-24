@@ -49,7 +49,7 @@ def grant_state(item, user, environment):
     return ('positive', '生效中')
 
 
-ACTIONS = {'grants.selection_save': '配置环境授权', 'users.delete': '删除人员', 'environments.delete': '删除环境', 'administrators.reset_password': '重置管理员密码', 'administrators.create': '创建管理员', 'administrators.update_name': '更新管理员姓名', 'administrators.enable': '启用管理员', 'administrators.disable': '停用管理员', 'login': '登录管理台', 'logout': '退出登录', 'login_failed': '登录失败',
+ACTIONS = {'grants.selection_save': '配置环境授权', 'users.delete': '删除人员', 'environments.delete': '删除环境', 'version_policy.delete': '删除版本策略', 'administrators.reset_password': '重置管理员密码', 'administrators.create': '创建管理员', 'administrators.update_name': '更新管理员姓名', 'administrators.enable': '启用管理员', 'administrators.disable': '停用管理员', 'login': '登录管理台', 'logout': '退出登录', 'login_failed': '登录失败',
            'users.save': '更新人员', 'environments.save': '更新环境',
            'grants.save': '更新授权', 'grants.batch_save': '批量配置授权'}
 FIELDS = {'role': '管理角色', 'username': '账号', 'display_name': '名称', 'enabled': '启用状态',
@@ -76,6 +76,12 @@ def audit_detail(item):
     if not isinstance(data, dict) or not isinstance(data.get('after'), dict):
         return {'label': ACTIONS.get(item.action, item.action), 'summary': item.detail, 'changes': []}
     after, before = data['after'], data.get('before') or {}
+    if item.action == 'version_policy.delete':
+        return {'label': ACTIONS[item.action],
+            'summary': '删除 · ' + str(before.get('name')),
+            'changes': [
+                {'field': '策略名称', 'before': before.get('name'), 'after': '已删除'},
+                {'field': '撤销的临时例外', 'before': str(len(data.get('revoked_exception_ids', []))) + ' 项', 'after': '已撤销'}]}
     if item.action in ('users.delete', 'environments.delete'):
         return {'label': ACTIONS[item.action], 'summary': '删除 · ' + str(before.get('username') or before.get('name')) + ' · 清理 ' + str(data.get('removed_grants', 0)) + ' 条授权', 'changes': [{'field': '记录', 'before': before.get('username') or before.get('name'), 'after': '已物理删除'}]}
 

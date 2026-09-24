@@ -139,7 +139,7 @@ def toggle_policy(policy_id: int, request: Request, csrf: str = Form(max_length=
     with request.app.state.sessions() as db:
         admin = privileged(request, db, csrf)
         item = db.get(VersionPolicy, policy_id)
-        if not item:
+        if not item or item.deleted_at is not None:
             raise HTTPException(404, '策略不存在')
         before = snapshot(item)
         item.enabled = enabled
@@ -147,6 +147,33 @@ def toggle_policy(policy_id: int, request: Request, csrf: str = Form(max_length=
                      detail=json.dumps({'before': before, 'after': snapshot(item)}, ensure_ascii=False)))
         db.commit()
     return RedirectResponse('/cli-permission/admin/versions?saved=1', status_code=303)
+
+
+@router.post('/admin/versions/policies/{policy_id}/delete')
+def delete_policy(policy_id: int, request: Request, csrf: str = Form(max_length=64),
+                  confirmation: str = Form('', max_length=16)):
+    with request.app.state.sessions() as db:
+        admin = privileged(request, db, csrf)
+        item = db.get(VersionPolicy, policy_id)
+        if not item or item.deleted_at is not None:
+            raise HTTPException(404, '策略不存在')
+        if item.enabled:
+            raise HTTPException(400, '请先停用策略，再删除')
+        if confirmation != 'yes':
+            raise HTTPException(400, '请输入 yes 确认删除')
+        before = snapshot(item)
+        timestamp = now()
+        item.deleted_at = timestamp
+        related = db.scalars(select(VersionException).where(
+            VersionException.policy_id == policy_id, VersionException.enabled.is_(True),
+            VersionException.expires_at > timestamp)).all()
+        for exception in related:
+            exception.enabled = False
+        db.add(Audit(actor=admin.username, action='version_policy.delete', detail=json.dumps({
+            'before': before, 'after': snapshot(item),
+            'revoked_exception_ids': [exception.id for exception in related]}, ensure_ascii=False)))
+        db.commit()
+    return RedirectResponse('/cli-permission/admin/versions?view=policies&deleted=1', status_code=303)
 
 
 @router.post('/admin/versions/exceptions')
@@ -158,7 +185,9 @@ def add_exception(request: Request, csrf: str = Form(max_length=64), policy_id: 
     with request.app.state.sessions() as db:
         admin = privileged(request, db, csrf)
         policy = db.get(VersionPolicy, policy_id)
-        if not policy or (policy.environment and policy.environment != environment) or (policy.business_id and policy.business_id != business_id):
+        if not policy or not policy.enabled or policy.deleted_at is not None:
+            raise HTTPException(400, '只能为已启用的策略创建例外')
+        if (policy.environment and policy.environment != environment) or (policy.business_id and policy.business_id != business_id):
             raise HTTPException(400, '例外与指定策略的环境或业务不匹配')
         parse_version(minimum_version)
         parse_version(maximum_version)

@@ -1,5 +1,5 @@
 {% extends 'base.html' %}
-{% from 'version_components.html' import policy_status, exception_status, confirm_action, policy_detail %}
+{% from 'version_components.html' import policy_status, exception_status, confirm_action, policy_detail, policy_delete %}
 {% set tab = 'versions' %}{% set page_title = '版本管理' %}
 {% set titles = {'policies':'版本策略','usage':'版本使用','exceptions':'临时例外'} %}
 {% block title %}版本管理{% endblock %}
@@ -10,6 +10,7 @@
   {% if admin.role == 'super_admin' %}<button type="button" data-open="{{ 'exception-create' if view == 'exceptions' else 'policy-create' }}">{{ '新增例外' if view == 'exceptions' else '新增策略' }}</button>{% endif %}</div>
 </div>
 {% if request.query_params.get('saved') == '1' %}<div class="success" role="status"><strong>操作成功</strong><span>最新配置将在下一次访问检查时生效。</span></div>{% endif %}
+{% if request.query_params.get('deleted') == '1' %}<div class="success" role="status"><strong>策略已删除</strong><span>历史审计与临时例外记录保留。</span></div>{% endif %}
 <div class="stats-grid version-stats">
 {% for label,value,unit,target,color in [('生效策略',stats.policies,'项','?view=policies&status=active',''),('近 7 天检查',stats.calls,'次','?view=usage&days=7',''),('版本拒绝',stats.denied,'次','?view=usage&days=7&status=denied','amber'),('有效例外',stats.exceptions,'项','?view=exceptions&status=active','')] %}
   <a class="stat-card" href="/cli-permission/admin/versions{{ target }}"><span>{{ label }}</span><strong class="{{ color }}">{{ value }}<small>{{ unit }}</small></strong></a>
@@ -41,7 +42,7 @@
       <td><span class="mono">≥ {{ p.minimum_version }}</span><small class="version-subline">推荐 {{ p.recommended_version or '未设置' }}{% if p.blocked_list %} · 禁用 {{ p.blocked_list|length }} 个{% endif %}</small></td>
       <td><span class="badge {{ 'danger' if p.mode=='enforce' else 'warning' if p.mode=='warn' else 'neutral' }}">{{ modes[p.mode] }}</span></td>
       <td>{{ policy_status(p, now) }}</td>
-      <td class="actions"><button type="button" class="text-button" data-open="policy-detail-{{ p.id }}">详情</button>{% if admin.role=='super_admin' %}<button type="button" class="text-button {{ 'delete-link' if p.enabled else '' }}" data-open="policy-toggle-{{ p.id }}">{{ '停用' if p.enabled else '启用' }}</button>{% endif %}</td>
+      <td class="actions"><button type="button" class="text-button" data-open="policy-detail-{{ p.id }}">详情</button>{% if admin.role=='super_admin' %}<button type="button" class="text-button {{ 'delete-link' if p.enabled else '' }}" data-open="policy-toggle-{{ p.id }}">{{ '停用' if p.enabled else '启用' }}</button>{% if not p.enabled %}<button type="button" class="text-button delete-link" data-open="policy-delete-{{ p.id }}">删除</button>{% endif %}{% endif %}</td>
     </tr>{% else %}<tr><td colspan="6"><div class="empty"><strong>{{ '暂无匹配策略' if q or status or environment or business_id else '尚未配置版本策略' }}</strong><p>{{ '请调整筛选条件后重试。' if q or status or environment or business_id else '添加最低版本要求，先观察使用情况，再逐步启用限制。' }}</p>{% if admin.role=='super_admin' %}<button type="button" class="secondary" data-open="policy-create">新增策略</button>{% endif %}</div></td></tr>{% endfor %}
     </tbody></table>
   {% elif view=='usage' %}
@@ -61,13 +62,13 @@
 </section>
 {% for p in policies %}
   {{ policy_detail(p, modes, now, environment_names, admin) }}
-  {% if admin.role=='super_admin' %}{{ confirm_action('policy-toggle-' ~ p.id, ('停用' if p.enabled else '启用') ~ '策略', p.name, '停用后不再执行此策略，其他适用策略继续生效。' if p.enabled else '启用后将在下一次检查时执行；预约策略仍按生效时间执行。', '/cli-permission/admin/versions/policies/' ~ p.id ~ '/toggle', csrf, 'false' if p.enabled else 'true') }}{% endif %}
+  {% if admin.role=='super_admin' %}{{ confirm_action('policy-toggle-' ~ p.id, ('停用' if p.enabled else '启用') ~ '策略', p.name, '停用后不再执行此策略，其他适用策略继续生效。' if p.enabled else '启用后将在下一次检查时执行；预约策略仍按生效时间执行。', '/cli-permission/admin/versions/policies/' ~ p.id ~ '/toggle', csrf, 'false' if p.enabled else 'true') }}{% if not p.enabled %}{{ policy_delete(p, csrf) }}{% endif %}{% endif %}
 {% endfor %}
 {% for e in exceptions %}
 <dialog id="exception-detail-{{ e.id }}" class="drawer version-drawer" aria-labelledby="exception-title-{{ e.id }}"><div class="drawer-heading"><h2 id="exception-title-{{ e.id }}">例外详情</h2><button type="button" class="text-button" data-close>关闭</button></div><div class="drawer-body"><dl class="detail-list"><dt>账号</dt><dd>{{ e.username }}</dd><dt>策略</dt><dd>{{ policy_names.get(e.policy_id, '#' ~ e.policy_id) }}</dd><dt>环境</dt><dd>{{ e.environment }}</dd><dt>业务 ID</dt><dd>{{ e.business_id }}</dd><dt>版本范围</dt><dd>{{ e.minimum_version }} – {{ e.maximum_version }}</dd><dt>到期时间</dt><dd>{{ e.expires_at|beijing }}</dd><dt>状态</dt><dd>{{ exception_status(e, now) }}</dd><dt>批准原因</dt><dd>{{ e.reason }}</dd><dt>批准人</dt><dd>{{ e.created_by }}</dd><dt>创建时间</dt><dd>{{ e.created_at|beijing }}</dd></dl></div><div class="drawer-footer"><button type="button" class="secondary" data-close>关闭</button></div></dialog>
 {% if e.enabled and e.expires_at > now and admin.role=='super_admin' %}{{ confirm_action('exception-revoke-' ~ e.id, '撤销临时例外', e.username, '撤销后，该账号恢复执行指定策略的最低版本要求。', '/cli-permission/admin/versions/exceptions/' ~ e.id ~ '/revoke', csrf) }}{% endif %}
 {% endfor %}
 {% if admin.role=='super_admin' %}{% include 'version_editors.html' %}{% endif %}
-<dialog id="version-help" class="drawer version-drawer" aria-labelledby="version-help-title"><div class="drawer-heading"><h2 id="version-help-title">版本管控说明</h2><button type="button" class="text-button" data-close>关闭</button></div><div class="drawer-body version-help"><h3>从观察到强制</h3><p>仅观察记录版本判断；提醒升级会提示用户但仍允许访问；强制拒绝会阻止不符合要求的版本。</p><h3>多条策略如何生效</h3><p>全局、环境和业务策略可以叠加。最低版本取适用强制策略的最高要求；禁用版本不能通过临时例外放行。</p><h3>调整与回滚</h3><p>在详情中复制策略，修改后预览并发布，再停用旧策略。历史策略可以重新启用，操作均保留审计记录。</p><h3>统计口径</h3><p>顶部统计为全部业务，检查次数及版本拒绝统计最近 7 天。列表筛选不改变顶部统计。客户端预检查和网关检查分开记录，均不代表业务执行成功。</p><h3>旧客户端与管控范围</h3><p>未上报版本按 1.0.0 判断，历史默认值为推定值。版本为客户端声明；实际网关接入并关闭旁路后，才可强制阻断绕过客户端检查的请求。</p></div><div class="drawer-footer"><button type="button" class="secondary" data-close>知道了</button></div></dialog>
+<dialog id="version-help" class="drawer version-drawer" aria-labelledby="version-help-title"><div class="drawer-heading"><h2 id="version-help-title">版本管控说明</h2><button type="button" class="text-button" data-close>关闭</button></div><div class="drawer-body version-help"><h3>从观察到强制</h3><p>仅观察记录版本判断；提醒升级会提示用户但仍允许访问；强制拒绝会阻止不符合要求的版本。</p><h3>多条策略如何生效</h3><p>全局、环境和业务策略可以叠加。最低版本取适用强制策略的最高要求；禁用版本不能通过临时例外放行。</p><h3>调整与回滚</h3><p>在详情中复制策略，修改后预览并发布，再停用旧策略。历史策略可以重新启用；已停用策略可删除，操作均保留审计记录。</p><h3>统计口径</h3><p>顶部统计为全部业务，检查次数及版本拒绝统计最近 7 天。列表筛选不改变顶部统计。客户端预检查和网关检查分开记录，均不代表业务执行成功。</p><h3>旧客户端与管控范围</h3><p>未上报版本按 1.0.0 判断，历史默认值为推定值。版本为客户端声明；实际网关接入并关闭旁路后，才可强制阻断绕过客户端检查的请求。</p></div><div class="drawer-footer"><button type="button" class="secondary" data-close>知道了</button></div></dialog>
 <script src="/cli-permission/static/versions.js" defer></script>
 {% endblock %}

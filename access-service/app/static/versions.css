@@ -16,6 +16,7 @@
 .version-policy-table th:nth-child(3) { width: 19%; }
 .version-policy-table th:nth-child(4) { width: 108px; }
 .version-policy-table th:nth-child(5) { width: 86px; }
+.management-page .version-policy-table th.actions { width: 156px; }
 .version-subline { display: block; margin-top: 2px; line-height: 18px; overflow-wrap: anywhere; }
 .management-page .version-name { padding: 0; font-weight: 500; text-align: left; justify-content: flex-start; white-space: normal; }
 .version-panel .actions { position: sticky; right: 0; background: var(--card-bg); box-shadow: -1px 0 var(--border); white-space: nowrap; }

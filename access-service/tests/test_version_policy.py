@@ -141,6 +141,42 @@ def test_admin_preview_publish_revoke_and_audit(system):
     assert '暂无匹配记录' in client.get('/cli-permission/admin/calls?cli_version=9.0.0').text
 
 
+def test_only_disabled_policy_can_be_deleted_and_history_is_kept(system):
+    app, client, _ = system
+    policy_id = policy(app)
+    with app.state.sessions() as db:
+        db.add(VersionException(policy_id=policy_id, environment='prod', business_id='selected',
+            username='alice', minimum_version='1.0.0', maximum_version='1.0.2',
+            expires_at=now() + timedelta(days=1), reason='等待升级', created_by='admin'))
+        db.commit()
+    csrf = login(client)
+    path = f'/cli-permission/admin/versions/policies/{policy_id}/delete'
+    assert call(client).json()['allowed']  # Existing exception still allows the old version.
+    assert f'data-open="policy-delete-{policy_id}"' not in client.get('/cli-permission/admin/versions').text
+    assert client.post(path, data={'csrf': csrf, 'confirmation': 'yes'}).status_code == 400
+    assert client.post(f'/cli-permission/admin/versions/policies/{policy_id}/toggle',
+        data={'csrf': csrf, 'enabled': 'false'}).status_code == 200
+    page = client.get('/cli-permission/admin/versions?view=policies&status=disabled').text
+    assert f'data-open="policy-delete-{policy_id}"' in page
+    assert client.post(path, data={'csrf': 'wrong', 'confirmation': 'yes'}).status_code == 403
+    assert client.post(path, data={'csrf': csrf, 'confirmation': 'YES'}).status_code == 400
+    response = client.post(path, data={'csrf': csrf, 'confirmation': 'yes'})
+    assert response.status_code == 200 and '策略已删除' in response.text
+    assert 'test-policy' not in client.get('/cli-permission/admin/versions?view=policies').text
+    assert 'test-policy' in client.get('/cli-permission/admin/versions?view=exceptions').text
+    assert '删除版本策略' in client.get('/cli-permission/admin?tab=audit').text
+    with app.state.sessions() as db:
+        assert db.get(VersionPolicy, policy_id).deleted_at is not None
+        assert not db.scalar(select(VersionException).where(VersionException.policy_id == policy_id)).enabled
+        audit = db.scalar(select(Audit).where(Audit.action == 'version_policy.delete'))
+        detail = json.loads(audit.detail)
+        assert detail['before']['name'] == 'test-policy'
+        assert detail['revoked_exception_ids'] == [1]
+    assert client.post(path, data={'csrf': csrf, 'confirmation': 'yes'}).status_code == 404
+    assert client.post(f'/cli-permission/admin/versions/policies/{policy_id}/toggle',
+        data={'csrf': csrf, 'enabled': 'true'}).status_code == 404
+
+
 @pytest.mark.parametrize('overrides', [
     {'minimum_version':'1.0'}, {'recommended_version':'0.1.0'}, {'blocked_versions':'bad'},
     {'upgrade_url':'javascript:alert(1)'}, {'mode':'bad'}, {'business_id':'biz'},
@@ -162,6 +198,8 @@ def test_regular_admin_cannot_change_versions(system):
     assert client.get('/cli-permission/admin/versions').status_code == 200
     assert client.post('/cli-permission/admin/versions/policies', data={
         'csrf':csrf,'name':'bad','intent':'publish'}).status_code == 403
+    assert client.post('/cli-permission/admin/versions/policies/1/delete', data={
+        'csrf':csrf,'confirmation':'yes'}).status_code == 403
 
 
 def test_v7_migration_preserves_logs_and_is_repeatable(system):
@@ -182,6 +220,20 @@ def test_v7_migration_preserves_logs_and_is_repeatable(system):
         assert row.version_source == 'historical_default'
         assert db.get(SchemaVersion, SCHEMA_VERSION)
     assert call(client).json()['allowed']
+
+
+def test_v9_migration_preserves_policies_and_adds_deletion_marker(system):
+    app, _, _ = system
+    policy_id = policy(app)
+    with app.state.engine.begin() as conn:
+        conn.execute(text('ALTER TABLE cli_version_policies DROP COLUMN deleted_at'))
+        conn.execute(text('UPDATE schema_versions SET version=9'))
+    migrate(app.state.engine, app.state.sessions)
+    migrate(app.state.engine, app.state.sessions)
+    with app.state.sessions() as db:
+        assert db.get(SchemaVersion, SCHEMA_VERSION)
+        item = db.get(VersionPolicy, policy_id)
+        assert item.name == 'test-policy' and item.deleted_at is None
 
 
 def test_duplicate_version_and_protocol_headers_do_not_bypass(system):
