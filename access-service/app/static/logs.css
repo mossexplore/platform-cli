@@ -100,8 +100,8 @@
 .call-records { width: 100%; min-width: 0; }
 .call-records-table { width: 100%; min-width: 0; table-layout: fixed; }
 .call-records-table th:nth-child(1) { width: 14%; }
-.call-records-table th:nth-child(2) { width: 17%; }
-.call-records-table th:nth-child(3) { width: 11%; }
+.call-records-table th:nth-child(2) { width: 18%; }
+.call-records-table th:nth-child(3) { width: 10%; }
 .call-records-table th:nth-child(4) { width: 22%; }
 .call-records-table th:nth-child(5) { width: 12%; }
 .call-records-table th:nth-child(6) { width: 16%; }

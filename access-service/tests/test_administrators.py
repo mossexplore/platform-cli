@@ -1,7 +1,7 @@
 import re
 from fastapi.testclient import TestClient
 from sqlalchemy import select, text
-from app.models import Admin, Audit, Base, SchemaVersion, Session, User, database
+from app.models import Admin, Audit, Base, Grant, SchemaVersion, Session, User, database
 from app.migrations import migrate, SCHEMA_VERSION
 from app.security import password_hash, password_matches
 from test_service import system, login
@@ -50,28 +50,21 @@ def test_generated_password_role_and_no_secret_leaks(system):
     assert 'nav-index' not in page
 
 
-def test_admin_name_edit_updates_management_and_audit_views(system):
+def test_admin_name_is_read_only_after_creation(system):
     app, client, _ = system
     csrf = login(client)
-    password = create_admin(client, csrf, display_name='王五').json()['password']
-    with TestClient(app) as operator:
-        login_as(operator, 'operator', password)
-        assert operator.post(MANAGERS + '/2/name', data={
-            'csrf': 'invalid', 'display_name': '伪造姓名'}).status_code == 403
+    create_admin(client, csrf, display_name='王五')
+    page = client.get(MANAGERS).text
+    assert '王五' in page and 'admin-name-edit' not in page
+    assert 'data-open="name-2"' not in page and '编辑管理员姓名' not in page
+    assert client.post(MANAGERS + '/2/name', data={
+        'csrf': csrf, 'display_name': '李四'}).status_code == 404
+    with app.state.sessions() as db:
+        assert db.get(Admin, 2).display_name == '王五'
+        assert not db.scalar(select(Audit).where(Audit.action == 'administrators.update_name'))
     audit_page = client.get(ROOT + '/admin?tab=audit').text
     assert '<th>操作人</th><th>姓名</th>' in audit_page
-    assert '<strong>operator</strong></td><td>王五</td>' in audit_page
-    assert client.post(MANAGERS + '/2/name', data={
-        'csrf': csrf, 'display_name': '  李四  '}).status_code == 200
-    with app.state.sessions() as db:
-        assert db.get(Admin, 2).display_name == '李四'
-        assert db.scalar(select(Audit).where(Audit.action == 'administrators.update_name'))
-    assert '李四' in client.get(MANAGERS + '?q=李四').text
-    audit_page = client.get(ROOT + '/admin?tab=audit').text
-    assert '<strong>operator</strong></td><td>李四</td>' in audit_page
-    assert '更新管理员姓名' in audit_page
-    assert client.post(MANAGERS + '/2/name', data={
-        'csrf': csrf, 'display_name': '   '}).status_code == 400
+    assert '王五' in client.get(MANAGERS + '?q=王五').text
 
 
 def test_regular_admin_cannot_manage_admins_but_can_manage_users(system):
@@ -84,7 +77,7 @@ def test_regular_admin_cannot_manage_admins_but_can_manage_users(system):
         assert '管理员管理' not in page
         assert operator.get(MANAGERS).status_code == 403
         for path, data in [(MANAGERS, {'username':'forged', 'display_name':'伪造姓名'}),
-                           (MANAGERS+'/1/name', {'display_name':'伪造姓名'}),
+                           (MANAGERS+'/1/delete', {'confirmation':'yes'}),
                            (MANAGERS+'/1/status', {'enabled':'false'}), (MANAGERS+'/1/reset-password', {})]:
             assert operator.post(path, data={'csrf':operator_csrf, **data}).status_code == 403
         assert operator.post(ROOT+'/admin/users', data={'csrf':operator_csrf, 'username':'ordinary-user', 'enabled':'true'}).status_code == 200
@@ -126,6 +119,49 @@ def test_reset_password_invalidates_old_password_and_sessions(system):
             assert password_matches(replacement, db.get(Admin,2).password_hash)
             assert not password_matches(password, db.get(Admin,2).password_hash)
         login_as(operator,'operator', replacement)
+
+
+def test_super_admin_can_delete_regular_admin_and_preserve_history(system):
+    app, client, _ = system
+    csrf = login(client)
+    password = create_admin(client, csrf, display_name='操作员').json()['password']
+    path = MANAGERS + '/2/delete'
+    page = client.get(MANAGERS).text
+    assert 'data-open="delete-admin-2"' in page
+    assert 'data-open="delete-admin-1"' not in page
+    with TestClient(app) as operator:
+        login_as(operator, 'operator', password)
+        assert client.post(path, data={'csrf':'invalid', 'confirmation':'yes'}).status_code == 403
+        assert client.post(path, data={'csrf':csrf, 'confirmation':'YES'}).status_code == 400
+        assert client.post(MANAGERS+'/1/delete', data={'csrf':csrf, 'confirmation':'yes'}).status_code == 400
+        response = client.post(path, data={'csrf':csrf, 'confirmation':'yes'}, follow_redirects=False)
+        assert response.status_code == 303 and 'deleted=1' in response.headers['location']
+        assert operator.get(ROOT+'/admin', follow_redirects=False).status_code == 303
+    with app.state.sessions() as db:
+        assert db.get(Admin, 2) is None
+        assert not db.scalars(select(Session).where(Session.admin_id == 2)).all()
+        assert db.get(User, 1) and db.get(Grant, 1)
+        audit = db.scalar(select(Audit).where(Audit.action == 'administrators.delete'))
+        assert audit and audit.actor == 'admin'
+        assert '"username": "operator"' in audit.detail
+        assert '"display_name": "操作员"' in audit.detail
+        assert 'password' not in audit.detail
+    assert '管理员已删除' in client.get(MANAGERS+'?deleted=1').text
+    assert '删除管理员' in client.get(ROOT+'/admin?tab=audit').text
+    assert client.post(path, data={'csrf':csrf, 'confirmation':'yes'}).status_code == 404
+
+
+def test_super_admin_cannot_delete_another_super_admin(system):
+    app, client, _ = system
+    csrf = login(client)
+    with app.state.sessions() as db:
+        db.add(Admin(username='second-root', display_name='其他超级管理员',
+                     password_hash=password_hash('password-123456'), role='super_admin'))
+        db.commit()
+    assert client.post(MANAGERS+'/2/delete', data={
+        'csrf':csrf, 'confirmation':'yes'}).status_code == 400
+    with app.state.sessions() as db:
+        assert db.get(Admin, 2) is not None
 
 
 def test_super_admin_protection_csrf_and_duplicate(system):

@@ -33,7 +33,7 @@ def save_audit(db, actor, action, before, item):
 
 @router.get('/admin/administrators')
 def page(request: Request, q: str = Query('', max_length=128), status: str = '',
-         page: int = Query(1, ge=1), saved: bool = False):
+         page: int = Query(1, ge=1), saved: bool = False, deleted: bool = False):
     if status not in ('', 'enabled', 'disabled'):
         raise HTTPException(400, '无效状态筛选')
     with request.app.state.sessions() as db:
@@ -54,7 +54,7 @@ def page(request: Request, q: str = Query('', max_length=128), status: str = '',
         items = db.scalars(query.order_by(func.coalesce(Admin.updated_at, Admin.created_at).desc(), Admin.id.desc()).offset((page-1)*PAGE_SIZE).limit(PAGE_SIZE)).all()
         return request.app.state.templates.TemplateResponse(request=request, name='administrators.html', context={
             'admin': actor, 'csrf': session.csrf, 'items': items, 'count': count,
-            'page': page, 'q': q, 'status': status, 'saved': saved,
+            'page': page, 'q': q, 'status': status, 'saved': saved, 'deleted': deleted,
             'previous': str(request.url.include_query_params(page=page-1)),
             'next': str(request.url.include_query_params(page=page+1))})
 
@@ -81,23 +81,6 @@ def create(request: Request, csrf: str = Form(max_length=64),
         db.flush()
         save_audit(db, actor, 'create', None, item)
         return JSONResponse({'username': item.username, 'password': password}, status_code=201)
-
-
-@router.post('/admin/administrators/{item_id}/name')
-def change_name(request: Request, item_id: int, csrf: str = Form(max_length=64),
-                display_name: str = Form('', max_length=128)):
-    with request.app.state.sessions() as db:
-        actor = authorize_form(request, db, csrf)
-        require_super(actor)
-        item = db.get(Admin, item_id)
-        if item is None:
-            raise HTTPException(404, '管理员不存在')
-        display_name = display_name.strip()
-        if not display_name:
-            raise HTTPException(400, '请填写管理员姓名')
-        before = audit_state(item)
-        item.display_name = display_name
-        return save_audit(db, actor, 'update_name', before, item)
 
 
 @router.post('/admin/administrators/{item_id}/status')
@@ -134,3 +117,25 @@ def reset_password(request: Request, item_id: int, csrf: str = Form(max_length=6
         db.execute(delete(Session).where(Session.admin_id == item.id))
         save_audit(db, actor, 'reset_password', before, item)
         return JSONResponse({'username': item.username, 'password': password}, status_code=201)
+
+
+@router.post('/admin/administrators/{item_id}/delete')
+def remove(request: Request, item_id: int, csrf: str = Form(max_length=64),
+           confirmation: str = Form('', max_length=16)):
+    with request.app.state.sessions() as db:
+        actor = authorize_form(request, db, csrf)
+        require_super(actor)
+        if confirmation != 'yes':
+            raise HTTPException(400, '请输入小写 yes 确认删除')
+        item = db.scalar(select(Admin).where(Admin.id == item_id).with_for_update())
+        if item is None:
+            raise HTTPException(404, '管理员不存在或已被删除，请刷新列表')
+        if item.id == actor.id or item.role != 'admin':
+            raise HTTPException(400, '只能删除普通管理员，不能删除自己或超级管理员')
+        before = audit_state(item)
+        db.execute(delete(Session).where(Session.admin_id == item.id))
+        db.delete(item)
+        db.add(Audit(actor=actor.username, action='administrators.delete',
+            detail=json.dumps({'before': before, 'after': {}}, ensure_ascii=False)))
+        db.commit()
+    return RedirectResponse('/cli-permission/admin/administrators?deleted=1', status_code=303)

@@ -194,11 +194,10 @@
 .administrators-table th:nth-child(3) { width: 13%; }
 .administrators-table th:nth-child(4) { width: 88px; }
 .administrators-table th:nth-child(5) { width: auto; }
-.management-page .administrators-table th.actions { width: 124px; }
+.management-page .administrators-table th.actions { width: 172px; }
 .management-page .administrators-table .badge { padding: 2px 6px; white-space: nowrap; }
 .administrators-table td:nth-child(4) { white-space: nowrap; overflow-wrap: normal; }
 .administrators-table td.actions { white-space: normal; }
-.administrators-table .admin-name-edit { display: block; margin-top: 4px; padding: 0; }
 @media (max-width: 640px) {
   .management-page .administrators-table th, .management-page .administrators-table td { padding-left: 4px; padding-right: 4px; }
   .administrators-table th:nth-child(4) { width: 80px; }

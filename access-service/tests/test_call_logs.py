@@ -71,9 +71,13 @@ def test_log_list_shows_current_person_name_and_unknown_fallback(system):
     login(client)
     html = client.get('/cli-permission/admin/calls').text
     table = html.split('<tbody>')[1].split('</tbody>')[0]
-    assert '<th scope="col">姓名</th>' in html
-    assert '<td data-label="姓名">张三</td>' in table.split('alice')[1].split('</tr>')[0]
-    assert '<td data-label="姓名">—</td>' in table.split('unregistered')[1].split('</tr>')[0]
+    assert '<th scope="col">调用时间</th><th scope="col">用户名 / 姓名</th><th scope="col">环境</th>' in html
+    alice = next(row for row in table.split('<tr>') if '>alice</strong>' in row)
+    assert '<td data-label="用户名 / 姓名"><strong class="call-wrap">alice</strong><small class="call-subline" title="姓名：张三">张三</small></td>' in alice
+    assert alice.index('data-label="用户名 / 姓名"') < alice.index('data-label="环境"')
+    assert '<td data-label="环境"><span class="call-wrap" title="prod">prod</span></td>' in alice
+    unknown = next(row for row in table.split('<tr>') if '>unregistered</strong>' in row)
+    assert '<td data-label="用户名 / 姓名"><strong class="call-wrap">unregistered</strong><small class="call-subline" title="姓名：—">—</small></td>' in unknown
 
 
 def test_log_query_requires_admin_and_filters_with_pagination(system):

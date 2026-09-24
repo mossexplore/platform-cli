@@ -29,13 +29,13 @@
 <section class="panel call-results{% if items|length == 10 %} call-results-full{% endif %}">
 <div class="panel-title"><h2>调用记录 <span class="count">{{ count }} 条</span></h2><span class="muted">按调用时间倒序排列</span></div>
 <div class="call-records"><table class="call-records-table" aria-label="CLI 调用记录">
-<thead><tr><th scope="col">调用时间</th><th scope="col">用户名 / 环境</th><th scope="col">姓名</th><th scope="col">命令名称 / 业务 ID</th><th scope="col">CLI 版本</th><th scope="col">授权结果</th><th scope="col">操作</th></tr></thead>
+<thead><tr><th scope="col">调用时间</th><th scope="col">用户名 / 姓名</th><th scope="col">环境</th><th scope="col">命令名称 / 业务 ID</th><th scope="col">CLI 版本</th><th scope="col">授权结果</th><th scope="col">操作</th></tr></thead>
 <tbody>{% for item in items %}
 {% set timestamp = item.created_at|beijing %}
 <tr>
   <td data-label="调用时间" class="call-time"><time><span>{{ timestamp[:10] }}</span><span>{{ timestamp[11:] }}</span></time></td>
-  <td data-label="用户名 / 环境"><strong class="call-wrap">{{ item.actor }}</strong><small class="call-subline" title="环境：{{ item.environment }}">环境：{{ item.environment }}</small></td>
-  <td data-label="姓名">{{ names.get(item.actor) or '—' }}</td>
+  <td data-label="用户名 / 姓名"><strong class="call-wrap">{{ item.actor }}</strong><small class="call-subline" title="姓名：{{ names.get(item.actor) or '—' }}">{{ names.get(item.actor) or '—' }}</small></td>
+  <td data-label="环境"><span class="call-wrap" title="{{ item.environment }}">{{ item.environment }}</span></td>
   <td data-label="命令名称 / 业务 ID"><span class="mono call-wrap" title="{{ item.command }}">{{ item.command }}</span><small class="call-subline call-business" title="业务 ID：{{ item.business_id }}">业务 ID：{{ item.business_id }}</small></td>
   <td data-label="CLI 版本"><span class="mono call-wrap" title="{{ item.cli_version }}">{{ item.cli_version }}</span><small class="call-subline">{{ '网关检查' if item.check_source=='gateway' else '客户端预检查' }}</small></td>
   <td data-label="授权结果"><span class="badge {{ 'positive' if item.allowed else 'danger' }}">{{ '通过' if item.allowed else '拒绝或异常' }}</span>{% if not item.allowed %}<small class="call-subline call-reason" title="{{ reason_labels.get(item.reason, '未知原因，请联系管理员') }}">{{ reason_labels.get(item.reason, '未知原因，请联系管理员') }}</small>{% endif %}</td>
