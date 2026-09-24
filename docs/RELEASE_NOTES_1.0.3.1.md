@@ -9,7 +9,7 @@ CLI 与权限管理系统均为 **1.0.3.1**。本版重新构建两个 Windows Z
 - 管理员账号新增独立的姓名字段，新增账号时必填；历史账号可由超级管理员补录。管理员管理与操作审计显示管理员当前姓名。
 - 已停用的版本策略可由超级管理员删除；删除后从管理列表移除、不可重新启用，关联有效临时例外撤销。策略、例外和审计历史保留在数据库。
 - CLI 的 Web Studio Jupyter 连接支持按实例 region 选择网关地址，并在请求前建立会话、携带网关设置的 Cookie 与 XSRF 标记；单一 `server_url` 配置仍可继续使用。
-- CLI 为 `ml jupyter run` 和 `ml webstudio list` 补齐 `-o` 输出格式短选项，并改进 Web Studio 连接诊断。诊断中显示的完整访问地址可能包含 token，须按凭据保护终端输出。
+- CLI 为 `ml jupyter notebook run` 和 `ml webstudio list` 补齐 `-o` 输出格式短选项，并改进 Web Studio 连接诊断。诊断中显示的完整访问地址可能包含 token，须按凭据保护终端输出。
 
 ## 下载附件
 
