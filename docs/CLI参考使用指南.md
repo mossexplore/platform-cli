@@ -810,12 +810,12 @@ POST `/ai/backend/modelDev/algorithmWarehouse/list`；请求包含 `version="1.0
 
 ```bash
 ml algorithm download 334868d4-a90e-45bd-9424-ed9a61c237d6
-ml algorithm download 334868d4-a90e-45bd-9424-ed9a61c237d6 --file ./my-algorithm.bin
+ml algorithm download 334868d4-a90e-45bd-9424-ed9a61c237d6 --file ./my-algorithm
 ```
 
 `ALGORITHM_ID` 必填；可选 `--file PATH` 指定保存路径，父目录须已存在。先 GET `/ai/backend/mtp/algorithm/downloadurl`，查询参数为当前业务 `businessId` 和用户传入的 `algorithmId`。仅当 `result.code` 为整数 `0` 且 `result.url` 为有效 HTTPS 地址时，输出“算法仓下载链接：<url>”并开始下载。该链接可能含签名信息，转发终端记录时应注意保护。
 
-文件下载使用独立连接，不向下载地址或跳转地址发送平台 Cookie、CSRF、`businessid`；跳转目标也必须为 HTTPS，证书校验沿用当前环境 `verify_ssl`。进度或已下载字节数显示在 stderr；成功后在 stdout 显示文件绝对路径和字节数。默认文件名优先取下载响应的 `Content-Disposition`，否则取下载 URL 路径末段，仍无有效名称时使用算法仓 ID；不强制添加 `.zip` 等扩展名。已有同名文件自动加 ` (1)` 等后缀，不覆盖；传输不完整或保存失败会清理临时文件并以非零状态退出。
+文件下载使用独立连接，不向下载地址或跳转地址发送平台 Cookie、CSRF、`businessid`；跳转目标也必须为 HTTPS，证书校验沿用当前环境 `verify_ssl`。进度或已下载字节数显示在 stderr；成功后在 stdout 显示文件绝对路径和字节数。默认文件名优先取下载响应的 `Content-Disposition`，否则取下载 URL 路径末段，仍无有效名称时使用算法仓 ID。最终文件名统一以 `.zip` 结尾：名称原本已有 `.zip`（不区分大小写）时不重复添加，否则追加 `.zip`；例如指定 `--file ./my-algorithm` 会保存为 `./my-algorithm.zip`。已有同名文件自动加 ` (1)` 等后缀，不覆盖；传输不完整或保存失败会清理临时文件并以非零状态退出。
 
 ### `ml algorithm clone`
 

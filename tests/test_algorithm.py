@@ -81,7 +81,8 @@ class AlgorithmCommandTest(unittest.TestCase):
     def test_download_gets_url_then_saves_without_forwarding_credentials(self):
         with tempfile.TemporaryDirectory() as directory:
             destination = Path(directory) / "artifact.bin"
-            destination.write_bytes(b"old")
+            existing = Path(directory) / "artifact.bin.zip"
+            existing.write_bytes(b"old")
             requests = []
 
             def platform(request):
@@ -108,9 +109,24 @@ class AlgorithmCommandTest(unittest.TestCase):
                 result = self.invoke(["download", "abc", "--file", str(destination)], platform)
             self.assertEqual(result.exit_code, 0, result.output)
             self.assertIn("算法仓下载链接：https://files.example.com/signed?key=secret", result.output)
-            self.assertEqual(destination.read_bytes(), b"old")
-            self.assertEqual((Path(directory) / "artifact (1).bin").read_bytes(), b"new-content")
+            self.assertEqual(existing.read_bytes(), b"old")
+            self.assertFalse(destination.exists())
+            saved = Path(directory) / "artifact.bin (1).zip"
+            self.assertEqual(saved.read_bytes(), b"new-content")
+            self.assertIn(str(saved), result.output)
             self.assertEqual(len(requests), 1)
+
+    def test_download_keeps_existing_zip_suffix(self):
+        with tempfile.TemporaryDirectory() as directory:
+            target = Path(directory) / "algorithm.ZIP"
+            path, size = download_algorithm(
+                "https://files.example.com/object", "abc", target,
+                transport=httpx.MockTransport(lambda _request: httpx.Response(
+                    200, headers={"content-type": "application/octet-stream"}, content=b"zip")),
+            )
+            self.assertEqual(path, target)
+            self.assertEqual(path.read_bytes(), b"zip")
+            self.assertEqual(size, 3)
 
     def test_download_rejects_invalid_url_before_file_request(self):
         def platform(_request):

@@ -64,6 +64,8 @@ def download_algorithm(
                         response.headers.get("content-disposition", ""), current, algorithm_id,
                     ))
                     target = target.expanduser().absolute()
+                    if not target.name.lower().endswith(".zip"):
+                        target = target.with_name(f"{target.name}.zip")
                     if not target.parent.is_dir():
                         raise ApiError(f"目标目录不存在：{target.parent}")
                     length = response.headers.get("content-length", "")
