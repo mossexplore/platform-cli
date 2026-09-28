@@ -1,4 +1,4 @@
-# 命令行参考使用指南
+# WiseRec CLI 使用手册
 
 `ml` 是 WiseRec 平台的命令行客户端。本文档按使用顺序说明安装、环境与业务选择、各模块命令、配置和常见问题。实际安装版本可通过 `ml --version` 查看。示例中的 `TASK_ID`、`JOB_ID`、`PROJECT_ID`、`NAMESPACE_ID`、`EXPERIMENT_ID`、`SET_ID` 均须替换为对应资源的真实 ID；它们不是同一种 ID。
 

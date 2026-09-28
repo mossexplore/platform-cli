@@ -295,7 +295,7 @@ ml jupyter terminal open
 | `offline experiment trial list` | `--page` `--page-size` `--name` `--type` `--creator` `--updater` `--ai-module` |
 | `offline experiment clone` | `--name`（必填）`--yes/-y` `--dry-run` |
 
-> 完整的逐命令参数说明见 [docs/CLI参考使用指南.md](CLI参考使用指南.md)。
+> 完整的逐命令参数说明见 [docs/WiseRec CLI 使用手册.md](WiseRec%20CLI%20使用手册.md)。
 
 ---
 
@@ -657,7 +657,7 @@ ml business show
 
 ## 参见
 
-- [docs/CLI参考使用指南.md](CLI参考使用指南.md) — 每个命令、参数、配置项与退出行为的完整参考
+- [docs/WiseRec CLI 使用手册.md](WiseRec%20CLI%20使用手册.md) — 每个命令、参数、配置项与退出行为的完整参考
 - [docs/REQUIREMENTS_DESIGN_SPEC.md](REQUIREMENTS_DESIGN_SPEC.md) — 功能设计与实现细节规格
 - [scripts/windows/INSTALL.md](../scripts/windows/INSTALL.md) — Windows 安装器详细说明
 

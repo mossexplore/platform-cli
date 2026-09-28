@@ -41,7 +41,7 @@ ml --help
 
 将 `dev` 替换为实际环境名称。安装器使用独立虚拟环境，无需管理员权限；离线包包含 Python 依赖，不包含 Python 和 Edge 本体。
 
-完整命令和参数见 [CLI 使用指南](docs/CLI参考使用指南.md)，企业包源与安装问题见 [Windows 安装说明](scripts/windows/INSTALL.md)。
+完整命令和参数见 [WiseRec CLI 使用手册](docs/WiseRec%20CLI%20使用手册.md)，企业包源与安装问题见 [Windows 安装说明](scripts/windows/INSTALL.md)。
 
 ## 部署权限管理系统
 
@@ -76,7 +76,7 @@ docker load -i cli-access-1.0.3.2-linux-amd64.tar.gz
 
 替换为客户端实际可访问的地址。地址为空或未配置时，业务调用会报配置错误并停止。确需关闭时，在 `access_control` 中显式设置 `"enable": false`；默认配置无需写 `enable`。完成登录和业务选择后，执行 `ml access status` 验证授权。
 
-升级或重装 CLI 会覆盖用户默认配置，请先备份自定义设置，安装后核对平台地址和权限服务配置。配置位置、覆盖规则和授权排查见 [CLI 使用指南](docs/CLI参考使用指南.md)。
+升级或重装 CLI 会覆盖用户默认配置，请先备份自定义设置，安装后核对平台地址和权限服务配置。配置位置、覆盖规则和授权排查见 [WiseRec CLI 使用手册](docs/WiseRec%20CLI%20使用手册.md)。
 
 ## 更多文档
 

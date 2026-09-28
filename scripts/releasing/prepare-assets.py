@@ -57,7 +57,7 @@ manifest['validation'] = [
 shutil.copyfile('docs/权限管理系统Docker安装部署与调试指南.md', out / 'Docker-runbook.md')
 shutil.copyfile('docs/权限管理系统1.0.3.1升级至1.0.3.2指南.md', out / 'Docker-upgrade-1.0.3.2.md')
 shutil.copyfile('scripts/windows/INSTALL.md', out / 'CLI-install.md')
-shutil.copyfile('docs/CLI参考使用指南.md', out / 'CLI-reference.md')
+shutil.copyfile('docs/WiseRec CLI 使用手册.md', out / 'CLI-reference.md')
 lines = []
 for path in sorted(out.iterdir()):
     if path.name != 'SHA256SUMS':

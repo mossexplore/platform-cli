@@ -63,4 +63,4 @@ ml jupyter terminal close <终端名称>
 - `webstudio login` 以及 Web Studio 模式下的每条 Jupyter 命令都会重新查询实例地址。输出的完整访问地址可能包含 Token，不要转发到群聊、工单或公共日志。
 - 临时操作其他实例可在 Jupyter 命令后增加 `--studio-id <Web-Studio-ID>`，不会修改默认实例。
 
-完整参数见 [CLI 参考使用指南](CLI参考使用指南.md)；本地 Jupyter Server 的开发和联调方式见 [Jupyter 本地开发与 Web Studio 联调](Jupyter本地开发指南.md)。
+完整参数见 [WiseRec CLI 使用手册](WiseRec%20CLI%20使用手册.md)；本地 Jupyter Server 的开发和联调方式见 [Jupyter 本地开发与 Web Studio 联调](Jupyter本地开发指南.md)。

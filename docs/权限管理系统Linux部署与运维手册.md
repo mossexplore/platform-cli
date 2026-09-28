@@ -518,7 +518,7 @@ CLI 所在机器 → 权限域名/Nginx:443 → 127.0.0.1:8008 权限服务 → 
 | 健康检查 | 两种方式均为 `curl --noproxy '*' http://127.0.0.1:8008/cli-permission/healthz` | 同左 |
 | 业务授权记录 | 管理台“CLI 调用日志” | 同左 |
 
-相关资料：[服务说明](../access-service/README.md)、[包内快速开始](../access-service/QUICKSTART.md)、[CLI 参考使用指南](CLI参考使用指南.md)。本手册根据代码核对，目标 Linux、MySQL 与 Nginx 的实际可用性仍需按上述步骤在部署环境验收。
+相关资料：[服务说明](../access-service/README.md)、[包内快速开始](../access-service/QUICKSTART.md)、[WiseRec CLI 使用手册](WiseRec%20CLI%20使用手册.md)。本手册根据代码核对，目标 Linux、MySQL 与 Nginx 的实际可用性仍需按上述步骤在部署环境验收。
 
 ## 13. 完整命令日志与分页更新
 
