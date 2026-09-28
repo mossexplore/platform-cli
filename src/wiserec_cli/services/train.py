@@ -72,7 +72,8 @@ class TrainService:
         result = self._result(payload)
         return self._page(result.get("data"), "taskInfos", page_index, page_size)
 
-    def find_task(self, task_id: str) -> Dict[str, Any]:
+    def find_task(self, task_id: str,
+                  required_fields: tuple[str, ...] = ("businessId", "taskType")) -> Dict[str, Any]:
         task_id = task_id.strip()
         if not task_id:
             raise ValueError("taskId 不能为空")
@@ -82,8 +83,10 @@ class TrainService:
             result = self.list_tasks(page_index=page)
             for task in result["items"]:
                 if task.get("taskId") == task_id:
-                    for field in ("businessId", "taskType"):
-                        if not isinstance(task.get(field), str) or not task[field].strip():
+                    for field in required_fields:
+                        if not isinstance(task.get(field), str) or (
+                            field != "teamId" and not task[field].strip()
+                        ):
                             raise ApiError(f"训练任务缺少有效的 {field}")
                     return task
             if not result["items"] or page * result["pageSize"] >= result["count"]:
@@ -96,7 +99,7 @@ class TrainService:
             page += 1
         raise ApiError(f"当前业务下未找到训练任务 {task_id}")
 
-    def list_instances(self, task: Dict[str, Any]) -> Dict[str, Any]:
+    def list_instances(self, task: Dict[str, Any], page: int = 1, size: int = 10) -> Dict[str, Any]:
         for field in ("taskId", "businessId", "taskType"):
             if not isinstance(task.get(field), str) or not task[field].strip():
                 raise ApiError(f"训练任务缺少有效的 {field}")
@@ -104,11 +107,115 @@ class TrainService:
             "POST", "/ai/backend/mtp/traintask/queryJobInstanceByTaskId",
             json_body={
                 "taskId": task["taskId"], "businessId": task["businessId"],
-                "jobType": task["taskType"], "pageIndex": 1, "pageSize": 10,
+                "jobType": task["taskType"], "pageIndex": page, "pageSize": size,
                 "sortField": "createTime", "sortOrder": "ascend",
             },
         )
-        return self._page(self._result(payload), "jobs", 1, 10)
+        return self._page(self._result(payload), "jobs", page, size)
+
+    def all_instances(self, task: Dict[str, Any]) -> list[Dict[str, Any]]:
+        """分页取全并拒绝重复页，避免遗漏或重复取消。"""
+        items: list[Dict[str, Any]] = []
+        seen: set[str] = set()
+        page = 1
+        while True:
+            result = self.list_instances(task, page)
+            batch = result["items"]
+            for item in batch:
+                job_id = item.get("jobId")
+                task_name = item.get("taskName")
+                if not isinstance(job_id, str) or not job_id.strip():
+                    raise ApiError("执行实例缺少有效的 jobId")
+                if not isinstance(task_name, str) or not task_name.strip():
+                    raise ApiError(f"执行实例 {job_id} 缺少有效的 taskName")
+                if job_id in seen:
+                    raise ApiError(f"执行实例分页重复返回 jobId：{job_id}")
+                seen.add(job_id)
+                items.append(item)
+            if len(items) >= result["count"]:
+                return items
+            if not batch:
+                raise ApiError("执行实例分页提前结束，无法确认完整列表")
+            page += 1
+
+    def cancel_instance(self, task_id: str, job_id: str, task_name: str) -> str:
+        from ..errors import AuthenticationError
+        try:
+            payload = self.client.request(
+                "POST", "/ai/backend/mtp/train/cancelMultiInstanceTask",
+                json_body={"version": "1.0", "meta": {"uuid": str(uuid4())},
+                           "data": {"taskId": task_id, "jobId": job_id},
+                           "eventTarget": task_name},
+            )
+        except AuthenticationError as exc:
+            raise ApiError(f"取消执行实例 {job_id} 的结果未能确认：{exc}；请查询实例状态") from exc
+        result = self._action_result(payload, "取消执行实例")
+        return str(result.get("des") or "")
+
+    def delete_task(self, task: Dict[str, Any]) -> None:
+        for field in ("taskId", "teamId", "taskName"):
+            if not isinstance(task.get(field), str) or (field != "teamId" and not task[field].strip()):
+                raise ApiError(f"训练任务缺少有效的 {field}")
+        try:
+            payload = self.client.request(
+                "POST", "/ai/backend/modelDev/modelTrain/v2/delete",
+                json_body={"taskId": task["taskId"], "teamId": task["teamId"],
+                           "target": task["taskName"], "softDeleteFlag": True},
+            )
+        except AuthenticationError as exc:
+            raise ApiError(f"删除训练任务结果未能确认：{exc}；请查询任务列表") from exc
+        self._action_result(payload, "删除训练任务")
+
+    def clone_detail(self, task: Dict[str, Any]) -> Dict[str, Any]:
+        if not isinstance(task.get("teamId"), str):
+            raise ApiError("训练任务缺少有效的 teamId")
+        payload = self.client.request(
+            "POST", "/ai/backend/modelDev/modelTrain/detailNew",
+            json_body={"data": {"id": task["taskId"],
+                                "businessId": self.client.business_id,
+                                "teamId": task["teamId"]}},
+        )
+        result = self._action_result(payload, "获取训练任务详情")
+        detail = result.get("data")
+        if not isinstance(detail, dict):
+            raise ApiError("获取训练任务详情失败：缺少有效的 result.data")
+        return detail
+
+    def clone_task(self, detail: Dict[str, Any], name: str,
+                   customize_config: Optional[str]) -> Optional[str]:
+        if not name.strip():
+            raise ValueError("克隆后新任务名称不能为空")
+        data = deepcopy(detail)
+        info = data.get("taskInfo")
+        if not isinstance(info, dict) or not isinstance(info.get("baseInfo"), dict):
+            raise ApiError("训练任务详情缺少有效的 taskInfo.baseInfo")
+        data["name"] = name
+        info["baseInfo"]["taskName"] = name
+        if customize_config is not None:
+            if info.get("parameter") is None:
+                info["parameter"] = {}
+            if not isinstance(info["parameter"], dict):
+                raise ApiError("训练任务详情的 taskInfo.parameter 不是对象")
+            info["parameter"]["customizeConfig"] = customize_config
+        try:
+            payload = self.client.request(
+                "POST", "/ai/backend/modelDev/modelTrain/createNew",
+                json_body={"data": data},
+            )
+        except AuthenticationError as exc:
+            raise ApiError(f"克隆训练任务结果未能确认：{exc}；请查询任务列表") from exc
+        result = self._action_result(payload, "克隆训练任务")
+        created = result.get("data")
+        return created.get("id") if isinstance(created, dict) and isinstance(created.get("id"), str) else None
+
+    @staticmethod
+    def _action_result(payload: Any, action: str) -> Dict[str, Any]:
+        result = payload.get("result") if isinstance(payload, dict) else None
+        if not isinstance(result, dict):
+            raise ApiError(f"{action}失败：响应缺少 result")
+        if type(result.get("code")) is not int or result["code"] != 0:
+            raise ApiError(f"{action}失败：code={result.get('code')}，des={result.get('des')}")
+        return result
 
     def list_history(self, task_id: str) -> Dict[str, Any]:
         """直接查询任务执行记录，固定第一页，按创建时间倒序。"""

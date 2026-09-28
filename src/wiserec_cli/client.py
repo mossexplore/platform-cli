@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from contextlib import contextmanager
 from typing import Any, Dict, Mapping, Optional
 
 import httpx
@@ -113,3 +114,26 @@ class PlatformClient:
             return response.json()
         except ValueError as exc:
             raise ApiError(f"接口没有返回有效 JSON: {response.text[:500]}") from exc
+
+    @contextmanager
+    def stream(self, method: str, path: str, *, params: Optional[Mapping[str, Any]] = None):
+        """以当前登录和业务请求头读取平台文件响应。"""
+        try:
+            with self._client.stream(
+                method, path, params=params,
+                headers=self._request_headers({"Accept-Encoding": "identity"}),
+            ) as response:
+                # 流式成功响应尚未读取，response.json() 会触发 ResponseNotRead。
+                # 仅对错误或 JSON 响应读取包装体，以保留版本准入诊断。
+                if not response.is_success or "json" in response.headers.get("content-type", "").lower():
+                    response.read()
+                    check_version_response(response)
+                if response.status_code in {401, 403, 419, 440}:
+                    raise AuthenticationError(f"认证信息已被服务端拒绝，HTTP {response.status_code}")
+                if 300 <= response.status_code < 400:
+                    raise AuthenticationError(f"接口请求被重定向，HTTP {response.status_code}")
+                if not response.is_success:
+                    raise ApiError(f"接口请求失败，HTTP {response.status_code}")
+                yield response
+        except httpx.HTTPError as exc:
+            raise ApiError(f"下载请求失败: {exc}") from exc

@@ -2,7 +2,7 @@
 
 只需查看版本、选择环境、登录和查询训练任务，请阅读 [CLI 快速使用指南](CLI快速使用指南.md)。
 
-`ml` 是 **WiseRec 平台** 的 Python 命令行客户端（包名 `wiserec-cli`，当前版本 `1.0.3.2`）。与权限管理系统 1.0.3.2 同版发布；Windows 安装包和 Wheel 均重新构建。
+`ml` 是 **WiseRec 平台** 的 Python 命令行客户端（包名 `wiserec-cli`，源码当前版本 `1.0.3.3`）。已发布的权限管理系统和 CLI 正式版本仍为 `1.0.3.2`；本次源码版本尚未正式发布。
 本文档覆盖命令参数、配置项与退出行为；2026-09-20 新增 Jupyter Notebook 与 Terminal 使用说明。示例中的 `TASK_ID`、`JOB_ID`、`PROJECT_ID`、`NAMESPACE_ID`、`EXPERIMENT_ID`、`SET_ID` 均须替换为对应资源的真实 ID；它们不是同一种 ID。
 
 > 阅读前提：查询平台数据前建议先完成 `ml login` 和 `ml business use`。`user`、`mep`、`mtp`、`offline`、`train`、`featureset` 需要有效认证和业务选择；`business list/use/refresh` 用于建立或维护业务上下文，不要求预先选好业务。没有认证或认证过期时，相关命令会自动启动 Edge 登录。
@@ -62,7 +62,7 @@ ml - WiseRec平台命令行客户端
   mep                MEP 管理
   mtp                MTP 管理（训练看板）
   offline            离线业务管理
-  train              训练任务查询
+  train              训练任务查询与执行管理
   featureset         特征集查询
 ```
 
@@ -99,6 +99,10 @@ ml - WiseRec平台命令行客户端
 | `ml offline experiment clone <project_id>` | 按源实验配置创建新名称的离线实验 |
 | `ml train list` | 分页查询训练任务 |
 | `ml train instance list TASK_ID` | 查询执行实例，固定第一页 10 条 |
+| `ml train config export TASK_ID` | 下载训练任务 YAML 配置 |
+| `ml train cancel TASK_ID` | 逐个取消所有执行实例 |
+| `ml train delete TASK_ID` | 软删除训练任务 |
+| `ml train clone TASK_ID --name NAME` | 基于详情克隆训练任务 |
 | `ml train history list TASK_ID` | 查询执行记录，固定第一页 10 条 |
 | `ml train history logs download TASK_ID JOB_ID` | 下载执行记录日志 |
 | `ml train config update TASK_ID --customize-config VALUE` | 更新训练任务自定义参数 |
@@ -563,6 +567,48 @@ ml offline experiment clone abc123 --name "训练-副本" --dry-run
 
 所有命令使用当前环境的有效认证及业务选择。先用 `ml train list` 获取 `taskId`；执行实例和执行记录返回 `jobId`，下载日志时须同时提供所属任务 ID 与执行记录 ID。
 
+### `ml train config export`
+
+下载指定训练任务的 YAML 配置。先完成 `ml login` 和 `ml business use`；`businessId` 查询参数和 `businessid` 请求头均取当前环境 `business.json` 的 `selected.businessId`，请求地址使用当前环境 `config.json` 的 `api_endpoint`。
+
+```bash
+ml train config export 69f3778e-6a41-44e7-92f1-616bd79cf2ab
+ml train config export 69f3778e-6a41-44e7-92f1-616bd79cf2ab --file ./my-task.yaml
+```
+
+`TASK_ID` 必填，取 `ml train list` 的 `taskId`。可选 `--file PATH` 指定保存路径，父目录须已存在；不指定时使用响应 `Content-Disposition` 文件名，缺失时使用 `<TASK_ID>.yaml`。下载过程在 stderr 显示进度或已下载字节数，成功后在 stdout 显示绝对路径及文件大小。已有同名文件不会被覆盖，自动增加 ` (1)` 等后缀；下载失败不会留下目标文件。
+
+### `ml train cancel`
+
+取消任务当前查询到的全部执行实例。`TASK_ID` 必填；可选 `--yes` / `-y` 跳过确认。命令先精确查找当前业务的任务，再逐页调用 `/ai/backend/mtp/traintask/queryJobInstanceByTaskId` 取全实例，以各实例的 `jobId` 和 `taskName` 分别调用 `/ai/backend/mtp/train/cancelMultiInstanceTask`。请求体包含 `version="1.0"`、随机 `meta.uuid`、`data.taskId`、`data.jobId` 和 `eventTarget=taskName`。
+
+```bash
+ml train cancel 69f3778e-6a41-44e7-92f1-616bd79cf2ab
+ml train cancel 69f3778e-6a41-44e7-92f1-616bd79cf2ab --yes
+```
+
+列表为空时输出“没有正在执行的任务，无法取消任务执行！”并以非零状态退出。默认先展示待取消数量并询问确认。每个实例取消后立即输出“取消训练任务<TASK_ID>的执行实例<JOB_ID>成功，响应描述是<DES>”；失败信息写入 stderr，随后继续其他实例。末尾汇总成功和失败数量；任一失败时退出码非零。结果不明的写请求不自动重发，先查询实例状态。
+
+### `ml train delete`
+
+软删除当前业务下的任务。`TASK_ID` 必填；可选 `--yes` / `-y` 跳过确认。命令从任务列表读取 `teamId` 和 `taskName`，向 `/ai/backend/modelDev/modelTrain/v2/delete` 提交 `taskId`、`teamId`、`target=taskName`、`softDeleteFlag=true`。默认显示任务名称、ID 和团队后询问确认。仅当 `result.code` 为数字 `0` 时输出“删除训练任务<TASK_ID>成功”。
+
+```bash
+ml train delete f1f38705-9c50-49fc-ac5a-4848ee97304a
+ml train delete f1f38705-9c50-49fc-ac5a-4848ee97304a --yes
+```
+
+### `ml train clone`
+
+按源任务完整详情创建副本。`TASK_ID` 必填，`--name NAME` 必填；`--customize-config VALUE` 可选，按字符串原样传递。`--yes` / `-y` 可跳过确认。先从列表读取 `teamId`，请求 `/ai/backend/modelDev/modelTrain/detailNew`，其中 `data.id=TASK_ID`、`data.businessId=当前业务 ID`、`data.teamId=列表中的 teamId`。详情成功后输出“获取训练任务<TASK_ID>详情成功”。
+
+```bash
+ml train clone af33f3e1-b0b3-4b31-833a-4851cb340749 --name "新训练任务"
+ml train clone af33f3e1-b0b3-4b31-833a-4851cb340749 --name "新训练任务" --customize-config "0096999" --yes
+```
+
+创建请求的 `data` 完整复制详情 `result.data`，仅覆盖 `data.name`、`data.taskInfo.baseInfo.taskName`；提供自定义参数时再覆盖 `data.taskInfo.parameter.customizeConfig`。响应 `result.code` 为数字 `0` 时输出“克隆训练任务<TASK_ID>成功”；若返回新任务 `result.data.id`，另显示新任务 ID。详情或创建失败则报错，不输出克隆成功；结果不明的创建请求不自动重发。
+
 ### `ml train config update`
 
 先查询训练任务详情，再更新自定义参数，执行命令即提交更新。任务名称从详情读取，不再提供 `--name`。
@@ -647,7 +693,7 @@ ml train history list TASK_ID -o json
 - 表格缺失值、`null`、空字符串显示 `-`，数值零保留。毫秒时间戳转换为北京时间（UTC+8）的 `YYYY-MM-DD HH:mm:ss`。
 - 大小按 1024 进制换算：零为 `0B`，不足 1 GiB 显示两位小数的 `M`，其余显示两位小数的 `G`。内存、状态和触发方式沿用响应原值，不另行推测单位或中文含义。
 - 页尾展示页码、每页条数、总数和时区；实例/记录总数超过 10 时提示仅展示第一页。
-- 实例和执行记录的作业 ID 首列固定宽度 36，不换行、不截断；其余长字段优先换行。任务列表的 `taskId` 列当前仍随终端布局换行，复制时可使用 JSON。
+- 实例和执行记录的作业 ID、任务列表的任务 ID 首列固定宽度 36，不换行、不截断；其余长字段优先换行。
 
 ### `ml train history logs download`
 

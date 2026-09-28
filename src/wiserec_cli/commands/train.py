@@ -17,6 +17,7 @@ from rich.progress import Progress, BarColumn, DownloadColumn, TextColumn
 from ..output import console, error_console, print_result
 from ..downloads import download_file
 from ..services.train import TrainService
+from ..services.train_export import export_config
 from .common import fail, runtime_from_context
 
 
@@ -86,6 +87,9 @@ def render_page(
         if field == "jobId":
             table.add_column(title, width=36, min_width=36, max_width=36,
                              no_wrap=True, overflow="ignore")
+        elif field == "taskId" and task is None and history_task_id is None:
+            table.add_column(title, width=36, min_width=36, max_width=36,
+                             no_wrap=True, overflow="ignore")
         else:
             table.add_column(title, overflow="fold", min_width=1)
     now_ms = int(time.time() * 1000)
@@ -115,6 +119,157 @@ def selected_output(runtime: Any, output: Optional[str]) -> str:
     if selected not in {"table", "json"}:
         raise ValueError("output 仅支持 table 或 json")
     return selected
+
+
+@config_app.command("export")
+def export_train_config(
+    context: typer.Context,
+    task_id: str = typer.Argument(..., help="训练任务 ID"),
+    file: Optional[Path] = typer.Option(None, "--file", help="本地保存路径，父目录须已存在"),
+) -> None:
+    """导出并下载训练任务的 YAML 配置。"""
+    try:
+        if not task_id.strip():
+            raise ValueError("taskId 不能为空")
+        if file is not None and not file.expanduser().absolute().parent.is_dir():
+            raise ValueError(f"目标目录不存在：{file.expanduser().absolute().parent}")
+        runtime = runtime_from_context(context)
+        with Progress(TextColumn("下载训练任务配置"), BarColumn(), DownloadColumn(),
+                      console=error_console) as progress:
+            progress_id = progress.add_task("export", total=None)
+            with redirect_stdout(sys.stderr):
+                path, size = runtime.authenticated_call(
+                    lambda client: export_config(
+                        client, task_id, file,
+                        progress=lambda done, total: progress.update(
+                            progress_id, completed=done, total=total,
+                        ),
+                    )
+                )
+        typer.echo(f"训练任务配置已下载：{path}（{size} 字节）")
+    except Exception as exc:
+        fail(exc)
+
+
+@train_app.command("cancel")
+def cancel_task(
+    context: typer.Context,
+    task_id: str = typer.Argument(..., help="训练任务 ID"),
+    yes: bool = typer.Option(False, "--yes", "-y", help="跳过批量取消确认"),
+) -> None:
+    """查询所有执行实例并逐个取消。"""
+    failed = 0
+    try:
+        task_id = task_id.strip()
+        if not task_id:
+            raise ValueError("taskId 不能为空")
+        runtime = runtime_from_context(context)
+
+        def query(client):
+            service = TrainService(client)
+            task = service.find_task(task_id)
+            return service.all_instances(task)
+
+        with redirect_stdout(sys.stderr):
+            instances = runtime.authenticated_call(query)
+        if not instances:
+            typer.echo("没有正在执行的任务，无法取消任务执行！")
+            raise typer.Exit(code=1)
+        typer.echo(f"训练任务 {task_id} 有 {len(instances)} 个执行实例待取消。")
+        if not yes and not typer.confirm("确认逐个取消全部执行实例？", default=False):
+            typer.echo("已取消操作")
+            return
+        for instance in instances:
+            job_id = instance["jobId"]
+            try:
+                with redirect_stdout(sys.stderr):
+                    description = runtime.authenticated_call(
+                        lambda client: TrainService(client).cancel_instance(
+                            task_id, job_id, instance["taskName"],
+                        )
+                    )
+                typer.echo(f"取消训练任务{task_id}的执行实例{job_id}成功，响应描述是{description}")
+            except Exception as exc:
+                failed += 1
+                print(f"取消训练任务{task_id}的执行实例{job_id}失败：{exc}", file=sys.stderr)
+        typer.echo(f"取消完成：成功 {len(instances) - failed} 个，失败 {failed} 个。")
+    except typer.Exit:
+        raise
+    except Exception as exc:
+        fail(exc)
+    if failed:
+        raise typer.Exit(code=1)
+
+
+@train_app.command("delete")
+def delete_task(
+    context: typer.Context,
+    task_id: str = typer.Argument(..., help="训练任务 ID"),
+    yes: bool = typer.Option(False, "--yes", "-y", help="跳过删除确认"),
+) -> None:
+    """软删除当前业务下的训练任务。"""
+    try:
+        task_id = task_id.strip()
+        if not task_id:
+            raise ValueError("taskId 不能为空")
+        runtime = runtime_from_context(context)
+        with redirect_stdout(sys.stderr):
+            task = runtime.authenticated_call(
+                lambda client: TrainService(client).find_task(
+                    task_id, required_fields=("teamId", "taskName"),
+                )
+            )
+        if not isinstance(task.get("teamId"), str) or not isinstance(task.get("taskName"), str):
+            raise ValueError("训练任务缺少 teamId 或 taskName，无法删除")
+        typer.echo(f"待删除训练任务：{task['taskName']} · {task_id}（团队 {task['teamId'] or '-'}）")
+        if not yes and not typer.confirm("确认软删除此任务？", default=False):
+            typer.echo("已取消操作")
+            return
+        with redirect_stdout(sys.stderr):
+            runtime.authenticated_call(lambda client: TrainService(client).delete_task(task))
+        typer.echo(f"删除训练任务{task_id}成功")
+    except Exception as exc:
+        fail(exc)
+
+
+@train_app.command("clone")
+def clone_task(
+    context: typer.Context,
+    task_id: str = typer.Argument(..., help="源训练任务 ID"),
+    name: str = typer.Option(..., "--name", help="克隆后的新任务名称"),
+    customize_config: Optional[str] = typer.Option(
+        None, "--customize-config", help="可选自定义参数，按字符串原样传递",
+    ),
+    yes: bool = typer.Option(False, "--yes", "-y", help="跳过克隆确认"),
+) -> None:
+    """读取完整训练任务详情并创建副本。"""
+    try:
+        task_id = task_id.strip()
+        if not task_id or not name.strip():
+            raise ValueError("taskId 和新任务名称不能为空")
+        runtime = runtime_from_context(context)
+
+        def query(client):
+            service = TrainService(client)
+            task = service.find_task(task_id, required_fields=("teamId",))
+            return task, service.clone_detail(task)
+
+        with redirect_stdout(sys.stderr):
+            task, detail = runtime.authenticated_call(query)
+        typer.echo(f"获取训练任务{task_id}详情成功")
+        typer.echo(f"克隆为：{name}（源任务：{task.get('taskName') or task_id}）")
+        if not yes and not typer.confirm("确认克隆？", default=False):
+            typer.echo("已取消克隆")
+            return
+        with redirect_stdout(sys.stderr):
+            created_id = runtime.authenticated_call(
+                lambda client: TrainService(client).clone_task(detail, name, customize_config)
+            )
+        typer.echo(f"克隆训练任务{task_id}成功")
+        if created_id:
+            typer.echo(f"新任务 ID：{created_id}")
+    except Exception as exc:
+        fail(exc)
 
 
 @train_app.command("start")
