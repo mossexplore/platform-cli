@@ -4,7 +4,7 @@
 
 > 阅读前提：查询平台数据前建议先完成 `ml login` 和 `ml business use`。`user`、`mep`、`mtp`、`offline`、`train`、`algorithm`、`featureset` 需要有效认证和业务选择；`business list/use/refresh` 用于建立或维护业务上下文，不要求预先选好业务。没有认证或认证过期时，相关命令会自动启动 Edge 登录。
 
-## 安装与首次使用
+## 1. 安装与首次使用
 
 需要 Python 3.9+ 和 Microsoft Edge。使用 Windows 安装包时，先完整解压，再运行 `install.cmd`，安装完成后重新打开终端。安装器会用包内默认配置覆盖用户默认 `config.json`；自定义配置请先备份，或通过 `--config` 使用独立文件。需要重建安装环境时使用 `install.cmd -Force`。从源码安装时，在项目根目录执行：
 
@@ -29,7 +29,7 @@ ml train list
 
 将 `dev` 换成配置中存在的环境名。登录可能恢复浏览器中已有的有效业务选择，可先用 `ml business show` 核实；切换环境后需检查新环境的认证和业务选择。
 
-## 全局用法
+## 2. 全局用法
 
 ```text
 ml - WiseRec平台命令行客户端
@@ -61,7 +61,7 @@ ml - WiseRec平台命令行客户端
 
 `ml` 与 `ml --help` 会打印顶层用法。每个子命令同样接受 `--help`；不支持 `-h`。上面省略了框架提供的 `--install-completion` / `--show-completion` 补全选项，完整选项以 `ml --help` 为准。
 
-## 全局选项
+## 3. 全局选项
 
 `--config` 必须写在子命令之前，例如 `ml --config ./config.json train list -o json`。`--output` 是部分末级命令的选项，不是全局选项。
 
@@ -74,7 +74,7 @@ ml - WiseRec平台命令行客户端
 > 配置文件解析优先级：`--config` → `ML_CONFIG` → 当前工作目录的 `config.json` → 用户配置目录的 `config.json`（Windows `%APPDATA%\ml\config.json`、macOS `~/Library/Application Support/ml/config.json`、Linux `$XDG_CONFIG_HOME/ml/config.json`，未设置时为 `~/.config/ml/config.json`）。
 > Windows 安装器每次安装都会用包内 `config.json` 覆盖用户默认配置，包括 `access_control`。直接 pip 安装在首次读取默认配置时也会同步。通过 `--config`、`ML_CONFIG` 或当前目录指定的配置文件不会被安装器覆盖。
 
-## 命令总览
+## 4. 命令总览
 
 | 命令 | 作用 |
 | --- | --- |
@@ -131,23 +131,23 @@ ml - WiseRec平台命令行客户端
 | `ml webstudio start ENV_ID` | 启动指定 Web Studio 实例 |
 | `ml webstudio stop ENV_ID` | 停止指定 Web Studio 实例 |
 
-## `ml login`
+## 5. `ml login`
 
 打开 Microsoft Edge（专用 Profile）完成平台登录，并将 Cookie、CSRF Token、账号、中文名、部门与过期时间按环境保存到本地。登录成功后默认不打印敏感值。
 
-### 命令格式
+### 5.1 命令格式
 
 ```text
 ml login [OPTIONS]
 ```
 
-### 选项
+### 5.2 选项
 
 | 选项 | 默认值 | 说明 |
 | --- | --- | --- |
 | `--show-secrets` | `False` | 登录成功后额外打印完整的 Cookie 和 CSRF Token |
 
-### 说明
+### 5.3 说明
 
 - 认证默认有效 `auth.expires_in_seconds` 秒（默认 1800，即 30 分钟）。
 - 执行命令前会检查有效期；过期时自动打开 Edge 专用 Profile，优先复用已有平台会话，无需重复输入验证码。
@@ -155,31 +155,31 @@ ml login [OPTIONS]
 - `login_timeout`（默认 300000 毫秒 = 5 分钟）控制等待用户登录的最长时间；`business_catalog_timeout`（默认 30000 毫秒）控制读取业务目录的最长等待。
 - 登录成功输出的 `businessId` 读取当前环境 `business.json` 的 `selected.businessId`，与 `ml business show` 的 `businessId` 完全一致；租户级选择时是租户 ID，团队级选择时是该团队的业务 ID。若尚未选中业务，显示“未选择”，可运行 `ml business use`。
 
-### 示例
+### 5.4 示例
 
 ```bash
 ml login
 ml login --show-secrets
 ```
 
-## `ml logout`
+## 6. `ml logout`
 
 清除当前环境的本地短期认证缓存（不影响 Edge 持久会话，方便下次无验证码恢复）。
 
-### 命令格式
+### 6.1 命令格式
 
 ```text
 ml logout [OPTIONS]
 ```
 
-### 选项
+### 6.2 选项
 
 | 选项 | 默认值 | 说明 |
 | --- | --- | --- |
 | `--all` | `False` | 清除**所有**环境的本地认证信息，而非仅当前环境 |
 | `--forget-browser` | `False` | 同时删除专用 Edge Profile，之后登录可能需要重新输入验证码 |
 
-### 示例
+### 6.3 示例
 
 ```bash
 ml logout
@@ -188,17 +188,17 @@ ml logout --forget-browser
 ml logout --all --forget-browser
 ```
 
-## `ml auth status`
+## 7. `ml auth status`
 
 显示当前环境的认证有效期与基础信息，不打印 Cookie 或 Token。该命令只读本地缓存，不自动续期；无缓存时退出码为 1，缓存过期时仍成功输出 `expired`。
 
-### 命令格式
+### 7.1 命令格式
 
 ```text
 ml auth status
 ```
 
-### 输出字段
+### 7.2 输出字段
 
 | 字段 | 说明 |
 | --- | --- |
@@ -212,17 +212,17 @@ ml auth status
 | `acquired_at` | 获取时间（当前机器本地时区，ISO 8601，到秒，不含时区偏移） |
 | `expires_at` | 过期时间（当前机器本地时区，ISO 8601，到秒，不含时区偏移） |
 
-### 示例
+### 7.3 示例
 
 ```bash
 ml auth status
 ```
 
-## `ml env`
+## 8. `ml env`
 
 管理运行环境（profile）。环境定义在 `config.json` 的 `profiles` 数组中，`current` 字段标记当前激活环境。
 
-### `ml env list`
+### 8.1 `ml env list`
 
 列出全部环境，并逐个实时检查当前账号在各环境的权限开通状态。查询只读取各环境已有的本地登录信息与 `business.json` 中该环境的 `selected.businessId`，不会切换当前环境或自动打开浏览器登录。
 
@@ -232,7 +232,7 @@ ml env list
 
 输出字段：`current`（`*` 表示当前）、`name`、`api_endpoint`、`access_status`（权限开通状态）、`output_format`、`verify_ssl`。`access_status` 位于 `api_endpoint` 后：通过为“已开通”，授权拒绝为“未开通”等具体状态；缺少登录或业务选择、权限服务地址未配置、校验关闭以及网络查询失败会分别标明，不能视为已开通。每个具备登录信息与业务选择的环境都会发起一次在线检查，并在权限系统留下调用日志；环境较多时命令耗时会相应增加。
 
-### `ml env show`
+### 8.2 `ml env show`
 
 显示当前环境的完整信息。
 
@@ -242,7 +242,7 @@ ml env show
 
 输出字段：`name`、`api_endpoint`、`base_url`、`output_format`、`verify_ssl`。
 
-### `ml env use`
+### 8.3 `ml env use`
 
 切换当前环境（修改 `config.json` 中的 `current` 字段并落盘）。
 
@@ -254,7 +254,7 @@ ml env use NAME
 | --- | --- | --- |
 | `NAME` | 是 | 目标环境名（必须存在于 `profiles`） |
 
-### 示例
+### 8.4 示例
 
 ```bash
 ml env list
@@ -262,13 +262,13 @@ ml env show
 ml env use dev
 ```
 
-## `ml business`
+## 9. `ml business`
 
 管理部门、租户（服务）和团队上下文。所有平台业务请求统一携带 `businessid` 和 `ai-businessId` 请求头，值来自用户配置目录 `business.json` 的 `profiles.<当前环境>.selected.businessId`，并校验账号与业务目录。租户级选择使用租户 ID，团队级选择使用团队记录的 `businessId`。
 
 > 业务命令要求**至少选择租户**，不能只选择部门；团队仅当其 `teamStatus` 为 `available` 时才允许选择。部门分组名称依次取 `settleTenantName.cn`、`settleTenantName.en`、顶层 `cn`；选择时以 `ml business list` 列出的 ID 为准。
 
-### `ml business list`
+### 9.1 `ml business list`
 
 显示当前环境可见的部门、租户、团队目录，并标记当前选择（`*当前`）。
 
@@ -276,7 +276,7 @@ ml env use dev
 ml business list
 ```
 
-### `ml business show`
+### 9.2 `ml business show`
 
 显示当前已选的租户或团队上下文。
 
@@ -286,7 +286,7 @@ ml business show
 
 输出字段：`type`、`department`、`tenant`、`team`、`businessId`。
 
-### `ml business use`
+### 9.3 `ml business use`
 
 交互式或通过 ID 选择租户/团队。
 
@@ -303,7 +303,7 @@ ml business use [OPTIONS]
 > 不带任何参数时，按「部门 → 租户 → 租户级或团队级」顺序交互选择。
 > 若只传 `--team` 或 `--department` 而未传 `--tenant`，命令会报错：**不能仅选择部门或团队，请同时通过 `--tenant` 指定租户**。
 
-### `ml business refresh`
+### 9.4 `ml business refresh`
 
 打开 Edge 重新读取浏览器中的业务目录并自动关闭 Edge。
 
@@ -313,7 +313,7 @@ ml business refresh
 
 > 已选团队被删除或变为非 `available` 状态时，当前选择会失效，必须重新选择。登录或刷新业务目录后，用 `ml business show` 核对当前选择。
 
-### 示例
+### 9.5 示例
 
 ```bash
 ml business list
@@ -324,7 +324,7 @@ ml business show
 ml business refresh
 ```
 
-## 在线访问授权：`ml access status`
+## 10. 在线访问授权：`ml access status`
 
 默认 `config.json` 已包含 `access_control`，不包含 `enable`，权限校验默认开启。安装后必须填写实际权限服务 `url`；地址为空时业务调用会报配置错误并停止。
 
@@ -357,18 +357,18 @@ ml --config ./config.json access status
 
 权限服务采用 HTTPS 时仍校验证书，不沿用日志下载的 `verify_ssl: false`。内网 CA 可通过 CLI 进程的 `SSL_CERT_FILE` 指向包含企业 CA 的信任证书包。
 
-### 调用日志与多环境授权
+### 10.1 调用日志与多环境授权
 
 管理员可在「访问授权」一次为同一账号勾选多个环境；切换环境后 CLI 按当前环境检查授权。
 每次在线检查由权限服务写入 MySQL，并可在「CLI 调用日志」按账号、环境、命令、授权结果、时间查询。
 CLI 上报命令名称及完整命令。完整命令包含位置参数、选项和值；已识别的密码、令牌、Cookie、请求头和请求体参数会脱敏，最多 8192 字符，超长明确标记截断。
 该日志表示命令发起时的授权检查，不表示业务执行结果；帮助、登录和本地配置等未经过检查的操作不在记录范围内。
 
-### 权限检查故障定位
+### 10.2 权限检查故障定位
 
 `GET /cli-permission/healthz` 正常不代表 `POST /cli-permission/api/v1/access/check` 正常。权限检查分别提示连接超时、等待响应超时、连接失败、HTTP 协议异常以及 HTTP 200 非 JSON 响应；不会输出原始异常或响应正文。等待响应超时应检查权限服务日志、数据库和 `access_control.timeout_seconds`；HTTP 200 非 JSON 应检查权限接口路由或网关是否返回 HTML 页面。
 
-### 权限连接诊断
+### 10.3 权限连接诊断
 
 当健康检查或 curl 正常但 CLI 报错时，可执行：
 
@@ -380,7 +380,7 @@ ml --config "C:\Users\l00123456\AppData\Roaming\ml\config.json" access status --
 
 诊断不额外改变请求策略；权限请求默认直连，只有 `use_env_proxy: true` 时使用环境代理；不输出 Cookie、CSRF、完整请求头或响应正文。输出包含内部地址与账号，分享时按需隐藏。诊断失败仍阻止业务请求，退出码沿用原有规则。
 
-### 权限服务地址与代理
+### 10.4 权限服务地址与代理
 
 权限服务请求统一为 `/cli-permission/api/v1/access/check`。URL 仅允许纯源地址或 `/cli-permission` 路径（可带尾斜杠）；纯源地址自动补齐前缀，不影响业务平台 `api_endpoint`。管理入口为 `/cli-permission/`，健康检查为 `/cli-permission/healthz`。
 
@@ -388,7 +388,7 @@ ml --config "C:\Users\l00123456\AppData\Roaming\ml\config.json" access status --
 
 调用日志中的完整命令由 CLI 参数重建，不包含 shell 的原始引号、管道、重定向或参数指向的文件内容。
 
-### 版本准入与升级提示
+### 10.5 版本准入与升级提示
 
 CLI 会上报当前运行版本。管理员可按环境和业务设置最低版本、推荐版本、禁用版本和临时例外。
 
@@ -402,9 +402,9 @@ ml access status --diagnose
 
 若版本低于要求，命令返回非零退出码，并提示当前版本、最低版本和升级说明。升级提醒写入 stderr，JSON 输出不受影响。帮助与版本查询仍可使用；请使用管理员提供的安装包更新 CLI。
 
-## `ml user`
+## 11. `ml user`
 
-### `ml user info`
+### 11.1 `ml user info`
 
 查询当前登录用户信息。
 
@@ -416,18 +416,18 @@ ml user info [OPTIONS]
 | --- | --- | --- | --- |
 | `--output` | `-o` | 当前环境 `output_format`（`table`） | 输出格式：`table` 或 `json` |
 
-### 示例
+### 11.2 示例
 
 ```bash
 ml user info
 ml user info -o json
 ```
 
-## `ml mep`
+## 12. `ml mep`
 
 MEP 相关管理命令。
 
-### `ml mep config get`
+### 12.1 `ml mep config get`
 
 查询一个 MEP 配置项。
 
@@ -445,18 +445,18 @@ ml mep config get [KEY] [OPTIONS]
 
 
 
-### 示例
+### 12.2 示例
 
 ```bash
 ml mep config get
 ml mep config get mep_service_access_type -o json
 ```
 
-## `ml mtp swanboard`
+## 13. `ml mtp swanboard`
 
 训练看板使用当前环境的认证与业务选择。推荐按“项目 → 项目空间 → 实验 → 实验数据”查询。所有下列命令均支持 `--output` / `-o`（`table` 或 `json`），默认使用环境的 `output_format`；筛选团队不会切换当前业务上下文。
 
-### `ml mtp swanboard project list`
+### 13.1 `ml mtp swanboard project list`
 
 分页查询项目，每次只请求一页。
 
@@ -474,7 +474,7 @@ ml mtp swanboard project list --page 2 --page-size 20 --team-id team-a --creator
 
 表格列：项目 id（`projectId`）、项目名称、项目描述、创建者、创建时间。JSON 包含 `page`、`pageSize`、`count`、`items`，保留记录额外字段。
 
-### `ml mtp swanboard project namespace list`
+### 13.2 `ml mtp swanboard project namespace list`
 
 ```bash
 ml mtp swanboard project namespace list PROJECT_ID
@@ -485,7 +485,7 @@ ml mtp swanboard project namespace list PROJECT_ID --team-id team-a -o json
 
 表格列：项目空间 id（`namespaceId`）、实验 id（实际取响应的 `projectId`）、实验名称（`namespaceName`）、描述、创建时间。这里表头“实验 id”并非后续实验数据命令需要的 `experimentId`。JSON 为 `page`、`pageSize`、`count`、`items`，其中本地默认 `page=1`、`pageSize=0`，不代表结果为空。
 
-### `ml mtp swanboard project experiment list`
+### 13.3 `ml mtp swanboard project experiment list`
 
 ```bash
 ml mtp swanboard project experiment list PROJECT_ID NAMESPACE_ID
@@ -496,7 +496,7 @@ ml mtp swanboard project experiment list PROJECT_ID NAMESPACE_ID --team-id team-
 
 表格列：项目实验 id（`experimentId`）、实验名称、创建时间。JSON 包含 `pageNum`、`pageSize`、`total`、`totalPages`、`items`；服务端未返回的分页值可能为 `null`。后续实验数据命令使用这里的 `experimentId`。
 
-### `ml mtp swanboard experiment feature list`
+### 13.4 `ml mtp swanboard experiment feature list`
 
 ```bash
 ml mtp swanboard experiment feature list EXPERIMENT_ID --page 1 --page-size 10
@@ -505,7 +505,7 @@ ml mtp swanboard experiment feature list EXPERIMENT_ID --page 2 -o json
 
 `EXPERIMENT_ID` 必填。`--page` 默认 `1`，`--page-size` 默认 `10`，均须 ≥ 1；只查询指定页。表格展示特征名（`featureName`）和扩展参数（`featuresConfig`）。JSON 包含 `page`、`pageSize`、`count`、`items`。
 
-### `ml mtp swanboard experiment environment get`
+### 13.5 `ml mtp swanboard experiment environment get`
 
 ```bash
 ml mtp swanboard experiment environment get EXPERIMENT_ID
@@ -514,7 +514,7 @@ ml mtp swanboard experiment environment get EXPERIMENT_ID -o json
 
 `EXPERIMENT_ID` 必填，无其他查询参数。表格展示 Python 版本、系统硬件 CPU（`cpu.brand`）、系统硬件 Memory 和 Python 库名称；库数组按换行显示。JSON 输出环境对象，服务端环境数据为空数组时转为 `{}`。
 
-### `ml mtp swanboard experiment metrics`
+### 13.6 `ml mtp swanboard experiment metrics`
 
 ```bash
 ml mtp swanboard experiment metrics EXPERIMENT_ID
@@ -524,7 +524,7 @@ ml mtp swanboard experiment metrics EXPERIMENT_ID --tag loss --tag accuracy -o j
 
 `EXPERIMENT_ID` 必填。`--tag` 可重复，不传时查询 `loss` 和 `accuracy`；显式传入时替换默认列表。每个指标分别请求一次。表格展示指标名称、最大值、最小值、平均值，数值保留四位小数，非数值显示 `-`。JSON 输出统计对象数组，保留原始精度；此命令不查询完整指标时间序列。
 
-### `ml mtp swanboard experiment config list`
+### 13.7 `ml mtp swanboard experiment config list`
 
 ```bash
 ml mtp swanboard experiment config list EXPERIMENT_ID
@@ -533,7 +533,7 @@ ml mtp swanboard experiment config list EXPERIMENT_ID -o json
 
 `EXPERIMENT_ID` 必填，无其他查询参数。表格逐项展示配置项与值；配置项为对象时取其 `value` 字段。JSON 保留配置对象的完整结构。
 
-### `ml mtp swanboard experiment inspect`
+### 13.8 `ml mtp swanboard experiment inspect`
 
 ```bash
 ml mtp swanboard experiment inspect EXPERIMENT_ID
@@ -544,11 +544,11 @@ ml mtp swanboard experiment inspect EXPERIMENT_ID -o json
 
 表格输出“实验特性”“实验环境”“指标信息”“实验配置”四个区块。JSON 对象包含 `features`、`environment`、`metrics`、`config`。**特性仅查询第 1 页 10 条**，并非完整导出；需要其他页时使用 `feature list`。`inspect` 不接受 `--page`、`--page-size` 或 `--tag`。
 
-## `ml offline`
+## 14. `ml offline`
 
 离线业务管理命令。
 
-### `ml offline experiment list`
+### 14.1 `ml offline experiment list`
 
 分页查询离线实验（当前业务上下文内）。
 
@@ -569,7 +569,7 @@ ml offline experiment list [OPTIONS]
 
 > 表格列为：`projectId`、`实验名称`、`描述`、`创建者`、`修改者`、`创建时间`、`更新时间`、`运行配置模板`。
 
-### `ml offline experiment trial list`
+### 14.2 `ml offline experiment trial list`
 
 分页查询指定离线实验下的 trial。
 
@@ -591,7 +591,7 @@ ml offline experiment trial list PROJECT_ID [OPTIONS]
 
 > 表格仅展示：`trial名称`、`类型`、`创建者`、`修改者`、`创建时间`、`更新时间`、`调度状态`、`描述`。其中 `batch` 显示为“批式”，其他类型显示为“流式”；调度状态的 `true` 显示为“调度开启”、`false` 显示为“调度停止”，其他值显示为 `-`。
 
-### `ml offline experiment clone`
+### 14.3 `ml offline experiment clone`
 
 根据源实验的业务与运行配置创建新实验，并指定新名称。源实验的 trial 不会一起复制。
 
@@ -614,7 +614,7 @@ ml offline experiment clone PROJECT_ID [OPTIONS]
 > 不带 `--yes` 且不带 `--dry-run` 时，会先打印源/新实验名称、运行配置模板、`businessId`、`团队 ID`，再交互确认。回答否会输出“已取消克隆”，退出码为 0。
 > `--dry-run` 仍会认证、读取源实验并校验业务归属，但不发送创建请求；输出 `dryRun` 和 `request`。成功创建输出 `sourceProjectId`、新 `projectId`（接口未提供时为 `-`）、`projectName`、`uuid` 和 `message`。
 
-### 示例
+### 14.4 示例
 
 ```bash
 ml offline experiment list --page 1 --page-size 20 --name "训练"
@@ -624,11 +624,11 @@ ml offline experiment clone abc123 --name "训练-副本" -y
 ml offline experiment clone abc123 --name "训练-副本" --dry-run
 ```
 
-## `ml train`：训练任务、执行实例与日志
+## 15. `ml train`：训练任务、执行实例与日志
 
 所有命令使用当前环境的有效认证及业务选择。先用 `ml train list` 获取 `taskId`；执行实例和执行记录返回 `jobId`，下载日志时须同时提供所属任务 ID 与执行记录 ID。
 
-### `ml train list`
+### 15.1 `ml train list`
 
 ```bash
 ml train list
@@ -645,7 +645,7 @@ ml train list -o json
 
 只请求指定的一页。其他筛选保持管理台默认值，目前不接受任务类型、状态、团队、排序等选项。表格列依次为任务 ID、任务名称、任务类型、业务场景、修改者、更新时间、最新执行时间、大小、描述；空列表显示“暂无训练任务”。
 
-### `ml train instance list`
+### 15.2 `ml train instance list`
 
 ```bash
 ml train instance list TASK_ID
@@ -658,7 +658,7 @@ ml train instance list TASK_ID -o json
 
 执行时长由展示时的当前时间减去开始时间计算，取整分钟，例如 85 秒显示 `1min`；不足一分钟或未来开始时间显示 `0min`，缺少开始时间显示 `-`。它并非服务端记录的实际结束耗时；JSON 的 `runningTime` 保留原值。空列表显示“暂无执行实例”。
 
-### `ml train history list`
+### 15.3 `ml train history list`
 
 ```bash
 ml train history list TASK_ID
@@ -669,7 +669,7 @@ ml train history list TASK_ID -o json
 
 表格列：作业 ID、算法名称、CPU、GPU、内存、状态、集群、节点数、执行时长、大小、检查时间（`checkTime`）、开始时间（`createTime`）、结束时间（`statusTime`）、触发方式、存储桶。执行时长保留接口 `runningTime` 原值。空列表显示“暂无执行记录”，不据此判定任务不存在。
 
-### 三种训练列表的输出规则
+### 15.4 三种训练列表的输出规则
 
 - JSON 均为 `count`、`pageIndex`、`pageSize`、`items`，记录保留额外字段、空值、原始字节数和毫秒时间戳。认证提示发往 stderr，可直接保存：`ml train list -o json > train-tasks.json`。
 - 表格缺失值、`null`、空字符串显示 `-`，数值零保留。毫秒时间戳转换为北京时间（UTC+8）的 `YYYY-MM-DD HH:mm:ss`。
@@ -677,7 +677,7 @@ ml train history list TASK_ID -o json
 - 页尾展示页码、每页条数、总数和时区；实例/记录总数超过 10 时提示仅展示第一页。
 - 实例和执行记录的作业 ID、任务列表的任务 ID 首列固定宽度 36，不换行、不截断；其余长字段优先换行。
 
-### `ml train start`
+### 15.5 `ml train start`
 
 立即执行指定训练任务。使用前需完成 `ml login` 和 `ml business use`；如启用了在线权限检查，当前用户还须获准访问当前环境。
 
@@ -711,7 +711,7 @@ ml train history list aaaa83b8-5669-43a7-a62c-97ccf877e732
 
 确认状态后再决定是否重新执行。
 
-### `ml train config export`
+### 15.6 `ml train config export`
 
 下载指定训练任务的 YAML 配置。先完成 `ml login` 和 `ml business use`；`businessId` 查询参数和 `businessid` 请求头均取当前环境 `business.json` 的 `selected.businessId`，请求地址使用当前环境 `config.json` 的 `api_endpoint`。
 
@@ -722,7 +722,7 @@ ml train config export 69f3778e-6a41-44e7-92f1-616bd79cf2ab --file ./my-task.yam
 
 `TASK_ID` 必填，取 `ml train list` 的 `taskId`。可选 `--file PATH` 指定保存路径，父目录须已存在；不指定时使用响应 `Content-Disposition` 文件名，缺失时使用 `<TASK_ID>.yaml`。下载过程在 stderr 显示进度或已下载字节数，成功后在 stdout 显示绝对路径及文件大小。已有同名文件不会被覆盖，自动增加 ` (1)` 等后缀；下载失败不会留下目标文件。
 
-### `ml train history logs download`
+### 15.7 `ml train history logs download`
 
 ```text
 ml train history logs download TASK_ID JOB_ID [OPTIONS]
@@ -749,7 +749,7 @@ ml train history logs download TASK_ID JOB_ID --file ./train-logs.zip -o json
 
 完整下载地址（含查询参数）、认证提示和进度发送到 stderr。成功摘要包含 `taskId`、`jobId`、绝对路径 `path`、字节数 `bytes`、`status="downloaded"`。`-o json` 只把 JSON 摘要写到 stdout。下载失败、传输不完整或保存失败时非零退出并清理临时文件。
 
-### `ml train cancel`
+### 15.8 `ml train cancel`
 
 取消任务当前查询到的全部执行实例。`TASK_ID` 必填；可选 `--yes` / `-y` 跳过确认。命令会先查找当前业务中的任务和执行实例，再逐个提交取消操作。
 
@@ -760,7 +760,7 @@ ml train cancel 69f3778e-6a41-44e7-92f1-616bd79cf2ab --yes
 
 列表为空时输出“没有正在执行的任务，无法取消任务执行！”并以非零状态退出。默认先展示待取消数量并询问确认。每个实例取消后立即输出“取消训练任务<TASK_ID>的执行实例<JOB_ID>成功，响应描述是<DES>”；失败信息写入 stderr，随后继续其他实例。末尾汇总成功和失败数量；任一失败时退出码非零。结果不明的写请求不自动重发，先查询实例状态。
 
-### `ml train delete`
+### 15.9 `ml train delete`
 
 软删除当前业务下的任务。`TASK_ID` 必填；可选 `--yes` / `-y` 跳过确认。默认显示任务名称、ID 和团队后询问确认；成功时输出“删除训练任务<TASK_ID>成功”。
 
@@ -769,7 +769,7 @@ ml train delete f1f38705-9c50-49fc-ac5a-4848ee97304a
 ml train delete f1f38705-9c50-49fc-ac5a-4848ee97304a --yes
 ```
 
-### `ml train clone`
+### 15.10 `ml train clone`
 
 根据源任务详情创建副本。`TASK_ID` 和 `--name NAME` 必填；`--customize-config VALUE` 可选，按字符串原样传递；`--yes` / `-y` 可跳过确认。命令会先读取源任务详情，并提示“获取训练任务<TASK_ID>详情成功”。
 
@@ -780,7 +780,7 @@ ml train clone af33f3e1-b0b3-4b31-833a-4851cb340749 --name "新训练任务" --c
 
 新任务保留源任务的其他配置，名称使用 `--name`；提供 `--customize-config` 时覆盖源任务的自定义参数。成功时输出“克隆训练任务<TASK_ID>成功”；如果返回新任务 ID，也会显示该 ID。结果无法确认时，先按新名称查询，再决定是否重试。
 
-### `ml train config update`
+### 15.11 `ml train config update`
 
 更新训练任务的自定义参数，执行命令即提交更新。先完成 `ml login` 和 `ml business use`；任务名称从现有详情读取，不需提供 `--name`。若登录账号或业务选择无效，命令会在提交前报错。
 
@@ -802,11 +802,11 @@ ml train config update a9a49cc3-9dd1-4ef8-a4f5-4ebd11b42c6d --customize-config "
 
 失败时显示错误并以非零状态退出。网络错误后命令不会自动重发更新；先查询任务配置确认状态。该命令固定输出文本，不提供 `--output` 选项。
 
-## `ml algorithm`：算法仓管理
+## 16. `ml algorithm`：算法仓管理
 
 算法仓与训练任务同为顶层业务命令。先完成当前环境的 `ml login`、`ml business use`；若启用在线权限检查，还须获得当前环境授权。三个命令均使用当前环境 `config.json` 的 `api_endpoint`，管理台接口的 `businessid` 请求头及参数中的 `businessId` 均取当前环境 `business.json` 的 `selected.businessId`。若保存的选择与业务目录不一致，命令报错并提示刷新业务目录，不使用其他环境的 ID。
 
-### `ml algorithm list`
+### 16.1 `ml algorithm list`
 
 ```bash
 ml algorithm list
@@ -828,7 +828,7 @@ ml algorithm list --bucket-name sfs-aiservice -o json
 
 查询成功但没有匹配记录时显示“暂无算法仓记录”。JSON 输出结构为 `total`、`pageIndex`、`pageSize`、`items`；`items` 保留接口记录的额外字段、原始时间及原始字节数。认证提示写入 stderr，`-o json` 可直接重定向保存。
 
-### `ml algorithm download`
+### 16.2 `ml algorithm download`
 
 ```bash
 ml algorithm download 334868d4-a90e-45bd-9424-ed9a61c237d6
@@ -839,7 +839,7 @@ ml algorithm download 334868d4-a90e-45bd-9424-ed9a61c237d6 --file ./my-algorithm
 
 文件下载使用独立连接，不向下载地址或跳转地址发送平台 Cookie、CSRF、`businessid`；跳转目标也必须为 HTTPS，证书校验沿用当前环境 `verify_ssl`。进度或已下载字节数显示在 stderr；成功后在 stdout 显示文件绝对路径和字节数。默认文件名优先取下载响应的 `Content-Disposition`，否则取下载 URL 路径末段，仍无有效名称时使用算法仓 ID。最终文件名统一以 `.zip` 结尾：名称原本已有 `.zip`（不区分大小写）时不重复添加，否则追加 `.zip`；例如指定 `--file ./my-algorithm` 会保存为 `./my-algorithm.zip`。已有同名文件自动加 ` (1)` 等后缀，不覆盖；传输不完整或保存失败会清理临时文件并以非零状态退出。
 
-### `ml algorithm clone`
+### 16.3 `ml algorithm clone`
 
 ```bash
 ml algorithm clone 334868d4-a90e-45bd-9424-ed9a61c237d6 --name mnist_clone --version latest
@@ -850,7 +850,7 @@ ml algorithm clone 334868d4-a90e-45bd-9424-ed9a61c237d6 --name mnist_clone --ver
 
 成功时显示新名称和版本；若返回新算法仓 ID，也会显示该 ID。缺少有效登录账号、接口失败或响应结构错误时非零退出。请求结果不明时不自动重发创建操作，先用 `ml algorithm list --name NAME` 查询。
 
-## 特征集列表
+## 17. 特征集列表
 
 对应 Web 的“样本工程 → 特征集 → 宽表特征集 / 模型特征集”：
 
@@ -882,7 +882,7 @@ JSON 输出结构为 `{"count": 0, "pageIndex": 1, "pageSize": 10, "items": []}`
 记录保留原始时间、空值和额外字段；认证提示写入 stderr，不混入 JSON 标准输出。
 业务错误或缺失、无效的列表/总数字段会报错，不会被当作空列表。
 
-## 特征集配置查询
+## 18. 特征集配置查询
 
 ```bash
 ml featureset wide config SET_ID
@@ -917,15 +917,15 @@ ml featureset wide config 6743499e-15ec-496c-b510-ee9bf65f395e
 ml featureset model config SET_ID > featureset-config.json
 ```
 
-## Jupyter Notebook 与 Terminal
+## 19. Jupyter Notebook 与 Terminal
 
 用途：通过当前环境配置的 Jupyter Server 执行完整 Notebook，或连接远程交互终端。使用前提为可访问的 Jupyter Server、有效 Token、当前环境 business.json 中的业务选择；Terminal 需要服务端启用终端能力。
 
-### 连接配置
+### 19.1 连接配置
 
 在当前 profile 的 `jupyter` 中配置 `server_url`（省略时使用 api_endpoint）、`token_env`（默认 ML_JUPYTER_TOKEN）或 `token_file`、`kernel`（默认 python3）。可选 `business_file` 和 `ca_file` 分别指定业务文件、内部 CA；文件路径相对 config.json。Token 环境变量优先于文件。所有 HTTP 请求与 WebSocket 握手携带当前环境 selected.businessId，不回退其他环境。权限控制开启时继续检查平台权限。
 
-### 命令与参数
+### 19.2 命令与参数
 
 | 命令 | 参数和选项 | 输出与行为 |
 |---|---|---|
@@ -936,7 +936,7 @@ ml featureset model config SET_ID > featureset-config.json
 | `ml jupyter terminal attach NAME` | 服务器返回的终端名称；可选 `--studio-id ENV_ID` | 重连现存终端，不保证补取全部历史输出 |
 | `ml jupyter terminal close NAME` | 要关闭的终端名称；可选 `--studio-id ENV_ID` | 删除指定远程终端，可能中止其中的进程 |
 
-### 调用示例
+### 19.3 调用示例
 
 ```bash
 ml --config .jupyter-local/config.json jupyter doctor
@@ -950,7 +950,7 @@ ml --config .jupyter-local/config.json jupyter terminal close 1
 
 `--cwd` 不同步本地依赖文件，请提前准备远程目录。Notebook 默认在本次独立目录执行；指定 cwd 后按指定目录执行。图像、HTML 等富输出保留在结果 Notebook 中。JSON 模式仅 stdout 输出最终结构化摘要，进度和实时输出进入 stderr；摘要时间均为北京时间 YYYY-MM-DD HH:mm:ss。
 
-### 执行与退出约定
+### 19.4 执行与退出约定
 
 - Notebook 前台执行要求 CLI 持续连接；不提供 --detach，也不自动重试代码。
 - 退出码：成功 0；参数/认证/执行失败 1（解析错误可能为 2）；执行结果未知 2；超时 124；用户中断 130。
@@ -958,11 +958,11 @@ ml --config .jupyter-local/config.json jupyter terminal close 1
 - Terminal 的 Ctrl+C 发给远程进程；Ctrl+D 发送 EOF；Ctrl+] 只断开客户端。close 或远程 exit 才会关闭 Shell。
 - Token 不进入请求 URL。原生 Jupyter 不依据 businessid 隔离业务，真实权限由服务端身份和工作空间保证。
 
-## Web Studio 与动态 Jupyter 登录
+## 20. Web Studio 与动态 Jupyter 登录
 
 用途：使用管理台认证查询、启动和停止 Web Studio，选择默认实例，自动取得 Jupyter 路由和 Token。无需手动复制 Token，既有 direct 模式保持兼容。`queryEnvList`、`accessUrl`、`start`、`stop` 均调用 `/ai/backend/webstudio/dataExplorer/` 下的同名 POST 接口；域名取自当前 profile.api_endpoint 的源站。
 
-### 使用前提与配置
+### 20.1 使用前提与配置
 
 先完成 `ml login` 和 `ml business use`。当前环境 business.json 的 selected.businessId 同时用于请求体和 businessid 请求头。accessUrl 与 start 的 operator 使用当前登录账号，不使用列表创建者；stop 不发送 operator。平台模式需要管理台认证；启用权限服务时还会检查命令权限。
 
@@ -988,7 +988,7 @@ ml --config .jupyter-local/config.json jupyter terminal close 1
 **配置注意：** 安装器会刷新默认 `config.json`；自定义配置建议放在独立文件，通过 `ml --config 路径` 或 `ML_CONFIG` 指定。
 修改区域映射后，请重新执行 `ml webstudio login ENV_ID`，确认默认实例与路由配置一致。
 
-### 命令与示例
+### 20.2 命令与示例
 
 | 命令 | 参数和选项 | 输出 |
 |---|---|---|
@@ -1025,7 +1025,7 @@ ml jupyter terminal close 1 --studio-id f925886d-072c-48fc-a4ec-636ab3ba9a60
 
 终端名称仅在所属实例内有效。操作前打印目标 envId；Notebook 摘要记录 studio_id 与不带 Token 的服务地址。`ml webstudio login` 以及所有通过 Web Studio 模式运行的 `ml jupyter` 命令，都会在地址校验和连接前将包含 Token 的完整 Jupyter 访问地址输出到 stderr，便于定位网关路径问题，且不会污染 `--output json` 的 stdout。
 
-### 凭据、默认选择与故障处理
+### 20.3 凭据、默认选择与故障处理
 
 - 默认实例存于用户配置目录 webstudio.json，仅保存 envId、名称、region 和北京时间的选择时间，不保存 Token。按配置文件路径、平台地址、profile、区域网关配置、账号、businessId 隔离。
 - 每次 Jupyter 命令重新获取一次访问地址/Token，执行期间固定该连接。不会因认证失败重放 Notebook、创建终端或在新实例清理旧实例资源。
@@ -1036,7 +1036,7 @@ ml jupyter terminal close 1 --studio-id f925886d-072c-48fc-a4ec-636ab3ba9a60
 - 完整 Jupyter 访问地址中的 Token 等同临时凭据，请勿将命令输出转发到群聊、工单或公共日志。CLI 不会将该地址或 Token 保存到默认实例文件；普通错误仍不输出其他含 Token 的平台响应正文。CLI 支持 Token 头以及 `/lab` 建立的同源 Cookie/XSRF 会话；生产网关额外的跨域 SSO 要求仍需实际联调。
 - 查询结果为空正常显示；找不到指定实例、业务不一致、状态不可用、认证拒绝和配置无效均返回非零退出码。
 
-## 配置文件
+## 21. 配置文件
 
 `config.json` 定义环境和客户端行为。下方是填写示例：尖括号内容必须替换成实际地址，并保留地址的协议。主要字段：
 
@@ -1100,7 +1100,7 @@ ml jupyter terminal close 1 --studio-id f925886d-072c-48fc-a4ec-636ab3ba9a60
 
 请求地址从当前 `profiles[].api_endpoint` 获取：完整值用于登录页和 Referer，实际接口基址取其协议、主机和端口，再连接 `/ai/...` 路径。例如配置以 `/dashboard` 结尾时，不会把 `/dashboard` 加到接口路径前。无需另行配置接口域名。
 
-## 本地文件与输出约定
+## 22. 本地文件与输出约定
 
 用户配置目录为 Windows `%APPDATA%\ml`、macOS `~/Library/Application Support/ml`、Linux `$XDG_CONFIG_HOME/ml`（未设置时 `~/.config/ml`）。以下文件由 CLI 管理：
 
@@ -1113,7 +1113,7 @@ ml jupyter terminal close 1 --studio-id f925886d-072c-48fc-a4ec-636ab3ba9a60
 
 指定另一份配置文件不会自动迁移认证、业务目录或浏览器会话。它们默认仍使用上述用户目录，按环境名区分。
 
-### 表格与 JSON 的区别
+### 22.1 表格与 JSON 的区别
 
 表格只展示各命令定义的字段，接口可能返回其他未展示数据；指南中的响应示例同样不表示接口完整结构。JSON 也不一律等于整个 HTTP 响应：
 
@@ -1130,11 +1130,11 @@ ml jupyter terminal close 1 --studio-id f925886d-072c-48fc-a4ec-636ab3ba9a60
 
 `train`、`algorithm`、`featureset` 命令把认证提示发往 stderr。其他数据命令在触发认证刷新时仍可能向 stdout 打印提示；克隆交互提示也在 stdout，脚本使用时需考虑这些内容，不能对所有 `-o json` 命令假定 stdout 始终是纯 JSON。
 
-### 表格显示
+### 22.2 表格显示
 
 训练、算法仓及特征集表格中的时间按北京时间显示；训练看板和离线实验可能沿用接口时间，认证状态显示本机时间。训练任务、执行实例、执行记录、算法仓和 Web Studio 表格的首列 ID 固定宽度 36，不换行或截断；其他列表需要复制完整 ID 时，可使用 JSON 输出并加宽终端。JSON 时间通常保留接口原值。
 
-## 退出码
+## 23. 退出码
 
 | 退出码 | 含义 |
 | --- | --- |
@@ -1142,7 +1142,7 @@ ml jupyter terminal close 1 --studio-id f925886d-072c-48fc-a4ec-636ab3ba9a60
 | `1` | 命令执行错误，如认证、配置解析、业务选择、网络、响应格式或保存文件失败；错误输出到 stderr |
 | `2` | 命令行用法错误，如未知命令/选项、缺少必填参数、`--page 0`、不存在的 `--config` 路径；不支持的 `-h` 也属于此类 |
 
-## 常见问题
+## 24. 常见问题
 
 - **登录依赖 Microsoft Edge**：`ml` 使用系统安装的 Edge 专用 Profile 登录，不需要 `playwright install chromium`，但必须安装 Edge。
 - **认证会自动续期**：过期时优先复用已有平台会话；仅当平台会话真正失效时才要求重新登录/输入验证码。
