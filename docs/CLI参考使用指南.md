@@ -2,10 +2,10 @@
 
 只需查看版本、选择环境、登录和查询训练任务，请阅读 [CLI 快速使用指南](CLI快速使用指南.md)。
 
-`ml` 是 **WiseRec 平台** 的 Python 命令行客户端（包名 `wiserec-cli`，源码当前版本 `1.0.3.3`）。已发布的权限管理系统和 CLI 正式版本仍为 `1.0.3.2`；本次源码版本尚未正式发布。
+`ml` 是 **WiseRec 平台** 的 Python 命令行客户端（包名 `wiserec-cli`，源码当前版本 `1.0.3.4`）。已发布的权限管理系统和 CLI 正式版本仍为 `1.0.3.2`；本次源码版本尚未正式发布。
 本文档覆盖命令参数、配置项与退出行为；2026-09-20 新增 Jupyter Notebook 与 Terminal 使用说明。示例中的 `TASK_ID`、`JOB_ID`、`PROJECT_ID`、`NAMESPACE_ID`、`EXPERIMENT_ID`、`SET_ID` 均须替换为对应资源的真实 ID；它们不是同一种 ID。
 
-> 阅读前提：查询平台数据前建议先完成 `ml login` 和 `ml business use`。`user`、`mep`、`mtp`、`offline`、`train`、`featureset` 需要有效认证和业务选择；`business list/use/refresh` 用于建立或维护业务上下文，不要求预先选好业务。没有认证或认证过期时，相关命令会自动启动 Edge 登录。
+> 阅读前提：查询平台数据前建议先完成 `ml login` 和 `ml business use`。`user`、`mep`、`mtp`、`offline`、`train`、`algorithm`、`featureset` 需要有效认证和业务选择；`business list/use/refresh` 用于建立或维护业务上下文，不要求预先选好业务。没有认证或认证过期时，相关命令会自动启动 Edge 登录。
 
 ## 安装与首次使用
 
@@ -35,7 +35,7 @@ ml train list
 ## 阅读导航
 
 - 基础操作：全局用法、命令总览、全局选项、登录与认证、环境、业务上下文。
-- 数据与操作：用户、MEP、训练看板、离线实验、训练任务与日志、特征集列表及配置。
+- 数据与操作：用户、MEP、训练看板、离线实验、训练任务与日志、算法仓、特征集列表及配置。
 - 接入与开发：在线访问授权、Jupyter Notebook 与 Terminal、Web Studio。
 - 配置与排错：配置文件、本地文件与输出约定、退出码、提示与坑。
 
@@ -65,6 +65,7 @@ ml - WiseRec平台命令行客户端
   mtp                MTP 管理（训练看板）
   offline            离线业务管理
   train              训练任务查询与执行管理
+  algorithm          算法仓查询、下载与克隆
   featureset         特征集查询
   jupyter            Jupyter Notebook 前台执行与 Terminal
   webstudio          Web Studio 查询、启停与动态登录
@@ -111,6 +112,9 @@ ml - WiseRec平台命令行客户端
 | `ml train history list TASK_ID` | 查询执行记录，固定第一页 10 条 |
 | `ml train history logs download TASK_ID JOB_ID` | 下载执行记录日志 |
 | `ml train config update TASK_ID --customize-config VALUE` | 更新训练任务自定义参数 |
+| `ml algorithm list` | 分页查询算法仓，按名称或存储桶筛选 |
+| `ml algorithm download ALGORITHM_ID` | 获取下载链接并保存算法仓文件 |
+| `ml algorithm clone SOURCE_ID --name NAME --version VERSION` | 克隆算法仓并指定新名称和版本 |
 | `ml featureset wide list` | 分页查询宽表特征集 |
 | `ml featureset model list` | 分页查询模型特征集 |
 | `ml featureset wide config SET_ID` | 查询宽表特征集配置，固定 JSON 输出 |
@@ -776,6 +780,56 @@ ml train history logs download TASK_ID JOB_ID --file ./train-logs.zip -o json
 
 ---
 
+## `ml algorithm`：算法仓管理
+
+算法仓与训练任务同为顶层业务命令。先完成当前环境的 `ml login`、`ml business use`；若启用在线权限检查，还须获得当前环境授权。三个命令均使用当前环境 `config.json` 的 `api_endpoint`，管理台接口的 `businessid` 请求头及参数中的 `businessId` 均取当前环境 `business.json` 的 `selected.businessId`。若保存的选择与业务目录不一致，命令报错并提示刷新业务目录，不使用其他环境的 ID。
+
+### `ml algorithm list`
+
+```bash
+ml algorithm list
+ml algorithm list --page 2 --page-size 20 --name feature_flow
+ml algorithm list --bucket-name sfs-aiservice -o json
+```
+
+| 选项 | 默认值 | 说明 |
+| --- | --- | --- |
+| `--page` | `1` | 页码，须为正整数 |
+| `--page-size` | `10` | 每页条数，须为正整数 |
+| `--name` / `--algorithm-name` | 空字符串 | 对应请求体 `data.algorithmName` |
+| `--bucket-name` | 空字符串 | 对应请求体 `data.bucketName` |
+| `--output` / `-o` | 当前环境 `output_format` | `table` 或 `json` |
+
+POST `/ai/backend/modelDev/algorithmWarehouse/list`；请求包含 `version="1.0"`、每次生成的 `meta.uuid`，以及指定页码、条数、业务 ID 和两个开放的筛选字段。`updater`、`creator`、`visualTag`、`algorithmVersion`、`region`、`algorithmPurpose`、`enableFlag`、`teamId` 固定为空字符串，`tagsList`、`noticeTime` 固定为空数组，`beginTime`、`endTime` 固定为 `null`；命令不开放这些字段的选项。只查询指定页，不自动遍历全部记录。
+
+表格列依次为算法仓 ID、算法仓名称、版本、区域、修改者、修改时间、大小、描述、禁用、归档状态，分别对应 `id`、`name`、`version`、`algorithmRegion`、`modifier`、`modifyTime`、`fileSize`、`description`、`enableFlag`、`archiveToNspStatus`。首列固定 36 宽，不换行、不截断；其他长字段优先换行。空值显示 `-`；`enableFlag=true/false` 显示“否/是”，`archiveToNspStatus=1/0` 显示“归档成功/未归档”。带时区的修改时间正确换算到北京时间，格式为 `YYYY-MM-DD HH:mm:ss`，例如 `2026-09-04T08:08:55.000Z` 显示为 `2026-09-04 16:08:55`。大小按 1024 进制换算：零为 `0B`，不足 1 GiB 显示两位小数的 `M`，否则显示两位小数的 `G`；`334872744` 字节显示为 `319.36M`。
+
+仅在 `result.code` 为整数 `0`、`result.data.total` 为非负整数且 `result.data.list` 为对象数组时输出结果。空列表显示“暂无算法仓记录”。JSON 输出结构为 `total`、`pageIndex`、`pageSize`、`items`；`items` 保留接口记录的额外字段、原始时间及原始字节数。认证提示写入 stderr，`-o json` 可直接重定向保存。
+
+### `ml algorithm download`
+
+```bash
+ml algorithm download 334868d4-a90e-45bd-9424-ed9a61c237d6
+ml algorithm download 334868d4-a90e-45bd-9424-ed9a61c237d6 --file ./my-algorithm.bin
+```
+
+`ALGORITHM_ID` 必填；可选 `--file PATH` 指定保存路径，父目录须已存在。先 GET `/ai/backend/mtp/algorithm/downloadurl`，查询参数为当前业务 `businessId` 和用户传入的 `algorithmId`。仅当 `result.code` 为整数 `0` 且 `result.url` 为有效 HTTPS 地址时，输出“算法仓下载链接：<url>”并开始下载。该链接可能含签名信息，转发终端记录时应注意保护。
+
+文件下载使用独立连接，不向下载地址或跳转地址发送平台 Cookie、CSRF、`businessid`；跳转目标也必须为 HTTPS，证书校验沿用当前环境 `verify_ssl`。进度或已下载字节数显示在 stderr；成功后在 stdout 显示文件绝对路径和字节数。默认文件名优先取下载响应的 `Content-Disposition`，否则取下载 URL 路径末段，仍无有效名称时使用算法仓 ID；不强制添加 `.zip` 等扩展名。已有同名文件自动加 ` (1)` 等后缀，不覆盖；传输不完整或保存失败会清理临时文件并以非零状态退出。
+
+### `ml algorithm clone`
+
+```bash
+ml algorithm clone 334868d4-a90e-45bd-9424-ed9a61c237d6 --name mnist_clone --version latest
+ml algorithm clone 334868d4-a90e-45bd-9424-ed9a61c237d6 --name mnist_clone --version 1.0.1 --yes
+```
+
+`SOURCE_ID`、`--name NAME`、`--version VERSION` 必填；可选 `--yes` / `-y` 跳过确认。命令无需先查列表，默认先展示源 ID、新名称、新版本，再询问确认。POST `/ai/backend/modelDev/algorithmWarehouse/copy`，请求体仅为 `data.srcId`、当前环境 `data.businessId`、当前登录账号 `data.operator`、`data.tarName` 和 `data.tarVersion`。不从其他环境或列表创建者读取 `operator`。
+
+仅当响应 `result.code` 为整数 `0` 时输出克隆成功、新名称和版本；若响应还提供 `result.data.id`，额外显示新算法仓 ID。缺少有效登录账号、接口失败或响应结构错误时非零退出。请求结果不明时不自动重发创建操作，先用 `ml algorithm list --name NAME` 查询。
+
+---
+
 ## 配置文件
 
 `config.json` 是默认配置的唯一来源。顶层字段：
@@ -943,7 +997,7 @@ ml featureset model config SET_ID > featureset-config.json
 | 命令 | JSON 内容 |
 | --- | --- |
 | `user info`、`mep config get` | 接口 JSON 响应 |
-| 训练列表、特征集列表 | 归一化分页对象，`items` 保留原始记录 |
+| 训练列表、算法仓列表、特征集列表 | 归一化分页对象，`items` 保留原始记录；算法仓列表的总数字段为 `total` |
 | 离线实验与 trial 列表 | `pageIndex`、`pageSize`、`count`、`total`、`items`；记录仅保留各自固定字段 |
 | 训练看板列表 | 各命令注明的分页对象；记录保留额外字段 |
 | 特征集配置 | 从 `featureJson` 解析出的配置对象 |
@@ -951,11 +1005,11 @@ ml featureset model config SET_ID > featureset-config.json
 
 离线实验 JSON 记录字段为 `projectId`、`projectName`、`description`、`createUser`、`updateUser`、`createTime`、`updateTime`、`configName`。trial JSON 记录字段为 `experimentName`、`experimentType`、`creator`、`updater`、`createTime`、`updateTime`、`cronIntervalStartFlag`、`description`；当前不包含 trial ID。
 
-当前 `train`、`featureset` 命令明确把认证提示发往 stderr。其他数据命令在触发认证刷新时仍可能向 stdout 打印提示；克隆交互提示也在 stdout，脚本使用时需考虑这些内容，不能对所有 `-o json` 命令假定 stdout 始终是纯 JSON。
+当前 `train`、`algorithm`、`featureset` 命令明确把认证提示发往 stderr。其他数据命令在触发认证刷新时仍可能向 stdout 打印提示；克隆交互提示也在 stdout，脚本使用时需考虑这些内容，不能对所有 `-o json` 命令假定 stdout 始终是纯 JSON。
 
 ### 当前展示限制
 
-AGENTS.md 要求时间适合人类阅读、首列 ID 固定 36 宽且不换行/截断。当前实现尚未对所有旧命令统一应用：训练及特征集表格已转换北京时间；训练看板、离线实验沿用响应时间，认证状态使用机器本地 ISO 时间。固定 ID 列宽已用于训练任务、执行实例、执行记录和 Web Studio 的首列；其他列表复制完整 ID 时，优先使用 JSON 并加宽终端。JSON 时间通常保留原值。
+AGENTS.md 要求时间适合人类阅读、首列 ID 固定 36 宽且不换行/截断。当前实现尚未对所有旧命令统一应用：训练、算法仓及特征集表格已转换北京时间；训练看板、离线实验沿用响应时间，认证状态使用机器本地 ISO 时间。固定 ID 列宽已用于训练任务、执行实例、执行记录、算法仓和 Web Studio 的首列；其他列表复制完整 ID 时，优先使用 JSON 并加宽终端。JSON 时间通常保留原值。
 
 ---
 

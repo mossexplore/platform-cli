@@ -10,6 +10,7 @@ import typer
 
 from . import __version__
 from .commands.access import access_app
+from .commands.algorithm import algorithm_app
 from .commands.auth import auth_app, login, logout
 from .commands.jupyter import jupyter_app
 from .commands.webstudio import webstudio_app
@@ -43,6 +44,7 @@ app.add_typer(mep_app, name="mep")
 app.add_typer(mtp_app, name="mtp")
 app.add_typer(offline_app, name="offline")
 app.add_typer(train_app, name="train")
+app.add_typer(algorithm_app, name="algorithm")
 app.add_typer(featureset_app, name="featureset")
 app.add_typer(jupyter_app, name="jupyter")
 app.add_typer(webstudio_app, name="webstudio")
