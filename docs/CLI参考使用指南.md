@@ -35,7 +35,8 @@ ml train list
 ## 阅读导航
 
 - 基础操作：全局用法、命令总览、全局选项、登录与认证、环境、业务上下文。
-- 数据查询：用户、MEP、训练看板、离线实验、训练任务与日志、特征集列表及配置。
+- 数据与操作：用户、MEP、训练看板、离线实验、训练任务与日志、特征集列表及配置。
+- 接入与开发：在线访问授权、Jupyter Notebook 与 Terminal、Web Studio。
 - 配置与排错：配置文件、本地文件与输出约定、退出码、提示与坑。
 
 ---
@@ -56,6 +57,7 @@ ml - WiseRec平台命令行客户端
   login              打开 Edge 登录并刷新当前环境的本地认证信息
   logout             清除当前环境的本地认证信息
   auth               查看认证状态
+  access             检查 CLI 在线访问授权
   business           管理部门、租户和团队
   env                管理运行环境
   user               用户信息
@@ -64,6 +66,8 @@ ml - WiseRec平台命令行客户端
   offline            离线业务管理
   train              训练任务查询与执行管理
   featureset         特征集查询
+  jupyter            Jupyter Notebook 前台执行与 Terminal
+  webstudio          Web Studio 查询、启停与动态登录
 ```
 
 `ml` 与 `ml --help` 会打印顶层用法。每个子命令同样接受 `--help`；当前版本不支持 `-h`。上面省略了框架提供的 `--install-completion` / `--show-completion` 补全选项，完整选项以 `ml --help` 为准。
@@ -98,6 +102,7 @@ ml - WiseRec平台命令行客户端
 | `ml offline experiment trial list <project_id>` | 分页查询一个离线实验下的 trial |
 | `ml offline experiment clone <project_id>` | 按源实验配置创建新名称的离线实验 |
 | `ml train list` | 分页查询训练任务 |
+| `ml train start TASK_ID` | 立即执行训练任务并返回作业 ID |
 | `ml train instance list TASK_ID` | 查询执行实例，固定第一页 10 条 |
 | `ml train config export TASK_ID` | 下载训练任务 YAML 配置 |
 | `ml train cancel TASK_ID` | 逐个取消所有执行实例 |
@@ -110,6 +115,16 @@ ml - WiseRec平台命令行客户端
 | `ml featureset model list` | 分页查询模型特征集 |
 | `ml featureset wide config SET_ID` | 查询宽表特征集配置，固定 JSON 输出 |
 | `ml featureset model config SET_ID` | 查询模型特征集配置，固定 JSON 输出 |
+| `ml access status` | 实时检查当前账号和环境的在线授权；可用 `--diagnose` 排查连接 |
+| `ml jupyter doctor` | 检查 Jupyter HTTP 认证、Kernel 与 Terminal 接口 |
+| `ml jupyter notebook run SOURCE` | 执行本地 Notebook 并保存结果 |
+| `ml jupyter terminal list` | 查询远程终端 |
+| `ml jupyter terminal open` | 创建并连接远程终端 |
+| `ml jupyter terminal attach NAME` | 连接已有远程终端 |
+| `ml jupyter terminal close NAME` | 关闭指定远程终端 |
+| `ml webstudio list` | 查询当前业务的 Web Studio 实例 |
+| `ml webstudio login ENV_ID` | 动态登录并保存默认 Web Studio 实例 |
+| `ml webstudio show` | 显示默认 Web Studio 实例选择 |
 | `ml webstudio start ENV_ID` | 启动指定 Web Studio 实例 |
 | `ml webstudio stop ENV_ID` | 停止指定 Web Studio 实例 |
 
@@ -567,6 +582,43 @@ ml offline experiment clone abc123 --name "训练-副本" --dry-run
 
 所有命令使用当前环境的有效认证及业务选择。先用 `ml train list` 获取 `taskId`；执行实例和执行记录返回 `jobId`，下载日志时须同时提供所属任务 ID 与执行记录 ID。
 
+### `ml train start`
+
+立即执行指定训练任务。使用前需完成 `ml login` 和 `ml business use`；如启用了在线权限检查，当前用户还须获准访问当前环境。
+
+| 参数 | 必填 | 说明 |
+|---|---|---|
+| `task-id` | 是 | 训练任务 ID，直接提交给执行接口；不预先查询列表，不要求本地校验 UUID 格式 |
+
+```bash
+ml train start aaaa83b8-5669-43a7-a62c-97ccf877e732
+ml --config ./config.json train start aaaa83b8-5669-43a7-a62c-97ccf877e732
+```
+
+无专有选项；输入命令即发起执行，不再二次确认。输出固定为文本，不受环境默认 JSON 输出设置影响。
+
+调用 `POST /ai/backend/modelDev/modelTrain/startScheduleTask`，接口基础地址沿用当前环境 `api_endpoint` 的构造规则。
+请求头 `businessid` 来自当前环境 `business.json` 的 `selected.businessId`，认证信息复用当前登录。
+请求体包含 `version="1.0"`、每次请求新生成的 `meta.uuid` 以及 `data.taskId`。
+权限服务的命令名称列显示 `ml train start`，完整命令列还包含实际 task-id 及显式传入的选项。
+
+仅当 `result.code` 为整数 `0` 且 `result.des` 为 `success` 时，输出：
+
+```text
+训练任务执行成功，jobId：8e348580-e889-4d1a-80d3-8d52b17a7004
+```
+
+若成功响应没有有效 jobId，输出“训练任务执行成功，但接口未返回有效 jobId，请查询执行记录确认。”。
+业务失败显示接口的 code 和 des，退出码为非零。执行成功表示接口接受本次执行操作，不表示训练已经完成。
+
+对于提交后的超时、传输错误、认证拒绝或其他无法确认结果的 HTTP 错误，不自动重发执行请求，先查询：
+
+```bash
+ml train history list aaaa83b8-5669-43a7-a62c-97ccf877e732
+```
+
+执行接口发出之前，权限检查发生登录失效时仍可按既有机制重新登录。底层只允许原有连接建立阶段的重试，不对已发送的执行请求自动重放。
+
 ### `ml train config export`
 
 下载指定训练任务的 YAML 配置。先完成 `ml login` 和 `ml business use`；`businessId` 查询参数和 `businessid` 请求头均取当前环境 `business.json` 的 `selected.businessId`，请求地址使用当前环境 `config.json` 的 `api_endpoint`。
@@ -903,7 +955,7 @@ ml featureset model config SET_ID > featureset-config.json
 
 ### 当前展示限制
 
-AGENTS.md 要求时间适合人类阅读、首列 ID 固定 36 宽且不换行/截断。当前实现尚未对所有旧命令统一应用：训练及特征集表格已转换北京时间；训练看板、离线实验沿用响应时间，认证状态使用机器本地 ISO 时间。固定 ID 列宽目前仅在训练执行实例与执行记录生效。其他列表复制完整 ID 时，优先使用 JSON 并加宽终端；JSON 时间通常保留原值。
+AGENTS.md 要求时间适合人类阅读、首列 ID 固定 36 宽且不换行/截断。当前实现尚未对所有旧命令统一应用：训练及特征集表格已转换北京时间；训练看板、离线实验沿用响应时间，认证状态使用机器本地 ISO 时间。固定 ID 列宽已用于训练任务、执行实例、执行记录和 Web Studio 的首列；其他列表复制完整 ID 时，优先使用 JSON 并加宽终端。JSON 时间通常保留原值。
 
 ---
 
@@ -911,7 +963,7 @@ AGENTS.md 要求时间适合人类阅读、首列 ID 固定 36 宽且不换行/�
 
 | 退出码 | 含义 |
 | --- | --- |
-| `0` | 命令成功、显示帮助/版本，或在克隆确认中回答否；`auth status` 显示 `expired` 也为 0 |
+| `0` | 命令成功、显示帮助/版本，或在克隆、取消、删除确认中回答否；`auth status` 显示 `expired` 也为 0 |
 | `1` | 命令执行错误，如认证、配置解析、业务选择、网络、响应格式或保存文件失败；错误输出到 stderr |
 | `2` | 命令行用法错误，如未知命令/选项、缺少必填参数、`--page 0`、不存在的 `--config` 路径；不支持的 `-h` 也属于此类 |
 
@@ -928,12 +980,6 @@ AGENTS.md 要求时间适合人类阅读、首列 ID 固定 36 宽且不换行/�
 - **克隆会创建资源**：先用 `--dry-run -o json` 查看实际创建请求，再按需使用 `--yes`。源实验必须属于当前业务上下文。
 
 ---
-
-## 参见
-
-- [项目 README](../README.md) — 安装、Windows 一键发布与安装、配置说明
-- [Windows 安装说明](../scripts/windows/INSTALL.md) — `install.cmd` 详细步骤
-- [需求与设计规格](./REQUIREMENTS_DESIGN_SPEC.md) — 详细功能设计文档
 
 ## 在线访问授权：`ml access status`
 
@@ -960,7 +1006,7 @@ ml access status
 ml --config ./config.json access status
 ```
 
-该命令无位置参数和专有选项，支持通用 `--config`。调用权限接口时，`businessid` 取当前环境 `business.json` 的 `selected.businessId`；账号 `username` 取当前环境本地登录缓存，权限服务信任该账号并查询授权，不再调用平台 `/ai/user/info`。权限请求不发送 Cookie 或 CSRF。CLI 与权限服务需同时更新，旧 CLI 缺少账号字段会收到 HTTP 422；本次无需数据库迁移。
+该命令无位置参数；可选 `--diagnose` 显示权限连接诊断，通用 `--config` 须放在 `access status` 之前。调用权限接口时，`businessid` 取当前环境 `business.json` 的 `selected.businessId`；账号 `username` 取当前环境本地登录缓存，权限服务信任该账号并查询授权，不再调用平台 `/ai/user/info`。权限请求不发送 Cookie 或 CSRF。CLI 与权限服务需同时更新，旧 CLI 缺少账号字段会收到 HTTP 422；本次无需数据库迁移。
 
 成功输出：`当前账号已获当前环境访问授权。` 未启用时输出配置提示；未授权、停用、过期、身份不一致或网络异常时打印具体类别的错误并返回非零退出码。未登录或未选择业务时，按原有登录和业务选择流程完成初始化。
 
@@ -975,44 +1021,6 @@ ml --config ./config.json access status
 新版 CLI 上报命令名称及完整命令。完整命令包含位置参数、选项和值；已识别的密码、令牌、Cookie、请求头和请求体参数会脱敏，最多 8192 字符，超长明确标记截断。
 该日志表示命令发起时的授权检查，不表示业务执行结果；帮助、登录和本地配置等未经过检查的操作不在记录范围内。
 请求未提供命令名称时日志显示 `unknown`；未提供账号 `username` 的旧客户端无法使用新权限接口。
-
-## 执行训练任务：`ml train start <task-id>`
-
-立即执行指定训练任务。使用前需完成 `ml login` 和 `ml business use`；如启用了在线权限检查，当前用户还须获准访问当前环境。
-
-| 参数 | 必填 | 说明 |
-|---|---|---|
-| `task-id` | 是 | 训练任务 ID，直接提交给执行接口；不预先查询列表，不要求本地校验 UUID 格式 |
-
-```bash
-ml train start aaaa83b8-5669-43a7-a62c-97ccf877e732
-ml --config ./config.json train start aaaa83b8-5669-43a7-a62c-97ccf877e732
-```
-
-无专有选项；输入命令即发起执行，不再二次确认。输出固定为文本，不受环境默认 JSON 输出设置影响。
-
-调用 `POST /ai/backend/modelDev/modelTrain/startScheduleTask`，接口基础地址沿用当前环境 `api_endpoint` 的构造规则。
-请求头 `businessid` 来自当前环境 `business.json` 的 `selected.businessId`，认证信息复用当前登录。
-请求体包含 `version="1.0"`、每次请求新生成的 `meta.uuid` 以及 `data.taskId`。
-权限服务的命令名称列显示 `ml train start`，完整命令列还包含实际 task-id 及显式传入的选项。
-
-仅当 `result.code` 为整数 `0` 且 `result.des` 为 `success` 时，输出：
-
-```text
-训练任务执行成功，jobId：8e348580-e889-4d1a-80d3-8d52b17a7004
-```
-
-若成功响应没有有效 jobId，输出“训练任务执行成功，但接口未返回有效 jobId，请查询执行记录确认。”。
-业务失败显示接口的 code 和 des，退出码为非零。执行成功表示接口接受本次执行操作，不表示训练已经完成。
-
-对于提交后的超时、传输错误、认证拒绝或其他无法确认结果的 HTTP 错误，不自动重发执行请求，先查询：
-
-```bash
-ml train history list aaaa83b8-5669-43a7-a62c-97ccf877e732
-```
-
-执行接口发出之前，权限检查发生登录失效时仍可按既有机制重新登录。底层只允许原有连接建立阶段的重试，不对已发送的执行请求自动重放。
-
 
 ### 权限检查故障定位
 
@@ -1060,12 +1068,12 @@ ml --config "C:\Users\l00123456\AppData\Roaming\ml\config.json" access status --
 
 | 命令 | 参数和选项 | 输出与行为 |
 |---|---|---|
-| `ml jupyter doctor` | 无 | 检查 HTTP 认证、Kernel 列表、Terminal 接口；不会创建资源，不代表 WebSocket 已验证 |
-| `ml jupyter notebook run SOURCE` | SOURCE 为本地 .ipynb；`--download` 结果根目录（默认 results）；`--kernel` 覆盖环境 Kernel；`--cwd` 服务器根目录下的相对工作目录；`--timeout` 全部代码执行时限（默认 600 秒）；`--startup-timeout` Kernel 就绪等待（默认 60 秒）；`--output` / `-o` 取 text/json | 顺序执行非空代码单元格，遇错停止。每次创建 UUID 结果目录，保存 executed.ipynb 和 summary.json；不覆盖输入 |
-| `ml jupyter terminal open` | 无，需真实 TTY | 创建并连接，输出终端名称；Ctrl+] 离开连接 |
-| `ml jupyter terminal list` | 无 | 终端名称、北京时间的最后活动时间 |
-| `ml jupyter terminal attach NAME` | 服务器返回的终端名称 | 重连现存终端，不保证补取全部历史输出 |
-| `ml jupyter terminal close NAME` | 要关闭的终端名称 | 删除指定远程终端，可能中止其中的进程 |
+| `ml jupyter doctor` | 可选 `--studio-id ENV_ID` | 检查 HTTP 认证、Kernel 列表、Terminal 接口；不会创建资源，不代表 WebSocket 已验证 |
+| `ml jupyter notebook run SOURCE` | SOURCE 为本地 .ipynb；`--download` 结果根目录（默认 results）；`--kernel` 覆盖环境 Kernel；`--cwd` 服务器根目录下的相对工作目录；`--timeout` 全部代码执行时限（默认 600 秒）；`--startup-timeout` Kernel 就绪等待（默认 60 秒）；`--output` / `-o` 取 text/json；可选 `--studio-id ENV_ID` | 顺序执行非空代码单元格，遇错停止。每次创建 UUID 结果目录，保存 executed.ipynb 和 summary.json；不覆盖输入 |
+| `ml jupyter terminal open` | 可选 `--studio-id ENV_ID`；需真实 TTY | 创建并连接，输出终端名称；Ctrl+] 离开连接 |
+| `ml jupyter terminal list` | 可选 `--studio-id ENV_ID` | 终端名称、北京时间的最后活动时间 |
+| `ml jupyter terminal attach NAME` | 服务器返回的终端名称；可选 `--studio-id ENV_ID` | 重连现存终端，不保证补取全部历史输出 |
+| `ml jupyter terminal close NAME` | 要关闭的终端名称；可选 `--studio-id ENV_ID` | 删除指定远程终端，可能中止其中的进程 |
 
 ### 调用示例
 
@@ -1184,3 +1192,11 @@ ml access status --diagnose
 若版本低于要求，命令返回非零退出码，并提示当前版本、最低版本和升级说明；不会反复打开浏览器登录。升级提醒写入 stderr，JSON 输出不受影响。帮助与版本查询仍可使用。旧客户端的提示可能为通用权限拒绝，请按管理员提供的安装包升级。
 
 策略配置、数据库迁移、版本统计与网关强制管控边界参见 [CLI 版本管控与网关接入](CLI版本管控与网关接入.md)。
+
+---
+
+## 参见
+
+- [项目 README](../README.md) — 安装、Windows 一键发布与安装、配置说明
+- [Windows 安装说明](../scripts/windows/INSTALL.md) — `install.cmd` 详细步骤
+- [需求与设计规格](./REQUIREMENTS_DESIGN_SPEC.md) — 详细功能设计文档
