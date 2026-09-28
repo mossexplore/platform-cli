@@ -73,7 +73,10 @@ ml                                              WiseRec 命令行工具
 ├── service                                     服务管理
 │   ├── list                                    查看服务列表
 │   ├── host                                    服务主机视图
-│   │   └── list                                查看指定服务的主机列表
+│   │   ├── list                                查看指定服务的主机列表
+│   │   └── logs                                主机日志
+│   │       ├── list                            查看 Pod 的日志文件列表
+│   │       └── search                          检索并查看日志内容
 │   └── deployment                              服务部署视图
 │       └── list                                查看指定服务的部署列表
 ├── featureset                                  特征集
@@ -488,6 +491,8 @@ ml algorithm clone SOURCE_ID --name mnist_copy --version latest
 ```text
 ml service list [OPTIONS]
 ml service host list SERVICE_ID [-o table|json]
+ml service host logs list POD_NAME --cluster CLUSTER_NAME --type TYPE
+ml service host logs search POD_NAME --cluster CLUSTER_NAME --type TYPE --file FILE_NAME [OPTIONS]
 ml service deployment list SERVICE_ID [-o table|json]
 ```
 
@@ -497,6 +502,8 @@ ml service deployment list SERVICE_ID [-o table|json]
 | --- | --- |
 | `list` | `--page`、`--page-size`；可用 `--name` / `--service-name`、`--model-name`、`--model-version` 筛选；可选 `--output` / `-o` |
 | `host list`、`deployment list` | 必填 `SERVICE_ID`；可选 `--output` / `-o` |
+| `host logs list` | 必填 `POD_NAME`、`--cluster CLUSTER_NAME`、`--type TYPE` |
+| `host logs search` | 必填 `POD_NAME`、`--cluster CLUSTER_NAME`、`--type TYPE`、`--file FILE_NAME`；可重复传入 `--keyword TEXT`，可选 `--line`、`--search-order`、`--grep-scope`、`--grep-line` |
 
 ### 14.3 说明
 
@@ -504,12 +511,18 @@ ml service deployment list SERVICE_ID [-o table|json]
 
 `host list` 查看主机和 Pod 信息，包括规格、健康状态、并发数、超时时间与资源使用率。`deployment list` 查看 `blockId`、区域、集群、镜像、规格和推理框架。两个详情命令显示第 1 页 10 条；资源使用率显示为百分比，时间按北京时间显示。缺失值显示“-”。
 
+在主机列表中找到 Pod 名称和集群后，先用 `host logs list` 查看日志文件。文件大小、修改时间和名称按平台返回值原样显示。再用 `host logs search` 指定文件查看日志正文；正文保留换行，便于在终端阅读或重定向保存。两条命令分别传入日志类型：例如文件列表用 `rtc`，检索 `interface.log` 用 `interface`。
+
+检索默认不设置关键词，读取 200 行，顺序为 `tail`，关键词范围为 `C`，上下文行数为 0。可重复使用 `--keyword` 添加多个关键词；其他检索选项按需调整。
+
 ### 14.4 示例
 
 ```bash
 ml service list --name demo --model-name model --model-version 1.0.0
 ml service list --page 2 --page-size 20 -o json
 ml service host list SERVICE_ID
+ml service host logs list POD_NAME --cluster mep-mirror-az4 --type rtc
+ml service host logs search POD_NAME --cluster mep-mirror-az4 --type interface --file interface.log --keyword error
 ml service deployment list SERVICE_ID -o json
 ```
 

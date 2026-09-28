@@ -21,8 +21,10 @@ from .common import fail, runtime_from_context
 service_app = typer.Typer(no_args_is_help=True, help="服务列表与部署视图查询")
 host_app = typer.Typer(no_args_is_help=True, help="服务主机视图查询")
 deployment_app = typer.Typer(no_args_is_help=True, help="服务部署视图查询")
+logs_app = typer.Typer(no_args_is_help=True, help="主机日志文件列表与检索")
 service_app.add_typer(host_app, name="host")
 service_app.add_typer(deployment_app, name="deployment")
+host_app.add_typer(logs_app, name="logs")
 
 BEIJING = timezone(timedelta(hours=8), name="Asia/Shanghai")
 LIST_COLUMNS = (
@@ -175,6 +177,12 @@ def _service_id(value: str) -> str:
     return service_id
 
 
+def _required_text(value: str, label: str) -> str:
+    if not value.strip():
+        raise ValueError(f"{label}不能为空")
+    return value.strip()
+
+
 @service_app.command("list")
 def list_services(
     context: typer.Context,
@@ -248,5 +256,79 @@ def list_deployments(
         with redirect_stdout(sys.stderr):
             result = runtime.authenticated_call(query)
         render_page("deployment", result, selected)
+    except Exception as exc:
+        fail(exc)
+
+
+@logs_app.command("list")
+def list_log_files(
+    context: typer.Context,
+    pod_name: str = typer.Argument(..., help="Pod 名称"),
+    cluster_name: str = typer.Option(..., "--cluster", help="集群名称"),
+    log_type: str = typer.Option(..., "--type", help="日志类型"),
+) -> None:
+    """查看指定 Pod 的日志文件列表。"""
+    try:
+        pod_name = _required_text(pod_name, "Pod 名称")
+        cluster_name = _required_text(cluster_name, "集群名称")
+        log_type = _required_text(log_type, "日志类型")
+        runtime = runtime_from_context(context)
+
+        def query(client):
+            _selected_business(runtime, client)
+            return ServiceCatalog(client).list_pod_log_files(
+                pod_name, cluster_name, log_type,
+            )
+
+        with redirect_stdout(sys.stderr):
+            files = runtime.authenticated_call(query)
+        table = Table(show_header=True, header_style="bold cyan")
+        for title in ("日志文件大小", "修改时间", "日志文件名称"):
+            table.add_column(title, overflow="fold")
+        for item in files:
+            table.add_row(*(Text(_text(item.get(field))) for field in
+                            ("fileSize", "updateTime", "fileName")))
+        console.print(table)
+        if not files:
+            console.print("暂无日志文件")
+    except Exception as exc:
+        fail(exc)
+
+
+@logs_app.command("search")
+def search_logs(
+    context: typer.Context,
+    pod_name: str = typer.Argument(..., help="Pod 名称"),
+    cluster_name: str = typer.Option(..., "--cluster", help="集群名称"),
+    log_type: str = typer.Option(..., "--type", help="日志类型"),
+    file_name: str = typer.Option(..., "--file", help="日志文件名称"),
+    keywords: Optional[list[str]] = typer.Option(None, "--keyword", help="检索关键词，可重复"),
+    line: int = typer.Option(200, "--line", min=1, help="检索行数"),
+    search_order: str = typer.Option("tail", "--search-order", help="检索顺序"),
+    grep_scope: str = typer.Option("C", "--grep-scope", help="关键词范围"),
+    grep_line: int = typer.Option(0, "--grep-line", min=0, help="关键词上下文行数"),
+) -> None:
+    """检索指定日志文件并输出正文。"""
+    try:
+        pod_name = _required_text(pod_name, "Pod 名称")
+        cluster_name = _required_text(cluster_name, "集群名称")
+        log_type = _required_text(log_type, "日志类型")
+        file_name = _required_text(file_name, "日志文件名称")
+        search_order = _required_text(search_order, "检索顺序")
+        grep_scope = _required_text(grep_scope, "关键词范围")
+        if keywords and any(not keyword.strip() for keyword in keywords):
+            raise ValueError("检索关键词不能为空白")
+        runtime = runtime_from_context(context)
+
+        def query(client):
+            _selected_business(runtime, client)
+            return ServiceCatalog(client).search_pod_log(
+                pod_name, cluster_name, log_type, file_name,
+                keywords or [], line, search_order, grep_scope, grep_line,
+            )
+
+        with redirect_stdout(sys.stderr):
+            content = runtime.authenticated_call(query)
+        typer.echo(content)
     except Exception as exc:
         fail(exc)

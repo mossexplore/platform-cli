@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from typing import Any, Dict, Optional
+from uuid import uuid4
 
 from ..client import PlatformClient
 from ..errors import ApiError, BusinessError
@@ -111,3 +112,51 @@ class ServiceCatalog:
         if count is not None:
             page["total"] = count
         return page
+
+    def _pod_log_request(
+        self, path: str, pod_name: str, cluster_name: str,
+        search: Dict[str, Any], action: str,
+    ) -> Dict[str, Any]:
+        business_id = self._business_id()
+        payload = self.client.request(
+            "POST", path,
+            json_body={
+                "version": "1.0", "meta": {"uuid": str(uuid4())},
+                "data": {
+                    "podStatus": 0, "businessId": business_id,
+                    "podName": pod_name, "clusterName": cluster_name,
+                    "serviceLogSearch": search, "belongingService": "",
+                },
+            },
+            headers={"businessid": business_id},
+        )
+        return self._result(payload, action)
+
+    def list_pod_log_files(
+        self, pod_name: str, cluster_name: str, log_type: str,
+    ) -> list[dict[str, Any]]:
+        result = self._pod_log_request(
+            "/ai/backend/mep/services/rtcContainer/queryPodAdvanceLogFileList",
+            pod_name, cluster_name, {"type": log_type}, "查询日志文件列表",
+        )
+        return self._items(result, "podLogFiles", "查询日志文件列表")
+
+    def search_pod_log(
+        self, pod_name: str, cluster_name: str, log_type: str,
+        file_name: str, keywords: list[str], line: int,
+        search_order: str, grep_scope: str, grep_line: int,
+    ) -> str:
+        result = self._pod_log_request(
+            "/ai/backend/mep/services/rtcContainer/queryPodAdvanceLog",
+            pod_name, cluster_name,
+            {
+                "type": log_type, "keywords": keywords, "line": line,
+                "searchOrder": search_order, "logFileName": file_name,
+                "grepScope": grep_scope, "grepLine": grep_line,
+            },
+            "检索日志",
+        )
+        data = result.get("data")
+        if not isinstance(data, dict) or not isinstance(data.get("content"), str):
+            raise ApiError("检索日志失败：响应缺少有效的 result.data.content")
+        return data["content"]

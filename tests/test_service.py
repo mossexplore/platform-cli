@@ -3,6 +3,7 @@
 import inspect
 import json
 import unittest
+from uuid import UUID
 from unittest.mock import patch
 
 import httpx
@@ -145,3 +146,105 @@ class ServiceCommandTest(unittest.TestCase):
         result = self.invoke(["list"], lambda request: calls.append(request))
         self.assertNotEqual(result.exit_code, 0)
         self.assertEqual(calls, [])
+
+    def test_log_file_list_sends_current_business_and_shows_values_unchanged(self):
+        files = [{"fileSize": "168", "updateTime": "May 6 15:36",
+                  "fileName": "[debug] interface.log", "extra": "kept"}]
+        seen = []
+
+        def handler(request):
+            self.assertEqual(request.method, "POST")
+            self.assertEqual(request.url.path,
+                "/ai/backend/mep/services/rtcContainer/queryPodAdvanceLogFileList")
+            self.assertEqual(request.headers["businessid"], "mep")
+            body = json.loads(request.content)
+            seen.append(body)
+            self.assertEqual(body["version"], "1.0")
+            UUID(body["meta"]["uuid"])
+            self.assertEqual(body["data"], {
+                "podStatus": 0, "businessId": "mep", "podName": "pod-1",
+                "clusterName": "cluster-1", "serviceLogSearch": {"type": "rtc"},
+                "belongingService": "",
+            })
+            return httpx.Response(200, json={"result": {"code": 0,
+                "podLogFiles": files}})
+
+        from wiserec_cli.commands import service
+        with patch.object(service.console, "print") as printed:
+            result = self.invoke(["host", "logs", "list", "pod-1",
+                "--cluster", "cluster-1", "--type", "rtc"], handler)
+        self.assertEqual(result.exit_code, 0, result.output)
+        self.assertEqual(len(seen), 1)
+        table = printed.call_args_list[0].args[0]
+        self.assertEqual([column.header for column in table.columns],
+                         ["日志文件大小", "修改时间", "日志文件名称"])
+        self.assertEqual([column._cells[0].plain for column in table.columns],
+                         ["168", "May 6 15:36", "[debug] interface.log"])
+
+    def test_log_search_defaults_and_multiline_stdout(self):
+        body_seen = []
+        content = "first line\nsecond [INFO] line"
+
+        def handler(request):
+            self.assertEqual(request.url.path,
+                "/ai/backend/mep/services/rtcContainer/queryPodAdvanceLog")
+            self.assertEqual(request.headers["businessid"], "mep")
+            body = json.loads(request.content)
+            body_seen.append(body)
+            UUID(body["meta"]["uuid"])
+            self.assertEqual(body["data"], {
+                "podStatus": 0, "businessId": "mep", "podName": "pod-1",
+                "clusterName": "cluster-1", "serviceLogSearch": {
+                    "type": "interface", "keywords": [], "line": 200,
+                    "searchOrder": "tail", "logFileName": "interface.log",
+                    "grepScope": "C", "grepLine": 0,
+                }, "belongingService": "",
+            })
+            return httpx.Response(200, json={"result": {"code": 0,
+                "data": {"content": content}}})
+
+        result = self.invoke(["host", "logs", "search", "pod-1",
+            "--cluster", "cluster-1", "--type", "interface",
+            "--file", "interface.log"], handler)
+        self.assertEqual(result.exit_code, 0, result.output)
+        self.assertEqual(result.stdout, content + "\n")
+        self.assertEqual(len(body_seen), 1)
+
+    def test_log_search_passes_optional_values(self):
+        def handler(request):
+            search = json.loads(request.content)["data"]["serviceLogSearch"]
+            self.assertEqual(search, {"type": "custom", "keywords": ["error", "timeout"],
+                "line": 30, "searchOrder": "head", "logFileName": "app.log",
+                "grepScope": "A", "grepLine": 2})
+            return httpx.Response(200, json={"result": {"code": 0,
+                "data": {"content": "match"}}})
+
+        result = self.invoke(["host", "logs", "search", "pod-1",
+            "--cluster", "cluster-1", "--type", "custom", "--file", "app.log",
+            "--keyword", "error", "--keyword", "timeout", "--line", "30",
+            "--search-order", "head", "--grep-scope", "A", "--grep-line", "2"], handler)
+        self.assertEqual(result.exit_code, 0, result.output)
+        self.assertEqual(result.stdout, "match\n")
+
+    def test_log_errors_do_not_emit_success_output(self):
+        for body in ({"code": 3, "des": "denied"},
+                     {"code": 0, "data": {}},
+                     {"code": 0, "data": {"content": None}}):
+            with self.subTest(body=body):
+                result = self.invoke(["host", "logs", "search", "pod-1",
+                    "--cluster", "cluster-1", "--type", "interface",
+                    "--file", "app.log"], lambda _request: httpx.Response(
+                        200, json={"result": body}))
+                self.assertNotEqual(result.exit_code, 0)
+                self.assertEqual(result.stdout, "")
+
+    def test_log_commands_reject_stale_selected_business(self):
+        data = json.loads(self.fixture.business_path.read_text())
+        data["profiles"]["dev"]["selected"]["businessId"] = "stale"
+        self.fixture.business_path.write_text(json.dumps(data))
+        requests = []
+        result = self.invoke(["host", "logs", "list", "pod-1",
+            "--cluster", "cluster-1", "--type", "rtc"],
+            lambda request: requests.append(request))
+        self.assertNotEqual(result.exit_code, 0)
+        self.assertEqual(requests, [])
