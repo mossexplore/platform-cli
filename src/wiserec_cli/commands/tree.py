@@ -2,22 +2,23 @@
 
 from __future__ import annotations
 
-import click
+from typing import Any
+
 import typer
 from rich.console import Console
 from rich.text import Text
 from rich.tree import Tree
 
 
-def _is_group(command: click.Command) -> bool:
-    return isinstance(command, (click.Group, typer.core.TyperGroup))
+def _is_group(command: Any) -> bool:
+    return isinstance(getattr(command, "commands", None), dict)
 
 
-def _summary(command: click.Command) -> str:
+def _summary(command: Any) -> str:
     return command.get_short_help_str(limit=1000).split("；", 1)[0].strip()
 
 
-def _append_commands(parent: Tree, group: click.Group) -> None:
+def _append_commands(parent: Tree, group: Any) -> None:
     for name, command in group.commands.items():
         if command.hidden:
             continue
