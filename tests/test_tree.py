@@ -21,6 +21,7 @@ def test_tree_works_without_runtime_or_login():
     assert "├── train" in result.output
     assert "── download" in result.output
     assert "── service" in result.output
+    assert "── dataset" in result.output
     assert "── search" in result.output
     assert "── tree" in result.output
 

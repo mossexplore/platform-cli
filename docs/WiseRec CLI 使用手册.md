@@ -1,6 +1,6 @@
 # WiseRec CLI 使用手册
 
-`ml` 用于管理 WiseRec 平台的环境、业务、训练任务、算法仓、服务、特征集和开发工作空间。本手册面向命令使用者。示例中的 `TASK_ID`、`JOB_ID`、`PROJECT_ID`、`EXPERIMENT_ID`、`SET_ID`、`SERVICE_ID` 等占位符，需要替换成列表查询得到的实际 ID。
+`ml` 用于管理 WiseRec 平台的环境、业务、训练任务、算法仓、服务、数据集、特征集和开发工作空间。本手册面向命令使用者。示例中的 `TASK_ID`、`JOB_ID`、`PROJECT_ID`、`EXPERIMENT_ID`、`SET_ID`、`SERVICE_ID`、`DATASET_ID` 等占位符，需要替换成列表查询得到的实际 ID。
 
 ## 1. 命令树
 
@@ -80,6 +80,9 @@ ml                                              WiseRec 命令行工具
 │   │       └── search                          检索并查看日志内容
 │   └── deployment                              服务部署视图
 │       └── list                                查看指定服务的部署列表
+├── dataset                                     数据集管理
+│   ├── list                                    分页查询数据集
+│   └── detail                                  查看数据集详情
 ├── featureset                                  特征集
 │   ├── wide                                    宽表特征集
 │   │   ├── list                                查看列表
@@ -530,9 +533,40 @@ ml service host logs search POD_NAME --cluster mep-mirror-az4 --type interface -
 ml service deployment list SERVICE_ID -o json
 ```
 
-## 15. 特征集
+## 15. 数据集
 
 ### 15.1 命令格式
+
+```text
+ml dataset list [OPTIONS]
+ml dataset detail DATASET_ID [-o table|json]
+```
+
+### 15.2 参数与选项
+
+| 命令 | 主要参数与选项 |
+| --- | --- |
+| `list` | `--page`、`--page-size`；可用 `--name` / `--dataset-name`、`--create-user`、`--update-user`、`--bucket-name` 筛选；可选 `--output` / `-o` |
+| `detail` | 必填 `DATASET_ID`；可选 `--output` / `-o` |
+
+### 15.3 说明
+
+先登录并选择业务。列表默认显示第 1 页、每页 10 条，展示数据集 ID、名称、租户、数据类型、修改者、大小、更新时间、最近使用、区域、存储桶和描述；空值显示“-”。大小按字节换算，采用 1024 进位，显示 B、K、M 或 G，换算值保留两位小数。时间按北京时间显示。
+
+`detail` 展示租户、团队、创建者、创建时间、更新时间、业务子场景、数据集 ID、存储桶名称、存储方式、文件名称、来源和描述。JSON 输出保留平台返回的其他字段。
+
+### 15.4 示例
+
+```bash
+ml dataset list --name dog_cat --create-user l00123456
+ml dataset list --bucket-name sfs-turbo-mep-guian2 --page 2 --page-size 20
+ml dataset detail DATASET_ID
+ml dataset detail DATASET_ID -o json
+```
+
+## 16. 特征集
+
+### 16.1 命令格式
 
 ```text
 ml featureset wide list [OPTIONS]
@@ -541,18 +575,18 @@ ml featureset wide config SET_ID
 ml featureset model config SET_ID
 ```
 
-### 15.2 参数与选项
+### 16.2 参数与选项
 
 | 命令 | 主要参数与选项 |
 | --- | --- |
 | `wide list`、`model list` | `--name`、`--page`、`--page-size`、`--output` / `-o` |
 | `wide config`、`model config` | 必填 `SET_ID`；直接输出 JSON |
 
-### 15.3 说明
+### 16.3 说明
 
 `wide` 查询宽表特征集，`model` 查询模型特征集。列表展示 ID、名称、类型、场景和创建、修改信息；时间按北京时间显示。先从列表取得 `SET_ID`，再查看配置。配置查询固定输出 JSON，不提供 `--output` 选项。
 
-### 15.4 示例
+### 16.4 示例
 
 ```bash
 ml featureset wide list --name demo
@@ -561,9 +595,9 @@ ml featureset wide config SET_ID
 ml featureset model config SET_ID
 ```
 
-## 16. Jupyter Notebook 与远程终端
+## 17. Jupyter Notebook 与远程终端
 
-### 16.1 命令格式
+### 17.1 命令格式
 
 ```text
 ml jupyter doctor [--studio-id ENV_ID]
@@ -574,7 +608,7 @@ ml jupyter terminal attach NAME [--studio-id ENV_ID]
 ml jupyter terminal close NAME [--studio-id ENV_ID]
 ```
 
-### 16.2 参数与选项
+### 17.2 参数与选项
 
 | 参数或选项 | 用途 |
 | --- | --- |
@@ -587,11 +621,11 @@ ml jupyter terminal close NAME [--studio-id ENV_ID]
 | `--output` / `-o` | Notebook 摘要使用 `text` 或 `json` |
 | `--studio-id ENV_ID` | 临时指定 Web Studio 实例，不改变默认选择 |
 
-### 16.3 说明
+### 17.3 说明
 
 使用前需由管理员开通 Jupyter 能力。`doctor` 检查连接；`notebook run` 在前台执行并保存结果，执行失败时也会尽可能保存已有输出。远程终端需服务端启用，`open` 创建终端，`attach` 连接现有终端，`close` 关闭终端。按 `Ctrl+]` 可断开当前连接而保留远程终端。
 
-### 16.4 示例
+### 17.4 示例
 
 ```bash
 ml jupyter doctor
@@ -602,9 +636,9 @@ ml jupyter terminal attach NAME
 ml jupyter terminal close NAME
 ```
 
-## 17. Web Studio
+## 18. Web Studio
 
-### 17.1 命令格式
+### 18.1 命令格式
 
 ```text
 ml webstudio list [OPTIONS]
@@ -614,7 +648,7 @@ ml webstudio start ENV_ID
 ml webstudio stop ENV_ID
 ```
 
-### 17.2 参数与选项
+### 18.2 参数与选项
 
 | 命令 | 主要参数与选项 |
 | --- | --- |
@@ -622,13 +656,13 @@ ml webstudio stop ENV_ID
 | `login`、`start`、`stop` | 必填 Web Studio 实例 ID `ENV_ID` |
 | `show` | 无参数 |
 
-### 17.3 说明
+### 18.3 说明
 
 先登录平台并选择业务，再使用 `list` 找到实例。`login` 选择默认实例并建立 Jupyter 连接；`show` 查看当前默认实例。`start` 和 `stop` 改变远程实例状态，不会改变默认选择。启动超时或中断时，先用 `list --env-id ENV_ID` 核对状态，再决定是否重试。
 
 在 Jupyter 命令中使用 `--studio-id ENV_ID` 可临时操作其他实例。连接信息可能含临时凭据，请勿公开分享终端输出。
 
-### 17.4 示例
+### 18.4 示例
 
 ```bash
 ml webstudio list --status online
@@ -639,13 +673,13 @@ ml jupyter doctor --studio-id ENV_ID
 ml webstudio stop ENV_ID
 ```
 
-## 18. 输出与常见问题
+## 19. 输出与常见问题
 
-### 18.1 输出格式
+### 19.1 输出格式
 
 带 `--output` / `-o` 的命令可选择表格或 JSON，具体支持范围以该命令的帮助为准。查询结果为空时会显示相应提示。列表中需要完整复制 ID 时，可使用 JSON 输出；训练任务、算法仓、服务和特征集表格中的时间按北京时间显示。
 
-### 18.2 退出状态
+### 19.2 退出状态
 
 | 状态 | 含义 |
 | --- | --- |
@@ -653,7 +687,7 @@ ml webstudio stop ENV_ID
 | `1` | 登录、授权、业务、网络或执行失败 |
 | `2` | 命令参数错误，例如缺少必填项或页码无效 |
 
-### 18.3 常见问题
+### 19.3 常见问题
 
 - 提示未登录：执行 `ml login`，再用 `ml auth status` 核对。
 - 提示未选择业务：执行 `ml business use`，再用 `ml business show` 核对。
