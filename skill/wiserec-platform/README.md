@@ -27,6 +27,7 @@ OpenCode 也识别 `.agents\skills\wiserec-platform` 和 `.claude\skills\wiserec
 ```powershell
 Get-Command ml
 ml --version
+ml tree
 ml env show
 ml auth status
 ml business show

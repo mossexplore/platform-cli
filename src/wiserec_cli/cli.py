@@ -23,6 +23,7 @@ from .commands.mep import mep_app
 from .commands.mtp import mtp_app
 from .commands.offline import offline_app
 from .commands.train import train_app
+from .commands.tree import show_tree
 from .commands.user import user_app
 from .runtime import Runtime
 from .invocation import InvocationGroup
@@ -36,6 +37,7 @@ app = typer.Typer(
 )
 app.command("login")(login)
 app.command("logout")(logout)
+app.command("tree")(show_tree)
 app.add_typer(auth_app, name="auth")
 app.add_typer(access_app, name="access")
 app.add_typer(business_app, name="business")
@@ -81,6 +83,8 @@ def initialize(
 ) -> None:
     """初始化 CLI 运行时。"""
     del version
+    if context.invoked_subcommand == "tree":
+        return
     try:
         context.obj = Runtime(config_path=config)
     except Exception as exc:

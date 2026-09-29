@@ -10,6 +10,7 @@
 ml                                              WiseRec 命令行工具
 ├── login                                       登录平台
 ├── logout                                      退出登录
+├── tree                                        查看完整命令树
 ├── auth                                        登录状态
 │   └── status                                  查看当前登录状态
 ├── env                                         环境管理
@@ -131,6 +132,7 @@ ml train list
 
 ```text
 ml [OPTIONS] COMMAND [ARGS]...
+ml tree
 ```
 
 ### 3.2 参数与选项
@@ -139,16 +141,18 @@ ml [OPTIONS] COMMAND [ARGS]...
 | --- | --- |
 | `--version` | 显示当前安装版本 |
 | `--help` | 显示命令帮助；可放在各级命令后 |
+| `ml tree` | 显示当前安装版本的完整命令树及简短用途，无需登录或选择业务 |
 | `--output` / `-o` | 部分查询命令支持 `table` 或 `json`，以对应命令帮助为准 |
 
 ### 3.3 说明
 
-不传命令时显示总帮助。需要查看某个命令的最新参数时，在该命令后加 `--help`。下文未列出的通用补全选项可通过总帮助查看。
+不传命令时显示总帮助。`ml tree` 一次展示全部命令层级，随已安装版本的命令自动更新，不展开参数；需要查看某个命令的参数时，在该命令后加 `--help`。下文未列出的通用补全选项可通过总帮助查看。
 
 ### 3.4 示例
 
 ```bash
 ml --help
+ml tree
 ml train --help
 ml train list --help
 ml train list -o json

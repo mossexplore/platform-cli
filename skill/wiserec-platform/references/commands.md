@@ -7,6 +7,7 @@
 | 命令 | 作用与核验点 |
 | --- | --- |
 | `ml --version` | 确认安装和实际调用版本 |
+| `ml tree` | 无需登录，显示当前安装版本全部命令的层级与简短用途；不展示参数 |
 | `ml --help` / `ml <子命令> --help` | 查当前安装版本的命令与参数 |
 | `ml env list` / `ml env show` | 列环境 / 看当前环境；固定表格 |
 | `ml env use NAME` | 切换当前环境；`NAME` 为 `dev`、`mirror`、`explore`、`product` 中的实际目标 |
