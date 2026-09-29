@@ -7,7 +7,7 @@
 
 ![Python](https://img.shields.io/badge/python-3.9%2B-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
-![Version](https://img.shields.io/badge/version-1.0.3-informational)
+![Version](https://img.shields.io/badge/version-1.0.3.9-informational)
 
 ---
 
@@ -49,7 +49,7 @@ ml offline experiment list --name "训练" --page-size 50 -o json | jq '.items[]
 
 ## 快速开始
 
-普通用户请从 [GitHub v1.0.3](https://github.com/mossexplore/platform-cli/releases/tag/v1.0.3) 下载 Windows 联网或离线安装包，解压运行 `install.cmd`。离线包要求 Python 3.12 x64，Python 和 Edge 需另行安装。以下源码安装步骤用于开发，先将仓库下载到本地并进入项目根目录。
+普通用户请从 [GitHub v1.0.3.7](https://github.com/mossexplore/platform-cli/releases/tag/v1.0.3.7) 下载 Windows 联网或离线安装包，解压运行 `install.cmd`。离线包要求 Python 3.12 x64，Python 和 Edge 需另行安装。以下源码安装步骤用于开发，先将仓库下载到本地并进入项目根目录。
 
 ```bash
 # 1. 安装（开发模式，建议在虚拟环境中执行）
@@ -110,9 +110,8 @@ ml env use dev       # 切换环境（写回 config.json）
 - 登录方式：Playwright 启动**持久化 Edge Profile**（每个环境一个目录），导航到平台首页。
 - 成功判定：监听页面对 `/ai/user/info` 的请求，抓取 `cookie` 与 `csrftoken`，再回放该请求校验；
   校验通过才算登录成功，CLI 会自动关闭 Edge，用户不用敲回车。
-- 有效期：默认 1800 秒（30 分钟），由 `auth.expires_in_seconds` 控制。
-- 续期策略：命令执行前检查有效期；过期则重开 Edge，**优先复用已有平台会话**（通常无验证码即恢复），
-  只有平台会话真失效时才要求重新登录。
+- 本地空闲有效期：默认 1800 秒（30 分钟），由 `auth.expires_in_seconds` 控制。成功访问平台后重新计时；本地认证记录中的时间采用带 `+08:00` 时区的可读格式，旧版数字时间戳仍可读取。
+- 续期策略：空闲超时后，先用现有凭据校验平台用户信息；平台仍接受凭据时静默续期，明确拒绝时才重开 Edge。网络或平台故障不会当作登录失效。
 - 兜底重试：若服务端返回 401 / 403 / 419 / 440 或发生重定向，CLI 会刷新认证并**重试一次**。
 
 ```bash

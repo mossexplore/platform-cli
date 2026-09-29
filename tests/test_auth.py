@@ -7,11 +7,15 @@ from collections import deque
 from pathlib import Path
 from unittest.mock import Mock, patch
 
+import httpx
+
 from wiserec_cli.auth import AuthManager, BrowserAuthenticator, _parse_user_info
+from wiserec_cli.client import PlatformClient
 from wiserec_cli.business import BusinessStore
 from wiserec_cli.config import ConfigManager
 from wiserec_cli.credentials import CredentialStore
 from wiserec_cli.models import Credentials, Profile
+from wiserec_cli.errors import ApiError
 
 
 class FakeBrowserAuthenticator:
@@ -199,12 +203,58 @@ class AuthManagerTest(unittest.TestCase):
         manager = AuthManager(self.config, self.store)
         fake_browser = FakeBrowserAuthenticator(refreshed, self.store)
         manager.browser = fake_browser
-        result = manager.ensure_credentials()
+        with patch.object(manager, "_probe_cached_credentials", return_value=False):
+            result = manager.ensure_credentials()
 
         self.assertEqual(result.cookie, "new-cookie")
         self.assertEqual(fake_browser.calls, 1)
         self.assertTrue(fake_browser.last_kwargs["verify_ssl"])
         self.assertEqual(self.store.load("dev").cookie, "new-cookie")
+
+    def test_expired_local_time_uses_valid_platform_session_without_browser(self):
+        expired = Credentials("dev", "old-cookie", "old-csrf", "jack", 1, 2)
+        self.store.save(expired)
+        manager = AuthManager(self.config, self.store)
+        browser = FakeBrowserAuthenticator(expired, self.store)
+        manager.browser = browser
+
+        def platform_client(**kwargs):
+            def response(request):
+                self.assertEqual(request.url.path, "/ai/user/info")
+                self.assertEqual(request.headers["cookie"], "old-cookie")
+                return httpx.Response(200, json={"result": {
+                    "code": 0, "username": "jack",
+                }})
+            return PlatformClient(**kwargs, transport=httpx.MockTransport(response))
+
+        with patch("wiserec_cli.auth.PlatformClient", side_effect=platform_client):
+            result = manager.ensure_credentials()
+        self.assertEqual(browser.calls, 0)
+        self.assertGreater(result.expires_at, expired.expires_at)
+        self.assertEqual(self.store.load("dev").cookie, "old-cookie")
+
+    def test_expired_platform_session_opens_browser_but_outage_does_not(self):
+        expired = Credentials("dev", "old-cookie", "old-csrf", "jack", 1, 2)
+        refreshed = Credentials.create("dev", "fresh-cookie", "new-csrf", "jack", 1800)
+        self.store.save(expired)
+        manager = AuthManager(self.config, self.store)
+        browser = FakeBrowserAuthenticator(refreshed, self.store)
+        manager.browser = browser
+
+        def platform_client(status):
+            return lambda **kwargs: PlatformClient(
+                **kwargs,
+                transport=httpx.MockTransport(lambda _: httpx.Response(status)),
+            )
+
+        with patch("wiserec_cli.auth.PlatformClient", side_effect=platform_client(503)):
+            with self.assertRaises(ApiError):
+                manager.ensure_credentials()
+        self.assertEqual(browser.calls, 0)
+        with patch("wiserec_cli.auth.PlatformClient", side_effect=platform_client(401)):
+            result = manager.ensure_credentials()
+        self.assertEqual(result.cookie, "fresh-cookie")
+        self.assertEqual(browser.calls, 1)
 
     def test_profile_can_disable_playwright_https_verification(self):
         credentials = Credentials.create(

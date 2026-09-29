@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from contextlib import contextmanager
-from typing import Any, Dict, Mapping, Optional
+from typing import Any, Callable, Dict, Mapping, Optional
 
 import httpx
 
@@ -23,6 +23,7 @@ class PlatformClient:
         verify_ssl: bool,
         transport: Optional[httpx.BaseTransport] = None,
         business_selection: Optional[BusinessSelection] = None,
+        on_platform_success: Optional[Callable[[], None]] = None,
     ):
         selected_transport = transport or httpx.HTTPTransport(
             retries=retry_times,
@@ -39,6 +40,8 @@ class PlatformClient:
             headers["businessid"] = business_selection.business_id
         self._username = credentials.username
         self._business_selection = business_selection
+        self._platform_url = httpx.URL(profile.base_url)
+        self._on_platform_success = on_platform_success
         self._client = httpx.Client(
             base_url=profile.base_url,
             headers=headers,
@@ -77,6 +80,14 @@ class PlatformClient:
         merged.update(generated)
         return merged
 
+    def _mark_platform_response(self, response: httpx.Response) -> None:
+        """外部下载地址和其他服务的响应不能延长平台认证有效期。"""
+        url = response.request.url
+        if (url.scheme, url.host, url.port) == (
+            self._platform_url.scheme, self._platform_url.host, self._platform_url.port,
+        ) and self._on_platform_success is not None:
+            self._on_platform_success()
+
     def request(
         self,
         method: str,
@@ -111,9 +122,15 @@ class PlatformClient:
                 f"接口请求失败，HTTP {response.status_code}: {response.text[:500]}"
             )
         try:
-            return response.json()
+            payload = response.json()
         except ValueError as exc:
             raise ApiError(f"接口没有返回有效 JSON: {response.text[:500]}") from exc
+        result = payload.get("result") if isinstance(payload, dict) else None
+        if not isinstance(result, dict) or "code" not in result or (
+            type(result["code"]) is int and result["code"] == 0
+        ):
+            self._mark_platform_response(response)
+        return payload
 
     @contextmanager
     def stream(self, method: str, path: str, *, params: Optional[Mapping[str, Any]] = None):
@@ -135,5 +152,6 @@ class PlatformClient:
                 if not response.is_success:
                     raise ApiError(f"接口请求失败，HTTP {response.status_code}")
                 yield response
+                self._mark_platform_response(response)
         except httpx.HTTPError as exc:
             raise ApiError(f"下载请求失败: {exc}") from exc

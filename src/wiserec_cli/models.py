@@ -4,8 +4,31 @@ from __future__ import annotations
 
 import time
 from dataclasses import asdict, dataclass
+from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, Optional
 from urllib.parse import urlsplit
+
+
+BEIJING_TIMEZONE = timezone(timedelta(hours=8))
+
+
+def _read_credential_time(value: Any) -> float:
+    """读取旧版时间戳或带时区的可读时间。"""
+    if isinstance(value, str):
+        try:
+            moment = datetime.fromisoformat(value)
+        except ValueError:
+            return float(value)
+        if moment.tzinfo is None:
+            raise ValueError("认证时间缺少时区")
+        return moment.timestamp()
+    return float(value)
+
+
+def _format_credential_time(value: float) -> str:
+    return datetime.fromtimestamp(value, BEIJING_TIMEZONE).isoformat(
+        sep=" ", timespec="seconds"
+    )
 
 
 @dataclass(frozen=True)
@@ -65,15 +88,18 @@ class Credentials:
             cookie=str(value["cookie"]),
             csrftoken=str(value["csrftoken"]),
             username=str(value.get("username", "")),
-            acquired_at=float(value["acquired_at"]),
-            expires_at=float(value["expires_at"]),
+            acquired_at=_read_credential_time(value["acquired_at"]),
+            expires_at=_read_credential_time(value["expires_at"]),
             cn_name=str(value.get("cn_name", "")),
             department=str(value.get("department", "")),
             business_id=str(value.get("business_id", "")),
         )
 
     def to_dict(self) -> Dict[str, Any]:
-        return asdict(self)
+        data = asdict(self)
+        data["acquired_at"] = _format_credential_time(self.acquired_at)
+        data["expires_at"] = _format_credential_time(self.expires_at)
+        return data
 
     def is_expired(self, now: float = None) -> bool:
         current = time.time() if now is None else now

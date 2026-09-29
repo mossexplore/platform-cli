@@ -1,3 +1,3 @@
 """wiserec CLI package."""
 
-__version__ = "1.0.3.8"
+__version__ = "1.0.3.9"

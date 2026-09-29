@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import shutil
+import sys
 import time
 from collections import deque
 from dataclasses import replace
@@ -12,8 +13,9 @@ from typing import Any, Deque, Dict, Optional
 
 from .business import BusinessStore, parse_business_list
 from .config import ConfigManager
+from .client import PlatformClient
 from .credentials import CredentialStore
-from .errors import AuthenticationError, BusinessError, CredentialError
+from .errors import ApiError, AuthenticationError, BusinessError, CredentialError
 from .models import Credentials, Profile
 from .output import print_result
 
@@ -359,7 +361,47 @@ class AuthManager:
     ):
         self.config = config
         self.store = store
+        self.business_store = business_store
         self.browser = BrowserAuthenticator(store, business_store)
+
+    def _probe_cached_credentials(
+        self, profile: Profile, credentials: Credentials,
+    ) -> bool:
+        """只在本地空闲超时后，核实平台是否仍接受现有凭据。"""
+        selection = None
+        if self.business_store is not None:
+            try:
+                selection = self.business_store.selection(
+                    profile.name, credentials.username
+                )
+            except BusinessError:
+                pass
+        with PlatformClient(
+            profile=profile,
+            credentials=credentials,
+            timeout_ms=self.config.timeout_ms,
+            retry_times=self.config.retry_times,
+            verify_ssl=self.config.verify_ssl_for(profile),
+            business_selection=selection,
+        ) as client:
+            payload = client.request("GET", "/ai/user/info")
+        info = _parse_user_info(payload)
+        if info is not None and info["username"]:
+            return info["username"] == credentials.username
+        result = payload.get("result") if isinstance(payload, dict) else None
+        code = result.get("code") if isinstance(result, dict) else None
+        if isinstance(code, (int, str)) and code in {
+            401, 403, 419, 440, "UNAUTHORIZED", "SESSION_EXPIRED",
+        }:
+            return False
+        raise ApiError("认证校验返回异常，无法确认登录状态，请稍后重试")
+
+    def record_platform_activity(self, credentials: Credentials) -> None:
+        """平台请求已成功；续期失败不应把已完成的业务操作报成失败。"""
+        try:
+            self.store.extend_if_current(credentials, self.config.auth_ttl_seconds)
+        except (OSError, CredentialError) as exc:
+            print(f"警告：无法保存本地认证续期信息：{exc}", file=sys.stderr)
 
     def ensure_credentials(self, force_refresh: bool = False) -> Credentials:
         profile = self.config.current_profile()
@@ -370,9 +412,15 @@ class AuthManager:
         elif credentials is None:
             print(f"环境 {profile.name!r} 尚未登录，将打开 Edge 获取认证信息。")
         elif credentials.is_expired():
-            print(
-                f"环境 {profile.name!r} 的认证信息已过期，将打开 Edge 重新获取。"
-            )
+            print(f"环境 {profile.name!r} 的本地认证空闲时间已到，正在校验平台会话...")
+            try:
+                if self._probe_cached_credentials(profile, credentials):
+                    return self.store.extend_if_current(
+                        credentials, self.config.auth_ttl_seconds
+                    )
+            except AuthenticationError:
+                pass
+            print("平台会话已失效，将打开 Edge 重新获取认证信息。")
         else:
             return credentials
 

@@ -49,6 +49,7 @@ class Runtime:
                     retry_times=self.config.retry_times,
                     verify_ssl=self.config.verify_ssl,
                     business_selection=selection,
+                    on_platform_success=lambda: self.auth.record_platform_activity(credentials),
                 ) as client:
                     return operation(client)
             except AuthenticationError:

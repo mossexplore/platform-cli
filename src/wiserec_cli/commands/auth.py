@@ -3,10 +3,14 @@
 from __future__ import annotations
 
 from datetime import datetime
+from math import ceil
+import time
 
 import typer
 
 from ..output import console, print_result
+from ..models import BEIJING_TIMEZONE
+from ..errors import BusinessError
 from .common import fail, runtime_from_context
 
 
@@ -60,22 +64,31 @@ def logout(
 def status(context: typer.Context) -> None:
     """显示当前环境的认证有效期，不显示敏感值。"""
     try:
-        credentials = runtime_from_context(context).auth.status()
+        runtime = runtime_from_context(context)
+        credentials = runtime.auth.status()
+        try:
+            business_id = runtime.business.selected_business_id(
+                credentials.profile, credentials.username
+            )
+        except BusinessError:
+            business_id = "-"
+        now = time.time()
         print_result(
             {
                 "profile": credentials.profile,
                 "username": credentials.username,
                 "cn_name": credentials.cn_name,
                 "department": credentials.department,
-                "business_id": credentials.business_id,
-                "status": "expired" if credentials.is_expired() else "valid",
-                "remaining_seconds": credentials.remaining_seconds(),
+                "businessId": business_id,
+                "status": "expired" if credentials.is_expired(now=now) else "valid",
+                "remaining_minutes": max(0, ceil((credentials.expires_at - now) / 60)),
                 "acquired_at": datetime.fromtimestamp(
-                    credentials.acquired_at
-                ).isoformat(timespec="seconds"),
+                    credentials.acquired_at, BEIJING_TIMEZONE
+                ).strftime("%Y-%m-%d %H:%M:%S"),
                 "expires_at": datetime.fromtimestamp(
-                    credentials.expires_at
-                ).isoformat(timespec="seconds"),
+                    credentials.expires_at, BEIJING_TIMEZONE
+                ).strftime("%Y-%m-%d %H:%M:%S"),
+                "timezone": "Asia/Shanghai",
             }
         )
     except Exception as exc:

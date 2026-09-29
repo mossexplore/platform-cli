@@ -28,7 +28,8 @@ def platform(runtime, *, timeout_ms=None):
     check_access(runtime.config.access_control, profile, credentials, selection,
                  command=runtime.invocation_command, full_command=getattr(runtime, 'full_command', ''))
     with PlatformClient(profile, credentials, timeout_ms or runtime.config.timeout_ms, 0,
-                        runtime.config.verify_ssl, business_selection=selection) as client:
+                        runtime.config.verify_ssl, business_selection=selection,
+                        on_platform_success=lambda: runtime.auth.record_platform_activity(credentials)) as client:
         yield WebStudioService(client), credentials.username, stored
 
 
