@@ -241,16 +241,18 @@ ml business refresh
 | `--tenant ID` | 选择租户 |
 | `--team ID` | 在指定租户内选择团队，需同时提供 `--tenant` |
 | `--department ID` | 同名租户有歧义时指定部门，需同时提供 `--tenant` |
+| `--search 关键词` | 按部门名称或 ID 的部分内容筛选交互列表，不能与 `--tenant` 同时使用 |
 
 ### 6.3 说明
 
-不带选项的 `ml business use` 会引导选择部门、租户和团队。业务命令至少需要选中租户；团队必须处于可用状态。`show` 可核对当前选择，目录发生变化时运行 `refresh`。
+不带选项的 `ml business use` 仍展示全部部门，并引导选择租户和团队。添加 `--search` 后只展示匹配的部门，再按序号选择；无匹配时不会切换业务。业务命令至少需要选中租户；团队必须处于可用状态。`show` 可核对当前选择，目录发生变化时运行 `refresh`。
 
 ### 6.4 示例
 
 ```bash
 ml business list
 ml business use
+ml business use --search 云平台
 ml business use --tenant mep --team team-a
 ml business show
 ml business refresh

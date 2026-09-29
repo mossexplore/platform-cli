@@ -6,7 +6,7 @@ from unittest.mock import patch
 
 from typer.testing import CliRunner
 
-from wiserec_cli.business import BusinessStore, parse_business_list
+from wiserec_cli.business import BusinessStore, Department, Tenant, parse_business_list
 from wiserec_cli.cli import app
 from wiserec_cli.commands.business import console as business_console
 from wiserec_cli.credentials import CredentialStore
@@ -92,6 +92,13 @@ class BusinessCommandTest(unittest.TestCase):
                 input=input_value,
             )
 
+    def add_search_departments(self):
+        self.business_store.refresh("dev", "jack", (
+            Department("cloud-main", "云平台部", (Tenant("mep", "测试MEP平台", (), ()),)),
+            Department("algo", "算法中心", (Tenant("algorithm", "算法租户", (), ()),)),
+            Department("cloud-ops", "云平台运维部", (Tenant("ops", "运维租户", (), ()),)),
+        ))
+
     def test_uses_available_team_by_id(self):
         result = self.invoke(
             [
@@ -166,6 +173,62 @@ class BusinessCommandTest(unittest.TestCase):
             self.business_store.require_selection("dev", "jack").team_id,
             "available-team",
         )
+
+    def test_search_filters_department_name_and_keeps_next_steps(self):
+        self.add_search_departments()
+        result = self.invoke(
+            ["business", "use", "--search", "运维"],
+            input_value="1\n1\n1\n",
+        )
+
+        self.assertEqual(result.exit_code, 0, result.output)
+        self.assertIn("云平台运维部 [cloud-ops]", result.output)
+        self.assertNotIn("算法中心", result.output)
+        self.assertEqual(
+            self.business_store.require_selection("dev", "jack").department_id,
+            "cloud-ops",
+        )
+        self.assertEqual(
+            self.business_store.require_selection("dev", "jack").tenant_id,
+            "ops",
+        )
+
+    def test_search_matches_department_id_case_insensitively(self):
+        self.add_search_departments()
+        result = self.invoke(
+            ["business", "use", "--search", " CLOUD-OPS "],
+            input_value="1\n1\n1\n",
+        )
+
+        self.assertEqual(result.exit_code, 0, result.output)
+        self.assertIn("云平台运维部", result.output)
+        self.assertNotIn("算法中心", result.output)
+
+    def test_without_search_still_shows_all_departments(self):
+        self.add_search_departments()
+        result = self.invoke(["business", "use"], input_value="1\n1\n1\n")
+
+        self.assertEqual(result.exit_code, 0, result.output)
+        self.assertIn("1. 云平台部", result.output)
+        self.assertIn("2. 算法中心", result.output)
+        self.assertIn("3. 云平台运维部", result.output)
+
+    def test_search_no_match_or_blank_does_not_change_selection(self):
+        self.add_search_departments()
+        self.business_store.select("dev", "jack", tenant_id="mep", department_id="cloud-main")
+        original = self.business_store.selection("dev", "jack")
+        for keyword in ("不存在的部门", "   "):
+            with self.subTest(keyword=keyword):
+                result = self.invoke(["business", "use", "--search", keyword])
+                self.assertNotEqual(result.exit_code, 0)
+                self.assertEqual(self.business_store.selection("dev", "jack"), original)
+
+    def test_search_cannot_be_combined_with_tenant_id(self):
+        result = self.invoke([
+            "business", "use", "--search", "云", "--tenant", "mep",
+        ])
+        self.assertNotEqual(result.exit_code, 0)
+        self.assertIn("不能与 --tenant 同时使用", result.output)
 
     def test_interactive_selection_displays_disabled_team_in_red(self):
         with patch(

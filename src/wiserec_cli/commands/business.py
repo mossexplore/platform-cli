@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import replace
 from typing import Callable, List, Optional, Sequence, Tuple, TypeVar
+from unicodedata import normalize
 
 import typer
 
@@ -58,6 +59,14 @@ def _choose(
     if selected < 1 or selected > len(values):
         raise BusinessError(f"{title}序号无效: {selected}")
     return values[selected - 1][1]
+
+
+def _department_matches(name: str, department_id: str, keyword: str) -> bool:
+    query = normalize("NFKC", keyword).casefold()
+    return any(
+        query in normalize("NFKC", value).casefold()
+        for value in (name, department_id)
+    )
 
 
 @business_app.command("list")
@@ -133,6 +142,9 @@ def use_business(
     department: Optional[str] = typer.Option(
         None, "--department", help="部门 ID，用于消除重复租户 ID 歧义"
     ),
+    search: Optional[str] = typer.Option(
+        None, "--search", help="按部门名称或 ID 的关键词筛选交互列表"
+    ),
 ) -> None:
     """交互式或通过 ID 选择租户/团队。"""
     try:
@@ -141,15 +153,32 @@ def use_business(
         selected_team = team or ""
         selected_department = department or ""
 
+        if search is not None:
+            if tenant is not None:
+                raise BusinessError("--search 用于交互选择部门，不能与 --tenant 同时使用")
+            search = search.strip()
+            if not search:
+                raise BusinessError("--search 关键词不能为空")
+
         if tenant is None:
             if team is not None or department is not None:
                 raise BusinessError(
                     "不能仅选择部门或团队，请同时通过 --tenant 指定租户"
                 )
-            department_value = _choose(
-                "部门",
-                [(item.name, item) for item in catalog],
-            )
+            departments = [
+                item for item in catalog
+                if search is None or _department_matches(item.name, item.id, search)
+            ]
+            if search is not None and not departments:
+                raise BusinessError(
+                    f"没有找到匹配 {search!r} 的部门，请更换关键词或不带 --search 查看全部部门"
+                )
+            labels = [
+                (item.name if search is None or item.id == item.name
+                 else f"{item.name} [{item.id}]", item)
+                for item in departments
+            ]
+            department_value = _choose("部门", labels)
             tenant_value = _choose(
                 "租户",
                 [(item.name, item) for item in department_value.tenants],
