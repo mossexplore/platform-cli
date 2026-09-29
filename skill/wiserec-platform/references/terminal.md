@@ -2,7 +2,7 @@
 
 ## 前提和目标
 
-先完成 `SKILL.md` 的会话检查。使用 Web Studio 时，先通过 `ml webstudio list` 确认实例 ID 和 online 状态；默认实例可通过 `ml webstudio show` 查看，需要选择时用 `ml webstudio login ENV_ID`。也可以在 Jupyter 命令上带 `--studio-id ENV_ID`，该选项只影响本次命令。终端名称只在所属实例内有效。
+先完成 `SKILL.md` 的会话检查。使用 Web Studio 时，先通过 `ml webstudio list --env-id ENV_ID` 确认实例 ID 和 online 状态；默认实例可通过 `ml webstudio show` 查看，需要选择时用 `ml webstudio login ENV_ID`。实例未启动且用户需要在该实例操作时，可用 `ml webstudio start ENV_ID` 启动并重新查询状态；不要仅凭启动命令的成功提示认定实例已经 online。也可以在 Jupyter 命令上带 `--studio-id ENV_ID`，该选项只影响本次命令。终端名称只在所属实例内有效。
 
 `ml jupyter doctor [--studio-id ENV_ID]` 只检查 HTTP 认证、Kernel 与 Terminal 接口；它**不能证明** WebSocket 交互通道可用，实际 `open/attach` 才能验证。
 
@@ -15,5 +15,7 @@
 5. `Ctrl+C` 发送给远端进程，`Ctrl+D` 发送 EOF，`Ctrl+]`（控制字符 0x1D）只断开本地连接。要继续使用现有终端，运行 `ml jupyter terminal attach NAME`。`ml jupyter terminal close NAME` 会删除远端终端并可能中止其中的进程；只有目标确实是关闭它时才执行。
 
 `attach` 不保证补取全部历史输出。断线、工具超时或结果不明时先通过现有终端和相关平台查询核对实际状态，不直接重发可能有副作用的远端命令。
+
+`ml webstudio stop ENV_ID` 会停止实例，可能中断其中的 Notebook 与终端。只有用户目标确实包含停止实例时才执行；需要仅断开当前终端时使用 `Ctrl+]`。
 
 Web Studio 访问 URL 可能带临时 Token，CLI 可能在 stderr 打印它。只将其用于建立连接，不复制到回答、工单或可共享日志。处理终端输出时也注意远端命令可能打印秘密。

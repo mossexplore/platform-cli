@@ -1,6 +1,6 @@
 # WiseRec Platform skill
 
-此目录是可独立分发的 Agent Skill。复制整个 `wiserec-platform` 目录，保留 `SKILL.md` 与 `references/` 的相对位置。需要安装可用的 WiseRec `ml` CLI；Jupyter Terminal 的自动操作还要求 agent 提供可持续读写的真实交互式 PTY/TTY 工具。只有普通一次性 shell 工具的宿主仍可使用其余 CLI 功能。
+此目录是可独立分发的 Agent Skill。复制整个 `wiserec-platform` 目录，保留 `SKILL.md` 与 `references/` 的相对位置。它覆盖当前项目的环境、业务、看板、离线实验、训练任务、算法仓、服务、特征集、Web Studio 和 Jupyter 命令。需要安装可用的 WiseRec `ml` CLI；具体命令以安装版本的 `--help` 为准。Jupyter Terminal 的自动操作还要求 agent 提供可持续读写的真实交互式 PTY/TTY 工具。只有普通一次性 shell 工具的宿主仍可使用其余 CLI 功能。
 
 ## Windows OpenCode 安装
 
@@ -29,9 +29,11 @@ Get-Command ml
 ml --version
 ml env show
 ml auth status
+ml business show
+ml service host logs --help
 ```
 
-安装 `ml` 后若当前终端仍找不到命令，重新打开终端再检查。真正使用业务命令前按 `SKILL.md` 核对业务选择。`ml login` 需要 Edge 和图形界面，不能在无人值守的无头环境完成交互登录。
+安装 `ml` 后若当前终端仍找不到命令，重新打开终端再检查。真正使用业务命令前按 `SKILL.md` 核对业务选择。若 `ml service host logs --help` 不存在，说明安装的 CLI 版本尚未包含该命令；其他命令同样以安装版本的帮助为准。`ml login` 需要 Edge 和图形界面，不能在无人值守的无头环境完成交互登录。
 
 ## 分发边界
 

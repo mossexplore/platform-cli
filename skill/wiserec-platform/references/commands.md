@@ -1,29 +1,31 @@
 # `ml` 命令索引
 
-本索引用于定位命令，不代替已安装版本的 `ml <子命令> --help`。`--config PATH` 是**全局**选项，应放在子命令前。下列 `ID`、`TASK_ID`、`JOB_ID`、`PROJECT_ID`、`NAMESPACE_ID`、`EXPERIMENT_ID`、`SET_ID`、`ENV_ID` 是不同类型的真实对象 ID 占位符。只在命令明确支持时加 `-o json` 或 `--output json`。
+本索引按当前项目命令树整理，用于定位命令；已安装版本的 `ml <子命令> --help` 是参数依据。`--config PATH` 是**全局**选项，应放在子命令前。`TASK_ID`、`JOB_ID`、`PROJECT_ID`、`NAMESPACE_ID`、`EXPERIMENT_ID`、`ALGORITHM_ID`、`SERVICE_ID`、`POD_NAME`、`SET_ID`、`ENV_ID` 等占位符表示不同对象，不能互换。只在命令明确支持时加 `-o json`。
 
 ## 环境、认证、业务、权限
 
 | 命令 | 作用与核验点 |
 | --- | --- |
 | `ml --version` | 确认安装和实际调用版本 |
+| `ml --help` / `ml <子命令> --help` | 查当前安装版本的命令与参数 |
 | `ml env list` / `ml env show` | 列环境 / 看当前环境；固定表格 |
 | `ml env use NAME` | 切换当前环境；`NAME` 为 `dev`、`mirror`、`explore`、`product` 中的实际目标 |
 | `ml auth status` | 本地认证状态；必须检查 `status` 与 `remaining_seconds`，过期也可能退出 0 |
 | `ml login` | 打开 Edge 登录；需图形界面和用户交互；不使用 `--show-secrets` |
+| `ml logout [--all] [--forget-browser]` | 清除当前环境或全部环境的认证信息；`--forget-browser` 同时清除浏览器会话 |
 | `ml business list` / `ml business show` | 列当前环境候选 / 看已选业务；固定人类可读输出 |
 | `ml business use --tenant ID [--team ID] [--department ID]` | 选择当前环境业务；显式传 ID，避免无人值守时进入交互选择 |
 | `ml business refresh` | 浏览器刷新业务目录，之后核对选择 |
-| `ml access status` | 查 CLI 访问授权；拒绝时停止业务调用 |
+| `ml access status [--diagnose]` | 查 CLI 访问授权；诊断输出可能包含内部地址，只在排障时使用 |
 
-`ml logout` 会清除认证缓存，只有用户要求退出或相应故障处理时使用。不要读写 `credentials.json`、`business.json` 来替代上述命令。
+`ml logout` 仅在用户要求退出或相应故障处理时使用。不要读写 `credentials.json`、`business.json` 来替代上述命令。
 
 ## 用户、MEP、训练看板
 
 | 命令 | 用途与关键选项 |
 | --- | --- |
 | `ml user info -o json` | 查询当前账号 |
-| `ml mep config get KEY -o json` | 查询一个 MEP 配置键；省略 `KEY` 时使用 CLI 默认值 |
+| `ml mep config get [KEY] -o json` | 查询一个 MEP 配置键；省略 `KEY` 时使用 CLI 默认值 |
 | `ml mtp swanboard project list -o json` | 项目列表；可用 `--page`、`--page-size`、`--team-id`、`--creator` |
 | `ml mtp swanboard project namespace list PROJECT_ID -o json` | 项目空间；可用 `--team-id` |
 | `ml mtp swanboard project experiment list PROJECT_ID NAMESPACE_ID -o json` | 空间下实验；可用 `--team-id` |
@@ -47,10 +49,36 @@
 | `ml train instance list TASK_ID -o json` | 执行实例；目前固定第一页 10 条，可能扫描任务列表而较慢 |
 | `ml train history list TASK_ID -o json` | 执行记录；目前固定第一页 10 条，用 `jobId` 查后续日志 |
 | `ml train history logs download TASK_ID JOB_ID --file PATH -o json` | 下载日志；确认本地路径、返回文件路径和字节数 |
-| `ml train config update TASK_ID --customize-config VALUE` | 更新任务自定义参数；固定文本，不加 `-o` |
 | `ml train start TASK_ID` | 立即启动任务；返回 `jobId` 仅表示请求获接受，再查执行记录确认状态 |
+| `ml train config export TASK_ID [--file PATH]` | 导出 YAML 配置并显示下载进度；默认按任务 ID 命名 |
+| `ml train config update TASK_ID --customize-config VALUE` | 更新任务自定义参数；固定文本，不加 `-o` |
+| `ml train cancel TASK_ID [--yes]` | 查询全部执行实例并逐个取消；每个实例单独报告结果，无实例时退出 1 |
+| `ml train delete TASK_ID [--yes]` | 软删除当前业务中的任务；默认询问确认 |
+| `ml train clone TASK_ID --name NAME [--customize-config VALUE] [--yes]` | 读取源任务详情并创建副本；成功后可能返回新任务 ID |
 
-写请求超时或连接中断时先查目标状态再决定是否重试。日志下载是本地文件写入；执行前确认目标目录和文件位置。分页字段、响应字段应以实际返回和当前 CLI 版本为准，不能把文档示例视为完整响应。
+写请求超时或连接中断时先查目标状态再决定是否重试。配置导出与日志下载写入本地文件；执行前确认目标目录和文件位置，CLI 不覆盖已有同名文件。`cancel` 的部分实例可能失败，需看逐条结果及退出码。分页字段、响应字段应以实际返回和当前 CLI 版本为准，不能把文档示例视为完整响应。
+
+## 算法仓
+
+| 命令 | 用途与关键选项 |
+| --- | --- |
+| `ml algorithm list -o json` | 分页查询；可用 `--page`、`--page-size`、`--name`/`--algorithm-name`、`--bucket-name` |
+| `ml algorithm download ALGORITHM_ID [--file PATH]` | 先获取下载链接再保存 ZIP，显示进度；链接可能含临时签名 |
+| `ml algorithm clone ALGORITHM_ID --name NAME --version VERSION [--yes]` | 按指定名称和版本创建副本；默认询问确认，可能返回新 ID |
+
+下载前确认本地目录；不要把签名下载链接复制到回答或共享日志。克隆结果不明时先查询目标名称与版本，再决定是否重试。
+
+## 服务与主机日志
+
+| 命令 | 用途与关键选项 |
+| --- | --- |
+| `ml service list -o json` | 分页查询服务；可用 `--page`、`--page-size`、`--name`/`--service-name`、`--model-name`、`--model-version` |
+| `ml service host list SERVICE_ID -o json` | 查询主机视图；固定第 1 页 10 条，取得 Pod 名称与集群名称 |
+| `ml service deployment list SERVICE_ID -o json` | 查询部署视图；固定第 1 页 10 条，首列为 `blockId` |
+| `ml service host logs list POD_NAME --cluster CLUSTER_NAME --type TYPE` | 列日志文件；固定表格，文件大小、修改时间、文件名按返回值原样显示 |
+| `ml service host logs search POD_NAME --cluster CLUSTER_NAME --type TYPE --file FILE_NAME` | 检索指定文件；正文按原始多行文本输出，不支持 `-o json` |
+
+日志检索可重复传 `--keyword TEXT`；另有 `--line`（默认 200）、`--search-order`（默认 `tail`）、`--grep-scope`（默认 `C`）、`--grep-line`（默认 0）。文件列表与内容检索各自要求 `--type`，例如列表使用 `rtc`、检索 `interface.log` 使用 `interface`；不要自动沿用上一步的类型。需要保存检索正文时可将 stdout 重定向到本地文件，错误信息仍按退出码和 stderr 判断。
 
 ## 特征集
 
@@ -65,9 +93,11 @@
 
 | 命令 | 用途与关键选项 |
 | --- | --- |
-| `ml webstudio list -o json` | 实例列表；可用 `--page`、`--page-size`、`--name`、`--status`、`--relator`、`--env-id` |
+| `ml webstudio list -o json` | 实例列表；可用 `--page`、`--page-size`、`--name`、`--status`、`--relator`、`--env-id`、`--business-id` |
 | `ml webstudio show` | 查看当前默认实例；保存的名称可能不是实时状态 |
 | `ml webstudio login ENV_ID` | 连接 online 实例并保存默认目标；可能打印含 Token 的访问 URL |
+| `ml webstudio start ENV_ID` | 启动实例；完成提示后用列表核对实际状态 |
+| `ml webstudio stop ENV_ID` | 停止实例；可能中断正在运行的 Notebook 或终端，先核对目标 |
 | `ml jupyter doctor [--studio-id ENV_ID]` | 检查 HTTP、Kernel、Terminal 接口；不验证 WebSocket |
 | `ml jupyter notebook run SOURCE -o json [--studio-id ENV_ID]` | 执行本地 `.ipynb`，可用 `--download`、`--kernel`、`--cwd`、`--timeout`、`--startup-timeout` |
 | `ml jupyter terminal list [--studio-id ENV_ID]` | 当前实例终端列表 |
@@ -75,4 +105,4 @@
 | `ml jupyter terminal attach NAME [--studio-id ENV_ID]` | 重连该实例内的终端；必须使用真实 TTY |
 | `ml jupyter terminal close NAME [--studio-id ENV_ID]` | 删除远端终端，可能中止远端进程 |
 
-终端的具体 agent 操作见 [交互终端](terminal.md)。Notebook 默认前台执行，结果写入本地独立目录；失败或超时时检查摘要和远端状态，不自动重跑。Web Studio 动态连接使用当前环境业务选择，终端名称不能跨实例复用。
+终端的具体 agent 操作见 [交互终端](terminal.md)。Notebook 默认前台执行，结果写入本地独立目录；失败或超时时检查摘要和远端状态，不自动重跑。Web Studio 动态连接使用当前环境业务选择，终端名称不能跨实例复用。`ml webstudio start` 和 `stop` 不改变默认实例选择。

@@ -1,6 +1,6 @@
 ---
 name: wiserec-platform
-description: 通过 WiseRec 命令行客户端 ml 查询或操作训练任务、特征集、离线实验、MEP/MTP 看板、Web Studio、Jupyter Notebook 与远程终端；需要切换平台环境、核对登录和业务上下文时也使用。所有平台交互经 ml 完成。
+description: 通过 WiseRec 命令行客户端 ml 管理训练任务、算法仓、服务及主机日志、特征集、离线实验、MEP/MTP 看板、Web Studio、Jupyter Notebook 与远程终端；切换环境或核对登录、业务上下文时也使用。
 metadata:
   cli: wiserec-cli
 ---
@@ -17,9 +17,10 @@ metadata:
 
 ## 查询与操作
 
-- 用户给出准确 ID 时直接用该 ID 查询；否则先用最窄的名称、状态或分页筛选定位对象，再继续。不同资源的 ID 不互换。默认先取小页，只有需要时翻页；不能把第一页当作完整结果。
+- 用户给出准确 ID 时直接用该 ID 查询；否则先用最窄的名称、状态或分页筛选定位对象，再继续。任务、算法仓、服务、部署、Pod、作业等 ID 与名称不互换。默认先取小页，只有需要时翻页；不能把第一页当作完整结果。
 - 支持 `--output json` / `-o json` 的命令优先用 JSON 读取 ID、状态和数量；部分命令固定表格、文本或 JSON，先查命令索引。检查进程退出码和 stderr。CLI 可能在 stdout 加入认证提示；此时不要把 stdout 整体当作 JSON，也不要猜测解析结果，先完成认证再重新查询。避免把大量返回内容直接送入 agent 上下文。
 - 写操作先核对环境、业务、目标 ID 与用户意图。已有授权覆盖具体操作时直接执行；缺少目标、参数或授权时再询问。执行后用只读命令核验。失败或超时后先查远端状态；对训练启动、克隆实验、Notebook 运行等操作不盲目重放。
+- 训练任务和算法仓下载会写入本地文件，先确认保存目录与目标文件；算法仓下载链接可能含临时签名。服务主机日志先用 `ml service host list SERVICE_ID` 找到 Pod 名称与集群，再分别使用 `ml service host logs list` 和 `search`；文件列表的日志类型与内容检索的日志类型分别传入，不自动复用。检索结果是原始多行文本，不按 JSON 解析。
 - `ml` 自动处理业务请求头，所选业务来自当前环境 `business.json` 的选择。不要读取或编辑凭据、业务文件来替代 CLI；平台地址也由当前配置中的 `api_endpoint` 决定。
 
 ## Jupyter 与 Web Studio
