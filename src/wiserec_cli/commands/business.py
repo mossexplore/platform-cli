@@ -18,6 +18,14 @@ business_app = typer.Typer(no_args_is_help=True, help="管理部门、租户和�
 T = TypeVar("T")
 
 
+class _Back(Exception):
+    """返回交互选择的上一级。"""
+
+
+class _Cancel(Exception):
+    """取消交互选择且不保存。"""
+
+
 def _credentials_and_catalog(context: typer.Context):
     runtime = runtime_from_context(context)
     credentials = runtime.auth.status()
@@ -55,7 +63,15 @@ def _choose(
             markup=False,
             highlight=False,
         )
-    selected = typer.prompt("请输入序号", type=int)
+    selected_text = typer.prompt("请输入序号（b 返回，q 取消）").strip().lower()
+    if selected_text == "b":
+        raise _Back()
+    if selected_text == "q":
+        raise _Cancel()
+    try:
+        selected = int(selected_text)
+    except ValueError as exc:
+        raise BusinessError(f"{title}序号无效: {selected_text}") from exc
     if selected < 1 or selected > len(values):
         raise BusinessError(f"{title}序号无效: {selected}")
     return values[selected - 1][1]
@@ -178,35 +194,70 @@ def use_business(
                  else f"{item.name} [{item.id}]", item)
                 for item in departments
             ]
-            department_value = _choose("部门", labels)
-            tenant_value = _choose(
-                "租户",
-                [(item.name, item) for item in department_value.tenants],
-            )
-            scopes: List[Tuple[str, Optional[Team]]] = [
-                (f"{tenant_value.name}（租户级）", None)
-            ]
-            scopes.extend(
-                (
-                    item.name if item.selectable else f"{item.name}（禁选）",
-                    item,
-                )
-                for item in tenant_value.teams
-            )
-            team_value = _choose(
-                "团队",
-                scopes,
-                style_for=lambda item: (
-                    "bold blue"
-                    if item is None
-                    else "red" if not item.selectable else None
-                ),
-            )
-            if team_value is not None and not team_value.selectable:
-                raise BusinessError(
-                    f"团队 {team_value.name!r} 当前状态为 "
-                    f"{team_value.status!r}，不可选择"
-                )
+            stage = 0
+            while True:
+                try:
+                    if stage == 0:
+                        department_value = _choose("部门", labels)
+                    elif stage == 1:
+                        tenant_value = _choose(
+                            "租户",
+                            [(item.name, item) for item in department_value.tenants],
+                        )
+                    elif stage == 2:
+                        scopes: List[Tuple[str, Optional[Team]]] = [
+                            (f"{tenant_value.name}（租户级）", None)
+                        ]
+                        scopes.extend(
+                            (
+                                item.name if item.selectable else f"{item.name}（禁选）",
+                                item,
+                            )
+                            for item in tenant_value.teams
+                        )
+                        team_value = _choose(
+                            "团队",
+                            scopes,
+                            style_for=lambda item: (
+                                "bold blue"
+                                if item is None
+                                else "red" if not item.selectable else None
+                            ),
+                        )
+                        if team_value is not None and not team_value.selectable:
+                            console.print(
+                                f"团队 {team_value.name!r} 当前状态为 "
+                                f"{team_value.status!r}，不可选择",
+                                markup=False,
+                            )
+                            continue
+                    else:
+                        console.print(
+                            f"请确认选择：部门 {department_value.name} → "
+                            f"租户 {tenant_value.name} → "
+                            f"{team_value.name if team_value else '租户级'}",
+                            markup=False,
+                        )
+                        confirmation = typer.prompt(
+                            "确认切换？（y 确认，b 返回，q 取消）"
+                        ).strip().lower()
+                        if confirmation == "y":
+                            break
+                        if confirmation == "b":
+                            raise _Back()
+                        if confirmation == "q":
+                            raise _Cancel()
+                        console.print("请输入 y、b 或 q")
+                        continue
+                    stage += 1
+                except _Back:
+                    if stage == 0:
+                        console.print("已经是第一级，请选择部门或输入 q 取消")
+                    else:
+                        stage -= 1
+                except _Cancel:
+                    console.print("已取消业务切换")
+                    return
             selected_department = department_value.id
             selected_tenant = tenant_value.id
             selected_team = team_value.id if team_value else ""

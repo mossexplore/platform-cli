@@ -150,7 +150,7 @@ class BusinessCommandTest(unittest.TestCase):
 
     def test_interactive_selection_reaches_team(self):
         result = self.invoke(
-            ["business", "use"], input_value="1\n1\n2\n"
+            ["business", "use"], input_value="1\n1\n2\ny\n"
         )
 
         self.assertEqual(result.exit_code, 0, result.output)
@@ -178,7 +178,7 @@ class BusinessCommandTest(unittest.TestCase):
         self.add_search_departments()
         result = self.invoke(
             ["business", "use", "--search", "运维"],
-            input_value="1\n1\n1\n",
+            input_value="1\n1\n1\ny\n",
         )
 
         self.assertEqual(result.exit_code, 0, result.output)
@@ -197,7 +197,7 @@ class BusinessCommandTest(unittest.TestCase):
         self.add_search_departments()
         result = self.invoke(
             ["business", "use", "--search", " CLOUD-OPS "],
-            input_value="1\n1\n1\n",
+            input_value="1\n1\n1\ny\n",
         )
 
         self.assertEqual(result.exit_code, 0, result.output)
@@ -206,12 +206,62 @@ class BusinessCommandTest(unittest.TestCase):
 
     def test_without_search_still_shows_all_departments(self):
         self.add_search_departments()
-        result = self.invoke(["business", "use"], input_value="1\n1\n1\n")
+        result = self.invoke(["business", "use"], input_value="1\n1\n1\ny\n")
 
         self.assertEqual(result.exit_code, 0, result.output)
         self.assertIn("1. 云平台部", result.output)
         self.assertIn("2. 算法中心", result.output)
         self.assertIn("3. 云平台运维部", result.output)
+
+    def test_back_from_tenant_and_team_changes_final_selection(self):
+        self.add_search_departments()
+        result = self.invoke(
+            ["business", "use", "--search", "云平台"],
+            input_value="1\nb\n2\n1\nb\n1\n1\ny\n",
+        )
+
+        self.assertEqual(result.exit_code, 0, result.output)
+        self.assertGreaterEqual(result.output.count("云平台运维部 [cloud-ops]"), 2)
+        self.assertNotIn("算法中心", result.output)
+        selection = self.business_store.require_selection("dev", "jack")
+        self.assertEqual(selection.department_id, "cloud-ops")
+        self.assertEqual(selection.tenant_id, "ops")
+
+    def test_back_from_confirmation_returns_to_team(self):
+        result = self.invoke(
+            ["business", "use"], input_value="1\n1\n1\nb\n2\ny\n"
+        )
+
+        self.assertEqual(result.exit_code, 0, result.output)
+        self.assertIn("请确认选择", result.output)
+        self.assertEqual(
+            self.business_store.require_selection("dev", "jack").team_id,
+            "available-team",
+        )
+
+    def test_back_at_first_level_stays_on_department_list(self):
+        result = self.invoke(
+            ["business", "use"], input_value="b\n1\n1\n1\ny\n"
+        )
+
+        self.assertEqual(result.exit_code, 0, result.output)
+        self.assertIn("已经是第一级", result.output)
+        self.assertEqual(result.output.count("请选择部门："), 2)
+
+    def test_cancel_at_each_stage_keeps_previous_selection(self):
+        self.business_store.select("dev", "jack", tenant_id="mep", team_id="available-team")
+        original = self.business_store.selection("dev", "jack")
+        original_credentials = CredentialStore(self.root / "credentials.json").load("dev")
+        for answers in ("q\n", "1\nq\n", "1\n1\nq\n", "1\n1\n1\nq\n"):
+            with self.subTest(answers=answers):
+                result = self.invoke(["business", "use"], input_value=answers)
+                self.assertEqual(result.exit_code, 0, result.output)
+                self.assertIn("已取消业务切换", result.output)
+                self.assertEqual(self.business_store.selection("dev", "jack"), original)
+                self.assertEqual(
+                    CredentialStore(self.root / "credentials.json").load("dev"),
+                    original_credentials,
+                )
 
     def test_search_no_match_or_blank_does_not_change_selection(self):
         self.add_search_departments()
@@ -236,7 +286,7 @@ class BusinessCommandTest(unittest.TestCase):
             wraps=business_console.print,
         ) as print_mock:
             result = self.invoke(
-                ["business", "use"], input_value="1\n1\n1\n"
+                ["business", "use"], input_value="1\n1\n1\ny\n"
             )
 
         self.assertEqual(result.exit_code, 0, result.output)
