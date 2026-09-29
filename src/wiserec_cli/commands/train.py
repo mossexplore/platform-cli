@@ -263,7 +263,9 @@ def clone_task(
             return
         with redirect_stdout(sys.stderr):
             created_id = runtime.authenticated_call(
-                lambda client: TrainService(client).clone_task(detail, name, customize_config)
+                lambda client: TrainService(client).clone_task(
+                    detail, name, customize_config, client.username,
+                )
             )
         typer.echo(f"克隆训练任务{task_id}成功")
         if created_id:

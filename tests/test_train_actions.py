@@ -166,7 +166,8 @@ class TrainActionsTest(unittest.TestCase):
     def test_clone_preserves_detail_and_changes_only_requested_fields(self):
         task = {"taskId": "t", "teamId": "", "taskName": "old"}
         detail = {"id": "source-id", "name": "old", "other": {"keep": [1, None]},
-                  "taskInfo": {"baseInfo": {"taskName": "old", "keep": 9},
+                  "taskInfo": {"createUser": "source-user",
+                               "baseInfo": {"taskName": "old", "keep": 9},
                                "parameter": {"customizeConfig": "old", "keep": True}}}
         writes = []
 
@@ -186,11 +187,13 @@ class TrainActionsTest(unittest.TestCase):
         self.assertEqual(result.exit_code, 0, result.output)
         self.assertEqual(writes, [{"data": {
             **detail, "name": "new", "taskInfo": {
+                "createUser": "jack",
                 "baseInfo": {"taskName": "new", "keep": 9},
                 "parameter": {"customizeConfig": "0099", "keep": True},
             },
         }}])
         self.assertEqual(detail["name"], "old")
+        self.assertEqual(detail["taskInfo"]["createUser"], "source-user")
         self.assertIn("新任务 ID：new-id", result.output)
 
 

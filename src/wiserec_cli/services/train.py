@@ -182,15 +182,18 @@ class TrainService:
         return detail
 
     def clone_task(self, detail: Dict[str, Any], name: str,
-                   customize_config: Optional[str]) -> Optional[str]:
+                   customize_config: Optional[str], create_user: str) -> Optional[str]:
         if not name.strip():
             raise ValueError("克隆后新任务名称不能为空")
+        if not create_user.strip():
+            raise BusinessError("当前登录账号为空，请重新运行 ml login")
         data = deepcopy(detail)
         info = data.get("taskInfo")
         if not isinstance(info, dict) or not isinstance(info.get("baseInfo"), dict):
             raise ApiError("训练任务详情缺少有效的 taskInfo.baseInfo")
         data["name"] = name
         info["baseInfo"]["taskName"] = name
+        info["createUser"] = create_user
         if customize_config is not None:
             if info.get("parameter") is None:
                 info["parameter"] = {}
