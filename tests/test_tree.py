@@ -28,8 +28,8 @@ def test_tree_works_without_runtime_or_login():
 
 def test_tree_uses_newly_registered_commands_and_descriptions():
     root = click.Group("ml")
-    nested = click.Group("sample", help="示例分组")
-    nested.add_command(click.Command("new-command", help="新注册的命令。"))
+    nested = click.Group("sample", help="示例分组（补充说明）：")
+    nested.add_command(click.Command("new-command", help="新注册的命令，中间标点保留。！？ "))
     root.add_command(nested)
 
     tree = Tree("ml")
@@ -37,5 +37,5 @@ def test_tree_uses_newly_registered_commands_and_descriptions():
     stream = StringIO()
     Console(file=stream, color_system=None, width=100).print(tree)
 
-    assert "sample  示例分组" in stream.getvalue()
-    assert "new-command  新注册的命令。" in stream.getvalue()
+    assert "sample  示例分组，补充说明\n" in stream.getvalue()
+    assert "new-command  新注册的命令，中间标点保留\n" in stream.getvalue()
