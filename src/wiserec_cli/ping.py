@@ -145,6 +145,7 @@ def start(runtime: Any, *, automatic: bool = False) -> str:
     session_id = _terminal_session_id()
     store = PingStore(_state_path(runtime.credentials))
     spawned = None
+    worker_token = None
     with store.locked():
         data = store.read()
         entry = data["profiles"].setdefault(profile, {})
@@ -169,6 +170,7 @@ def start(runtime: Any, *, automatic: bool = False) -> str:
                 or _process_identity(worker_pid) != entry.get("worker_identity")):
             creation_flags = subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0
             log_path = _worker_log_path(store.path, profile)
+            worker_token = str(uuid4())
             with log_path.open("w", encoding="utf-8") as error_log:
                 try:
                     os.chmod(log_path, 0o600)
@@ -177,7 +179,7 @@ def start(runtime: Any, *, automatic: bool = False) -> str:
                 process = subprocess.Popen(
                     [sys.executable, "-m", "wiserec_cli.ping_worker",
                      str(runtime.config.path), profile, str(runtime.credentials.path),
-                     str(runtime.business.path), str(store.path)],
+                     str(runtime.business.path), str(store.path), worker_token],
                     stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
                     stderr=error_log, close_fds=True,
                     creationflags=creation_flags,
@@ -185,25 +187,35 @@ def start(runtime: Any, *, automatic: bool = False) -> str:
                 )
             spawned = process
             entry.update(worker_pid=process.pid,
-                         worker_identity=_process_identity(process.pid), status="starting",
+                         worker_identity=_process_identity(process.pid),
+                         worker_token=worker_token, status="starting",
                          log_path=str(log_path), last_error="", last_success=time.time(),
                          last_confirmed=None, last_attempt=None, last_request_id=None,
                          success_count=0, failure_count=0)
         else:
-            entry["status"] = "running"
+            if entry.get("status") != "starting":
+                entry["status"] = "running"
         store.write(data)
     if spawned is not None:
-        time.sleep(0.2)
-        if spawned.poll() is not None:
+        deadline = time.monotonic() + 3
+        while time.monotonic() < deadline:
             with store.locked():
-                data = store.read()
-                entry = data["profiles"].get(profile, {})
-                error = _worker_error(entry)
-                if entry.get("worker_pid") == spawned.pid:
-                    entry.update(status="failed", worker_pid=None,
-                                 worker_identity=None, last_error=error)
-                    store.write(data)
-            raise RuntimeError(f"自动保活启动失败：{error}")
+                current = store.read()["profiles"].get(profile, {})
+            if current.get("status") in {"failed", "stopped"}:
+                raise RuntimeError(f"自动保活启动失败：{_worker_error(current)}")
+            if current.get("worker_token") != worker_token:
+                raise RuntimeError("自动保活启动被另一操作替换")
+            if (
+                current.get("status") == "running"
+                and current.get("worker_identity") is not None
+                and _process_identity(current.get("worker_pid", 0))
+                == current.get("worker_identity")
+            ):
+                return f"自动保活已启动（环境 {profile}，间隔 {runtime.config.ping_interval_minutes} 分钟）"
+            time.sleep(0.1)
+        with store.locked():
+            current = store.read()["profiles"].get(profile, {})
+        raise RuntimeError(f"自动保活未能确认启动：{_worker_error(current)}")
     return f"自动保活已启动（环境 {profile}，间隔 {runtime.config.ping_interval_minutes} 分钟）"
 
 
@@ -345,7 +357,8 @@ def _probe(config: ConfigManager, profile_name: str, credentials: Credentials,
 
 
 def run_worker(config_path: Path, profile: str, credentials_path: Path,
-               business_path: Path, state_path: Path) -> None:
+               business_path: Path, state_path: Path,
+               worker_token: Optional[str] = None) -> None:
     store = PingStore(state_path)
     credentials_store = CredentialStore(credentials_path)
     business_store = BusinessStore(business_path)
@@ -354,12 +367,20 @@ def run_worker(config_path: Path, profile: str, credentials_path: Path,
         with store.locked():
             data = store.read()
             entry = data["profiles"].get(profile)
-            if not isinstance(entry, dict) or entry.get("worker_pid") != os.getpid():
+            if not isinstance(entry, dict):
                 return
+            if worker_token is not None and entry.get("worker_token") != worker_token:
+                return
+            if worker_token is None and entry.get("worker_pid") != os.getpid():
+                return
+            if worker_token is not None and entry.get("worker_pid") != os.getpid():
+                entry.update(worker_pid=os.getpid(),
+                             worker_identity=_process_identity(os.getpid()))
             owners = _valid_owners(entry)
             entry["owners"] = owners
             if not owners or entry.get("status") == "stopping":
-                entry.update(status="stopped", worker_pid=None, worker_identity=None)
+                entry.update(status="stopped", worker_pid=None,
+                             worker_identity=None, worker_token=None)
                 store.write(data)
                 return
             store.write(data)
@@ -373,6 +394,13 @@ def run_worker(config_path: Path, profile: str, credentials_path: Path,
                 stop_data = "登录信息已清除"
                 break
             selection = business_store.require_selection(profile, credentials.username)
+            if entry.get("status") == "starting":
+                with store.locked():
+                    current_data = store.read()
+                    current = current_data["profiles"].get(profile, {})
+                    if current.get("worker_pid") == os.getpid():
+                        current["status"] = "running"
+                        store.write(current_data)
             now = time.time()
             if now < entry.get("last_success", 0) + config.ping_interval_minutes * 60:
                 time.sleep(5)
@@ -420,6 +448,6 @@ def run_worker(config_path: Path, profile: str, credentials_path: Path,
         data = store.read()
         entry = data["profiles"].get(profile, {})
         if entry.get("worker_pid") == os.getpid():
-            entry.update(worker_pid=None, worker_identity=None,
+            entry.update(worker_pid=None, worker_identity=None, worker_token=None,
                          status="stopped", last_error=stop_data)
             store.write(data)

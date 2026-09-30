@@ -106,6 +106,33 @@ class PingTest(unittest.TestCase):
         client.assert_not_called()
         self.assertEqual(self.state.read()["profiles"]["dev"]["status"], "stopped")
 
+    def test_worker_accepts_launch_token_when_launcher_pid_differs(self):
+        self.prepare_worker()
+        with self.state.locked():
+            data = self.state.read()
+            entry = data["profiles"]["dev"]
+            entry.update(worker_pid=999, worker_identity="999",
+                         worker_token="launch-1", status="starting",
+                         last_success=time.time())
+            self.state.write(data)
+        actual_pid = []
+
+        def close_window(_seconds):
+            with self.state.locked():
+                data = self.state.read()
+                entry = data["profiles"]["dev"]
+                actual_pid.append(entry["worker_pid"])
+                self.assertEqual(entry["status"], "running")
+                entry["owners"] = []
+                self.state.write(data)
+
+        with patch("wiserec_cli.ping._process_identity", side_effect=lambda pid: str(pid)), \
+             patch("wiserec_cli.ping.time.sleep", side_effect=close_window):
+            run_worker(self.fixture.config_path, "dev", self.fixture.credential_path,
+                       self.fixture.business_path, self.state.path, "launch-1")
+        self.assertEqual(actual_pid, [os.getpid()])
+        self.assertEqual(self.state.read()["profiles"]["dev"]["status"], "stopped")
+
     def test_disabling_config_stops_worker_without_request(self):
         self.prepare_worker()
         config = json.loads(self.fixture.config_path.read_text(encoding="utf-8"))
@@ -132,10 +159,16 @@ class PingTest(unittest.TestCase):
         self.assertEqual(shown["成功次数"], 0)
 
     def test_two_terminals_share_one_worker_and_last_owner_can_stop(self):
+        def worker_ready(_seconds):
+            with self.state.locked():
+                data = self.state.read()
+                data["profiles"]["dev"]["status"] = "running"
+                self.state.write(data)
         with patch("wiserec_cli.ping._process_identity", side_effect=lambda pid: str(pid)), \
              patch("wiserec_cli.ping.sys.stdin") as stdin, \
              patch("wiserec_cli.ping.os.getppid", side_effect=[100, 101, 100, 100]), \
-             patch("wiserec_cli.ping.subprocess.Popen") as process:
+             patch("wiserec_cli.ping.subprocess.Popen") as process, \
+             patch("wiserec_cli.ping.time.sleep", side_effect=worker_ready):
             stdin.isatty.return_value = True
             process.return_value.pid = 999
             process.return_value.poll.return_value = None
@@ -151,10 +184,16 @@ class PingTest(unittest.TestCase):
         self.assertEqual(self.state.read()["profiles"]["dev"]["owners"], [])
 
     def test_dead_worker_reports_startup_error(self):
+        def worker_failed(_seconds):
+            with self.state.locked():
+                data = self.state.read()
+                data["profiles"]["dev"]["status"] = "failed"
+                self.state.write(data)
         with patch("wiserec_cli.ping._process_identity", side_effect=lambda pid: str(pid)), \
              patch("wiserec_cli.ping.sys.stdin") as stdin, \
              patch("wiserec_cli.ping.os.getppid", return_value=100), \
-             patch("wiserec_cli.ping.subprocess.Popen") as process:
+             patch("wiserec_cli.ping.subprocess.Popen") as process, \
+             patch("wiserec_cli.ping.time.sleep", side_effect=worker_failed):
             stdin.isatty.return_value = True
             process.return_value.pid = 999
             process.return_value.poll.return_value = 1
@@ -169,11 +208,17 @@ class PingTest(unittest.TestCase):
         self.assertEqual(status(self.runtime)["状态"], "未运行")
 
     def test_same_console_replaces_transient_owner(self):
+        def worker_ready(_seconds):
+            with self.state.locked():
+                data = self.state.read()
+                data["profiles"]["dev"]["status"] = "running"
+                self.state.write(data)
         with patch("wiserec_cli.ping._process_identity", side_effect=lambda pid: str(pid)), \
              patch("wiserec_cli.ping._terminal_session_id", return_value="console-1"), \
              patch("wiserec_cli.ping.sys.stdin") as stdin, \
              patch("wiserec_cli.ping.os.getppid", side_effect=[100, 101]), \
-             patch("wiserec_cli.ping.subprocess.Popen") as process:
+             patch("wiserec_cli.ping.subprocess.Popen") as process, \
+             patch("wiserec_cli.ping.time.sleep", side_effect=worker_ready):
             stdin.isatty.return_value = True
             process.return_value.pid = 999
             process.return_value.poll.return_value = None
