@@ -11,6 +11,7 @@ import typer
 from ..business import BusinessSelection, Team
 from ..errors import BusinessError
 from ..output import console, print_result
+from .. import ping
 from .common import fail, runtime_from_context
 
 
@@ -277,6 +278,8 @@ def use_business(
         )
         console.print("当前业务上下文已切换：")
         _print_selection(selection)
+        if runtime.config.auto_ping:
+            console.print(ping.auto_start(runtime))
     except Exception as exc:
         fail(exc)
 

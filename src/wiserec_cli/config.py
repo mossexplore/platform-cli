@@ -69,14 +69,14 @@ def _package_install_stamp() -> str:
 
 
 def reset_packaged_config() -> Path:
-    """安装器入口：无条件用包内配置完整覆盖当前用户的默认配置。"""
+    """安装器入口：更新默认配置，保留自动保活两项设置。"""
     destination = user_config_dir() / "config.json"
     _sync_packaged_config(destination, force=True)
     return destination
 
 
 def _sync_packaged_config(destination: Path, *, force: bool = False) -> None:
-    """安装、版本或包内配置变化时完整覆盖，不保留任何旧字段。"""
+    """更新包内配置时保留用户明确设置的自动保活选项。"""
     template = _packaged_config_text()
     signature = f"{__version__}:{sha256(template.encode('utf-8')).hexdigest()}:{_package_install_stamp()}"
     marker = _config_marker_path(destination)
@@ -88,7 +88,20 @@ def _sync_packaged_config(destination: Path, *, force: bool = False) -> None:
     if not force and destination.exists() and installed_signature == signature:
         return
 
-    _install_packaged_config(destination, template)
+    settings = json.loads(template)
+    preserved = False
+    if destination.exists():
+        try:
+            previous = json.loads(destination.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            previous = None
+        if isinstance(previous, dict) and isinstance(previous.get("auth"), dict):
+            for key in ("auto_ping", "ping_interval_minutes"):
+                if key in previous["auth"]:
+                    settings["auth"][key] = previous["auth"][key]
+                    preserved = True
+    content = json.dumps(settings, ensure_ascii=False, indent=2) + "\n" if preserved else template
+    _install_packaged_config(destination, content)
     temporary = marker.with_name(f".{marker.name}.{os.getpid()}.tmp")
     temporary.write_text(signature + "\n", encoding="utf-8")
     temporary.replace(marker)
@@ -167,6 +180,12 @@ class ConfigManager:
             raise ConfigError(f"profiles 中不存在 current 指定的环境: {current}")
         if self.auth_ttl_seconds <= 0:
             raise ConfigError("auth.expires_in_seconds 必须大于 0")
+        auth = self._data.get("auth", {})
+        if type(auth.get("auto_ping", True)) is not bool:
+            raise ConfigError("auth.auto_ping 必须是布尔值")
+        interval = auth.get("ping_interval_minutes", 10)
+        if type(interval) is not int or not 1 <= interval <= 20:
+            raise ConfigError("auth.ping_interval_minutes 必须是 1 到 20 的整数")
         if self.browser_channel not in {
             "msedge",
             "msedge-beta",
@@ -212,6 +231,14 @@ class ConfigManager:
     def auth_ttl_seconds(self) -> int:
         value = self._data.get("auth", {}).get("expires_in_seconds", 1800)
         return int(value) if isinstance(value, (int, float)) else 1800
+
+    @property
+    def auto_ping(self) -> bool:
+        return self._data.get("auth", {}).get("auto_ping", True)
+
+    @property
+    def ping_interval_minutes(self) -> int:
+        return self._data.get("auth", {}).get("ping_interval_minutes", 10)
 
     @property
     def browser_channel(self) -> str:

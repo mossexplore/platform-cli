@@ -27,6 +27,7 @@ from .commands.train import train_app
 from .commands.tree import show_tree
 from .commands.user import user_app
 from .runtime import Runtime
+from . import ping
 from .invocation import InvocationGroup
 
 
@@ -89,6 +90,10 @@ def initialize(
         return
     try:
         context.obj = Runtime(config_path=config)
+        if (sys.stdin.isatty() and context.invoked_subcommand
+                not in {"login", "logout", "auth", "tree"}
+                and context.obj.config.auto_ping):
+            ping.auto_start(context.obj)
     except Exception as exc:
         fail(exc)
 

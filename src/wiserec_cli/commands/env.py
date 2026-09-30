@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import typer
+from .. import ping
 
 from ..access import AccessDeniedError, access_enabled, check_access
 from ..client_metadata import VersionPolicyError
@@ -105,7 +106,13 @@ def show_environment(context: typer.Context) -> None:
 def use_environment(context: typer.Context, name: str = typer.Argument(...)) -> None:
     """切换当前环境。"""
     try:
-        profile = runtime_from_context(context).config.use_profile(name)
+        runtime = runtime_from_context(context)
+        previous = runtime.config.current_name
+        profile = runtime.config.use_profile(name)
+        if previous != name:
+            ping.detach(runtime, previous)
         console.print(f"当前环境已切换为: {profile.name}")
+        if runtime.config.auto_ping:
+            console.print(ping.auto_start(runtime))
     except Exception as exc:
         fail(exc)

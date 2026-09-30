@@ -11,10 +11,13 @@ import typer
 from ..output import console, print_result
 from ..models import BEIJING_TIMEZONE
 from ..errors import BusinessError
+from .. import ping
 from .common import fail, runtime_from_context
 
 
 auth_app = typer.Typer(no_args_is_help=True, help="查看认证状态")
+ping_app = typer.Typer(no_args_is_help=True, help="管理终端会话自动保活")
+auth_app.add_typer(ping_app, name="ping")
 
 
 def login(
@@ -27,7 +30,10 @@ def login(
 ) -> None:
     """打开 Edge 登录并刷新当前环境的本地认证信息。"""
     try:
-        runtime_from_context(context).auth.login(show_secrets=show_secrets)
+        runtime = runtime_from_context(context)
+        runtime.auth.login(show_secrets=show_secrets)
+        if runtime.config.auto_ping:
+            console.print(ping.auto_start(runtime, after_login=True))
     except Exception as exc:
         fail(exc)
 
@@ -48,6 +54,7 @@ def logout(
     """清除当前环境的本地认证信息。"""
     try:
         runtime = runtime_from_context(context)
+        ping.stop(runtime, all_profiles=all_profiles)
         runtime.auth.logout(
             all_profiles=all_profiles,
             forget_browser=forget_browser,
@@ -56,6 +63,34 @@ def logout(
         console.print(f"已清除 {target} 的本地认证信息")
         if forget_browser:
             console.print(f"已清除 {target} 的专用 Edge Profile")
+    except Exception as exc:
+        fail(exc)
+
+
+@ping_app.command("start")
+def ping_start(context: typer.Context) -> None:
+    """为当前终端启动自动保活。"""
+    try:
+        console.print(ping.start(runtime_from_context(context)))
+    except Exception as exc:
+        fail(exc)
+
+
+@ping_app.command("stop")
+def ping_stop(context: typer.Context) -> None:
+    """停止当前环境的自动保活。"""
+    try:
+        ping.stop(runtime_from_context(context))
+        console.print("当前环境的自动保活已停止")
+    except Exception as exc:
+        fail(exc)
+
+
+@ping_app.command("status")
+def ping_status(context: typer.Context) -> None:
+    """只读查看自动保活状态。"""
+    try:
+        print_result(ping.status(runtime_from_context(context)))
     except Exception as exc:
         fail(exc)
 

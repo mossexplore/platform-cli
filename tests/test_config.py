@@ -64,6 +64,8 @@ class ConfigManagerTest(unittest.TestCase):
         self.assertFalse(manager.current_profile().verify_ssl)
         self.assertFalse(manager.verify_ssl)
         self.assertEqual(manager.auth_ttl_seconds, 60)
+        self.assertTrue(manager.auto_ping)
+        self.assertEqual(manager.ping_interval_minutes, 10)
         self.assertEqual(manager.browser_channel, "msedge")
         self.assertEqual(manager.session_probe_timeout_ms, 2500)
         self.assertEqual(manager.login_timeout_ms, 120000)
@@ -133,6 +135,30 @@ class ConfigManagerTest(unittest.TestCase):
         with patch("wiserec_cli.config.__version__", "999.0.0"):
             _sync_packaged_config(destination)
         self.assertEqual(ConfigManager(destination).current_name, "dev")
+
+    def test_package_update_preserves_manual_ping_settings(self):
+        destination = Path(self.temporary.name) / "ml" / "config.json"
+        _sync_packaged_config(destination)
+        user_config = json.loads(destination.read_text(encoding="utf-8"))
+        user_config["auth"].update(auto_ping=False, ping_interval_minutes=15)
+        destination.write_text(json.dumps(user_config), encoding="utf-8")
+
+        with patch("wiserec_cli.config.__version__", "999.0.0"):
+            _sync_packaged_config(destination)
+        manager = ConfigManager(destination)
+        self.assertFalse(manager.auto_ping)
+        self.assertEqual(manager.ping_interval_minutes, 15)
+
+    def test_ping_settings_reject_invalid_values(self):
+        baseline = json.loads(self.path.read_text(encoding="utf-8"))
+        for settings in ({"auto_ping": "false"}, {"ping_interval_minutes": 0},
+                         {"ping_interval_minutes": 21}, {"ping_interval_minutes": 10.5}):
+            with self.subTest(settings=settings):
+                config = json.loads(json.dumps(baseline))
+                config["auth"].update(settings)
+                self.path.write_text(json.dumps(config), encoding="utf-8")
+                with self.assertRaisesRegex(Exception, "auth\\.(auto_ping|ping_interval_minutes)"):
+                    ConfigManager(self.path)
 
     def test_installer_overwrites_even_same_version_and_corrupt_local_config(self):
         root = Path(self.temporary.name) / "user-config"

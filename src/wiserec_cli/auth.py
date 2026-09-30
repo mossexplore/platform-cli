@@ -399,8 +399,13 @@ class AuthManager:
     def record_platform_activity(self, credentials: Credentials) -> None:
         """平台请求已成功；续期失败不应把已完成的业务操作报成失败。"""
         try:
-            self.store.extend_if_current(credentials, self.config.auth_ttl_seconds)
-        except (OSError, CredentialError) as exc:
+            current = self.store.extend_if_current(credentials, self.config.auth_ttl_seconds)
+            if (current.username, current.cookie, current.csrftoken) == (
+                credentials.username, credentials.cookie, credentials.csrftoken
+            ):
+                from .ping import mark_platform_activity
+                mark_platform_activity(self.store, credentials.profile)
+        except (OSError, CredentialError, ValueError) as exc:
             print(f"警告：无法保存本地认证续期信息：{exc}", file=sys.stderr)
 
     def ensure_credentials(self, force_refresh: bool = False) -> Credentials:

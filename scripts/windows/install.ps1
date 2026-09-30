@@ -275,8 +275,8 @@ if (Test-Path -LiteralPath $PackagesDirectory -PathType Container) {
     Invoke-Checked -Command $VirtualEnvironmentPython -Arguments $InstallArguments
 }
 
-# 每次运行均使用本次 Wheel 安装 CLI，并完整覆盖用户默认配置。
-Write-Host "Replacing user config.json with the packaged configuration..." -ForegroundColor Cyan
+# 每次运行均使用本次 Wheel 安装 CLI；保留用户明确设置的自动保活选项。
+Write-Host "Updating user config.json from the package..." -ForegroundColor Cyan
 Invoke-Checked -Command $VirtualEnvironmentPython -Arguments @(
     "-c", "from wiserec_cli.config import reset_packaged_config; print(reset_packaged_config())"
 )

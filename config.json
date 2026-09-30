@@ -6,7 +6,9 @@
     "verify_ssl": true
   },
   "auth": {
-    "expires_in_seconds": 1800
+    "expires_in_seconds": 1800,
+    "auto_ping": true,
+    "ping_interval_minutes": 10
   },
   "access_control": {
     "url": "",

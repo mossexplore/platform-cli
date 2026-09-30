@@ -24,9 +24,10 @@ ml login
 
 ## 配置覆盖规则
 
-每次安装成功前，安装器都会用新包中的 `config.json` 完整覆盖当前用户的
-`%APPDATA%\ml\config.json`，同版本重装也会覆盖。不保留旧的环境、权限系统地址、
-`access_control.enabled` 或其他字段，且不会因旧配置损坏而跳过覆盖。
+每次安装成功前，安装器都会用新包中的 `config.json` 更新当前用户的
+`%APPDATA%\ml\config.json`，同版本重装也会更新。保留原配置中明确设置的
+`auth.auto_ping` 和 `auth.ping_interval_minutes`；旧的环境、权限系统地址、
+`access_control.enabled` 等其他字段仍由新包覆盖。旧配置损坏时使用包内默认值。
 
 `--config`、`ML_CONFIG` 和当前工作目录中的 `config.json` 仍可作为独立配置来源；
 这些任意路径的文件不在安装器覆盖范围内。默认配置以安装包内容为准。

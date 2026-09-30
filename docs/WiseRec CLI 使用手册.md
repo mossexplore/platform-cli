@@ -12,7 +12,11 @@ ml                                              WiseRec 命令行工具
 ├── logout                                      退出登录
 ├── tree                                        查看完整命令树
 ├── auth                                        登录状态
-│   └── status                                  查看当前登录状态
+│   ├── status                                  查看当前登录状态
+│   └── ping                                    管理终端会话自动保活
+│       ├── start                               启动当前终端的保活
+│       ├── status                              查看保活状态和最近请求
+│       └── stop                                停止当前环境的保活
 ├── env                                         环境管理
 │   ├── list                                    查看可用环境
 │   ├── show                                    查看当前环境
@@ -169,6 +173,9 @@ ml train list -o json
 ml login [OPTIONS]
 ml logout [OPTIONS]
 ml auth status
+ml auth ping start
+ml auth ping status
+ml auth ping stop
 ```
 
 ### 4.2 参数与选项
@@ -181,16 +188,22 @@ ml auth status
 | `ml logout --all` | 清除所有环境的登录状态 |
 | `ml logout --forget-browser` | 同时清除浏览器登录会话 |
 | `ml auth status` | 查看当前账号和登录状态，不显示敏感信息 |
+| `ml auth ping start` | 为当前终端启动自动保活 |
+| `ml auth ping status` | 查看保活进程和最近请求结果，不发送请求 |
+| `ml auth ping stop` | 停止当前环境的自动保活 |
 
 ### 4.3 说明
 
 CLI 的本地认证默认按 30 分钟空闲时间计算：成功访问平台后会重新计时，持续使用时不会仅因最初登录已满 30 分钟而打开浏览器。空闲超时后，CLI 会先静默校验现有登录；平台确认失效时才打开 Edge。网络故障会单独报错。`ml auth status` 显示本地状态、按分钟向上取整的剩余时间、北京时间和当前选择的 `businessId`；未选择业务时显示“-”，查看状态不会访问平台或续期。`--forget-browser` 后再次登录可能需要重新验证身份。
+
+交互式终端登录并选择业务后，默认每隔 10 分钟空闲向平台确认并延长会话；普通命令成功访问平台会重新计时。关闭最后一个已登记的终端或退出登录后，保活停止。`ping status` 显示终端窗口数、最近请求时间、平台确认成功时间、请求 ID 和次数，不会触发保活。手动执行 `ping stop` 后，可用 `ping start` 恢复，重新登录也会恢复自动保活。电脑休眠或断网期间无法发送请求；平台会话失效后，下次执行命令时按正常登录流程处理。自动保活可由管理员关闭或调整间隔。
 
 ### 4.4 示例
 
 ```bash
 ml login
 ml auth status
+ml auth ping status
 ml logout
 ```
 

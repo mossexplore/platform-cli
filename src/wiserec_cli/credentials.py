@@ -61,7 +61,11 @@ class CredentialStore:
             data.setdefault("profiles", {})[credentials.profile] = credentials.to_dict()
             self._write(data)
 
-    def extend_if_current(self, credentials: Credentials, ttl_seconds: int) -> Credentials:
+    def extend_if_current(
+        self, credentials: Credentials, ttl_seconds: int,
+        *, new_cookie: Optional[str] = None,
+        new_csrftoken: Optional[str] = None,
+    ) -> Credentials:
         """只延长仍与本次请求相同的凭据，避免覆盖随后发生的重新登录。"""
         with self._locked():
             data = self._read()
@@ -79,9 +83,11 @@ class CredentialStore:
             ):
                 return credentials
             extended = replace(
-                current, expires_at=max(current.expires_at, time.time() + ttl_seconds)
+                current, expires_at=max(current.expires_at, time.time() + ttl_seconds),
+                cookie=new_cookie if new_cookie is not None else current.cookie,
+                csrftoken=new_csrftoken if new_csrftoken is not None else current.csrftoken,
             )
-            if extended.expires_at > current.expires_at:
+            if extended != current:
                 data["profiles"][credentials.profile] = extended.to_dict()
                 self._write(data)
             return extended

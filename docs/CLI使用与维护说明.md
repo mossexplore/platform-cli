@@ -7,7 +7,7 @@
 
 ![Python](https://img.shields.io/badge/python-3.9%2B-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
-![Version](https://img.shields.io/badge/version-1.0.3.12-informational)
+![Version](https://img.shields.io/badge/version-1.0.3.13-informational)
 
 ---
 
@@ -112,10 +112,14 @@ ml env use dev       # 切换环境（写回 config.json）
   校验通过才算登录成功，CLI 会自动关闭 Edge，用户不用敲回车。
 - 本地空闲有效期：默认 1800 秒（30 分钟），由 `auth.expires_in_seconds` 控制。成功访问平台后重新计时；本地认证记录中的时间采用带 `+08:00` 时区的可读格式，旧版数字时间戳仍可读取。
 - 续期策略：空闲超时后，先用现有凭据校验平台用户信息；平台仍接受凭据时静默续期，明确拒绝时才重开 Edge。网络或平台故障不会当作登录失效。
+- 自动保活：交互式终端登录并选择业务后启动后台进程。默认空闲 10 分钟请求 `/ai/user/info`；请求带当前环境所选 `businessid`。进程追踪终端窗口，最后一个窗口退出或执行 logout 时停止。`ml auth ping status` 为只读状态，不触发请求。安装或升级时保留用户手动设置的 `auth.auto_ping` 和 `auth.ping_interval_minutes`。
 - 兜底重试：若服务端返回 401 / 403 / 419 / 440 或发生重定向，CLI 会刷新认证并**重试一次**。
 
 ```bash
 ml auth status               # 剩余有效期，不打印敏感值
+ml auth ping status          # 保活进程和最近请求状态
+ml auth ping start           # 当前终端手动启动
+ml auth ping stop            # 停止当前环境
 ml login --show-secrets      # 打印完整 Cookie 与 CSRF Token（排查用，注意泄露风险）
 ml logout                    # 只清 CLI 缓存，保留浏览器会话
 ml logout --forget-browser   # 连专用 Edge Profile 一起删除（下次可能需重新输验证码）
@@ -183,7 +187,8 @@ ml
 ├── login                             登录并刷新当前环境的认证信息
 ├── logout                            清除本地认证信息
 ├── auth
-│   └── status                        查看认证有效期
+│   ├── status                        查看认证有效期
+│   └── ping                          自动保活 start / status / stop
 ├── env
 │   ├── list | show | use             环境列表 / 详情 / 切换
 ├── business
@@ -369,7 +374,7 @@ ml --config C:\path\to\config.json env show
 $env:ML_CONFIG = "C:\path\to\config.json"
 ```
 
-> **安装会覆盖用户默认配置**：Windows 安装器每次运行都会用包内配置覆盖用户默认 config.json，包括同版本重装。直接 pip 安装后，在读取默认配置时按版本、内容哈希和安装文件时间戳判断是否同步；普通后续运行不重复覆盖。升级前备份自定义环境和 access_control，安装后核对。显式 --config、ML_CONFIG 和当前目录配置是独立配置来源，不作为安装器覆盖目标。
+> **安装会更新用户默认配置**：Windows 安装器每次运行都会用包内配置更新用户默认 config.json，包括同版本重装；只保留用户明确设置的 `auth.auto_ping` 和 `auth.ping_interval_minutes`。直接 pip 安装后，在读取默认配置时按版本、内容哈希和安装文件时间戳判断是否同步；普通后续运行不重复覆盖。升级前备份自定义环境和 access_control，安装后核对。显式 --config、ML_CONFIG 和当前目录配置是独立配置来源，不作为安装器覆盖目标。
 
 ### 字段说明
 
@@ -384,6 +389,8 @@ $env:ML_CONFIG = "C:\path\to\config.json"
 | `access_control.timeout_seconds` | int(s) | `15` | 权限检查超时，范围 1–120 |
 | `access_control.use_env_proxy` | bool | `false` | 权限请求是否采用环境代理 |
 | `auth.expires_in_seconds` | int | `1800` | 本地认证有效期 |
+| `auth.auto_ping` | bool | `true` | 交互式终端中自动启用会话保活 |
+| `auth.ping_interval_minutes` | int | `10` | 距上次成功平台请求的保活间隔，允许 1–20 |
 | `browser.channel` | string | `msedge` | Edge 通道 |
 | `browser.session_probe_timeout` | int(ms) | `5000` | 登录后探测已有会话的等待时间 |
 | `browser.login_timeout` | int(ms) | `300000` | 等待用户完成登录的上限（5 分钟） |
@@ -410,7 +417,9 @@ $env:ML_CONFIG = "C:\path\to\config.json"
     "verify_ssl": true
   },
   "auth": {
-    "expires_in_seconds": 1800
+    "expires_in_seconds": 1800,
+    "auto_ping": true,
+    "ping_interval_minutes": 10
   },
   "access_control": {
     "url": "",
