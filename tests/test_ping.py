@@ -13,6 +13,7 @@ from wiserec_cli.ping import (
 )
 from wiserec_cli.ping_process import select_console_shell
 from wiserec_cli.credentials import CredentialStore
+from wiserec_cli import __version__
 import test_runtime
 
 
@@ -64,7 +65,7 @@ class PingTest(unittest.TestCase):
             return httpx.Response(200, headers={
                 "set-cookie": "session=rotated; Path=/; HttpOnly",
                 "csrftoken": "new-csrf",
-            }, json={"result": {"code": 0, "username": "jack"}})
+            }, json={"result": {"code": 0, "des": "success", "data": [], "count": 0}})
 
         def client_factory(*args, **kwargs):
             return real_client(*args, transport=httpx.MockTransport(handler), **kwargs)
@@ -83,9 +84,13 @@ class PingTest(unittest.TestCase):
 
         self.assertEqual(len(requests), 1)
         request = requests[0]
-        self.assertEqual(str(request.url), "https://dev.example.com/ai/user/info")
+        self.assertEqual(request.method, "POST")
+        self.assertEqual(str(request.url),
+                         "https://dev.example.com/ai/backend/mep/tenant/queryTeamList")
+        self.assertEqual(json.loads(request.content), {"businessId": "mep"})
         self.assertEqual(request.headers["businessid"], "mep")
         self.assertEqual(request.headers["ai-businessid"], "mep")
+        self.assertEqual(request.headers["cookie"], "session=abc")
         self.assertEqual(request.headers["csrftoken"], "csrf")
         self.assertTrue(request.headers["x-request-id"])
         self.assertEqual(CredentialStore(self.fixture.credential_path).load("dev").cookie,
@@ -105,6 +110,34 @@ class PingTest(unittest.TestCase):
                        self.fixture.business_path, self.state.path)
         client.assert_not_called()
         self.assertEqual(self.state.read()["profiles"]["dev"]["status"], "stopped")
+
+    def test_nonzero_result_does_not_confirm_ping(self):
+        self.prepare_worker()
+        real_client = httpx.Client
+
+        def client_factory(*args, **kwargs):
+            return real_client(*args, transport=httpx.MockTransport(
+                lambda _request: httpx.Response(200, json={
+                    "result": {"code": 1, "des": "failed"},
+                })
+            ), **kwargs)
+
+        def close_window(_seconds):
+            with self.state.locked():
+                data = self.state.read()
+                data["profiles"]["dev"]["owners"] = []
+                self.state.write(data)
+
+        with patch("wiserec_cli.ping._process_identity", side_effect=lambda pid: str(pid)), \
+             patch("wiserec_cli.ping.httpx.Client", side_effect=client_factory), \
+             patch("wiserec_cli.ping.time.sleep", side_effect=close_window):
+            run_worker(self.fixture.config_path, "dev", self.fixture.credential_path,
+                       self.fixture.business_path, self.state.path)
+
+        entry = self.state.read()["profiles"]["dev"]
+        self.assertEqual(entry["success_count"], 0)
+        self.assertEqual(entry["failure_count"], 1)
+        self.assertIsNone(entry.get("last_confirmed"))
 
     def test_worker_accepts_launch_token_when_launcher_pid_differs(self):
         self.prepare_worker()
@@ -206,6 +239,31 @@ class PingTest(unittest.TestCase):
                 start(self.runtime)
         self.assertIn("Windows worker failed", status(self.runtime)["最近错误"])
         self.assertEqual(status(self.runtime)["状态"], "未运行")
+
+    def test_start_replaces_worker_from_previous_version(self):
+        self.prepare_worker()
+        with self.state.locked():
+            data = self.state.read()
+            data["profiles"]["dev"]["worker_version"] = "previous"
+            self.state.write(data)
+
+        def worker_ready(_seconds):
+            with self.state.locked():
+                data = self.state.read()
+                data["profiles"]["dev"]["status"] = "running"
+                self.state.write(data)
+
+        with patch("wiserec_cli.ping._process_identity", side_effect=lambda pid: str(pid)), \
+             patch("wiserec_cli.ping.sys.stdin") as stdin, \
+             patch("wiserec_cli.ping.os.getppid", return_value=100), \
+             patch("wiserec_cli.ping.subprocess.Popen") as process, \
+             patch("wiserec_cli.ping.time.sleep", side_effect=worker_ready):
+            stdin.isatty.return_value = True
+            process.return_value.pid = 999
+            self.assertIn("已启动", start(self.runtime))
+            process.assert_called_once()
+        self.assertEqual(self.state.read()["profiles"]["dev"]["worker_version"],
+                         __version__)
 
     def test_same_console_replaces_transient_owner(self):
         def worker_ready(_seconds):

@@ -17,6 +17,7 @@ from uuid import uuid4
 
 import httpx
 
+from . import __version__
 from .business import BusinessStore
 from .config import ConfigManager
 from .credentials import CredentialStore
@@ -166,6 +167,7 @@ def start(runtime: Any, *, automatic: bool = False) -> str:
         entry["owners"] = owners
         worker_pid = entry.get("worker_pid")
         if (not isinstance(worker_pid, int)
+                or entry.get("worker_version") != __version__
                 or entry.get("worker_identity") is None
                 or _process_identity(worker_pid) != entry.get("worker_identity")):
             creation_flags = subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0
@@ -188,7 +190,8 @@ def start(runtime: Any, *, automatic: bool = False) -> str:
             spawned = process
             entry.update(worker_pid=process.pid,
                          worker_identity=_process_identity(process.pid),
-                         worker_token=worker_token, status="starting",
+                         worker_token=worker_token, worker_version=__version__,
+                         status="starting",
                          log_path=str(log_path), last_error="", last_success=time.time(),
                          last_confirmed=None, last_attempt=None, last_request_id=None,
                          success_count=0, failure_count=0)
@@ -329,11 +332,15 @@ def _probe(config: ConfigManager, profile_name: str, credentials: Credentials,
                       timeout=config.timeout_ms / 1000,
                       verify=config.verify_ssl_for(profile),
                       follow_redirects=False) as client:
-        response = client.get("/ai/user/info", headers={
-            "cookie": credentials.cookie, "csrftoken": credentials.csrftoken,
-            "businessid": business_id, "ai-businessId": business_id,
-            "referer": profile.api_endpoint, "X-Request-ID": request_id,
-        })
+        response = client.post(
+            "/ai/backend/mep/tenant/queryTeamList",
+            json={"businessId": business_id},
+            headers={
+                "cookie": credentials.cookie, "csrftoken": credentials.csrftoken,
+                "businessid": business_id, "ai-businessId": business_id,
+                "referer": profile.api_endpoint, "X-Request-ID": request_id,
+            },
+        )
     if response.status_code in {401, 403, 419, 440} or 300 <= response.status_code < 400:
         raise AuthenticationError("平台会话已失效")
     response.raise_for_status()
@@ -344,9 +351,8 @@ def _probe(config: ConfigManager, profile_name: str, credentials: Credentials,
     }:
         raise AuthenticationError("平台会话已失效")
     if (not isinstance(result, dict) or type(result.get("code")) is not int
-            or result["code"] != 0
-            or result.get("username") != credentials.username):
-        raise ValueError("平台未确认当前账号的会话有效")
+            or result["code"] != 0):
+        raise ValueError("平台未确认当前租户的保活请求成功")
     updated_cookie = _updated_cookie(credentials.cookie, response)
     cookie_values = SimpleCookie()
     cookie_values.load(updated_cookie)

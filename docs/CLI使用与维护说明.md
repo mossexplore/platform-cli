@@ -7,7 +7,7 @@
 
 ![Python](https://img.shields.io/badge/python-3.9%2B-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
-![Version](https://img.shields.io/badge/version-1.0.3.15-informational)
+![Version](https://img.shields.io/badge/version-1.0.3.16-informational)
 
 ---
 
@@ -112,7 +112,7 @@ ml env use dev       # 切换环境（写回 config.json）
   校验通过才算登录成功，CLI 会自动关闭 Edge，用户不用敲回车。
 - 本地空闲有效期：默认 1800 秒（30 分钟），由 `auth.expires_in_seconds` 控制。成功访问平台后重新计时；本地认证记录中的时间采用带 `+08:00` 时区的可读格式，旧版数字时间戳仍可读取。
 - 续期策略：空闲超时后，先用现有凭据校验平台用户信息；平台仍接受凭据时静默续期，明确拒绝时才重开 Edge。网络或平台故障不会当作登录失效。
-- 自动保活：交互式终端登录并选择业务后启动后台进程。默认空闲 10 分钟请求 `/ai/user/info`；请求带当前环境所选 `businessid`。进程追踪终端窗口，最后一个窗口退出或执行 logout 时停止。`ml auth ping status` 为只读状态，不触发请求。安装或升级时保留用户手动设置的 `auth.auto_ping` 和 `auth.ping_interval_minutes`。
+- 自动保活：交互式终端登录并选择业务后启动后台进程。默认空闲 10 分钟 POST `/ai/backend/mep/tenant/queryTeamList`；请求头 `businessid` 和请求体 `businessId` 都来自当前环境选中的租户，`result.code=0` 才续期。进程追踪终端窗口，最后一个窗口退出或执行 logout 时停止。`ml auth ping status` 为只读状态，不触发请求。安装或升级时保留用户手动设置的 `auth.auto_ping` 和 `auth.ping_interval_minutes`。
 - 兜底重试：若服务端返回 401 / 403 / 419 / 440 或发生重定向，CLI 会刷新认证并**重试一次**。
 
 ```bash
