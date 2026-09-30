@@ -2,11 +2,9 @@
 
 `ml` 用于管理 WiseRec 平台的环境、业务、训练任务、算法仓、服务、数据集、特征集和开发工作空间。本手册面向命令使用者。示例中的 `TASK_ID`、`JOB_ID`、`PROJECT_ID`、`EXPERIMENT_ID`、`SET_ID`、`SERVICE_ID`、`DATASET_ID` 等占位符，需要替换成列表查询得到的实际 ID。
 
-当前源码 CLI 版本：`1.0.3.18`（不代表已经正式发布）。
-
 ## 1. 命令树
 
-从上到下查找命令层级，按顺序输入即可。例如，下载训练日志使用 `ml train history logs download`；参数和选项见后文。
+### 1.1 命令格式
 
 ```text
 ml                                              WiseRec 命令行工具
@@ -125,20 +123,43 @@ ml                                              WiseRec 命令行工具
     └── stop                                    停止实例
 ```
 
+### 1.2 参数与选项
+
+`ml tree` 无需参数。各命令的参数与选项见对应章节。
+
+### 1.3 说明
+
+从上到下按顺序输入命令层级；使用 `--help` 查看具体用法。
+
+### 1.4 示例
+
+```bash
+ml tree
+ml train history logs download --help
+```
+
 ## 2. 安装与首次使用
 
 ### 2.1 命令格式
 
-取得管理员提供的 Windows 安装包后，完整解压并运行 `install.cmd`。安装完成后重新打开终端。
+```text
+install.cmd
+ml env use NAME
+ml login
+ml business use
+```
 
-### 2.2 说明
+### 2.2 参数与选项
 
-使用 CLI 前，需要安装包所要求的 Python 环境和 Microsoft Edge。首次使用建议依次检查版本、选择环境、登录、选择业务，再执行查询命令。切换环境后，重新确认登录和业务选择。
+`NAME` 为 `ml env list` 中的环境名称。
 
-### 2.3 示例
+### 2.3 说明
+
+完整解压管理员提供的安装包，运行 `install.cmd` 后重新打开终端。使用前准备好所需 Python 环境和 Microsoft Edge，依次选择环境、登录、选择业务。
+
+### 2.4 示例
 
 ```bash
-ml --version
 ml env list
 ml env use dev
 ml login
@@ -160,14 +181,15 @@ ml tree
 
 | 选项 | 用途 |
 | --- | --- |
-| `--version` | 显示当前安装版本 |
 | `--help` | 显示命令帮助；可放在各级命令后 |
-| `ml tree` | 显示当前安装版本的完整命令树及简短用途，无需登录或选择业务 |
+| `ml tree` | 显示完整命令树及简短用途，无需登录或选择业务 |
 | `--output` / `-o` | 部分查询命令支持 `table` 或 `json`，以对应命令帮助为准 |
 
 ### 3.3 说明
 
-不传命令时显示总帮助。`ml tree` 无需登录，一次展示已安装版本实际提供的全部命令层级，不展开参数；需要查看某个命令的参数时，在该命令后加 `--help`。下文未列出的通用补全选项可通过总帮助查看。
+不传命令时显示帮助。`ml tree` 无需登录；参数详情使用对应命令的 `--help`。带 `--output` 的命令可切换输出格式，以命令帮助为准。
+
+提示未登录或未选择业务时，分别执行 `ml login`、`ml business use`。查询不到目标时核对环境、业务和页码；操作超时后先查询远程状态，再决定是否重试。
 
 ### 3.4 示例
 
@@ -208,9 +230,9 @@ ml auth ping stop
 
 ### 4.3 说明
 
-CLI 的本地认证默认按 30 分钟空闲时间计算：成功访问平台后会重新计时，持续使用时不会仅因最初登录已满 30 分钟而打开浏览器。空闲超时后，CLI 会先静默校验现有登录；平台确认失效时才打开 Edge。网络故障会单独报错。`ml auth status` 显示本地状态、按分钟向上取整的剩余时间、北京时间和当前选择的 `businessId`；未选择业务时显示“-”，查看状态不会访问平台或续期。`--forget-browser` 后再次登录可能需要重新验证身份。
+登录后用 `auth status` 查看账号、剩余空闲时间及当前业务。默认空闲 30 分钟后校验登录，持续使用会延长会话；`--forget-browser` 会清除浏览器登录状态。
 
-交互式终端登录并选择业务后，默认每隔 10 分钟空闲以当前选中租户身份向平台确认并延长会话；普通命令成功访问平台会重新计时。关闭最后一个已登记的终端或退出登录后，保活停止。`ping start` 在后台程序确认运行后才提示启动成功。`ping status` 显示终端窗口数、最近请求时间、平台确认成功时间、请求 ID、次数和最近错误，不会触发保活。手动执行 `ping stop` 后，可用 `ping start` 恢复，重新登录也会恢复自动保活。保活请求使用与普通命令一致的连接方式；平台请求失败时可在 `ping status` 中查看最近错误。电脑休眠或断网期间无法发送请求；平台会话失效后，下次执行命令时按正常登录流程处理。自动保活可由管理员关闭或调整间隔。
+交互终端登录并选择业务后默认自动保活，空闲 10 分钟时请求平台。`ping status` 查看当前环境仍在运行的保活终端数及最近结果；`ping stop` 停止，`ping start` 恢复。关闭最后一个登记终端或退出登录后停止保活，休眠或断网时无法保活。
 
 ### 4.4 示例
 
@@ -272,7 +294,7 @@ ml business refresh
 
 ### 6.3 说明
 
-不带选项的 `ml business use` 展示全部部门，并引导选择租户和团队。添加 `--search` 后只展示匹配的部门；返回部门列表时仍保留筛选结果。交互时输入序号选择，输入 `b` 返回上一级，输入 `q` 取消；部门列表已是第一级。最后核对部门、租户和团队，输入 `y` 才保存，输入 `b` 返回团队列表。取消时原有选择不变。直接使用 `--tenant` 指定租户时无需交互确认。团队必须处于可用状态。`show` 可核对当前选择，目录发生变化时运行 `refresh`。
+`business use` 引导选择部门、租户和团队：输入序号选择，`b` 返回，`q` 取消，核对后输入 `y` 保存。`--search` 筛选部门；直接指定 `--tenant` 无需交互确认。取消时保留原选择。使用 `show` 核对选择，`refresh` 刷新目录。
 
 ### 6.4 示例
 
@@ -301,7 +323,7 @@ ml access status [--diagnose]
 
 ### 7.3 说明
 
-先登录并选择业务。授权通过时显示成功提示；未授权、账号停用、版本不符合要求或连接失败时显示原因，业务命令会停止。需要排查连接问题时使用 `--diagnose`；分享诊断输出前请隐藏账号与内部地址。版本可用 `ml --version` 查看。
+先登录并选择业务。授权失败时按提示处理；需要排查连接时使用 `--diagnose`。分享诊断输出前隐藏账号与内部地址。
 
 ### 7.4 示例
 
@@ -465,11 +487,11 @@ ml train config update TASK_ID --customize-config VALUE
 
 ### 12.3 说明
 
-先用 `list` 找到任务 ID；`instance list` 查看执行实例，`history list` 查看执行记录及作业 ID。执行实例和执行记录默认只展示第一页 10 条。`start` 提交任务后返回作业 ID，表示平台接受了执行请求，不代表训练完成。
+先用 `list` 获取任务 ID，`history list` 获取作业 ID。实例和执行记录默认展示第一页 10 条；`start` 返回作业 ID，不代表训练完成。
 
-`cancel` 会逐个取消查询到的执行实例，并逐条显示结果；没有可取消的实例时会提示。`delete` 为软删除，`clone` 会按源任务创建副本，并将新任务的创建者设为当前登录账号；`config update` 更新自定义参数。操作结果不明时，先查询任务或执行记录状态，再决定是否重试。
+`cancel` 取消查询到的执行实例；`delete` 软删除任务；`clone` 创建副本；`config update` 更新自定义参数。操作结果不明时先查询状态。
 
-配置导出保存为 YAML；日志下载默认保存为 ZIP。下载时显示进度，已有同名文件会自动编号，不覆盖。`--file PATH` 的父目录需已存在。
+配置导出为 YAML，日志默认下载为 ZIP；同名文件自动编号，`--file` 的父目录须存在。
 
 ### 12.4 示例
 
@@ -506,18 +528,16 @@ ml algorithm clone SOURCE_ID --name NAME --version VERSION [--yes]
 
 ### 13.3 说明
 
-列表展示算法仓 ID、名称、版本、区域、修改者、修改时间、大小、描述、禁用状态和归档状态。修改时间按北京时间显示，大小自动换算为 M 或 G。空结果显示“暂无算法仓记录”。
+先从列表获取算法仓 ID。下载保存为 ZIP，同名文件自动编号；`--file` 的父目录须存在。下载地址可能含临时签名，请勿公开分享。
 
-下载命令会先显示下载地址，再保存文件并展示进度。文件名统一以 `.zip` 结尾；若已存在同名文件，会自动编号而不覆盖。`--file PATH` 的父目录需已存在。下载地址可能包含临时签名，请勿随意分享终端记录。
-
-克隆默认先展示源 ID、新名称和版本并询问确认；成功后显示结果和新 ID（如果返回）。
+克隆默认预览创建内容并询问确认，成功后显示结果及返回的新 ID。
 
 ### 13.4 示例
 
 ```bash
 ml algorithm list --name mnist --page 1
 ml algorithm download ALGORITHM_ID --file ./mnist.zip
-ml algorithm clone SOURCE_ID --name mnist_copy --version latest
+ml algorithm clone SOURCE_ID --name mnist_copy --version VERSION
 ```
 
 ## 14. 服务管理
@@ -543,18 +563,14 @@ ml service deployment list SERVICE_ID [-o table|json]
 
 ### 14.3 说明
 
-先登录并选择业务，再用 `list` 查询服务 ID。列表默认从第 1 页开始，每页 10 条；显示服务名称、版本、环境、状态、实例、模型名称和归属者。状态 `0` 显示“正常”，`1` 显示“异常”。
+先登录并选择业务，从 `list` 获取服务 ID。服务列表默认每页 10 条；主机和部署详情显示第一页 10 条，时间按北京时间显示。
 
-`host list` 查看主机和 Pod 信息，包括规格、健康状态、并发数、超时时间与资源使用率。`deployment list` 查看 `blockId`、区域、集群、镜像、规格和推理框架。两个详情命令显示第 1 页 10 条；资源使用率显示为百分比，时间按北京时间显示。缺失值显示“-”。
-
-在主机列表中找到 Pod 名称和集群后，先用 `host logs list` 查看日志文件。文件大小、修改时间和名称按平台返回值原样显示。再用 `host logs search` 指定文件查看日志正文；正文保留换行，便于在终端阅读或重定向保存。两条命令分别传入日志类型：例如文件列表用 `rtc`，检索 `interface.log` 用 `interface`。
-
-检索默认不设置关键词，读取 200 行，顺序为 `tail`，关键词范围为 `C`，上下文行数为 0。可重复使用 `--keyword` 添加多个关键词；其他检索选项按需调整。
+查看日志时，从主机列表获取 Pod 和集群，再用 `logs list` 找到文件，用 `logs search` 读取正文。文件列表与检索分别指定日志类型，例如 `rtc` 和 `interface`。检索默认读取末尾 200 行，可重复传入 `--keyword`。
 
 ### 14.4 示例
 
 ```bash
-ml service list --name demo --model-name model --model-version 1.0.0
+ml service list --name demo --model-name model --model-version MODEL_VERSION
 ml service list --page 2 --page-size 20 -o json
 ml service host list SERVICE_ID
 ml service host logs list POD_NAME --cluster mep-mirror-az4 --type rtc
@@ -580,9 +596,7 @@ ml dataset detail DATASET_ID [-o table|json]
 
 ### 15.3 说明
 
-先登录并选择业务。列表默认显示第 1 页、每页 10 条，展示数据集 ID、名称、租户、数据类型、修改者、大小、更新时间、最近使用、区域、存储桶和描述；空值显示“-”。大小按字节换算，采用 1024 进位，显示 B、K、M 或 G，换算值保留两位小数。时间按北京时间显示。
-
-`detail` 展示租户、团队、创建者、创建时间、更新时间、业务子场景、数据集 ID、存储桶名称、存储方式、文件名称、来源和描述。JSON 输出保留平台返回的其他字段。
+先登录并选择业务。`list` 默认显示第一页 10 条，`detail` 查看指定数据集。大小自动换算，时间按北京时间显示；JSON 保留平台返回的其他字段。
 
 ### 15.4 示例
 
@@ -702,99 +716,106 @@ ml jupyter doctor --studio-id ENV_ID
 ml webstudio stop ENV_ID
 ```
 
-## 19. 输出与常见问题
+## 19. Jupyter 文件操作
 
-### 19.1 输出格式
+### 19.1 命令格式
 
-带 `--output` / `-o` 的命令可选择表格或 JSON，具体支持范围以该命令的帮助为准。查询结果为空时会显示相应提示。列表中需要完整复制 ID 时，可使用 JSON 输出；训练任务、算法仓、服务和特征集表格中的时间按北京时间显示。
-
-### 19.2 退出状态
-
-| 状态 | 含义 |
-| --- | --- |
-| `0` | 命令成功；部分确认操作中回答“否”也返回 0 |
-| `1` | 登录、授权、业务、网络或执行失败 |
-| `2` | 命令参数错误，例如缺少必填项或页码无效 |
-
-### 19.3 常见问题
-
-- 提示未登录：执行 `ml login`，再用 `ml auth status` 核对。
-- 提示未选择业务：执行 `ml business use`，再用 `ml business show` 核对。
-- 看不到目标任务或实例：确认当前环境、业务和页码；需要时用名称筛选或继续翻页。
-- 创建、删除或启动操作超时：先查询远程状态，再决定是否重试。
-- 需要参数详情：在对应命令后使用 `--help`。
-
-
-## Jupyter 文件操作与 Agent 非交互执行（1.0.3.18）
-
-### 使用前提与共同选项
-
-沿用上文 Jupyter 的 `direct` / `webstudio` 连接配置。先选择当前环境与业务；Web Studio 模式先登录实例，或每次传入 `--studio-id ENV_ID`。所有请求复用当前环境 `business.json` 的 `selected.businessId`，不会使用其他环境的业务值。文件操作需要 Contents API 权限；exec 还需要创建、连接和关闭 Kernel 的权限。
-
-所有新命令支持 `--studio-id ENV_ID`、`--output text|json`（别名 `-o`，默认 text）。远端路径相对 Jupyter 根目录，拒绝绝对路径与 `..`，不要传浏览器 `/lab` 路径。本地与远端路径不可混淆。JSON 成功输出为 `{server_url, studio_id, business_id, result}`；诊断信息写入 stderr。操作失败退出 1，JSON 为 `{status: "FAILED", error: ...}`；参数解析错误退出 2，显示 CLI 用法。创建、修改时间转换为北京时间 `YYYY-MM-DD HH:mm:ss`。JSON 不输出连接 Token。
-
-### 文件命令与参数
-
-| 命令 | 用途与参数 | 输出 |
-| --- | --- | --- |
-| `files list [PATH]` | 列出一层目录，省略 PATH 为根目录 | 目录及子项元数据 |
-| `files stat PATH` | 查询元数据，不下载内容 | 类型、大小、时间、可写性等服务端字段 |
-| `files read PATH` | 读取 UTF-8 文本；`--start-line N` 默认 1，`--end-line N` 可选，含首尾 | text 为正文；JSON result 包含 content 与行范围 |
-| `files write PATH` | `--from-file LOCAL` 或 `--stdin` 二选一；`--overwrite` 显式覆盖 | 保存后的元数据 |
-| `files mkdir PATH` | 创建一个目录，父目录须存在 | 新目录元数据 |
-| `files upload LOCAL REMOTE` | 上传单文件，包括二进制；REMOTE 含文件名；`--overwrite` | 保存后的元数据 |
-| `files download REMOTE LOCAL` | 下载单文件；LOCAL 含文件名，父目录须存在；`--overwrite` | 远端路径、本地绝对路径和字节数 |
-| `files move SOURCE TARGET` | 移动或重命名，不覆盖已有目标 | 修改后的元数据 |
-| `files copy SOURCE TARGET_DIR` | 复制单文件至已有目录，文件名由服务端生成 | 以返回的 path 为实际新文件名 |
-| `files delete PATH` | 删除文件或空目录，显式调用即执行，无交互确认 | path 与 deleted |
-
-上述命令均置于 `ml jupyter` 后。成功退出 0。写入默认拒绝覆盖，目录不能被文件覆盖。不支持递归上传、下载、复制或删除；不允许修改根目录本身。远端存在性检查与写入不是原子操作，不提供并发编辑锁。行范围在客户端下载完整文本后切片；文件传输当前在内存中完成，适用于普通代码和数据文件，不适合超大文件。读取 text 时会清除终端控制字符；JSON 保留内容，Notebook 原始文件可通过 download 获取。
-
-```bash
-ml jupyter files list projects --output json
-ml jupyter files stat projects/demo/main.py --output json
-ml jupyter files read projects/demo/main.py --start-line 1 --end-line 80
-ml jupyter files mkdir projects/demo
-ml jupyter files write projects/demo/main.py --from-file ./main.py --overwrite --output json
-ml jupyter files write projects/demo/note.txt --stdin --output json
-ml jupyter files upload ./data.csv projects/demo/data.csv
-ml jupyter files download projects/demo/result.csv ./result.csv
-ml jupyter files move projects/demo/note.txt projects/demo/notes.txt
-ml jupyter files copy projects/demo/main.py projects
-ml jupyter files delete projects/demo/notes.txt
+```text
+ml jupyter files list [PATH] [OPTIONS]
+ml jupyter files stat PATH [OPTIONS]
+ml jupyter files read PATH [OPTIONS]
+ml jupyter files write PATH (--from-file LOCAL | --stdin) [OPTIONS]
+ml jupyter files mkdir PATH [OPTIONS]
+ml jupyter files upload LOCAL REMOTE [OPTIONS]
+ml jupyter files download REMOTE LOCAL [OPTIONS]
+ml jupyter files move SOURCE TARGET [OPTIONS]
+ml jupyter files copy SOURCE TARGET_DIR [OPTIONS]
+ml jupyter files delete PATH [OPTIONS]
 ```
 
-`--stdin` 从标准输入读至 EOF，可由管道提供内容；Agent 应使用 `--output json`。
+### 19.2 参数与选项
 
-### 非交互执行
+| 参数或选项 | 用途 |
+| --- | --- |
+| `PATH`、`REMOTE`、`SOURCE`、`TARGET` | 远端路径，相对 Jupyter 根目录；`list` 省略 PATH 时查看根目录 |
+| `LOCAL` | 本地文件路径；下载目标须含文件名且父目录存在 |
+| `TARGET_DIR` | 已有远端目录；复制后的文件名以输出的 path 为准 |
+| `--from-file LOCAL` / `--stdin` | 写入 UTF-8 文本，二选一；stdin 从标准输入读取至 EOF |
+| `--overwrite` | write、upload、download 允许覆盖已有文件，默认不覆盖 |
+| `--start-line N` / `--end-line N` | read 的行范围，含首尾；起始行默认 1 |
+| `--output text\|json` / `-o` | 默认 text；Agent 使用 json |
+| `--studio-id ENV_ID` | 临时指定 Web Studio 实例，默认使用已选实例 |
+
+### 19.3 说明
+
+先选择环境、登录并选择业务。Web Studio 模式下执行 `ml webstudio login ENV_ID`；直连模式使用管理员提供的 Jupyter 配置。文件操作无需先打开远程终端。
+
+远端路径从 Jupyter 文件浏览器最顶层开始，不是本机目录或服务器 `/`。先用 `files list` 查看根目录，再使用返回的 path；`projects` 仅为示例，不一定存在。路径不得以 `/` 开头或包含 `..`，终端中的 `cd` 不影响文件命令。
+
+`list/stat/read` 分别查看目录、信息和正文。mkdir 的父目录须存在；move 不覆盖目标；delete 立即删除文件或空目录，不再确认。上传、下载、复制与删除不递归处理目录。避免与浏览器同时修改同一文件；行范围读取仍会下载完整文件，不宜用于超大文件。
+
+JSON 结果位于 `result`，外层标明服务器、实例和业务。read 的正文在 `result.content`，时间按北京时间显示。成功退出 0，操作失败退出 1，参数错误退出 2。
+
+### 19.4 示例
 
 ```bash
+ml webstudio list --status online
+ml webstudio login ENV_ID
+ml jupyter files list --output json
+ml jupyter files list projects --output json
+ml jupyter files mkdir projects/demo
+ml jupyter files write projects/demo/main.py --from-file ./main.py --output json
+ml jupyter files stat projects/demo/main.py --output json
+ml jupyter files read projects/demo/main.py --start-line 1 --end-line 80
+ml jupyter files write projects/demo/main.py --from-file ./main.py --overwrite
+ml jupyter files upload ./data.csv projects/demo/data.csv
+ml jupyter files download projects/demo/data.csv ./downloaded.csv
+ml jupyter files copy projects/demo/main.py projects
+ml jupyter files move projects/demo/data.csv projects/demo/input.csv
+ml jupyter files delete projects/demo/input.csv
+```
+
+## 20. Jupyter 非交互执行
+
+### 20.1 命令格式
+
+```text
 ml jupyter exec [OPTIONS] -- PROGRAM [ARGS...]
+```
+
+### 20.2 参数与选项
+
+| 参数或选项 | 用途 |
+| --- | --- |
+| `PROGRAM [ARGS...]` | 远端程序及参数；放在 `--` 后，不隐式解释 Shell |
+| `--cwd PATH` | 已有远端目录，相对 Jupyter 根目录；默认根目录 |
+| `--timeout SECONDS` | 程序运行时限，默认 60 秒，最小 0.1 秒 |
+| `--startup-timeout SECONDS` | Kernel 就绪等待时限，默认 60 秒 |
+| `--kernel NAME` | Python Kernel 名称，默认使用当前环境配置 |
+| `--max-output BYTES` | stdout/stderr 各自保留的字节上限，默认 1048576，最大 10485760 |
+| `--output text\|json` / `-o` | 默认 text 为缩进 JSON；json 为单行结构化结果 |
+| `--studio-id ENV_ID` | 临时指定 Web Studio 实例，默认使用已选实例 |
+
+### 20.3 说明
+
+连接准备同文件操作。远端须为 Linux/macOS 等 POSIX 系统并提供 Python Kernel，本机可使用 Windows。每次执行使用独立 Kernel，不继承已有 Notebook 变量；程序通过远端 PATH 查找，也可指定程序绝对路径。
+
+不支持交互输入；管道和重定向须显式使用 `sh -c`。执行完成后返回 stdout、stderr 和退出码，超过输出上限会标记 `truncated`。不用于启动后台常驻服务，完成或超时时会清理同组子进程，主动脱离进程组的进程不保证清理。
+
+JSON 的 `result` 包含执行 ID、状态、原始退出码和输出。断线或 Ctrl+C 后先检查远端状态，不自动重跑；`cleanup_errors` 非空时按 kernel_id 检查遗留资源。
+
+| 状态 | CLI 退出码 | 含义 |
+| --- | --- | --- |
+| `SUCCEEDED` | 0 | 执行成功 |
+| `FAILED` | 原始退出码 1–123，其余为 1 | 执行或启动失败 |
+| `TIMED_OUT` | 124 | 远端确认超时并终止进程组 |
+| `LOST` | 2 | 连接中断或结果不完整，远端状态未知 |
+| `INTERRUPTED` | 130 | 本地中断，远端不一定已停止 |
+
+### 20.4 示例
+
+```bash
 ml jupyter exec --cwd projects/demo --output json -- python main.py
 ml jupyter exec --cwd projects/demo --timeout 120 --output json -- python -m pytest -q
 ml jupyter exec --cwd projects/demo --output json -- sh -c 'pwd && ls -la'
 ```
-
-前提：远端为 Linux/macOS 等 POSIX 系统，存在 Python/IPython Kernel。Windows 本地 CLI 可以连接 POSIX 远端；暂不支持 Windows 远端执行。每次创建独立 Kernel，以 `--cwd` 为工作目录启动子进程，完成后释放；不继承已有 Notebook 内核变量，也不创建 Notebook 文件。程序使用远端 PATH 查找，不隐式激活额外虚拟环境，可传程序的远端绝对路径。命令参数通过 argv 传递，不隐式解释 Shell；管道、重定向等必须显式使用 `sh -c`。标准输入关闭，不支持密码提示和交互程序。
-
-| 选项 | 默认值 | 含义 |
-| --- | --- | --- |
-| `--cwd PATH` | Jupyter 根目录 | 必须是已有远端目录 |
-| `--timeout SECONDS` | 60 | 子进程运行时限，至少 0.1 秒 |
-| `--startup-timeout SECONDS` | 60 | Kernel 就绪等待时限 |
-| `--kernel NAME` | 当前环境配置的 Kernel | 必须为 Python Kernel |
-| `--max-output BYTES` | 1048576 | stdout/stderr 各自的保留上限，最大 10485760 |
-| `--output text|json` / `-o` | text | text 为可读 JSON；json 为单行结构化结果 |
-| `--studio-id ENV_ID` | 默认已选实例 | 指定 Web Studio 实例 |
-
-`result` 包含 `id`、`kernel_id`（创建成功时）、`cwd`、`status`、`exit_code`、`stdout`、`stderr`、`remote_state` 和 `cleanup_errors`；收到助手结果时还包含 `truncated` 等字段。输出在执行完成后返回，超过上限继续排空管道但丢弃多余内容。非 UTF-8 输出用替代字符解码。当前不提供完整日志文件或后台任务管理。
-
-| status | CLI 退出码 | 含义 |
-| --- | --- | --- |
-| SUCCEEDED | 0 | 子进程成功 |
-| FAILED | 子进程退出码 1–123，其他情况 1 | 命令失败或启动失败，原始退出码保留在 result.exit_code |
-| TIMED_OUT | 124 | 远端助手确认超时并强制结束该进程组 |
-| LOST | 2 | 提交后连接中断或未收齐结果，远端状态未知，不自动重跑 |
-| INTERRUPTED | 130 | 本地 Ctrl+C，远端状态可能未知 |
-
-完成及超时均清理同一进程组的后台子进程，因此 exec 不用于启动守护服务。主动脱离进程组的子进程不保证清理。连接丢失或本地中断时仍尝试释放 Kernel，但不能据此断言远端子进程已停止；需检查后再决定是否重试。若 `cleanup_errors` 非空，应按 kernel_id 检查遗留资源。现有 `terminal open/attach` 保留用于人工交互。
