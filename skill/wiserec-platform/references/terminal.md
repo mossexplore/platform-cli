@@ -1,5 +1,7 @@
 # Jupyter 远程交互终端
 
+普通文件操作优先使用 `ml jupyter files`，一次性程序执行优先使用 `ml jupyter exec`，见 [文件与非交互执行](jupyter.md)。只有需要交互输入或持续 Shell 状态时才采用本页流程。
+
 ## 前提和目标
 
 先完成 `SKILL.md` 的会话检查。使用 Web Studio 时，先通过 `ml webstudio list --env-id ENV_ID` 确认实例 ID 和 online 状态；默认实例可通过 `ml webstudio show` 查看，需要选择时用 `ml webstudio login ENV_ID`。实例未启动且用户需要在该实例操作时，可用 `ml webstudio start ENV_ID` 启动并重新查询状态；不要仅凭启动命令的成功提示认定实例已经 online。也可以在 Jupyter 命令上带 `--studio-id ENV_ID`，该选项只影响本次命令。终端名称只在所属实例内有效。
@@ -8,7 +10,7 @@
 
 ## agent 的执行方式
 
-1. 先确认宿主 agent 提供能持续写入和读取的 PTY/TTY 进程工具。用它启动 `ml jupyter terminal open`，或者 `ml jupyter terminal attach NAME`；例如具有 `tty: true` 且返回可复用会话句柄的进程工具。在 Windows 上应开启真正的交互式控制台。stdin 和 stdout 都必须是 TTY。OpenCode 的普通 `shell` 工具若只返回一次性输出或后台任务，不能当作已具备此能力；此时应启用宿主的 PTY 扩展/工具，缺少时明确告知不能由 agent 自动操作交互终端。不要用 `Start-Process` 隐藏窗口、输出重定向或 `ml ... | Out-String` 假装 TTY。
+1. 先确认宿主 agent 提供能持续写入和读取的 PTY/TTY 进程工具。用它启动 `ml jupyter terminal open`，或者 `ml jupyter terminal attach NAME`；例如具有 `tty: true` 且返回可复用会话句柄的进程工具。在 Windows 上应开启真正的交互式控制台。stdin 和 stdout 都必须是 TTY。OpenCode 的普通 `shell` 工具若只返回一次性输出或后台任务，不能当作已具备此能力；如果任务不需要交互，改用 files/exec；确需交互但缺少 PTY 时明确告知能力限制，不将其误报为所有 Jupyter 操作不可用。不要用 `Start-Process` 隐藏窗口、输出重定向或 `ml ... | Out-String` 假装 TTY。
 2. 保留进程会话句柄；等待出现 CLI 打印的终端名称和远端提示符。将实例 ID 与终端名称对应记录在当前任务上下文。若连接失败，先用 `ml jupyter terminal list` 检查服务端是否已创建终端，再决定 `attach`，不要反复 `open` 制造新终端。
 3. 通过会话句柄写入远端命令及回车，读取新输出，按输出判断是否成功。`cd` 等状态命令必须在**同一条终端连接**中继续执行，不能每条命令新开一个本地进程。执行耗时命令时持续读取输出；输出暂时为空不代表完成。
 4. 远端允许执行服务器上可用的全部命令。示例：`pwd`、`ls`、`cd project`、`cat README.md`、`python --version`、`pip list`。命令由用户目标、远端 Shell 和权限决定；这些示例不是限制。含特殊字符、路径或换行的命令应按远端 Shell 语法转义，不能把本地 PowerShell 语法直接当成远端 Shell 语法。

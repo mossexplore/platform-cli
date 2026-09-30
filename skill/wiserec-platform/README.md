@@ -1,6 +1,6 @@
 # WiseRec Platform skill
 
-此目录是可独立分发的 Agent Skill。复制整个 `wiserec-platform` 目录，保留 `SKILL.md` 与 `references/` 的相对位置。它覆盖当前项目的环境、业务、看板、离线实验、训练任务、算法仓、服务、特征集、Web Studio 和 Jupyter 命令。需要安装可用的 WiseRec `ml` CLI；具体命令以安装版本的 `--help` 为准。Jupyter Terminal 的自动操作还要求 agent 提供可持续读写的真实交互式 PTY/TTY 工具。只有普通一次性 shell 工具的宿主仍可使用其余 CLI 功能。
+此目录是可独立分发的 Agent Skill。复制整个 `wiserec-platform` 目录，保留 `SKILL.md` 与 `references/` 的相对位置。它覆盖当前项目的环境、业务、看板、离线实验、训练任务、算法仓、服务、数据集、特征集、Web Studio 和 Jupyter 命令。需要安装可用的 WiseRec `ml` CLI；具体命令以安装版本的 `--help` 为准。Jupyter Terminal 的自动操作还要求 agent 提供可持续读写的真实交互式 PTY/TTY 工具。普通一次性进程工具可直接使用 Jupyter files/exec，无需先打开终端。文件读写和程序执行指南见 [Jupyter 文件与非交互执行](references/jupyter.md)。
 
 ## Windows OpenCode 安装
 
@@ -32,9 +32,23 @@ ml env show
 ml auth status
 ml business show
 ml service host logs --help
+ml jupyter files --help
+ml jupyter exec --help
 ```
 
-安装 `ml` 后若当前终端仍找不到命令，重新打开终端再检查。真正使用业务命令前按 `SKILL.md` 核对业务选择。若 `ml service host logs --help` 不存在，说明安装的 CLI 版本尚未包含该命令；其他命令同样以安装版本的帮助为准。`ml login` 需要 Edge 和图形界面，不能在无人值守的无头环境完成交互登录。
+安装 `ml` 后若当前终端仍找不到命令，重新打开终端再检查。真正使用业务命令前按 `SKILL.md` 核对业务选择。若 `ml service host logs --help` 不存在，说明安装的 CLI 版本尚未包含该命令；其他命令同样以安装版本的帮助为准。若 files/exec 帮助不存在，先更新实际调用的 CLI；只复制 skill 不会安装或更新 CLI。`ml login` 需要 Edge 和图形界面，不能在无人值守的无头环境完成交互登录。
+
+## Jupyter 使用入口
+
+完成环境、登录、业务检查后，Web Studio 用户选择运行中的实例，再查询远端根目录。下面的 ENV_ID 用实际实例 ID 替换：
+
+```powershell
+ml webstudio list --status online -o json
+ml webstudio login ENV_ID
+ml jupyter files list --output json
+```
+
+按根目录返回的 path 使用 files 命令；路径不是本机工作目录。一次性远端执行使用 `ml jupyter exec --cwd PATH --output json -- python main.py`，PATH 和脚本必须真实存在。远端需 POSIX 系统及 Python Kernel，本地可使用 Windows。完整命令、输出与失败处理见 [专项指南](references/jupyter.md)；不要默认使用交互终端完成文件操作。
 
 ## 分发边界
 

@@ -1,6 +1,6 @@
 # `ml` 命令索引
 
-本索引按当前项目命令树整理，用于定位命令；已安装版本的 `ml <子命令> --help` 是参数依据。`--config PATH` 是**全局**选项，应放在子命令前。`TASK_ID`、`JOB_ID`、`PROJECT_ID`、`NAMESPACE_ID`、`EXPERIMENT_ID`、`ALGORITHM_ID`、`SERVICE_ID`、`POD_NAME`、`SET_ID`、`ENV_ID` 等占位符表示不同对象，不能互换。只在命令明确支持时加 `-o json`。
+本索引按当前项目命令树整理，用于定位命令；已安装版本的 `ml <子命令> --help` 是参数依据。`--config PATH` 是**全局**选项，应放在子命令前。`TASK_ID`、`JOB_ID`、`PROJECT_ID`、`NAMESPACE_ID`、`EXPERIMENT_ID`、`ALGORITHM_ID`、`SERVICE_ID`、`POD_NAME`、`DATASET_ID`、`SET_ID`、`ENV_ID` 等占位符表示不同对象，不能互换。只在命令明确支持时加 `-o json`。
 
 ## 环境、认证、业务、权限
 
@@ -11,6 +11,7 @@
 | `ml --help` / `ml <子命令> --help` | 查当前安装版本的命令与参数 |
 | `ml env list` / `ml env show` | 列环境 / 看当前环境；固定表格 |
 | `ml env use NAME` | 切换当前环境；`NAME` 为 `dev`、`mirror`、`explore`、`product` 中的实际目标 |
+| `ml auth ping start` / `ml auth ping status` / `ml auth ping stop` | 启动当前终端保活 / 查看当前环境保活终端数及最近结果 / 停止当前环境保活 |
 | `ml auth status` | 本地认证状态；必须检查 `status` 与 `remaining_seconds`，过期也可能退出 0 |
 | `ml login` | 打开 Edge 登录；需图形界面和用户交互；不使用 `--show-secrets` |
 | `ml logout [--all] [--forget-browser]` | 清除当前环境或全部环境的认证信息；`--forget-browser` 同时清除浏览器会话 |
@@ -81,6 +82,13 @@
 
 日志检索可重复传 `--keyword TEXT`；另有 `--line`（默认 200）、`--search-order`（默认 `tail`）、`--grep-scope`（默认 `C`）、`--grep-line`（默认 0）。文件列表与内容检索各自要求 `--type`，例如列表使用 `rtc`、检索 `interface.log` 使用 `interface`；不要自动沿用上一步的类型。需要保存检索正文时可将 stdout 重定向到本地文件，错误信息仍按退出码和 stderr 判断。
 
+## 数据集
+
+| 命令 | 用途与关键选项 |
+| --- | --- |
+| `ml dataset list -o json` | 可用 `--page`、`--page-size`、`--name`/`--dataset-name`、`--create-user`、`--update-user`、`--bucket-name` |
+| `ml dataset detail DATASET_ID -o json` | 查询指定数据集详情 |
+
 ## 特征集
 
 | 命令 | 用途与关键选项 |
@@ -105,5 +113,21 @@
 | `ml jupyter terminal open [--studio-id ENV_ID]` | 创建并连接；必须使用真实 TTY |
 | `ml jupyter terminal attach NAME [--studio-id ENV_ID]` | 重连该实例内的终端；必须使用真实 TTY |
 | `ml jupyter terminal close NAME [--studio-id ENV_ID]` | 删除远端终端，可能中止远端进程 |
+
+文件与执行命令均支持 `--studio-id ENV_ID`、`--output text|json`；操作前读 [Jupyter 文件与非交互执行](jupyter.md)。
+
+| 命令 | 用途与关键选项 |
+| --- | --- |
+| `ml jupyter files list [PATH] -o json` | 列一层目录，默认根目录 |
+| `ml jupyter files stat PATH -o json` | 查询文件或目录元数据 |
+| `ml jupyter files read PATH -o json` | 读取文本；`--start-line`、`--end-line` |
+| `ml jupyter files write PATH --from-file LOCAL -o json` | 写入文本；可改用 `--stdin`，覆盖用 `--overwrite` |
+| `ml jupyter files mkdir PATH -o json` | 创建单层目录 |
+| `ml jupyter files upload LOCAL REMOTE -o json` | 上传单文件，支持 `--overwrite` |
+| `ml jupyter files download REMOTE LOCAL -o json` | 下载单文件，支持 `--overwrite` |
+| `ml jupyter files move SOURCE TARGET -o json` | 移动或重命名，不覆盖 |
+| `ml jupyter files copy SOURCE TARGET_DIR -o json` | 复制单文件到已有目录 |
+| `ml jupyter files delete PATH -o json` | 立即删除文件或空目录，无确认、不递归 |
+| `ml jupyter exec --cwd PATH -o json -- PROGRAM [ARGS...]` | 非交互执行；支持 `--timeout`、`--startup-timeout`、`--max-output`、`--kernel` |
 
 终端的具体 agent 操作见 [交互终端](terminal.md)。Notebook 默认前台执行，结果写入本地独立目录；失败或超时时检查摘要和远端状态，不自动重跑。Web Studio 动态连接使用当前环境业务选择，终端名称不能跨实例复用。`ml webstudio start` 和 `stop` 不改变默认实例选择。
