@@ -19,6 +19,7 @@ import httpx
 
 from . import __version__
 from .business import BusinessStore
+from .client_metadata import client_headers
 from .config import ConfigManager
 from .credentials import CredentialStore
 from .errors import AuthenticationError, BusinessError
@@ -328,18 +329,27 @@ def _updated_cookie(old: str, response: httpx.Response) -> str:
 def _probe(config: ConfigManager, profile_name: str, credentials: Credentials,
            business_id: str, request_id: str) -> tuple[str, str]:
     profile = next(item for item in config.profiles() if item.name == profile_name)
+    headers = client_headers()
+    headers["X-Request-ID"] = request_id
+    transport = httpx.HTTPTransport(
+        retries=config.retry_times, verify=config.verify_ssl_for(profile),
+    )
     with httpx.Client(base_url=profile.base_url,
-                      timeout=config.timeout_ms / 1000,
-                      verify=config.verify_ssl_for(profile),
+                      headers={
+                          "cookie": credentials.cookie,
+                          "csrftoken": credentials.csrftoken,
+                          "content-type": "application/json",
+                          "referer": profile.api_endpoint,
+                          "businessid": business_id,
+                          "ai-businessId": business_id,
+                      },
+                      timeout=httpx.Timeout(config.timeout_ms / 1000),
+                      transport=transport,
                       follow_redirects=False) as client:
         response = client.post(
             "/ai/backend/mep/tenant/queryTeamList",
             json={"businessId": business_id},
-            headers={
-                "cookie": credentials.cookie, "csrftoken": credentials.csrftoken,
-                "businessid": business_id, "ai-businessId": business_id,
-                "referer": profile.api_endpoint, "X-Request-ID": request_id,
-            },
+            headers=headers,
         )
     if response.status_code in {401, 403, 419, 440} or 300 <= response.status_code < 400:
         raise AuthenticationError("平台会话已失效")

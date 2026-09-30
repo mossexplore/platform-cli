@@ -68,7 +68,9 @@ class PingTest(unittest.TestCase):
             }, json={"result": {"code": 0, "des": "success", "data": [], "count": 0}})
 
         def client_factory(*args, **kwargs):
-            return real_client(*args, transport=httpx.MockTransport(handler), **kwargs)
+            self.assertIsInstance(kwargs["transport"], httpx.HTTPTransport)
+            kwargs["transport"] = httpx.MockTransport(handler)
+            return real_client(*args, **kwargs)
 
         def close_window(_seconds):
             with self.state.locked():
@@ -93,6 +95,10 @@ class PingTest(unittest.TestCase):
         self.assertEqual(request.headers["cookie"], "session=abc")
         self.assertEqual(request.headers["csrftoken"], "csrf")
         self.assertTrue(request.headers["x-request-id"])
+        self.assertEqual(request.headers["x-cli-name"], "wiserec-cli")
+        self.assertEqual(request.headers["x-cli-version"], __version__)
+        self.assertEqual(request.headers["x-cli-protocol-version"], "1")
+        self.assertTrue(request.headers["x-cli-invocation-id"])
         self.assertEqual(CredentialStore(self.fixture.credential_path).load("dev").cookie,
                          "session=rotated")
         self.assertEqual(CredentialStore(self.fixture.credential_path).load("dev").csrftoken,
@@ -116,11 +122,12 @@ class PingTest(unittest.TestCase):
         real_client = httpx.Client
 
         def client_factory(*args, **kwargs):
-            return real_client(*args, transport=httpx.MockTransport(
+            kwargs["transport"] = httpx.MockTransport(
                 lambda _request: httpx.Response(200, json={
                     "result": {"code": 1, "des": "failed"},
                 })
-            ), **kwargs)
+            )
+            return real_client(*args, **kwargs)
 
         def close_window(_seconds):
             with self.state.locked():
