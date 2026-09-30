@@ -7,9 +7,9 @@
 | 查目录、读写或传输文件 | `ml jupyter files` |
 | 执行脚本、测试或一次性远端命令 | `ml jupyter exec` |
 | 执行整个本地 Notebook 并保存结果 | `ml jupyter notebook run` |
-| 持续交互、需要输入或保留 Shell 状态 | `ml jupyter terminal open/attach`，见 [交互终端](terminal.md) |
+| 多步命令或需要输入 | 改为脚本、非交互参数或配置，再用 exec；无法改写则报告限制 |
 
-files 与 exec 不需要 TTY，可使用普通进程工具捕获输出。不要为读写文件先打开终端，也不要因为没有 PTY 就认定不能运行远端命令。当前 CLI 没有 `cell`、后台 `jobs` 或独立 Kernel 管理命令，不要构造这些命令。
+**禁止使用交互式 TTY/PTY、terminal open/attach、模拟按键或持久交互 Shell。** files 与 exec 必须通过普通进程工具捕获输出；不得将交互终端作为失败时的后备方案。当前 CLI 没有 `cell`、后台 `jobs` 或独立 Kernel 管理命令，不要构造这些命令。
 
 ## 连接与路径
 
@@ -83,7 +83,7 @@ ml jupyter exec --cwd workspace --output json -- sh -c 'pwd && ls -la'
 
 PROGRAM 与 ARGS 置于 `--` 后；CLI 不隐式使用 Shell。需要管道、重定向时显式 `sh -c`，同时正确处理本地 Shell 与远端 Shell 两层引用，不拼接未经转义的输入。标准输入关闭，不能用于密码提示或交互程序。
 
-进程工具等待时间应覆盖 Kernel 启动、程序超时和清理余量；支持会话句柄时持续等待同一调用，不重复启动。stdout/stderr 在完成后返回，不是实时流。超过上限会截断并标记 `truncated`，不提供完整日志文件或任务查询接口；`output_incomplete=true` 表示管道输出未完全收齐。
+进程工具等待时间应覆盖 Kernel 启动、程序超时和清理余量；宿主返回非交互进程句柄时，仅用于等待和读取同一调用的结果，不分配 PTY、不模拟输入、不重复启动。stdout/stderr 在完成后返回，不是实时流。超过上限会截断并标记 `truncated`，不提供完整日志文件或任务查询接口；`output_incomplete=true` 表示管道输出未完全收齐。
 
 成功调用的 JSON 外层与 files 相同，执行结果在 `result`：
 

@@ -110,8 +110,8 @@
 | `ml jupyter doctor [--studio-id ENV_ID]` | 检查 HTTP、Kernel、Terminal 接口；不验证 WebSocket |
 | `ml jupyter notebook run SOURCE -o json [--studio-id ENV_ID]` | 执行本地 `.ipynb`，可用 `--download`、`--kernel`、`--cwd`、`--timeout`、`--startup-timeout` |
 | `ml jupyter terminal list [--studio-id ENV_ID]` | 当前实例终端列表 |
-| `ml jupyter terminal open [--studio-id ENV_ID]` | 创建并连接；必须使用真实 TTY |
-| `ml jupyter terminal attach NAME [--studio-id ENV_ID]` | 重连该实例内的终端；必须使用真实 TTY |
+| `ml jupyter terminal open [--studio-id ENV_ID]` | 本 skill 禁止调用；程序执行改用 `ml jupyter exec` |
+| `ml jupyter terminal attach NAME [--studio-id ENV_ID]` | 本 skill 禁止调用；程序执行改用 `ml jupyter exec` |
 | `ml jupyter terminal close NAME [--studio-id ENV_ID]` | 删除远端终端，可能中止远端进程 |
 
 文件与执行命令均支持 `--studio-id ENV_ID`、`--output text|json`；操作前读 [Jupyter 文件与非交互执行](jupyter.md)。
@@ -130,4 +130,4 @@
 | `ml jupyter files delete PATH -o json` | 立即删除文件或空目录，无确认、不递归 |
 | `ml jupyter exec --cwd PATH -o json -- PROGRAM [ARGS...]` | 非交互执行；支持 `--timeout`、`--startup-timeout`、`--max-output`、`--kernel` |
 
-终端的具体 agent 操作见 [交互终端](terminal.md)。Notebook 默认前台执行，结果写入本地独立目录；失败或超时时检查摘要和远端状态，不自动重跑。Web Studio 动态连接使用当前环境业务选择，终端名称不能跨实例复用。`ml webstudio start` 和 `stop` 不改变默认实例选择。
+禁止使用交互式 TTY/PTY，见 [非交互执行约束](terminal.md)。terminal list/close 仅在用户要求检查或关闭既有终端时使用，不用于建立交互执行流程。Notebook 默认前台执行，结果写入本地独立目录；失败或超时时检查摘要和远端状态，不自动重跑。Web Studio 动态连接使用当前环境业务选择，终端名称不能跨实例复用。`ml webstudio start` 和 `stop` 不改变默认实例选择。

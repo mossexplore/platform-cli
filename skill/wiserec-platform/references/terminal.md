@@ -1,23 +1,15 @@
-# Jupyter 远程交互终端
+# Jupyter 非交互执行约束
 
-普通文件操作优先使用 `ml jupyter files`，一次性程序执行优先使用 `ml jupyter exec`，见 [文件与非交互执行](jupyter.md)。只有需要交互输入或持续 Shell 状态时才采用本页流程。
+使用本 skill 操作 Jupyter 时，禁止交互式 TTY/PTY。不得调用 `ml jupyter terminal open`、`ml jupyter terminal attach`，不得设置 `tty: true`、模拟按键或维护交互 Shell 会话。不得通过启用 PTY 扩展、重定向包装或其他工具绕过此约束。
 
-## 前提和目标
+## 替代方式
 
-先完成 `SKILL.md` 的会话检查。使用 Web Studio 时，先通过 `ml webstudio list --env-id ENV_ID` 确认实例 ID 和 online 状态；默认实例可通过 `ml webstudio show` 查看，需要选择时用 `ml webstudio login ENV_ID`。实例未启动且用户需要在该实例操作时，可用 `ml webstudio start ENV_ID` 启动并重新查询状态；不要仅凭启动命令的成功提示认定实例已经 online。也可以在 Jupyter 命令上带 `--studio-id ENV_ID`，该选项只影响本次命令。终端名称只在所属实例内有效。
+- 目录查询、文件读写与传输：使用 `ml jupyter files`。
+- 运行程序、脚本、测试或 Shell 命令：使用 `ml jupyter exec --cwd PATH --output json -- PROGRAM [ARGS...]`。
+- 多步命令：准备脚本上传后用 exec 执行，或显式使用 `sh -c`；不要依赖先前调用的 cd/export 状态。
+- 完整 Notebook：使用非交互的 `ml jupyter notebook run`，核对执行摘要和结果文件。
+- 需要密码提示或其他交互输入的程序：改用该程序支持的非交互参数或配置；不能改写时报告限制，不退回交互终端，也不将凭据写入命令行或共享文件。
 
-`ml jupyter doctor [--studio-id ENV_ID]` 只检查 HTTP 认证、Kernel 与 Terminal 接口；它**不能证明** WebSocket 交互通道可用，实际 `open/attach` 才能验证。
+连接前提、参数、路径及退出状态见 [Jupyter 文件与非交互执行](jupyter.md)。使用普通进程工具捕获输出。若宿主返回非交互进程句柄，可用来等待和读取结果，不能将其转为交互会话。超时或断线时先检查远端状态，不自动重发有副作用的命令。
 
-## agent 的执行方式
-
-1. 先确认宿主 agent 提供能持续写入和读取的 PTY/TTY 进程工具。用它启动 `ml jupyter terminal open`，或者 `ml jupyter terminal attach NAME`；例如具有 `tty: true` 且返回可复用会话句柄的进程工具。在 Windows 上应开启真正的交互式控制台。stdin 和 stdout 都必须是 TTY。OpenCode 的普通 `shell` 工具若只返回一次性输出或后台任务，不能当作已具备此能力；如果任务不需要交互，改用 files/exec；确需交互但缺少 PTY 时明确告知能力限制，不将其误报为所有 Jupyter 操作不可用。不要用 `Start-Process` 隐藏窗口、输出重定向或 `ml ... | Out-String` 假装 TTY。
-2. 保留进程会话句柄；等待出现 CLI 打印的终端名称和远端提示符。将实例 ID 与终端名称对应记录在当前任务上下文。若连接失败，先用 `ml jupyter terminal list` 检查服务端是否已创建终端，再决定 `attach`，不要反复 `open` 制造新终端。
-3. 通过会话句柄写入远端命令及回车，读取新输出，按输出判断是否成功。`cd` 等状态命令必须在**同一条终端连接**中继续执行，不能每条命令新开一个本地进程。执行耗时命令时持续读取输出；输出暂时为空不代表完成。
-4. 远端允许执行服务器上可用的全部命令。示例：`pwd`、`ls`、`cd project`、`cat README.md`、`python --version`、`pip list`。命令由用户目标、远端 Shell 和权限决定；这些示例不是限制。含特殊字符、路径或换行的命令应按远端 Shell 语法转义，不能把本地 PowerShell 语法直接当成远端 Shell 语法。
-5. `Ctrl+C` 发送给远端进程，`Ctrl+D` 发送 EOF，`Ctrl+]`（控制字符 0x1D）只断开本地连接。要继续使用现有终端，运行 `ml jupyter terminal attach NAME`。`ml jupyter terminal close NAME` 会删除远端终端并可能中止其中的进程；只有目标确实是关闭它时才执行。
-
-`attach` 不保证补取全部历史输出。断线、工具超时或结果不明时先通过现有终端和相关平台查询核对实际状态，不直接重发可能有副作用的远端命令。
-
-`ml webstudio stop ENV_ID` 会停止实例，可能中断其中的 Notebook 与终端。只有用户目标确实包含停止实例时才执行；需要仅断开当前终端时使用 `Ctrl+]`。
-
-Web Studio 访问 URL 可能带临时 Token，CLI 可能在 stderr 打印它。只将其用于建立连接，不复制到回答、工单或可共享日志。处理终端输出时也注意远端命令可能打印秘密。
+`terminal list` 和 `terminal close` 仅用于用户明确要求的既有终端检查或关闭；不是执行程序的入口。不要为执行命令启动、连接或停止其他用户的终端。

@@ -1,6 +1,6 @@
 # WiseRec Platform skill
 
-此目录是可独立分发的 Agent Skill。复制整个 `wiserec-platform` 目录，保留 `SKILL.md` 与 `references/` 的相对位置。它覆盖当前项目的环境、业务、看板、离线实验、训练任务、算法仓、服务、数据集、特征集、Web Studio 和 Jupyter 命令。需要安装可用的 WiseRec `ml` CLI；具体命令以安装版本的 `--help` 为准。Jupyter Terminal 的自动操作还要求 agent 提供可持续读写的真实交互式 PTY/TTY 工具。普通一次性进程工具可直接使用 Jupyter files/exec，无需先打开终端。文件读写和程序执行指南见 [Jupyter 文件与非交互执行](references/jupyter.md)。
+此目录是可独立分发的 Agent Skill。复制整个 `wiserec-platform` 目录，保留 `SKILL.md` 与 `references/` 的相对位置。它覆盖当前项目的环境、业务、看板、离线实验、训练任务、算法仓、服务、数据集、特征集、Web Studio 和 Jupyter 命令。需要安装可用的 WiseRec `ml` CLI；具体命令以安装版本的 `--help` 为准。Jupyter 操作禁止使用交互式 TTY/PTY，文件操作用 files，程序执行用非交互式 exec；不得调用 terminal open/attach。普通进程工具即可捕获结果。文件读写和程序执行指南见 [Jupyter 文件与非交互执行](references/jupyter.md)。
 
 ## Windows OpenCode 安装
 
@@ -48,7 +48,7 @@ ml webstudio login ENV_ID
 ml jupyter files list --output json
 ```
 
-按根目录返回的 path 使用 files 命令；路径不是本机工作目录。一次性远端执行使用 `ml jupyter exec --cwd PATH --output json -- python main.py`，PATH 和脚本必须真实存在。远端需 POSIX 系统及 Python Kernel，本地可使用 Windows。完整命令、输出与失败处理见 [专项指南](references/jupyter.md)；不要默认使用交互终端完成文件操作。
+按根目录返回的 path 使用 files 命令；路径不是本机工作目录。一次性远端执行使用 `ml jupyter exec --cwd PATH --output json -- python main.py`，PATH 和脚本必须真实存在。远端需 POSIX 系统及 Python Kernel，本地可使用 Windows。完整命令、输出与失败处理见 [专项指南](references/jupyter.md)；所有 Jupyter 操作均不得切换到交互式终端。
 
 ## 分发边界
 

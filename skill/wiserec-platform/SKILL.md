@@ -1,6 +1,6 @@
 ---
 name: wiserec-platform
-description: 通过 WiseRec 命令行客户端 ml 管理训练任务、算法仓、服务及主机日志、数据集、特征集、离线实验、MEP/MTP 看板、Web Studio、Jupyter 文件读写、非交互执行、Notebook 与远程终端；切换环境或核对登录、业务上下文时也使用。
+description: 通过 WiseRec 命令行客户端 ml 管理训练任务、算法仓、服务及主机日志、数据集、特征集、离线实验、MEP/MTP 看板、Web Studio、Jupyter 文件读写、非交互执行、Notebook；切换环境或核对登录、业务上下文时也使用。
 metadata:
   cli: wiserec-cli
 ---
@@ -25,15 +25,15 @@ metadata:
 
 ## Jupyter 与 Web Studio
 
-文件读写和传输优先 `ml jupyter files`，运行脚本或测试优先 `ml jupyter exec`；两者不需要 TTY。先读 [Jupyter 文件与非交互执行](references/jupyter.md)，按其中说明确认连接、根目录相对路径、JSON 结果和失败状态。不要用本地文件工具操作同名路径来冒充远端修改。
+**使用 Jupyter 时禁止交互式 TTY/PTY，禁止调用 `ml jupyter terminal open` 或 `attach`，禁止分配 `tty: true`、模拟按键或通过持久交互 Shell 执行任务。** 文件读写和传输使用 `ml jupyter files`，运行程序、脚本或测试使用非交互式 `ml jupyter exec`；进程工具使用普通输入输出管道。先读 [Jupyter 文件与非交互执行](references/jupyter.md)，按其中说明确认连接、根目录相对路径、JSON 结果和失败状态。不要用本地文件工具操作同名路径来冒充远端修改。
 
 Web Studio 用 `ml webstudio login ENV_ID` 选择默认实例，`--studio-id ENV_ID` 只覆盖本次调用。先核对目标与 online 状态；`files list` 无路径可发现根目录，不能假设存在 `projects`。exec 要求远端 POSIX 系统与 Python Kernel，每次独立执行，明确传入 `--cwd`，不继承前一次 Shell 状态。结果未知时先核对远端，不重放命令。
 
-完整 Notebook 使用现有 `ml jupyter notebook run`，检查本地结果和摘要；没有 Cell 子命令。只有需要持续交互时使用 `terminal open/attach`，必须在真实 TTY/PTY 中运行并保留会话句柄，见 [交互终端](references/terminal.md)。
+完整 Notebook 使用现有 `ml jupyter notebook run`，检查本地结果和摘要；没有 Cell 子命令。需要多步命令时准备脚本再通过 exec 执行。程序必须提供非交互参数或配置；无法非交互完成时报告限制，不退回 TTY/PTY，见 [非交互执行约束](references/terminal.md)。
 
 ## Windows 与效率
 
-直接调用 `ml`，不要求额外 Python、bash 或 PowerShell 脚本。Windows PowerShell 5.1 和 7 的命令示例见 [安装与使用](README.md)；Windows 上 `ml` 可能是 `.cmd` 入口，不能假定 `CreateProcess` 可直接执行该文件。自动化调用时使用宿主支持本地 Shell 的进程工具处理入口；files/exec 可捕获输出，不要求 PTY。只有 terminal open/attach 要求真实交互终端，不要将这一限制扩展到所有命令。
+直接调用 `ml`，不要求额外 Python、bash 或 PowerShell 脚本。Windows PowerShell 5.1 和 7 的命令示例见 [安装与使用](README.md)；Windows 上 `ml` 可能是 `.cmd` 入口，不能假定 `CreateProcess` 可直接执行该文件。自动化调用时使用宿主支持本地 Shell 的进程工具处理入口；Jupyter 命令必须使用非交互方式捕获输出，不申请或启用 PTY/TTY。
 
 减少启动次数与网络往返：复用本轮已确认的环境和会话、先精确筛选、只读当前任务相关的参考、根据可用字段核验。不要为省时跳过认证、业务、目标或结果校验。
 
