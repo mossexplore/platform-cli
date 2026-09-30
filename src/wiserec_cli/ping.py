@@ -24,99 +24,12 @@ from .errors import AuthenticationError, BusinessError
 from .models import BEIJING_TIMEZONE, Credentials
 
 
-def _process_identity(pid: int) -> Optional[str]:
-    """返回进程创建标识；Windows 同时核对创建时间以防 PID 重用。"""
-    if pid <= 0:
-        return None
-    if os.name != "nt":
-        try:
-            os.kill(pid, 0)
-        except (OSError, ValueError):
-            return None
-        return str(pid)
-    import ctypes
-    from ctypes import wintypes
-
-    kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
-    kernel32.OpenProcess.argtypes = [wintypes.DWORD, wintypes.BOOL, wintypes.DWORD]
-    kernel32.OpenProcess.restype = wintypes.HANDLE
-    kernel32.GetProcessTimes.argtypes = [
-        wintypes.HANDLE, ctypes.POINTER(wintypes.FILETIME),
-        ctypes.POINTER(wintypes.FILETIME), ctypes.POINTER(wintypes.FILETIME),
-        ctypes.POINTER(wintypes.FILETIME),
-    ]
-    kernel32.CloseHandle.argtypes = [wintypes.HANDLE]
-    handle = kernel32.OpenProcess(0x1000, False, pid)  # PROCESS_QUERY_LIMITED_INFORMATION
-    if not handle:
-        return None
-    created, exited, kernel, user = (wintypes.FILETIME() for _ in range(4))
-    try:
-        if not kernel32.GetProcessTimes(
-            handle, ctypes.byref(created), ctypes.byref(exited),
-            ctypes.byref(kernel), ctypes.byref(user),
-        ):
-            return None
-        return f"{pid}:{created.dwHighDateTime}:{created.dwLowDateTime}"
-    finally:
-        kernel32.CloseHandle(handle)
-
-
-def _select_shell_pid(processes: Dict[int, tuple[int, str]], current: int) -> Optional[int]:
-    """越过 PowerShell 调用批处理时产生的临时 cmd.exe。"""
-    shells = {"cmd.exe", "powershell.exe", "pwsh.exe", "bash.exe", "zsh.exe",
-              "fish.exe", "sh.exe", "nu.exe"}
-    selected = None
-    visited = set()
-    while current in processes and current not in visited:
-        visited.add(current)
-        parent, _ = processes[current]
-        if parent not in processes:
-            break
-        if processes[parent][1].lower() in shells:
-            selected = parent
-        current = parent
-    return selected
-
-
-def _terminal_pid() -> Optional[int]:
-    if os.name != "nt":
-        return os.getppid()
-    import ctypes
-    from ctypes import wintypes
-
-    class ProcessEntry(ctypes.Structure):
-        _fields_ = [
-            ("dwSize", wintypes.DWORD), ("cntUsage", wintypes.DWORD),
-            ("th32ProcessID", wintypes.DWORD),
-            ("th32DefaultHeapID", ctypes.c_void_p),
-            ("th32ModuleID", wintypes.DWORD), ("cntThreads", wintypes.DWORD),
-            ("th32ParentProcessID", wintypes.DWORD),
-            ("pcPriClassBase", wintypes.LONG), ("dwFlags", wintypes.DWORD),
-            ("szExeFile", wintypes.WCHAR * 260),
-        ]
-
-    kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
-    kernel32.CreateToolhelp32Snapshot.argtypes = [wintypes.DWORD, wintypes.DWORD]
-    kernel32.CreateToolhelp32Snapshot.restype = wintypes.HANDLE
-    kernel32.Process32FirstW.argtypes = [wintypes.HANDLE, ctypes.POINTER(ProcessEntry)]
-    kernel32.Process32NextW.argtypes = [wintypes.HANDLE, ctypes.POINTER(ProcessEntry)]
-    kernel32.CloseHandle.argtypes = [wintypes.HANDLE]
-    snapshot = kernel32.CreateToolhelp32Snapshot(0x2, 0)  # TH32CS_SNAPPROCESS
-    if not snapshot or snapshot == ctypes.c_void_p(-1).value:
-        return None
-    processes: Dict[int, tuple[int, str]] = {}
-    entry = ProcessEntry()
-    entry.dwSize = ctypes.sizeof(ProcessEntry)
-    try:
-        found = kernel32.Process32FirstW(snapshot, ctypes.byref(entry))
-        while found:
-            processes[entry.th32ProcessID] = (
-                entry.th32ParentProcessID, entry.szExeFile,
-            )
-            found = kernel32.Process32NextW(snapshot, ctypes.byref(entry))
-    finally:
-        kernel32.CloseHandle(snapshot)
-    return _select_shell_pid(processes, os.getpid())
+from .ping_process import (
+    process_identity as _process_identity,
+    select_shell_pid as _select_shell_pid,
+    terminal_pid as _terminal_pid,
+    terminal_session_id as _terminal_session_id,
+)
 
 
 class PingStore:
@@ -181,10 +94,30 @@ def _state_path(credentials: CredentialStore) -> Path:
     return credentials.path.with_name("ping.json")
 
 
+def _worker_log_path(state_path: Path, profile: str) -> Path:
+    safe_name = "".join(char if char.isalnum() or char in "-_" else "_" for char in profile)
+    return state_path.with_name(f"ping-{safe_name}.log")
+
+
+def _worker_error(entry: Dict[str, Any]) -> str:
+    if entry.get("last_error"):
+        return str(entry["last_error"])
+    log_path = entry.get("log_path")
+    if isinstance(log_path, str):
+        try:
+            lines = Path(log_path).read_text(encoding="utf-8", errors="replace").splitlines()
+            if lines:
+                return lines[-1][:500]
+        except OSError:
+            pass
+    return "后台进程已退出，未记录原因"
+
+
 def _valid_owners(entry: Dict[str, Any]) -> list[Dict[str, Any]]:
     return [
         owner for owner in entry.get("owners", [])
         if isinstance(owner, dict)
+        and owner.get("identity") is not None
         and _process_identity(owner.get("pid", 0)) == owner.get("identity")
     ]
 
@@ -209,7 +142,9 @@ def start(runtime: Any, *, automatic: bool = False) -> str:
     owner_identity = _process_identity(owner_pid)
     if owner_identity is None:
         return "无法识别当前终端进程，未启动自动保活"
+    session_id = _terminal_session_id()
     store = PingStore(_state_path(runtime.credentials))
+    spawned = None
     with store.locked():
         data = store.read()
         entry = data["profiles"].setdefault(profile, {})
@@ -221,30 +156,54 @@ def start(runtime: Any, *, automatic: bool = False) -> str:
             entry.clear()
         entry["api_endpoint"] = endpoint
         owners = _valid_owners(entry)
+        if session_id is not None:
+            owners = [owner for owner in owners if owner.get("session_id") != session_id
+                      or owner.get("identity") == owner_identity]
         if not any(owner["identity"] == owner_identity for owner in owners):
-            owners.append({"pid": owner_pid, "identity": owner_identity})
+            owners.append({"pid": owner_pid, "identity": owner_identity,
+                           "session_id": session_id})
         entry["owners"] = owners
         worker_pid = entry.get("worker_pid")
         if (not isinstance(worker_pid, int)
+                or entry.get("worker_identity") is None
                 or _process_identity(worker_pid) != entry.get("worker_identity")):
             creation_flags = subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0
-            process = subprocess.Popen(
-                [sys.executable, "-m", "wiserec_cli.ping_worker",
-                 str(runtime.config.path), profile, str(runtime.credentials.path),
-                 str(runtime.business.path), str(store.path)],
-                stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL, close_fds=True,
-                creationflags=creation_flags,
-                start_new_session=os.name != "nt",
-            )
+            log_path = _worker_log_path(store.path, profile)
+            with log_path.open("w", encoding="utf-8") as error_log:
+                try:
+                    os.chmod(log_path, 0o600)
+                except OSError:
+                    pass
+                process = subprocess.Popen(
+                    [sys.executable, "-m", "wiserec_cli.ping_worker",
+                     str(runtime.config.path), profile, str(runtime.credentials.path),
+                     str(runtime.business.path), str(store.path)],
+                    stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
+                    stderr=error_log, close_fds=True,
+                    creationflags=creation_flags,
+                    start_new_session=os.name != "nt",
+                )
+            spawned = process
             entry.update(worker_pid=process.pid,
                          worker_identity=_process_identity(process.pid), status="starting",
-                         last_error="", last_success=time.time(),
+                         log_path=str(log_path), last_error="", last_success=time.time(),
                          last_confirmed=None, last_attempt=None, last_request_id=None,
                          success_count=0, failure_count=0)
         else:
             entry["status"] = "running"
         store.write(data)
+    if spawned is not None:
+        time.sleep(0.2)
+        if spawned.poll() is not None:
+            with store.locked():
+                data = store.read()
+                entry = data["profiles"].get(profile, {})
+                error = _worker_error(entry)
+                if entry.get("worker_pid") == spawned.pid:
+                    entry.update(status="failed", worker_pid=None,
+                                 worker_identity=None, last_error=error)
+                    store.write(data)
+            raise RuntimeError(f"自动保活启动失败：{error}")
     return f"自动保活已启动（环境 {profile}，间隔 {runtime.config.ping_interval_minutes} 分钟）"
 
 
@@ -294,8 +253,14 @@ def status(runtime: Any) -> Dict[str, Any]:
         entry = store.read()["profiles"].get(profile, {})
     worker_pid = entry.get("worker_pid")
     running = (isinstance(worker_pid, int)
+               and entry.get("worker_identity") is not None
                and _process_identity(worker_pid) == entry.get("worker_identity"))
     owners = _valid_owners(entry)
+    latest_error = entry.get("last_error") or "-"
+    if entry and not running and entry.get("status") in {
+        "starting", "failed", "running", "requesting", "retrying",
+    }:
+        latest_error = _worker_error(entry)
 
     def displayed(value: Any) -> str:
         return (datetime.fromtimestamp(value, BEIJING_TIMEZONE)
@@ -317,7 +282,7 @@ def status(runtime: Any) -> Dict[str, Any]:
         "上次请求 ID": entry.get("last_request_id") or "-",
         "成功次数": entry.get("success_count", 0),
         "失败次数": entry.get("failure_count", 0),
-        "最近错误": entry.get("last_error") or "-",
+        "最近错误": latest_error,
     }
 
 

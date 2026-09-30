@@ -11,6 +11,7 @@ import httpx
 from wiserec_cli.ping import (
     PingStore, _select_shell_pid, detach, run_worker, status, start, stop,
 )
+from wiserec_cli.ping_process import select_console_shell
 from wiserec_cli.credentials import CredentialStore
 import test_runtime
 
@@ -24,6 +25,17 @@ class PingTest(unittest.TestCase):
             40: (0, "WindowsTerminal.exe"),
         }
         self.assertEqual(_select_shell_pid(processes, 10), 30)
+
+    def test_console_shell_overrides_transient_cmd_parent(self):
+        processes = {
+            10: (20, "python.exe"),
+            20: (40, "cmd.exe"),
+            30: (0, "powershell.exe"),
+            40: (0, "WindowsTerminal.exe"),
+        }
+        with patch("wiserec_cli.ping_process.process_identity",
+                   side_effect=lambda pid: f"{pid}:0:{pid}"):
+            self.assertEqual(select_console_shell(processes, 10, {10, 20, 30}), 30)
 
     def setUp(self):
         self.fixture = test_runtime.RuntimeBusinessContextTest()
@@ -126,6 +138,7 @@ class PingTest(unittest.TestCase):
              patch("wiserec_cli.ping.subprocess.Popen") as process:
             stdin.isatty.return_value = True
             process.return_value.pid = 999
+            process.return_value.poll.return_value = None
             self.assertIn("已启动", start(self.runtime))
             self.assertIn("已启动", start(self.runtime))
             process.assert_called_once()
@@ -136,6 +149,39 @@ class PingTest(unittest.TestCase):
             self.assertIn("已手动停止", start(self.runtime, automatic=True))
             process.assert_called_once()
         self.assertEqual(self.state.read()["profiles"]["dev"]["owners"], [])
+
+    def test_dead_worker_reports_startup_error(self):
+        with patch("wiserec_cli.ping._process_identity", side_effect=lambda pid: str(pid)), \
+             patch("wiserec_cli.ping.sys.stdin") as stdin, \
+             patch("wiserec_cli.ping.os.getppid", return_value=100), \
+             patch("wiserec_cli.ping.subprocess.Popen") as process:
+            stdin.isatty.return_value = True
+            process.return_value.pid = 999
+            process.return_value.poll.return_value = 1
+            def crashed(*_args, **kwargs):
+                kwargs["stderr"].write("RuntimeError: Windows worker failed\n")
+                kwargs["stderr"].flush()
+                return process.return_value
+            process.side_effect = crashed
+            with self.assertRaisesRegex(RuntimeError, "启动失败"):
+                start(self.runtime)
+        self.assertIn("Windows worker failed", status(self.runtime)["最近错误"])
+        self.assertEqual(status(self.runtime)["状态"], "未运行")
+
+    def test_same_console_replaces_transient_owner(self):
+        with patch("wiserec_cli.ping._process_identity", side_effect=lambda pid: str(pid)), \
+             patch("wiserec_cli.ping._terminal_session_id", return_value="console-1"), \
+             patch("wiserec_cli.ping.sys.stdin") as stdin, \
+             patch("wiserec_cli.ping.os.getppid", side_effect=[100, 101]), \
+             patch("wiserec_cli.ping.subprocess.Popen") as process:
+            stdin.isatty.return_value = True
+            process.return_value.pid = 999
+            process.return_value.poll.return_value = None
+            start(self.runtime)
+            start(self.runtime)
+        owners = self.state.read()["profiles"]["dev"]["owners"]
+        self.assertEqual([(owner["pid"], owner["session_id"]) for owner in owners],
+                         [(101, "console-1")])
 
 
 if __name__ == "__main__":
