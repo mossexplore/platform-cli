@@ -17,10 +17,14 @@ from ..jupyter.notebook import run_notebook
 from ..jupyter.terminal import attach, require_tty
 from ..output import console
 from .common import fail, runtime_from_context
+from .jupyter_files import files_app
+from .jupyter_exec import exec_command
 
-jupyter_app = typer.Typer(no_args_is_help=True, help="Jupyter Notebook 前台执行与 Terminal")
+jupyter_app = typer.Typer(no_args_is_help=True, help="Jupyter 文件、非交互执行、Notebook 与 Terminal")
 notebook_app = typer.Typer(no_args_is_help=True, help="执行完整 Notebook")
 terminal_app = typer.Typer(no_args_is_help=True, help="远程交互终端；Ctrl+] 断开连接")
+jupyter_app.add_typer(files_app, name="files")
+jupyter_app.command("exec")(exec_command)
 jupyter_app.add_typer(notebook_app, name="notebook")
 jupyter_app.add_typer(terminal_app, name="terminal")
 

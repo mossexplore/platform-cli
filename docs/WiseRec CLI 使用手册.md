@@ -2,6 +2,8 @@
 
 `ml` 用于管理 WiseRec 平台的环境、业务、训练任务、算法仓、服务、数据集、特征集和开发工作空间。本手册面向命令使用者。示例中的 `TASK_ID`、`JOB_ID`、`PROJECT_ID`、`EXPERIMENT_ID`、`SET_ID`、`SERVICE_ID`、`DATASET_ID` 等占位符，需要替换成列表查询得到的实际 ID。
 
+当前源码 CLI 版本：`1.0.3.18`（不代表已经正式发布）。
+
 ## 1. 命令树
 
 从上到下查找命令层级，按顺序输入即可。例如，下载训练日志使用 `ml train history logs download`；参数和选项见后文。
@@ -94,8 +96,20 @@ ml                                              WiseRec 命令行工具
 │   └── model                                   模型特征集
 │       ├── list                                查看列表
 │       └── config                              查看配置
-├── jupyter                                     Notebook 与远程终端
+├── jupyter                                     文件、非交互执行、Notebook 与终端
 │   ├── doctor                                  检查连接状态
+│   ├── exec                                    非交互执行远端程序
+│   ├── files                                   远端文件与目录
+│   │   ├── list                                列出目录
+│   │   ├── stat                                查询文件信息
+│   │   ├── read                                读取文本
+│   │   ├── write                               写入文本
+│   │   ├── mkdir                               创建目录
+│   │   ├── upload                              上传单文件
+│   │   ├── download                            下载单文件
+│   │   ├── move                                移动或重命名
+│   │   ├── copy                                复制文件至目录
+│   │   └── delete                              删除文件或空目录
 │   ├── notebook                                Notebook
 │   │   └── run                                 执行 Notebook
 │   └── terminal                                远程终端
@@ -709,3 +723,78 @@ ml webstudio stop ENV_ID
 - 看不到目标任务或实例：确认当前环境、业务和页码；需要时用名称筛选或继续翻页。
 - 创建、删除或启动操作超时：先查询远程状态，再决定是否重试。
 - 需要参数详情：在对应命令后使用 `--help`。
+
+
+## Jupyter 文件操作与 Agent 非交互执行（1.0.3.18）
+
+### 使用前提与共同选项
+
+沿用上文 Jupyter 的 `direct` / `webstudio` 连接配置。先选择当前环境与业务；Web Studio 模式先登录实例，或每次传入 `--studio-id ENV_ID`。所有请求复用当前环境 `business.json` 的 `selected.businessId`，不会使用其他环境的业务值。文件操作需要 Contents API 权限；exec 还需要创建、连接和关闭 Kernel 的权限。
+
+所有新命令支持 `--studio-id ENV_ID`、`--output text|json`（别名 `-o`，默认 text）。远端路径相对 Jupyter 根目录，拒绝绝对路径与 `..`，不要传浏览器 `/lab` 路径。本地与远端路径不可混淆。JSON 成功输出为 `{server_url, studio_id, business_id, result}`；诊断信息写入 stderr。操作失败退出 1，JSON 为 `{status: "FAILED", error: ...}`；参数解析错误退出 2，显示 CLI 用法。创建、修改时间转换为北京时间 `YYYY-MM-DD HH:mm:ss`。JSON 不输出连接 Token。
+
+### 文件命令与参数
+
+| 命令 | 用途与参数 | 输出 |
+| --- | --- | --- |
+| `files list [PATH]` | 列出一层目录，省略 PATH 为根目录 | 目录及子项元数据 |
+| `files stat PATH` | 查询元数据，不下载内容 | 类型、大小、时间、可写性等服务端字段 |
+| `files read PATH` | 读取 UTF-8 文本；`--start-line N` 默认 1，`--end-line N` 可选，含首尾 | text 为正文；JSON result 包含 content 与行范围 |
+| `files write PATH` | `--from-file LOCAL` 或 `--stdin` 二选一；`--overwrite` 显式覆盖 | 保存后的元数据 |
+| `files mkdir PATH` | 创建一个目录，父目录须存在 | 新目录元数据 |
+| `files upload LOCAL REMOTE` | 上传单文件，包括二进制；REMOTE 含文件名；`--overwrite` | 保存后的元数据 |
+| `files download REMOTE LOCAL` | 下载单文件；LOCAL 含文件名，父目录须存在；`--overwrite` | 远端路径、本地绝对路径和字节数 |
+| `files move SOURCE TARGET` | 移动或重命名，不覆盖已有目标 | 修改后的元数据 |
+| `files copy SOURCE TARGET_DIR` | 复制单文件至已有目录，文件名由服务端生成 | 以返回的 path 为实际新文件名 |
+| `files delete PATH` | 删除文件或空目录，显式调用即执行，无交互确认 | path 与 deleted |
+
+上述命令均置于 `ml jupyter` 后。成功退出 0。写入默认拒绝覆盖，目录不能被文件覆盖。不支持递归上传、下载、复制或删除；不允许修改根目录本身。远端存在性检查与写入不是原子操作，不提供并发编辑锁。行范围在客户端下载完整文本后切片；文件传输当前在内存中完成，适用于普通代码和数据文件，不适合超大文件。读取 text 时会清除终端控制字符；JSON 保留内容，Notebook 原始文件可通过 download 获取。
+
+```bash
+ml jupyter files list projects --output json
+ml jupyter files stat projects/demo/main.py --output json
+ml jupyter files read projects/demo/main.py --start-line 1 --end-line 80
+ml jupyter files mkdir projects/demo
+ml jupyter files write projects/demo/main.py --from-file ./main.py --overwrite --output json
+ml jupyter files write projects/demo/note.txt --stdin --output json
+ml jupyter files upload ./data.csv projects/demo/data.csv
+ml jupyter files download projects/demo/result.csv ./result.csv
+ml jupyter files move projects/demo/note.txt projects/demo/notes.txt
+ml jupyter files copy projects/demo/main.py projects
+ml jupyter files delete projects/demo/notes.txt
+```
+
+`--stdin` 从标准输入读至 EOF，可由管道提供内容；Agent 应使用 `--output json`。
+
+### 非交互执行
+
+```bash
+ml jupyter exec [OPTIONS] -- PROGRAM [ARGS...]
+ml jupyter exec --cwd projects/demo --output json -- python main.py
+ml jupyter exec --cwd projects/demo --timeout 120 --output json -- python -m pytest -q
+ml jupyter exec --cwd projects/demo --output json -- sh -c 'pwd && ls -la'
+```
+
+前提：远端为 Linux/macOS 等 POSIX 系统，存在 Python/IPython Kernel。Windows 本地 CLI 可以连接 POSIX 远端；暂不支持 Windows 远端执行。每次创建独立 Kernel，以 `--cwd` 为工作目录启动子进程，完成后释放；不继承已有 Notebook 内核变量，也不创建 Notebook 文件。程序使用远端 PATH 查找，不隐式激活额外虚拟环境，可传程序的远端绝对路径。命令参数通过 argv 传递，不隐式解释 Shell；管道、重定向等必须显式使用 `sh -c`。标准输入关闭，不支持密码提示和交互程序。
+
+| 选项 | 默认值 | 含义 |
+| --- | --- | --- |
+| `--cwd PATH` | Jupyter 根目录 | 必须是已有远端目录 |
+| `--timeout SECONDS` | 60 | 子进程运行时限，至少 0.1 秒 |
+| `--startup-timeout SECONDS` | 60 | Kernel 就绪等待时限 |
+| `--kernel NAME` | 当前环境配置的 Kernel | 必须为 Python Kernel |
+| `--max-output BYTES` | 1048576 | stdout/stderr 各自的保留上限，最大 10485760 |
+| `--output text|json` / `-o` | text | text 为可读 JSON；json 为单行结构化结果 |
+| `--studio-id ENV_ID` | 默认已选实例 | 指定 Web Studio 实例 |
+
+`result` 包含 `id`、`kernel_id`（创建成功时）、`cwd`、`status`、`exit_code`、`stdout`、`stderr`、`remote_state` 和 `cleanup_errors`；收到助手结果时还包含 `truncated` 等字段。输出在执行完成后返回，超过上限继续排空管道但丢弃多余内容。非 UTF-8 输出用替代字符解码。当前不提供完整日志文件或后台任务管理。
+
+| status | CLI 退出码 | 含义 |
+| --- | --- | --- |
+| SUCCEEDED | 0 | 子进程成功 |
+| FAILED | 子进程退出码 1–123，其他情况 1 | 命令失败或启动失败，原始退出码保留在 result.exit_code |
+| TIMED_OUT | 124 | 远端助手确认超时并强制结束该进程组 |
+| LOST | 2 | 提交后连接中断或未收齐结果，远端状态未知，不自动重跑 |
+| INTERRUPTED | 130 | 本地 Ctrl+C，远端状态可能未知 |
+
+完成及超时均清理同一进程组的后台子进程，因此 exec 不用于启动守护服务。主动脱离进程组的子进程不保证清理。连接丢失或本地中断时仍尝试释放 Kernel，但不能据此断言远端子进程已停止；需检查后再决定是否重试。若 `cleanup_errors` 非空，应按 kernel_id 检查遗留资源。现有 `terminal open/attach` 保留用于人工交互。

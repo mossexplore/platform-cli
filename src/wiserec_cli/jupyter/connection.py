@@ -147,7 +147,9 @@ class JupyterClient:
         if response.status_code in {401, 403}:
             raise JupyterError(f"Jupyter {method} {path.split(chr(63))[0]} 认证或权限失败（HTTP {response.status_code}）；请检查动态凭据与接口权限")
         if not response.is_success:
-            raise JupyterError(f"Jupyter 请求失败（HTTP {response.status_code}）；请检查地址、路径和服务能力")
+            error = JupyterError(f"Jupyter 请求失败（HTTP {response.status_code}）；请检查地址、路径和服务能力")
+            error.status_code = response.status_code
+            raise error
         if response.status_code == 204 or not response.content:
             return None
         try:
