@@ -71,8 +71,7 @@ def test_dynamic_connection_current_operator_and_business(rt, requests, monkeypa
     assert connection.url == 'https://gateway.example' + ROUTE
     assert connection.studio_id == ENV_ID
     assert TOKEN not in repr(connection)
-    assert ('Jupyter 完整访问地址（包含 token，请谨慎保管）：'
-            'https://gateway.example' + ROUTE + 'lab?token=' + TOKEN) in reports
+    assert TOKEN not in '\n'.join(reports)
     assert len(requests) == 2
     assert requests[0][1]['envId'] == ENV_ID
     assert requests[1][1]['operator'] == 'current-user'
@@ -91,7 +90,7 @@ def test_region_selects_gateway_within_same_environment(rt, requests):
     assert north.url == 'https://north.example:8000' + ROUTE
     southwest_item = {**studio(), 'region': 'cn-southwest-2'}
     with patch.object(WebStudioService, 'get', return_value=southwest_item):
-        southwest = resolve(rt, ENV_ID)
+        southwest = resolve(rt, ENV_ID, refresh=True)
     assert southwest.url == 'https://southwest.example:8443' + ROUTE
 
 
@@ -142,7 +141,7 @@ def test_login_store_no_token_and_default_resolve(rt, requests, tmp_path):
     assert TOKEN not in text and 'accessUrl' not in text and ROUTE not in text
     assert resolve(rt, store=store).studio_id == ENV_ID
     assert show(rt, store=store)['envId'] == ENV_ID
-    assert len(requests) == 4  # 每次命令获取一次，不重复提交
+    assert len(requests) == 2  # 后续命令复用连接发现结果
 
 
 def test_failed_login_keeps_previous_choice(rt, requests, tmp_path):
@@ -330,13 +329,12 @@ def test_non_online_does_not_request_access(rt, requests):
     assert not requests
 
 
-def test_invalid_access_url_is_reported_before_validation(rt, requests):
+def test_invalid_access_url_does_not_leak_token(rt, requests):
     reports = []
     with patch.object(WebStudioService, 'access', return_value='/broken?token=' + TOKEN):
         with pytest.raises(JupyterError, match='访问地址无效'):
             resolve(rt, ENV_ID, report=reports.append)
-    assert reports[-1] == ('Jupyter 完整访问地址（包含 token，请谨慎保管）：'
-                           'https://gateway.example/broken?token=' + TOKEN)
+    assert TOKEN not in '\n'.join(reports)
 
 
 def test_business_mismatch_rejected_before_any_request(rt, requests):

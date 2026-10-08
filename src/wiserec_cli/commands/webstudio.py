@@ -10,6 +10,7 @@ from .common import fail, runtime_from_context
 from .jupyter import display_time
 from ..output import console
 from ..webstudio.resolve import platform, resolve, show
+from ..webstudio.cache import ConnectionCache
 
 webstudio_app = typer.Typer(no_args_is_help=True, help='Web Studio 查询、启动、停止与 Jupyter 动态登录')
 COLUMNS = [('envId', 'envId'), ('名称', 'labelName'), ('集群类型', 'clusterType'),
@@ -64,10 +65,11 @@ def list_studios(context: typer.Context,
 
 
 @webstudio_app.command('login')
-def login_studio(context: typer.Context, env_id: str = typer.Argument(...)):
-    """动态获取凭据并验证 Kernel 接口，成功后保存默认实例；不保存 Token。"""
+def login_studio(context: typer.Context, env_id: str = typer.Argument(...),
+                 refresh: bool = typer.Option(False, '--refresh', help='强制重新获取连接凭据和会话')):
+    """重新建立并验证 Jupyter 连接，保存默认实例与短期会话缓存。"""
     try:
-        connection = resolve(runtime_from_context(context), env_id, login=True,
+        connection = resolve(runtime_from_context(context), env_id, login=True, refresh=refresh,
                              report=lambda value: typer.echo(value, err=True))
         typer.echo(f'Web Studio 登录成功，默认实例：{connection.studio_id}')
     except Exception as exc:
@@ -80,6 +82,7 @@ def start_studio(context: typer.Context, env_id: str = typer.Argument(...)):
     try:
         runtime = runtime_from_context(context)
         with platform(runtime, timeout_ms=max(runtime.config.timeout_ms, 60_000)) as (service, _, __):
+            ConnectionCache.clear(runtime.credentials.path, runtime.config.current_name)
             service.start(env_id)
         typer.echo(f'Web Studio 启动成功：{env_id}')
     except Exception as exc:
@@ -90,7 +93,9 @@ def start_studio(context: typer.Context, env_id: str = typer.Argument(...)):
 def stop_studio(context: typer.Context, env_id: str = typer.Argument(...)):
     """停止指定 Web Studio。"""
     try:
-        with platform(runtime_from_context(context)) as (service, _, __):
+        runtime = runtime_from_context(context)
+        with platform(runtime) as (service, _, __):
+            ConnectionCache.clear(runtime.credentials.path, runtime.config.current_name)
             service.stop(env_id)
         typer.echo(f'Web Studio 停止成功：{env_id}')
     except Exception as exc:

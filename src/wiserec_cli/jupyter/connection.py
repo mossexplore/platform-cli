@@ -31,6 +31,8 @@ class Connection:
     verify: Any = True
     timeout: float = 30
     studio_id: str = ""
+    session: Any = field(default=None, repr=False, compare=False)
+    refresh: Any = field(default=None, repr=False, compare=False)
 
 
 def from_runtime(runtime, studio_id=None, report=None) -> Connection:
@@ -97,6 +99,9 @@ def remote_path(value: str) -> str:
 class JupyterClient:
     def __init__(self, connection: Connection, transport=None):
         self.connection = connection
+        self._transport = transport
+        self._mutation_started = False
+        self._refreshed = False
         self._webstudio_session_ready = False
         self.headers = {**client_headers(), "businessid": connection.business_id}
         if connection.token:
@@ -114,30 +119,48 @@ class JupyterClient:
     def _prepare_webstudio_session(self):
         if not self.connection.studio_id or self._webstudio_session_ready:
             return
+        try:
+            if self.connection.session:
+                self.connection.session.prepare(self, self._bootstrap_webstudio_session)
+            else:
+                self._bootstrap_webstudio_session()
+        except JupyterError:
+            self._invalidate_session()
+            raise
+        self._webstudio_session_ready = True
+
+    def _bootstrap_webstudio_session(self):
         # 部分网关只在访问平台返回的 /lab?token=... 后建立 Jupyter 会话。
         path = "lab"
         if self.connection.token:
             path += "?token=" + quote(self.connection.token, safe="")
-        self.http.get(path, headers=client_headers())
-        self._webstudio_session_ready = True
+        response = self.http.get(path, headers=client_headers())
+        check_version_response(response)
+        if response.status_code not in {200, 302, 303}:
+            raise JupyterError(f'Jupyter 会话初始化失败（HTTP {response.status_code}），请重新登录 Web Studio')
 
-    def _xsrf_token(self):
-        for cookie in self.http.cookies.jar:
-            if cookie.name == "_xsrf":
-                return cookie.value
+    def _invalidate_session(self):
+        if self.connection.session:
+            self.connection.session.invalidate()
+
+    def _xsrf_token(self, path):
+        for cookie in self._cookie_header(path).split('; '):
+            if cookie.startswith('_xsrf='):
+                return cookie.partition('=')[2]
         return ""
 
-    def _cookie_header(self):
-        return "; ".join(
-            f"{cookie.name}={cookie.value}" for cookie in self.http.cookies.jar
-        )
+    def _cookie_header(self, path):
+        request = httpx.Request('GET', self.connection.url + path)
+        self.http.cookies.set_cookie_header(request)
+        return request.headers.get('cookie', '')
 
     def request(self, method, path, body=None):
         try:
             self._prepare_webstudio_session()
             headers = client_headers()
             if method.upper() in {"POST", "PUT", "PATCH", "DELETE"}:
-                xsrf_token = self._xsrf_token()
+                self._mutation_started = True
+                xsrf_token = self._xsrf_token(path)
                 if xsrf_token:
                     headers["X-XSRFToken"] = xsrf_token
             response = self.http.request(method, path, json=body, headers=headers)
@@ -145,16 +168,29 @@ class JupyterClient:
             raise JupyterError("Jupyter 网络请求失败；未自动重试") from exc
         check_version_response(response)
         if response.status_code in {401, 403}:
-            raise JupyterError(f"Jupyter {method} {path.split(chr(63))[0]} 认证或权限失败（HTTP {response.status_code}）；请检查动态凭据与接口权限")
+            self._invalidate_session()
+            if (response.status_code == 401 and method.upper() == 'GET'
+                    and not self._mutation_started and not self._refreshed and self.connection.refresh):
+                connection = self.connection.refresh()
+                self.http.close()
+                self.__init__(connection, transport=self._transport)
+                self._refreshed = True
+                return self.request(method, path, body)
+            raise JupyterError(f"Jupyter {method} {path.split(chr(63))[0]} 认证或权限失败（HTTP {response.status_code}）；请检查权限或使用 ml webstudio login ENV_ID --refresh")
+        if 300 <= response.status_code < 400:
+            self._invalidate_session()
         if not response.is_success:
             error = JupyterError(f"Jupyter 请求失败（HTTP {response.status_code}）；请检查地址、路径和服务能力")
             error.status_code = response.status_code
             raise error
+        if self.connection.session:
+            self.connection.session.save(self)
         if response.status_code == 204 or not response.content:
             return None
         try:
             return response.json()
         except ValueError as exc:
+            self._invalidate_session()
             raise JupyterError("Jupyter 未返回 JSON，可能连接到了登录页或错误代理路径") from exc
 
     def socket(self, path):
@@ -166,7 +202,7 @@ class JupyterClient:
                   else {} if verify else {"cert_reqs": ssl.CERT_NONE, "check_hostname": False})
         try:
             self._prepare_webstudio_session()
-            cookie_header = self._cookie_header()
+            cookie_header = self._cookie_header(path)
             cookie_options = {"cookie": cookie_header} if cookie_header else {}
             socket = websocket.create_connection(
                 url, header={**self.headers, **client_headers()}, timeout=self.connection.timeout,
@@ -179,6 +215,8 @@ class JupyterClient:
                 raise JupyterError("Jupyter WebSocket 被重定向或未完成协议升级")
             return socket
         except websocket.WebSocketBadStatusException as exc:
+            if exc.status_code in {401, 403}:
+                self._invalidate_session()
             if exc.resp_body:
                 try:
                     from ..client_metadata import handle_version_result

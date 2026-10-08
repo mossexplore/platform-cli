@@ -461,6 +461,8 @@ class AuthManager:
         all_profiles: bool = False,
         forget_browser: bool = False,
     ) -> None:
+        from .webstudio.cache import ConnectionCache
+        ConnectionCache.clear(self.store.path, None if all_profiles else self.config.current_name)
         if all_profiles:
             self.store.delete()
         else:

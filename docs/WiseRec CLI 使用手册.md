@@ -117,7 +117,7 @@ ml                                              WiseRec 命令行工具
 │       └── close                               关闭终端
 └── webstudio                                   Web Studio 实例
     ├── list                                    查看实例列表
-    ├── login                                   选择默认实例并连接
+    ├── login                                   选择默认实例并刷新连接缓存
     ├── show                                    查看默认实例
     ├── start                                   启动实例
     └── stop                                    停止实例
@@ -685,7 +685,7 @@ ml jupyter terminal close NAME
 
 ```text
 ml webstudio list [OPTIONS]
-ml webstudio login ENV_ID
+ml webstudio login ENV_ID [--refresh]
 ml webstudio show
 ml webstudio start ENV_ID
 ml webstudio stop ENV_ID
@@ -696,14 +696,19 @@ ml webstudio stop ENV_ID
 | 命令 | 主要参数与选项 |
 | --- | --- |
 | `list` | `--page`、`--page-size`、`--name`、`--status`、`--relator`、`--env-id`、`--business-id`、`--output` / `-o` |
-| `login`、`start`、`stop` | 必填 Web Studio 实例 ID `ENV_ID` |
+| `login` | 必填实例 ID `ENV_ID`；`--refresh` 显式强制重新建立连接，普通登录同样获取新凭据 |
+| `start`、`stop` | 必填实例 ID `ENV_ID` |
 | `show` | 无参数 |
 
 ### 18.3 说明
 
-先登录平台并选择业务，再使用 `list` 找到实例。`login` 选择默认实例并建立 Jupyter 连接；`show` 查看当前默认实例。`start` 和 `stop` 改变远程实例状态，不会改变默认选择。启动超时或中断时，先用 `list --env-id ENV_ID` 核对状态，再决定是否重试。
+先登录平台并选择业务，再使用 `list` 找到实例。`login` 选择默认实例并建立 Jupyter 连接；`show` 查看当前默认实例。`start` 和 `stop` 改变远程实例状态，并清除当前环境的连接缓存，不会改变默认选择。启动超时或中断时，先用 `list --env-id ENV_ID` 核对状态，再决定是否重试。
 
-在 Jupyter 命令中使用 `--studio-id ENV_ID` 可临时操作其他实例。连接信息可能含临时凭据，请勿公开分享终端输出。
+在 Jupyter 命令中使用 `--studio-id ENV_ID` 可临时操作其他实例，并复用该实例的有效连接缓存。连接按配置、环境、账号、业务和实例隔离；平台登录凭据变化后自动重新获取连接。
+
+当前环境的 `jupyter.connection_cache_ttl_seconds` 默认 `300` 秒，可设为 `0` 禁用，最大 `3600` 秒。缓存保存临时 Token 和会话 Cookie，请勿分享用户配置目录中的 `webstudio-connections` 文件。到期后自动重新连接，`ml logout` 清除当前环境缓存，`ml logout --all` 清除全部缓存。每条命令仍按配置执行在线权限检查。
+
+只读请求明确返回 HTTP 401 时最多刷新重试一次；HTTP 403 不自动重试。写操作、已提交的执行以及结果不明确的请求不自动重放。实例重启或连接失效后，可运行 `ml webstudio login ENV_ID --refresh`。
 
 ### 18.4 示例
 
@@ -713,6 +718,7 @@ ml webstudio start ENV_ID
 ml webstudio login ENV_ID
 ml webstudio show
 ml jupyter doctor --studio-id ENV_ID
+ml webstudio login ENV_ID --refresh
 ml webstudio stop ENV_ID
 ```
 
