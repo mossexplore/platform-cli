@@ -15,7 +15,7 @@ def invoke():
     base.doCleanups()
 
 
-def handler_for(infra='rtc_python', hosts=None, files=None):
+def handler_for(infra='infer-python', hosts=None, files=None):
     calls = []
     hosts = hosts if hosts is not None else [{'nodeName': 'pod', 'clusterName': 'cluster', 'infraType': infra}]
     files = files if files is not None else [{'fileName': 'app.log', 'fileSize': '12', 'updateTime': '2026-10-08T00:00:00Z'}]
@@ -30,7 +30,7 @@ def handler_for(infra='rtc_python', hosts=None, files=None):
         data = body['data']
         assert data['podName'] == 'pod' and data['clusterName'] == 'cluster'
         assert data['serviceLogSearch']['type'] == 'interface'
-        if infra == 'rtc_python':
+        if infra == 'infer-python':
             assert data['type'] == 'rtc_python'
         else:
             assert 'type' not in data
@@ -42,7 +42,7 @@ def handler_for(infra='rtc_python', hosts=None, files=None):
     return handler, calls
 
 
-@pytest.mark.parametrize('infra', ['rtc_python', 'rtc'])
+@pytest.mark.parametrize('infra', ['infer-python', 'rtc'])
 def test_auto_single_and_exact_body(invoke, infra):
     handler, calls = handler_for(infra)
     result = invoke(['logs', 'service', '--type', 'interface', '-k', 'error', '-n', '500', '--no-input'], handler)
@@ -56,7 +56,7 @@ def test_auto_single_and_exact_body(invoke, infra):
 
 def test_pagination_and_explicit_selection(invoke):
     hosts = [{'nodeName': str(i), 'clusterName': 'other', 'infraType': 'rtc'} for i in range(10)]
-    hosts.append({'nodeName': 'pod', 'clusterName': 'cluster', 'infraType': 'rtc_python'})
+    hosts.append({'nodeName': 'pod', 'clusterName': 'cluster', 'infraType': 'infer-python'})
     handler, calls = handler_for(hosts=hosts)
     result = invoke(['logs', 'service', '--pod', 'pod', '--type', 'interface', '--file', 'app.log'], handler)
     assert result.exit_code == 0, result.output
@@ -89,7 +89,7 @@ def test_list_only(invoke):
 
 def test_interactive_choices(invoke):
     hosts = [{'nodeName': 'other', 'clusterName': 'other', 'infraType': 'rtc'},
-             {'nodeName': 'pod', 'clusterName': 'cluster', 'infraType': 'rtc_python'}]
+             {'nodeName': 'pod', 'clusterName': 'cluster', 'infraType': 'infer-python'}]
     handler, calls = handler_for(hosts=hosts, files=[{'fileName': 'other.log'}, {'fileName': 'app.log'}])
     with patch('wiserec_cli.commands.service_logs.can_prompt', return_value=True), \
          patch('wiserec_cli.commands.service_logs.click.prompt', side_effect=[2, 2, 2]) as prompt:
@@ -108,7 +108,7 @@ def test_cancel_has_no_log_request(invoke):
     assert len(calls) == 1
 
 
-@pytest.mark.parametrize('infra', ['infer-python', None, 'unknown'])
+@pytest.mark.parametrize('infra', ['rtc_python', None, 'unknown'])
 def test_unknown_infra_rejected(invoke, infra):
     handler, calls = handler_for(infra)
     result = invoke(['logs', 'service', '--type', 'interface'], handler)

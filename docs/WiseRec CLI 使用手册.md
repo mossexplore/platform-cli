@@ -572,7 +572,7 @@ ml service deployment list SERVICE_ID [-o table|json]
 
 先登录并选择业务，从 `list` 获取服务 ID。服务列表默认每页 10 条；主机和部署详情显示第一页 10 条，时间按北京时间显示。
 
-推荐使用 `ml service logs SERVICE_ID`。每次查询全部主机页，唯一主机和文件自动选择，多个候选项在终端按编号选择；类别无默认值，交互选择或通过 `--type` 指定。自动获取集群，Python 主机自动设置对应请求类型。`rtc_python` 支持 run、interface、metrics、engine、ascend、mslite、alarm；`rtc` 支持 rtc、run、interface、dcs、metrics、gc、interface_manager、interface_extend、engine、monitor、catalina、dmq。文件列表和正文使用相同类别。
+推荐使用 `ml service logs SERVICE_ID`。每次查询全部主机页，唯一主机和文件自动选择，多个候选项在终端按编号选择；类别无默认值，交互选择或通过 `--type` 指定。自动获取集群，Python 主机自动设置对应请求类型。`infer-python` 支持 run、interface、metrics、engine、ascend、mslite、alarm；`rtc` 支持 rtc、run、interface、dcs、metrics、gc、interface_manager、interface_extend、engine、monitor、catalina、dmq。文件列表和正文使用相同类别。
 
 非交互环境或指定 `--no-input` 时，选择不唯一会报错并提示补充参数；不默认选择第一台主机。未知主机类型、无匹配主机或文件会报错，文件列表为空时提示暂无日志文件。`--list` 不可与 `--file`、关键词、行数及正文检索选项混用。默认读取末尾 200 行，不持续刷新；日志正文写入标准输出，选择提示和上下文写入标准错误，可将正文重定向保存。
 

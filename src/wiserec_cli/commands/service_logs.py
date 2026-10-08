@@ -16,7 +16,7 @@ from ..services.service import ServiceCatalog
 from .common import fail, runtime_from_context
 
 LOG_TYPES = {
-    'rtc_python': ('run', 'interface', 'metrics', 'engine', 'ascend', 'mslite', 'alarm'),
+    'infer-python': ('run', 'interface', 'metrics', 'engine', 'ascend', 'mslite', 'alarm'),
     'rtc': ('rtc', 'run', 'interface', 'dcs', 'metrics', 'gc', 'interface_manager',
             'interface_extend', 'engine', 'monitor', 'catalina', 'dmq'),
 }

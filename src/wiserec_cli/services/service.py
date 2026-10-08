@@ -126,7 +126,7 @@ class ServiceCatalog:
                     "podStatus": 0, "businessId": business_id,
                     "podName": pod_name, "clusterName": cluster_name,
                     "serviceLogSearch": search, "belongingService": "",
-                    **({"type": "rtc_python"} if infra_type == "rtc_python" else {}),
+                    **({"type": "rtc_python"} if infra_type == "infer-python" else {}),
                 },
             },
             headers={"businessid": business_id},
