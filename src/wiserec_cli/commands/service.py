@@ -264,20 +264,20 @@ def list_deployments(
 def list_log_files(
     context: typer.Context,
     pod_name: str = typer.Argument(..., help="Pod 名称"),
+    cluster_name: str = typer.Option(..., "--cluster", help="集群名称"),
     log_type: str = typer.Option(..., "--type", help="日志类型"),
-    service_id: str = typer.Option(..., "--service-id", help="服务 ID，用于实时识别主机类型"),
 ) -> None:
     """查看指定 Pod 的日志文件列表。"""
     try:
         pod_name = _required_text(pod_name, "Pod 名称")
+        cluster_name = _required_text(cluster_name, "集群名称")
         log_type = _required_text(log_type, "日志类型")
-        service_id = _service_id(service_id)
         runtime = runtime_from_context(context)
 
         def query(client):
             _selected_business(runtime, client)
             return ServiceCatalog(client).list_pod_log_files(
-                pod_name, service_id, log_type,
+                pod_name, cluster_name, log_type,
             )
 
         with redirect_stdout(sys.stderr):
@@ -299,8 +299,8 @@ def list_log_files(
 def search_logs(
     context: typer.Context,
     pod_name: str = typer.Argument(..., help="Pod 名称"),
+    cluster_name: str = typer.Option(..., "--cluster", help="集群名称"),
     log_type: str = typer.Option(..., "--type", help="日志类型"),
-    service_id: str = typer.Option(..., "--service-id", help="服务 ID，用于实时识别主机类型"),
     file_name: str = typer.Option(..., "--file", help="日志文件名称"),
     keywords: Optional[list[str]] = typer.Option(None, "--keyword", help="检索关键词，可重复"),
     line: int = typer.Option(200, "--line", min=1, help="检索行数"),
@@ -311,8 +311,8 @@ def search_logs(
     """检索指定日志文件并输出正文。"""
     try:
         pod_name = _required_text(pod_name, "Pod 名称")
+        cluster_name = _required_text(cluster_name, "集群名称")
         log_type = _required_text(log_type, "日志类型")
-        service_id = _service_id(service_id)
         file_name = _required_text(file_name, "日志文件名称")
         search_order = _required_text(search_order, "检索顺序")
         grep_scope = _required_text(grep_scope, "关键词范围")
@@ -323,7 +323,7 @@ def search_logs(
         def query(client):
             _selected_business(runtime, client)
             return ServiceCatalog(client).search_pod_log(
-                pod_name, service_id, log_type, file_name,
+                pod_name, cluster_name, log_type, file_name,
                 keywords or [], line, search_order, grep_scope, grep_line,
             )
 

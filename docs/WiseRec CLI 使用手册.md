@@ -550,8 +550,8 @@ ml algorithm clone SOURCE_ID --name mnist_copy --version VERSION
 ```text
 ml service list [OPTIONS]
 ml service host list SERVICE_ID [-o table|json]
-ml service host logs list POD_NAME --service-id SERVICE_ID --type TYPE
-ml service host logs search POD_NAME --service-id SERVICE_ID --type TYPE --file FILE_NAME [OPTIONS]
+ml service host logs list POD_NAME --cluster CLUSTER_NAME --type TYPE
+ml service host logs search POD_NAME --cluster CLUSTER_NAME --type TYPE --file FILE_NAME [OPTIONS]
 ml service deployment list SERVICE_ID [-o table|json]
 ```
 
@@ -561,16 +561,14 @@ ml service deployment list SERVICE_ID [-o table|json]
 | --- | --- |
 | `list` | `--page`、`--page-size`；可用 `--name` / `--service-name`、`--model-name`、`--model-version` 筛选；可选 `--output` / `-o` |
 | `host list`、`deployment list` | 必填 `SERVICE_ID`；可选 `--output` / `-o` |
-| `host logs list` | 必填 `POD_NAME`、`--service-id SERVICE_ID`、`--type TYPE` |
-| `host logs search` | 必填 `POD_NAME`、`--service-id SERVICE_ID`、`--type TYPE`、`--file FILE_NAME`；可重复传入 `--keyword TEXT`，可选 `--line`、`--search-order`、`--grep-scope`、`--grep-line` |
+| `host logs list` | 必填 `POD_NAME`、`--cluster CLUSTER_NAME`、`--type TYPE` |
+| `host logs search` | 必填 `POD_NAME`、`--cluster CLUSTER_NAME`、`--type TYPE`、`--file FILE_NAME`；可重复传入 `--keyword TEXT`，可选 `--line`、`--search-order`、`--grep-scope`、`--grep-line` |
 
 ### 14.3 说明
 
 先登录并选择业务，从 `list` 获取服务 ID。服务列表默认每页 10 条；主机和部署详情显示第一页 10 条，时间按北京时间显示。
 
-查看日志时，从主机列表获取 Pod 名称，再用 `logs list` 找到文件，用 `logs search` 读取正文。文件列表与检索分别指定日志类型，例如 `rtc` 和 `interface`。检索默认读取末尾 200 行，可重复传入 `--keyword`。
-
-两个日志命令均须传入 `--service-id SERVICE_ID`，不接受 `--cluster`。命令每次实时查询该服务的主机，以 `POD_NAME` 匹配主机的 `nodeName`，自动获取集群名；Python 推理主机自动使用对应日志类型。未找到 Pod、存在多个同名 Pod 或集群名无效时停止查询。`--type` 仍用于指定日志类别，文件列表和正文输出格式不变。
+查看日志时，从主机列表获取 Pod 和集群，再用 `logs list` 找到文件，用 `logs search` 读取正文。文件列表与检索分别指定日志类型，例如 `rtc` 和 `interface`。检索默认读取末尾 200 行，可重复传入 `--keyword`。
 
 ### 14.4 示例
 
@@ -578,8 +576,8 @@ ml service deployment list SERVICE_ID [-o table|json]
 ml service list --name demo --model-name model --model-version MODEL_VERSION
 ml service list --page 2 --page-size 20 -o json
 ml service host list SERVICE_ID
-ml service host logs list POD_NAME --service-id SERVICE_ID --type rtc
-ml service host logs search POD_NAME --service-id SERVICE_ID --type interface --file FILE_NAME --keyword error
+ml service host logs list POD_NAME --cluster mep-mirror-az4 --type rtc
+ml service host logs search POD_NAME --cluster mep-mirror-az4 --type interface --file interface.log --keyword error
 ml service deployment list SERVICE_ID -o json
 ```
 

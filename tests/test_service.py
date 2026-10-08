@@ -22,19 +22,7 @@ class ServiceCommandTest(unittest.TestCase):
         self.addCleanup(self.fixture.tearDown)
         self.fixture.store.select("dev", "jack", tenant_id="mep")
 
-    def invoke(self, arguments, handler, host_handler=None):
-        log_handler = handler
-        if arguments[:2] == ["host", "logs"]:
-            def handler(request):
-                if request.url.path.endswith("/queryServiceHostList"):
-                    self.assertEqual(request.headers["businessid"], "mep")
-                    self.assertEqual(json.loads(request.content)["serviceId"], "s")
-                    if host_handler is not None:
-                        return host_handler(request)
-                    return httpx.Response(200, json={"result": {"code": 0, "count": 1,
-                        "data": [{"nodeName": "pod-1", "clusterName": "cluster-1"}]}})
-                return log_handler(request)
-
+    def invoke(self, arguments, handler):
         def client_factory(**kwargs):
             return PlatformClient(**kwargs, transport=httpx.MockTransport(handler))
 
@@ -184,7 +172,7 @@ class ServiceCommandTest(unittest.TestCase):
         from wiserec_cli.commands import service
         with patch.object(service.console, "print") as printed:
             result = self.invoke(["host", "logs", "list", "pod-1",
-                "--service-id", "s", "--type", "rtc"], handler)
+                "--cluster", "cluster-1", "--type", "rtc"], handler)
         self.assertEqual(result.exit_code, 0, result.output)
         self.assertEqual(len(seen), 1)
         table = printed.call_args_list[0].args[0]
@@ -216,7 +204,7 @@ class ServiceCommandTest(unittest.TestCase):
                 "data": {"content": content}}})
 
         result = self.invoke(["host", "logs", "search", "pod-1",
-            "--service-id", "s", "--type", "interface",
+            "--cluster", "cluster-1", "--type", "interface",
             "--file", "interface.log"], handler)
         self.assertEqual(result.exit_code, 0, result.output)
         self.assertEqual(result.stdout, content + "\n")
@@ -232,7 +220,7 @@ class ServiceCommandTest(unittest.TestCase):
                 "data": {"content": "match"}}})
 
         result = self.invoke(["host", "logs", "search", "pod-1",
-            "--service-id", "s", "--type", "custom", "--file", "app.log",
+            "--cluster", "cluster-1", "--type", "custom", "--file", "app.log",
             "--keyword", "error", "--keyword", "timeout", "--line", "30",
             "--search-order", "head", "--grep-scope", "A", "--grep-line", "2"], handler)
         self.assertEqual(result.exit_code, 0, result.output)
@@ -244,7 +232,7 @@ class ServiceCommandTest(unittest.TestCase):
                      {"code": 0, "data": {"content": None}}):
             with self.subTest(body=body):
                 result = self.invoke(["host", "logs", "search", "pod-1",
-                    "--service-id", "s", "--type", "interface",
+                    "--cluster", "cluster-1", "--type", "interface",
                     "--file", "app.log"], lambda _request: httpx.Response(
                         200, json={"result": body}))
                 self.assertNotEqual(result.exit_code, 0)
@@ -256,76 +244,7 @@ class ServiceCommandTest(unittest.TestCase):
         self.fixture.business_path.write_text(json.dumps(data))
         requests = []
         result = self.invoke(["host", "logs", "list", "pod-1",
-            "--service-id", "s", "--type", "rtc"],
+            "--cluster", "cluster-1", "--type", "rtc"],
             lambda request: requests.append(request))
         self.assertNotEqual(result.exit_code, 0)
         self.assertEqual(requests, [])
-
-    def test_log_host_types_and_pagination(self):
-        for command in ("list", "search"):
-            for infra in ("infer-python", "other", None):
-                with self.subTest(command=command, infra=infra):
-                    pages = []
-                    logs = []
-
-                    def hosts(request):
-                        page = json.loads(request.content)["pageIndex"]
-                        pages.append(page)
-                        items = [{"nodeName": "another", "clusterName": "wrong",
-                                  "infraType": "infer-python"}] * 10
-                        if page == 2:
-                            items = [{"nodeName": "pod-1", "clusterName": "resolved",
-                                      "infraType": infra}]
-                        return httpx.Response(200, json={"result": {
-                            "code": 0, "count": 11, "data": items}})
-
-                    def log(request):
-                        data = json.loads(request.content)["data"]
-                        logs.append(data)
-                        self.assertEqual(data["clusterName"], "resolved")
-                        self.assertEqual(data["podName"], "pod-1")
-                        self.assertEqual(data["serviceLogSearch"]["type"], "rtc")
-                        self.assertEqual(request.headers["businessid"], "mep")
-                        if infra == "infer-python":
-                            self.assertEqual(data["type"], "rtc_python")
-                        else:
-                            self.assertNotIn("type", data)
-                        return httpx.Response(200, json={"result": {
-                            "code": 0, "podLogFiles": [], "data": {"content": "ok"}}})
-
-                    args = ["host", "logs", command, "pod-1", "--service-id", "s", "--type", "rtc"]
-                    if command == "search":
-                        args += ["--file", "app.log"]
-                    result = self.invoke(args, log, hosts)
-                    self.assertEqual(result.exit_code, 0, result.output)
-                    self.assertEqual(pages, [1, 2])
-                    self.assertEqual(len(logs), 1)
-
-    def test_invalid_host_stops_log_request(self):
-        for items in ([], [{"nodeName": "pod-1"}],
-                      [{"nodeName": "pod-1", "clusterName": " "}],
-                      [{"nodeName": "pod-1", "clusterName": "a"},
-                       {"nodeName": "pod-1", "clusterName": "b"}]):
-            for command in ("list", "search"):
-                with self.subTest(items=items, command=command):
-                    calls = []
-                    args = ["host", "logs", command, "pod-1", "--service-id", "s", "--type", "rtc"]
-                    if command == "search":
-                        args += ["--file", "app.log"]
-                    result = self.invoke(args, lambda r: calls.append(r),
-                        lambda r: httpx.Response(200, json={"result": {
-                            "code": 0, "count": len(items), "data": items}}))
-                    self.assertNotEqual(result.exit_code, 0)
-                    self.assertEqual(calls, [])
-
-    def test_log_service_required_and_cluster_removed(self):
-        for command in ("list", "search"):
-            for extra in ([], ["--service-id", "s", "--cluster", "old"],
-                          ["--service-id", " "]):
-                calls = []
-                args = ["host", "logs", command, "pod-1", "--type", "rtc"] + extra
-                if command == "search":
-                    args += ["--file", "app.log"]
-                result = self.invoke(args, lambda r: calls.append(r), lambda r: calls.append(r))
-                self.assertNotEqual(result.exit_code, 0)
-                self.assertEqual(calls, [])
