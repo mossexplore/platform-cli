@@ -334,3 +334,73 @@ def test_detail_requires_code(invoke):
     del payload['result']['code']
     result = invoke(['detail', MODEL_ID], lambda r: httpx.Response(200, json=payload))
     assert result.exit_code == 1
+
+
+TRAIN_TASK = {'version': '1.0', 'meta': {'uuid': 'task-trace'}, 'result': {
+    'code': 0, 'des': 'success', 'extra': True, 'jobHistoryDetail': {
+        'taskName': '[red]task[/red]', 'businessId': 'browser', 'jobType': 'train',
+        'image': 'image:tag', 'imageSpecificInfo': '7C50G1GPU', 'maxHistoryNum': 0,
+        'extra': {'retained': True}}}}
+
+
+@pytest.mark.parametrize('output', ['table', 'json'])
+def test_train_task_chain_and_independent_output(invoke, output):
+    calls = []
+    payloads = [DETAIL, {**SOURCE, 'result': {**SOURCE['result'], 'jobId': 'job-id'}}, TRAIN_TASK]
+    paths = ['/ai/backend/mep/models/queryDetail',
+             '/ai/backend/mtp/offlinemodel/version/queryDetail',
+             '/ai/backend/mtp/traintask/queryModelTaskDetail']
+    bodies = [{'modelId': MODEL_ID}, {'versionId': DETAIL['result']['sourceId']}, {'jobId': 'job-id'}]
+    def handler(request):
+        index = len(calls)
+        calls.append(request)
+        assert request.method == 'POST'
+        assert request.url.host == 'console.example'
+        assert request.headers['businessid'] == 'pps'
+        assert request.url.path == paths[index]
+        assert json.loads(request.content) == bodies[index]
+        return httpx.Response(200, json=payloads[index])
+    result = invoke(['source', MODEL_ID, '--train-task', '-o', output], handler)
+    assert result.exit_code == 0, result.output
+    assert len(calls) == 3
+    if output == 'json':
+        assert json.loads(result.stdout) == TRAIN_TASK
+    else:
+        for text in ('任务名称：[red]task[/red]', '业务编码：browser', '任务类型：train',
+                     '镜像：image:tag', '资源规格：7C50G1GPU', '历史记录数目：0'):
+            assert text in result.stdout
+        assert '模型版本' not in result.stdout
+
+
+@pytest.mark.parametrize('job_id', [None, '', ' ', 123])
+def test_train_task_missing_job_id_stops_third_request(invoke, job_id):
+    payloads = iter([DETAIL, {'result': {'code': 0, 'jobId': job_id}}])
+    handler = Mock(side_effect=lambda r: httpx.Response(200, json=next(payloads)))
+    result = invoke(['source', MODEL_ID, '--train-task', '-o', 'json'], handler)
+    assert result.exit_code == 1
+    assert 'jobId' in result.stderr
+    assert not result.stdout
+    assert handler.call_count == 2
+
+
+@pytest.mark.parametrize('payload', [
+    {}, {'result': {'jobHistoryDetail': {}}}, {'result': {'code': False}},
+    {'result': {'code': '0'}}, {'result': {'code': 2}},
+    {'result': {'code': 0}}, {'result': {'code': 0, 'jobHistoryDetail': []}},
+])
+def test_train_task_invalid_response_has_no_success_output(invoke, payload):
+    payloads = iter([DETAIL, {'result': {'code': 0, 'jobId': 'job-id'}}, payload])
+    result = invoke(['source', MODEL_ID, '--train-task', '-o', 'json'],
+                    lambda r: httpx.Response(200, json=next(payloads)))
+    assert result.exit_code == 1
+    assert not result.stdout
+
+
+def test_train_task_missing_display_fields(invoke):
+    payloads = iter([DETAIL, {'result': {'code': 0, 'jobId': 'job-id'}},
+                     {'result': {'code': 0, 'jobHistoryDetail': {}}}])
+    result = invoke(['source', MODEL_ID, '--train-task'],
+                    lambda r: httpx.Response(200, json=next(payloads)))
+    assert result.exit_code == 0
+    assert '任务名称：-' in result.stdout
+    assert '历史记录数目：-' in result.stdout

@@ -57,3 +57,14 @@ class ModelService:
             raise ApiError('模型详情缺少有效的 result.sourceId，无法查询模型溯源')
         return self._call('/ai/backend/mtp/offlinemodel/version/queryDetail',
                           {'versionId': source_id}, require_code=True)
+
+    def train_task(self, model_id: str):
+        source = self.source(model_id)
+        job_id = source['result'].get('jobId')
+        if not isinstance(job_id, str) or not job_id.strip():
+            raise ApiError('模型溯源缺少有效的 result.jobId，无法查询训练任务')
+        payload = self._call('/ai/backend/mtp/traintask/queryModelTaskDetail',
+                             {'jobId': job_id}, require_code=True)
+        if not isinstance(payload['result'].get('jobHistoryDetail'), dict):
+            raise ApiError('训练任务响应缺少有效的 result.jobHistoryDetail')
+        return payload

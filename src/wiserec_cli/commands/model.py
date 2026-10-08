@@ -34,6 +34,11 @@ SOURCE_FIELDS = (
     ('描述', 'description'), ('来源', 'source'), ('存储桶', 'bucketName'),
 )
 
+TRAIN_TASK_FIELDS = (
+    ('任务名称', 'taskName'), ('业务编码', 'businessId'), ('任务类型', 'jobType'),
+    ('镜像', 'image'), ('资源规格', 'imageSpecificInfo'), ('历史记录数目', 'maxHistoryNum'),
+)
+
 
 def readable_size(value):
     if type(value) is bool:
@@ -155,21 +160,26 @@ def detail(context: typer.Context,
 @model_app.command('source')
 def source(context: typer.Context,
            model_id: str = typer.Argument(..., help='模型 ID'),
+           train_task: bool = typer.Option(False, '--train-task', help='查询关联训练任务，替代模型溯源输出'),
            output: Optional[str] = typer.Option(None, '--output', '-o', help='table 或 json')):
-    """查询模型溯源信息"""
+    """查询模型溯源或关联训练任务信息"""
     try:
         if not model_id.strip():
             raise ValueError('模型 ID 不能为空')
         runtime = runtime_from_context(context)
         selected = selected_output(runtime, output)
         with redirect_stdout(sys.stderr):
-            payload = runtime.authenticated_call(
-                lambda client: selected_service(runtime, client).source(model_id))
+            def query(client):
+                service = selected_service(runtime, client)
+                return service.train_task(model_id) if train_task else service.source(model_id)
+            payload = runtime.authenticated_call(query)
         if selected == 'json':
             typer.echo(json.dumps(payload, ensure_ascii=False))
             return
-        for title, field in SOURCE_FIELDS:
-            value = payload['result'].get(field)
+        fields = TRAIN_TASK_FIELDS if train_task else SOURCE_FIELDS
+        data = payload['result']['jobHistoryDetail'] if train_task else payload['result']
+        for title, field in fields:
+            value = data.get(field)
             if field == 'sensitive':
                 rendered = '是' if value == 1 else '否'
             elif field == 'status':
