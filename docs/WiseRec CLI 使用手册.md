@@ -565,7 +565,7 @@ ml service deployment list SERVICE_ID [-o table|json]
 
 先登录并选择业务，从 `list` 获取服务 ID。服务列表默认每页 10 条；主机和部署详情显示第一页 10 条，时间按北京时间显示。
 
-推荐使用 `ml service logs SERVICE_ID`。主机以表格展示编号、集群、pod名称、podIP、主机IP、状态、创建时间和更新时间，时间按北京时间显示；每页 10 条，先显示第一页，输入 n/p 按需翻页，输入 q 退出；选中后立即继续，不扫描剩余页。整个服务仅一台主机或仅一个文件时自动选择；类别无默认值，交互选择或通过 `--type` 指定。自动获取集群，Python 主机自动设置对应请求类型。`infer-python` 支持 run、interface、metrics、engine、ascend、mslite、alarm；`rtc` 支持 rtc、run、interface、dcs、metrics、gc、interface_manager、interface_extend、engine、monitor、catalina、dmq。文件列表和正文使用相同类别。
+推荐使用 `ml service logs SERVICE_ID`。主机以表格展示编号、集群、pod名称、podIP、主机IP、状态、创建时间和更新时间，时间按北京时间显示；每页 10 条，先显示第一页，输入 n/p 按需翻页，输入 q 退出；选中后立即继续，不扫描剩余页。整个服务仅一台主机或仅一个文件时自动选择；类别无默认值，交互时以“编号、日志类别”表格展示，在“请选择日志类别”提示后输入编号，也可通过 `--type` 指定。文件选择仅展示一次文件表格，再输入编号，不重复列出文件名称。自动获取集群，Python 主机自动设置对应请求类型。`infer-python` 支持 run、interface、metrics、engine、ascend、mslite、alarm；`rtc` 支持 rtc、run、interface、dcs、metrics、gc、interface_manager、interface_extend、engine、monitor、catalina、dmq。文件列表和正文使用相同类别。
 
 指定 `--pod` 时必须同时提供 `--cluster-name`；仅查询第一页，使用第一条主机的类型，直接查询指定 Pod 和集群，不验证其归属。请确保该服务主机类型一致且 Pod、集群填写正确。
 

@@ -179,3 +179,29 @@ def test_host_table_columns_values_and_beijing_time():
         '1', 'cluster', '[red]pod[/red]', '10.0.0.1', '10.0.0.2', '正常',
         '2026-09-08 14:54:36', '2026-09-08 15:54:36']
     assert [str(c._cells[1]) for c in table.columns] == ['2'] + ['-'] * 7
+
+
+def test_category_and_file_tables_are_not_duplicated(invoke):
+    from wiserec_cli.commands.service_logs import LOG_TYPES
+    from rich.table import Table
+    handler, _ = handler_for(files=[{'fileName': 'other.log'}, {'fileName': 'app.log'}])
+    events = []
+    def printed(value):
+        if isinstance(value, Table):
+            events.append(('table', [column.header for column in value.columns]))
+            if value.columns[1].header == '日志类别':
+                assert [str(v) for v in value.columns[1]._cells] == list(LOG_TYPES['infer-python'])
+        else:
+            assert '1. ' not in str(value) and '2. ' not in str(value)
+    def prompt(label, **kwargs):
+        events.append(('prompt', label))
+        return 2
+    with patch('wiserec_cli.commands.service_logs.can_prompt', return_value=True), \
+         patch('wiserec_cli.commands.service_logs.error_console.print', side_effect=printed), \
+         patch('wiserec_cli.commands.service_logs.click.prompt', side_effect=prompt):
+        result = invoke(['logs', 'service'], handler)
+    assert result.exit_code == 0, result.output
+    assert events == [
+        ('table', ['编号', '日志类别']), ('prompt', '请选择日志类别'),
+        ('table', ['编号', '文件名称', '大小', '修改时间']), ('prompt', '请选择日志文件')]
+    assert result.stdout == '[INFO] line\nsecond'

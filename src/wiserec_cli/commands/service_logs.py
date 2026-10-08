@@ -26,17 +26,23 @@ def can_prompt():
     return sys.stdin.isatty()
 
 
-def choose(items, label, option, interactive, describe):
+def choose(items, label, option, interactive, render_table):
     if not items:
         raise ValueError(f'没有可用的{label}')
     if len(items) == 1:
         return items[0]
     if not interactive:
         raise ValueError(f'{label}无法唯一确定，请指定 {option}；同名候选需在交互终端选择')
-    for index, item in enumerate(items, 1):
-        error_console.print(Text(f'{index}. {describe(item)}'))
+    error_console.print(render_table(items))
     index = click.prompt(f'请选择{label}', type=click.IntRange(1, len(items)), err=True)
     return items[index - 1]
+
+
+def log_type_table(types):
+    table = Table('编号', '日志类别', header_style='bold cyan')
+    for index, log_type in enumerate(types, 1):
+        table.add_row(str(index), Text(log_type))
+    return table
 
 
 def host_table(hosts):
@@ -163,7 +169,7 @@ def service_logs(
             raise ValueError(f'不支持的主机 infraType：{infra}')
         types = LOG_TYPES[infra]
         if log_type is None:
-            log_type = choose(types, '日志类别', '--type TYPE', interactive, str)
+            log_type = choose(types, '日志类别', '--type TYPE', interactive, log_type_table)
         elif log_type not in types:
             raise ValueError(f'该主机不支持日志类别 {log_type}，可选：{", ".join(types)}')
         files = call(lambda service: service.list_pod_log_files(
@@ -178,10 +184,8 @@ def service_logs(
             return
         if file_name is not None:
             files = [item for item in files if item.get('fileName') == file_name]
-        if len(files) > 1 and interactive:
-            error_console.print(file_table(files))
         selected = choose(files, '日志文件', '--file FILE_NAME', interactive,
-                          lambda item: str(item.get('fileName', '-')))
+                          file_table)
         name = selected.get('fileName')
         if not isinstance(name, str) or not name.strip():
             raise ApiError('日志文件缺少有效的 fileName')
