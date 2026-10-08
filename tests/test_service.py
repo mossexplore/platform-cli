@@ -32,6 +32,28 @@ class ServiceCommandTest(unittest.TestCase):
         ):
             return CliRunner(**options).invoke(app, ["service"] + arguments)
 
+    def invoke_legacy_logs(self, arguments, handler):
+        # 单独执行保留的命令组，验证实现而不重新挂载公开入口。
+        from wiserec_cli.commands.service import logs_app
+        options = {"mix_stderr": False} if "mix_stderr" in inspect.signature(CliRunner).parameters else {}
+        with patch("wiserec_cli.runtime.PlatformClient", side_effect=lambda **kwargs:
+                   PlatformClient(**kwargs, transport=httpx.MockTransport(handler))):
+            return CliRunner(**options).invoke(logs_app, arguments, obj=self.fixture.runtime)
+
+    def test_legacy_logs_group_is_not_public(self):
+        from typer.main import get_command
+        root = get_command(app)
+        service = root.commands["service"]
+        self.assertNotIn("logs", service.commands["host"].commands)
+        self.assertIn("logs", service.commands)
+        calls = []
+        for arguments in (["host", "logs", "--help"],
+                          ["host", "logs", "list", "pod"],
+                          ["host", "logs", "search", "pod"]):
+            result = self.invoke(arguments, lambda request: calls.append(request))
+            self.assertEqual(result.exit_code, 2, result.output)
+        self.assertEqual(calls, [])
+
     def test_service_list_uses_selected_business_defaults_and_filters(self):
         item = {"serviceId": "a", "serviceName": "sample", "extra": {"kept": True}}
 
@@ -171,7 +193,7 @@ class ServiceCommandTest(unittest.TestCase):
 
         from wiserec_cli.commands import service
         with patch.object(service.console, "print") as printed:
-            result = self.invoke(["host", "logs", "list", "pod-1",
+            result = self.invoke_legacy_logs([ "list", "pod-1",
                 "--cluster", "cluster-1", "--type", "rtc"], handler)
         self.assertEqual(result.exit_code, 0, result.output)
         self.assertEqual(len(seen), 1)
@@ -203,7 +225,7 @@ class ServiceCommandTest(unittest.TestCase):
             return httpx.Response(200, json={"result": {"code": 0,
                 "data": {"content": content}}})
 
-        result = self.invoke(["host", "logs", "search", "pod-1",
+        result = self.invoke_legacy_logs([ "search", "pod-1",
             "--cluster", "cluster-1", "--type", "interface",
             "--file", "interface.log"], handler)
         self.assertEqual(result.exit_code, 0, result.output)
@@ -219,7 +241,7 @@ class ServiceCommandTest(unittest.TestCase):
             return httpx.Response(200, json={"result": {"code": 0,
                 "data": {"content": "match"}}})
 
-        result = self.invoke(["host", "logs", "search", "pod-1",
+        result = self.invoke_legacy_logs([ "search", "pod-1",
             "--cluster", "cluster-1", "--type", "custom", "--file", "app.log",
             "--keyword", "error", "--keyword", "timeout", "--line", "30",
             "--search-order", "head", "--grep-scope", "A", "--grep-line", "2"], handler)
@@ -231,7 +253,7 @@ class ServiceCommandTest(unittest.TestCase):
                      {"code": 0, "data": {}},
                      {"code": 0, "data": {"content": None}}):
             with self.subTest(body=body):
-                result = self.invoke(["host", "logs", "search", "pod-1",
+                result = self.invoke_legacy_logs([ "search", "pod-1",
                     "--cluster", "cluster-1", "--type", "interface",
                     "--file", "app.log"], lambda _request: httpx.Response(
                         200, json={"result": body}))
@@ -243,7 +265,7 @@ class ServiceCommandTest(unittest.TestCase):
         data["profiles"]["dev"]["selected"]["businessId"] = "stale"
         self.fixture.business_path.write_text(json.dumps(data))
         requests = []
-        result = self.invoke(["host", "logs", "list", "pod-1",
+        result = self.invoke_legacy_logs([ "list", "pod-1",
             "--cluster", "cluster-1", "--type", "rtc"],
             lambda request: requests.append(request))
         self.assertNotEqual(result.exit_code, 0)

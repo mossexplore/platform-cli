@@ -1,6 +1,6 @@
 # `ml` 命令索引
 
-本索引按当前项目命令树整理，用于定位命令；已安装版本的 `ml <子命令> --help` 是参数依据。`--config PATH` 是**全局**选项，应放在子命令前。`TASK_ID`、`JOB_ID`、`PROJECT_ID`、`NAMESPACE_ID`、`EXPERIMENT_ID`、`ALGORITHM_ID`、`SERVICE_ID`、`POD_NAME`、`DATASET_ID`、`SET_ID`、`ENV_ID` 等占位符表示不同对象，不能互换。只在命令明确支持时加 `-o json`。
+本索引按当前项目命令树整理，用于定位命令；已安装版本的 `ml <子命令> --help` 是参数依据。`--config PATH` 是**全局**选项，应放在子命令前。`TASK_ID`、`JOB_ID`、`PROJECT_ID`、`NAMESPACE_ID`、`EXPERIMENT_ID`、`ALGORITHM_ID`、`MODEL_ID`、`SERVICE_ID`、`POD_NAME`、`DATASET_ID`、`SET_ID`、`ENV_ID` 等占位符表示不同对象，不能互换。只在命令明确支持时加 `-o json`。
 
 ## 环境、认证、业务、权限
 
@@ -70,17 +70,40 @@
 
 下载前确认本地目录；不要把签名下载链接复制到回答或共享日志。克隆结果不明时先查询目标名称与版本，再决定是否重试。
 
+## 模型详情与溯源
+
+| 命令 | 用途与关键选项 |
+| --- | --- |
+| `ml model list -o json` | 当前业务云侧模型；可用 `--page`、`--page-size`、`--name`、`--type`、`--owner`、`--team-id` |
+| `ml model detail MODEL_ID -o json` | 模型详情；人工展示的模型大小读取 `pkgSize`，按 1024 换算单位 |
+| `ml model source MODEL_ID -o json` | 查询模型来源；内部从详情取得 `sourceId`，JSON 为来源接口完整响应 |
+| `ml model source MODEL_ID --train-task -o json` | 从来源取得 `jobId` 再查询关联训练任务；JSON 仅为训练任务接口完整响应 |
+
+三个命令均支持 `--output table|json` / `-o`，默认沿用环境配置。模型列表项位于 `result.models`。模型详情和来源字段位于 `result`；训练任务字段位于 `result.jobHistoryDetail`，其中 `jobId` 为执行标识，`taskId` 为任务标识。人工展示依次包括 jobId、任务Id、任务名称、业务编码、任务类型、镜像、资源规格、历史记录数目。
+
+溯源的模型版本读取 `modelVersion`，不是详情中的 `modelTag`。敏感值 1 显示“是”，其他值“否”；状态值 1 显示“已发布”，其他值“未发布”；时间换算为北京时间。普通字段缺失显示 `-`，0 保留。详情、溯源和关联训练任务均要求 `result.code` 为整数 0；必要的 sourceId/jobId 缺失或响应结构无效时停止，不猜测关联关系。
+
 ## 服务与主机日志
 
 | 命令 | 用途与关键选项 |
 | --- | --- |
 | `ml service list -o json` | 分页查询服务；可用 `--page`、`--page-size`、`--name`/`--service-name`、`--model-name`、`--model-version` |
-| `ml service host list SERVICE_ID -o json` | 查询主机视图；固定第 1 页 10 条，取得 Pod 名称与集群名称 |
-| `ml service deployment list SERVICE_ID -o json` | 查询部署视图；固定第 1 页 10 条，首列为 `blockId` |
-| `ml service host logs list POD_NAME --cluster CLUSTER_NAME --type TYPE` | 列日志文件；固定表格，文件大小、修改时间、文件名按返回值原样显示 |
-| `ml service host logs search POD_NAME --cluster CLUSTER_NAME --type TYPE --file FILE_NAME` | 检索指定文件；正文按原始多行文本输出，不支持 `-o json` |
+| `ml service logs SERVICE_ID` | 推荐入口；实时遍历主机页，自动取得集群，选择主机、类别和文件后读取正文 |
+| `ml service logs SERVICE_ID --pod POD_NAME --type TYPE --list --no-input` | 只列日志文件，固定表格；不能与 --file、关键词、行数或正文检索选项混用 |
+| `ml service logs SERVICE_ID --pod POD_NAME --type TYPE --file FILE_NAME -k TEXT -n 200 --no-input` | 非交互检索；--keyword/-k 可重复，--lines/-n 默认 200，正文为原始文本 |
+| `ml service host list SERVICE_ID -o json` | 主机视图固定第 1 页 10 条；nodeName 是 Pod 名称，不能当作完整主机集合 |
+| `ml service deployment list SERVICE_ID -o json` | 部署视图固定第 1 页 10 条，首列为 blockId |
 
-日志检索可重复传 `--keyword TEXT`；另有 `--line`（默认 200）、`--search-order`（默认 `tail`）、`--grep-scope`（默认 `C`）、`--grep-line`（默认 0）。文件列表与内容检索各自要求 `--type`，例如列表使用 `rtc`、检索 `interface.log` 使用 `interface`；不要自动沿用上一步的类型。需要保存检索正文时可将 stdout 重定向到本地文件，错误信息仍按退出码和 stderr 判断。
+新入口不接受 `--cluster` 或 `-o json`。主机和文件只有一个候选时自动选择；多项时仅在交互终端提示。agent 使用 `--no-input`，无法唯一确定时补充参数；同名 Pod 跨集群不能随意选取，需让用户在交互终端选择。日志类别无默认值，自动化必须明确传入 `--type`。未指定 Pod 时也可在唯一主机情况下自动选择，文件同理。
+
+| 主机 infraType | 可用 --type 值 |
+| --- | --- |
+| `infer-python` | run、interface、metrics、engine、ascend、mslite、alarm |
+| `rtc` | rtc、run、interface、dcs、metrics、gc、interface_manager、interface_extend、engine、monitor、catalina、dmq |
+
+文件列表和正文都使用同一个 `data.serviceLogSearch.type`。CLI 对 `infer-python` 自动设置外层 `data.type=rtc_python`；`rtc` 不携带外层类型。不要把 `rtc_python` 当作主机 infraType 或传给 `--type`。未知主机类型报错，不绕过识别。
+
+高级选项为 `--search-order`（默认 tail）、`--grep-scope`（默认 C）、`--grep-line`（默认 0）。行数选项是 `--lines/-n`。日志不持续刷新；正文 stdout 可重定向到文件，选择提示和上下文在 stderr。空文件列表会提示暂无日志文件且不检索正文；指定的主机或文件不存在会失败。交互取消退出 130。注意日志内容可能包含敏感信息。
 
 ## 数据集
 

@@ -1,6 +1,6 @@
 # WiseRec Platform skill
 
-此目录是可独立分发的 Agent Skill。复制整个 `wiserec-platform` 目录，保留 `SKILL.md` 与 `references/` 的相对位置。它覆盖当前项目的环境、业务、看板、离线实验、训练任务、算法仓、服务、数据集、特征集、Web Studio 和 Jupyter 命令。需要安装可用的 WiseRec `ml` CLI；具体命令以安装版本的 `--help` 为准。Jupyter 操作禁止使用交互式 TTY/PTY，文件操作用 files，程序执行用非交互式 exec；不得调用 terminal open/attach。普通进程工具即可捕获结果。文件读写和程序执行指南见 [Jupyter 文件与非交互执行](references/jupyter.md)。
+此目录是可独立分发的 Agent Skill。复制整个 `wiserec-platform` 目录，保留 `SKILL.md` 与 `references/` 的相对位置。它覆盖当前项目的环境、业务、看板、离线实验、模型详情与溯源、关联训练任务、训练任务、算法仓、服务日志、数据集、特征集、Web Studio 和 Jupyter 命令。需要安装可用的 WiseRec `ml` CLI；具体命令以安装版本的 `--help` 为准。Jupyter 操作禁止使用交互式 TTY/PTY，文件操作用 files，程序执行用非交互式 exec；不得调用 terminal open/attach。普通进程工具即可捕获结果。文件读写和程序执行指南见 [Jupyter 文件与非交互执行](references/jupyter.md)。
 
 ## Windows OpenCode 安装
 
@@ -31,12 +31,26 @@ ml tree
 ml env show
 ml auth status
 ml business show
-ml service host logs --help
+ml service logs --help
+ml model source --help
 ml jupyter files --help
 ml jupyter exec --help
 ```
 
-安装 `ml` 后若当前终端仍找不到命令，重新打开终端再检查。真正使用业务命令前按 `SKILL.md` 核对业务选择。若 `ml service host logs --help` 不存在，说明安装的 CLI 版本尚未包含该命令；其他命令同样以安装版本的帮助为准。若 files/exec 帮助不存在，先更新实际调用的 CLI；只复制 skill 不会安装或更新 CLI。`ml login` 需要 Edge 和图形界面，不能在无人值守的无头环境完成交互登录。
+安装 `ml` 后若当前终端仍找不到命令，重新打开终端再检查。真正使用业务命令前按 `SKILL.md` 核对业务选择。若 `ml service logs --help` 不存在，说明安装的 CLI 版本尚未包含该命令；其他命令同样以安装版本的帮助为准。若 files/exec 帮助不存在，先更新实际调用的 CLI；只复制 skill 不会安装或更新 CLI。`ml login` 需要 Edge 和图形界面，不能在无人值守的无头环境完成交互登录。
+
+## 模型与服务日志入口
+
+```powershell
+ml model list -o json
+ml model detail MODEL_ID -o json
+ml model source MODEL_ID -o json
+ml model source MODEL_ID --train-task -o json
+ml service logs SERVICE_ID --pod POD_NAME --type interface --list --no-input
+ml service logs SERVICE_ID --pod POD_NAME --type interface --file FILE_NAME -k error -n 200 --no-input
+```
+
+占位符替换为真实目标。模型 source 默认返回溯源，`--train-task` 仅返回训练任务信息；两个 JSON 不混合。服务日志不支持 `-o json`，`--list` 显示文件表格，读取正文可重定向 stdout。用户在交互终端可直接运行 `ml service logs SERVICE_ID` 按编号选择；agent 普通进程使用 `--no-input`，遇到多个候选项需补充参数或询问用户。日志类别和类型约定见 [命令索引](references/commands.md)。
 
 ## Jupyter 使用入口
 

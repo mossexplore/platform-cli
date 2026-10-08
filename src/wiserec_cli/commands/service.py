@@ -24,7 +24,7 @@ deployment_app = typer.Typer(no_args_is_help=True, help="服务部署视图查�
 logs_app = typer.Typer(no_args_is_help=True, help="主机日志文件列表与检索")
 service_app.add_typer(host_app, name="host")
 service_app.add_typer(deployment_app, name="deployment")
-host_app.add_typer(logs_app, name="logs")
+# 保留旧日志命令实现，但不挂载到公开 CLI；日志入口统一为 service logs
 
 BEIJING = timezone(timedelta(hours=8), name="Asia/Shanghai")
 LIST_COLUMNS = (
