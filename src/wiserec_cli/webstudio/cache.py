@@ -13,7 +13,7 @@ from ..errors import ConfigError
 
 
 def cache_ttl(settings):
-    value = settings.get('connection_cache_ttl_seconds', 300)
+    value = settings.get('connection_cache_ttl_seconds', 3600)
     if type(value) is not int or not 0 <= value <= 3600:
         raise ConfigError('jupyter.connection_cache_ttl_seconds 必须为 0–3600 的整数，0 禁用缓存')
     return value

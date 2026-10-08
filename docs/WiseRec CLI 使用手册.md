@@ -706,7 +706,7 @@ ml webstudio stop ENV_ID
 
 在 Jupyter 命令中使用 `--studio-id ENV_ID` 可临时操作其他实例，并复用该实例的有效连接缓存。连接按配置、环境、账号、业务和实例隔离；平台登录凭据变化后自动重新获取连接。
 
-当前环境的 `jupyter.connection_cache_ttl_seconds` 默认 `300` 秒，可设为 `0` 禁用，最大 `3600` 秒。缓存保存临时 Token 和会话 Cookie，请勿分享用户配置目录中的 `webstudio-connections` 文件。到期后自动重新连接，`ml logout` 清除当前环境缓存，`ml logout --all` 清除全部缓存。每条命令仍按配置执行在线权限检查。
+当前环境的 `jupyter.connection_cache_ttl_seconds` 默认 `3600` 秒（1 小时），可设为 `0` 禁用，最大 `3600` 秒。缓存保存临时 Token 和会话 Cookie，请勿分享用户配置目录中的 `webstudio-connections` 文件。到期后自动重新连接，`ml logout` 清除当前环境缓存，`ml logout --all` 清除全部缓存。每条命令仍按配置执行在线权限检查。
 
 只读请求明确返回 HTTP 401 时最多刷新重试一次；HTTP 403 不自动重试。写操作、已提交的执行以及结果不明确的请求不自动重放。实例重启或连接失效后，可运行 `ml webstudio login ENV_ID --refresh`。
 
