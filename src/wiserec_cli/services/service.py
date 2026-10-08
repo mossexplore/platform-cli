@@ -74,7 +74,7 @@ class ServiceCatalog:
             "items": self._items(result, "services", "查询服务列表"),
         }
 
-    def list_hosts(self, service_id: str) -> Dict[str, Any]:
+    def list_hosts(self, service_id: str, page: int = 1) -> Dict[str, Any]:
         business_id = self._business_id()
         payload = self.client.request(
             "POST", "/ai/backend/mep/services/rtcContainer/queryServiceHostList",
@@ -82,14 +82,14 @@ class ServiceCatalog:
                 "businessId": business_id, "serviceId": service_id,
                 "status": "", "hostIp": "", "clusterName": "",
                 "preheatStatus": "ALL", "quotaType": None,
-                "pageIndex": 1, "pageSize": 10,
+                "pageIndex": page, "pageSize": 10,
             },
             headers={"businessid": business_id},
         )
         result = self._result(payload, "查询服务主机视图")
         return {
             "total": self._count(result, "查询服务主机视图", required=True),
-            "pageIndex": 1, "pageSize": 10,
+            "pageIndex": page, "pageSize": 10,
             "items": self._items(result, "data", "查询服务主机视图"),
         }
 
@@ -113,42 +113,64 @@ class ServiceCatalog:
             page["total"] = count
         return page
 
+    def _pod_host(self, service_id: str, pod_name: str) -> Dict[str, Any]:
+        page = 1
+        matches = []
+        while True:
+            hosts = self.list_hosts(service_id, page)
+            matches.extend(host for host in hosts["items"] if host.get("nodeName") == pod_name)
+            if not hosts["items"] or page * hosts["pageSize"] >= hosts["total"]:
+                break
+            page += 1
+        if not matches:
+            raise BusinessError("指定服务中未找到匹配 Pod 的主机")
+        if len(matches) != 1:
+            raise BusinessError("指定服务中存在多个同名 Pod，无法确定日志主机")
+        cluster = matches[0].get("clusterName")
+        if not isinstance(cluster, str) or not cluster.strip():
+            raise ApiError("查询服务主机视图失败：匹配主机缺少有效的 clusterName")
+        return matches[0]
+
     def _pod_log_request(
-        self, path: str, pod_name: str, cluster_name: str,
+        self, path: str, pod_name: str, service_id: str,
         search: Dict[str, Any], action: str,
     ) -> Dict[str, Any]:
         business_id = self._business_id()
+        host = self._pod_host(service_id, pod_name)
+        data = {
+            "podStatus": 0, "businessId": business_id,
+            "podName": host["nodeName"], "clusterName": host["clusterName"],
+            "serviceLogSearch": search, "belongingService": "",
+        }
+        if host.get("infraType") == "infer-python":
+            data["type"] = "rtc_python"
         payload = self.client.request(
             "POST", path,
             json_body={
                 "version": "1.0", "meta": {"uuid": str(uuid4())},
-                "data": {
-                    "podStatus": 0, "businessId": business_id,
-                    "podName": pod_name, "clusterName": cluster_name,
-                    "serviceLogSearch": search, "belongingService": "",
-                },
+                "data": data,
             },
             headers={"businessid": business_id},
         )
         return self._result(payload, action)
 
     def list_pod_log_files(
-        self, pod_name: str, cluster_name: str, log_type: str,
+        self, pod_name: str, service_id: str, log_type: str,
     ) -> list[dict[str, Any]]:
         result = self._pod_log_request(
             "/ai/backend/mep/services/rtcContainer/queryPodAdvanceLogFileList",
-            pod_name, cluster_name, {"type": log_type}, "查询日志文件列表",
+            pod_name, service_id, {"type": log_type}, "查询日志文件列表",
         )
         return self._items(result, "podLogFiles", "查询日志文件列表")
 
     def search_pod_log(
-        self, pod_name: str, cluster_name: str, log_type: str,
+        self, pod_name: str, service_id: str, log_type: str,
         file_name: str, keywords: list[str], line: int,
         search_order: str, grep_scope: str, grep_line: int,
     ) -> str:
         result = self._pod_log_request(
             "/ai/backend/mep/services/rtcContainer/queryPodAdvanceLog",
-            pod_name, cluster_name,
+            pod_name, service_id,
             {
                 "type": log_type, "keywords": keywords, "line": line,
                 "searchOrder": search_order, "logFileName": file_name,
