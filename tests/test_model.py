@@ -30,8 +30,8 @@ LIST = {'version': '1.0', 'meta': {'uuid': 'trace'},
         'result': {'count': 1, 'models': [MODEL], 'code': 0, 'des': 'success', 'extra': True}}
 DETAIL = {'version': '1.0', 'meta': {'uuid': 'trace'}, 'result': {
     'modelId': MODEL_ID, 'sourceId': 'f16dd744-5f37-4323-9719-91b08461e2ec',
-    'businessId': 'pps', 'algorithm': 'BROWSER-NLP', 'modelTag': 0,
-    'modelSize': 3271903223, 'storeType': 'OBS', 'sfsId': 'sfs-mep-browser-az3',
+    'code': 0, 'businessId': 'pps', 'algorithm': 'BROWSER-NLP', 'modelTag': 0,
+    'pkgSize': 3271903223, 'storeType': 'OBS', 'sfsId': 'sfs-mep-browser-az3',
     'pkgLocation': 'mep-modelpkgs-cn', 'source': 'wiseEye', 'sourceEnv': 'product',
     'contentMode': 'full', 'unlisted': {'keep': ['all', 'fields']}}}
 DEFAULT_BODY = {'pageIndex': 1, 'pageSize': 10, 'sfsId': '', 'modelStatus': None,
@@ -95,7 +95,7 @@ def test_active_environment_business_and_endpoint_are_used(rt, invoke):
     assert invoke(['list', '-o', 'json'], handler).exit_code == 0
 
 
-def test_detail_body_without_business_id_and_result_without_code(invoke):
+def test_detail_body_without_business_id_and_success_code(invoke):
     def handler(request):
         assert request.url.path == '/ai/backend/mep/models/queryDetail'
         assert request.headers['businessid'] == 'pps'
@@ -105,12 +105,13 @@ def test_detail_body_without_business_id_and_result_without_code(invoke):
     assert result.exit_code == 0, result.output
     payload = json.loads(result.stdout)
     assert payload == DETAIL
-    assert type(payload['result']['modelSize']) is int
+    assert type(payload['result']['pkgSize']) is int
 
 
 def test_detail_labels_size_zero_and_safe_text(invoke):
     payload = deepcopy(DETAIL)
     payload['result']['algorithm'] = '[red]BROWSER-NLP[/red]'
+    payload['result']['modelSize'] = 1  # 旧字段不能覆盖 pkgSize 的展示值
     result = invoke(['detail', MODEL_ID], lambda request: httpx.Response(200, json=payload))
     assert result.exit_code == 0, result.output
     for value in ('算法类型：[red]BROWSER-NLP[/red]', '版本标签：0', '模型大小：3.05 GB',
@@ -128,7 +129,7 @@ def test_detail_labels_size_zero_and_safe_text(invoke):
     (None, '-'), ('', '-'), ('unknown', 'unknown'), (-1, '-1'),
 ])
 def test_readable_model_size(value, expected):
-    assert display_value('modelSize', value) == expected
+    assert display_value('pkgSize', value) == expected
 
 
 @pytest.mark.parametrize('value,expected', [
@@ -248,3 +249,88 @@ def test_authentication_refresh_keeps_json_clean(rt, invoke):
     assert json.loads(result.stdout) == LIST
     assert len(calls) == 2
     assert rt.auth.ensure_credentials.call_args.kwargs['force_refresh'] is True
+
+
+SOURCE = {'version': '1.0', 'meta': {'uuid': 'trace'}, 'result': {
+    'code': 0, 'modelName': '[red]output[/red]', 'modelVersion': 'original',
+    'modelTag': 'wrong', 'sensitive': 1, 'businessId': 'browser', 'status': 1,
+    'createTime': '2026-09-20T06:30:14.000Z', 'description': 'description',
+    'source': 'wisemlops', 'bucketName': 'bucket', 'extra': {'kept': True}}}
+
+
+@pytest.mark.parametrize('output', ['table', 'json'])
+def test_source_request_chain_and_output(rt, invoke, output):
+    rt.config._data['profiles'].append({'name': 'dev', 'api_endpoint': 'https://dev.example/dashboard'})
+    rt.config._data['current'] = 'dev'
+    rt.auth.ensure_credentials.return_value = Credentials.create('dev', 'cookie', 'csrf', 'current-user', 3600)
+    rt.business.refresh('dev', 'current-user',
+        [Department('d', 'D', (Tenant('dev-business', 'Dev', (), ()),))], browser_business_id='dev-business')
+    calls = []
+    def handler(request):
+        calls.append(request.url.path)
+        assert request.method == 'POST'
+        assert request.url.host == 'dev.example'
+        assert request.headers['businessid'] == 'dev-business'
+        if len(calls) == 1:
+            assert request.url.path == '/ai/backend/mep/models/queryDetail'
+            assert json.loads(request.content) == {'modelId': MODEL_ID}
+            return httpx.Response(200, json=DETAIL)
+        assert request.url.path == '/ai/backend/mtp/offlinemodel/version/queryDetail'
+        assert json.loads(request.content) == {'versionId': DETAIL['result']['sourceId']}
+        return httpx.Response(200, json=SOURCE)
+    result = invoke(['source', MODEL_ID, '-o', output], handler)
+    assert result.exit_code == 0, result.output
+    assert len(calls) == 2
+    if output == 'json':
+        assert json.loads(result.stdout) == SOURCE
+    else:
+        for text in ('输出名称：[red]output[/red]', '模型版本：original', '敏感：是',
+                     '业务编码：browser', '状态：已发布', '创建时间：2026-09-20 14:30:14',
+                     '描述：description', '来源：wisemlops', '存储桶：bucket'):
+            assert text in result.stdout
+        assert 'wrong' not in result.stdout
+
+
+@pytest.mark.parametrize('code', [None, False, '0', 1])
+@pytest.mark.parametrize('stage', ['detail', 'source'])
+def test_source_rejects_invalid_success_code(invoke, code, stage):
+    calls = []
+    def handler(request):
+        calls.append(request)
+        payload = deepcopy(DETAIL if len(calls) == 1 else SOURCE)
+        if stage == 'detail' or len(calls) == 2:
+            if code is None:
+                payload['result'].pop('code')
+            else:
+                payload['result']['code'] = code
+        return httpx.Response(200, json=payload)
+    result = invoke(['source', MODEL_ID, '-o', 'json'], handler)
+    assert result.exit_code == 1
+    assert not result.stdout
+    assert len(calls) == (1 if stage == 'detail' else 2)
+
+
+@pytest.mark.parametrize('source_id', [None, '', ' ', 123])
+def test_source_requires_valid_source_id(invoke, source_id):
+    payload = deepcopy(DETAIL)
+    payload['result']['sourceId'] = source_id
+    handler = Mock(return_value=httpx.Response(200, json=payload))
+    result = invoke(['source', MODEL_ID], handler)
+    assert result.exit_code == 1
+    assert 'sourceId' in result.stderr
+    assert handler.call_count == 1
+
+
+def test_source_missing_display_fields_and_negative_flags(invoke):
+    payloads = iter([DETAIL, {'result': {'code': 0, 'sensitive': 2, 'status': 0}}])
+    result = invoke(['source', MODEL_ID], lambda r: httpx.Response(200, json=next(payloads)))
+    assert result.exit_code == 0
+    for text in ('输出名称：-', '模型版本：-', '敏感：否', '状态：未发布'):
+        assert text in result.stdout
+
+
+def test_detail_requires_code(invoke):
+    payload = deepcopy(DETAIL)
+    del payload['result']['code']
+    result = invoke(['detail', MODEL_ID], lambda r: httpx.Response(200, json=payload))
+    assert result.exit_code == 1

@@ -73,7 +73,8 @@ ml                                              WiseRec 命令行工具
 │   └── clone                                   克隆任务
 ├── model                                       模型信息查询
 │   ├── list                                    查询当前业务的模型列表
-│   └── detail                                  查询模型详情
+│   ├── detail                                  查询模型详情
+│   └── source                                  查询模型溯源信息
 ├── algorithm                                   算法仓
 │   ├── list                                    查看算法仓列表
 │   ├── download                                下载算法仓文件
@@ -839,6 +840,7 @@ ml jupyter exec --cwd projects/demo --output json -- sh -c 'pwd && ls -la'
 ```text
 ml model list [--page PAGE] [--page-size SIZE] [--name NAME] [--type TYPE] [--owner OWNER] [--team-id TEAM_ID] [--output table|json]
 ml model detail MODEL_ID [--output table|json]
+ml model source MODEL_ID [--output table|json]
 ```
 
 ### 21.2 参数与选项
@@ -851,8 +853,8 @@ ml model detail MODEL_ID [--output table|json]
 | `list` | `--type TYPE` | 模型类型条件，未指定时不限制 |
 | `list` | `--owner OWNER` | 归属者条件，未指定时不限制 |
 | `list` | `--team-id TEAM_ID` | 团队条件，默认空字符串 |
-| `detail` | `MODEL_ID` | 必填模型 ID，可从模型列表复制 |
-| 两个命令 | `--output table\|json` / `-o` | 默认沿用当前环境输出配置，table 为面向人工的展示，json 为完整接口响应 |
+| `detail`、`source` | `MODEL_ID` | 必填模型 ID，可从模型列表复制 |
+| 三个命令 | `--output table\|json` / `-o` | 默认沿用当前环境输出配置，table 为面向人工的展示，json 为完整接口响应 |
 
 ### 21.3 说明
 
@@ -860,7 +862,9 @@ ml model detail MODEL_ID [--output table|json]
 
 列表展示模型 ID、名称、模型版本、业务编码、类型、创建时间、更新时间、归属者和团队，并显示分页信息。首列 ID 完整展示；长字段换行，缺失或空值显示 `-`，空列表显示“暂无模型”。带时区的时间转换为北京时间；不含时区的已格式化时间保持原值。
 
-详情按“字段：值”展示算法类型、标签、大小、存储、来源等信息。模型大小按 1024 进制转换为 B、KB、MB、GB 等单位；KB 及以上保留两位小数，0 显示 `0 B`。JSON 输出保留接口中的原始字节数、时间及扩展字段，便于程序处理。
+详情按“字段：值”展示算法类型、标签、大小、存储、来源等信息。模型大小取自模型包大小（`pkgSize`），按 1024 进制转换为 B、KB、MB、GB 等单位；KB 及以上保留两位小数，0 显示 `0 B`。JSON 输出保留接口中的原始字节数、时间及扩展字段，便于程序处理。
+
+溯源先读取模型详情中的来源标识，再查询来源模型信息，展示输出名称、模型版本、敏感、业务编码、状态、创建时间、描述、来源和存储桶。敏感值为 1 显示“是”，否则“否”；状态值为 1 显示“已发布”，否则“未发布”。创建时间按北京时间展示。详情与溯源响应须明确返回成功状态，来源标识缺失时停止溯源；溯源 JSON 输出保留来源接口的完整原始响应。
 
 ### 21.4 示例
 
@@ -872,4 +876,6 @@ ml model list --owner OWNER --team-id TEAM_ID
 ml model list -o json
 ml model detail MODEL_ID
 ml model detail MODEL_ID -o json
+ml model source MODEL_ID
+ml model source MODEL_ID -o json
 ```

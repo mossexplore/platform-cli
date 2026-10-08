@@ -23,9 +23,15 @@ LIST_COLUMNS = (
     ('更新时间', 'updateTime'), ('归属者', 'owner'), ('团队', 'teamId'),
 )
 DETAIL_FIELDS = (
-    ('算法类型', 'algorithm'), ('版本标签', 'modelTag'), ('模型大小', 'modelSize'),
+    ('算法类型', 'algorithm'), ('版本标签', 'modelTag'), ('模型大小', 'pkgSize'),
     ('存储方式', 'storeType'), ('SFS标识', 'sfsId'), ('数据源', 'source'),
     ('数据源标签', 'sourceId'), ('更新方式', 'contentMode'), ('模型来源环境', 'sourceEnv'),
+)
+
+SOURCE_FIELDS = (
+    ('输出名称', 'modelName'), ('模型版本', 'modelVersion'), ('敏感', 'sensitive'),
+    ('业务编码', 'businessId'), ('状态', 'status'), ('创建时间', 'createTime'),
+    ('描述', 'description'), ('来源', 'source'), ('存储桶', 'bucketName'),
 )
 
 
@@ -49,7 +55,7 @@ def readable_size(value):
 def display_value(field, value):
     if value is None or value == '':
         return '-'
-    if field == 'modelSize':
+    if field == 'pkgSize':
         return readable_size(value)
     if field in {'createTime', 'updateTime'}:
         try:
@@ -142,5 +148,34 @@ def detail(context: typer.Context,
         with redirect_stdout(sys.stderr):
             payload = runtime.authenticated_call(lambda client: selected_service(runtime, client).detail(model_id))
         render_detail(payload, selected)
+    except Exception as exc:
+        fail(exc)
+
+
+@model_app.command('source')
+def source(context: typer.Context,
+           model_id: str = typer.Argument(..., help='模型 ID'),
+           output: Optional[str] = typer.Option(None, '--output', '-o', help='table 或 json')):
+    """查询模型溯源信息"""
+    try:
+        if not model_id.strip():
+            raise ValueError('模型 ID 不能为空')
+        runtime = runtime_from_context(context)
+        selected = selected_output(runtime, output)
+        with redirect_stdout(sys.stderr):
+            payload = runtime.authenticated_call(
+                lambda client: selected_service(runtime, client).source(model_id))
+        if selected == 'json':
+            typer.echo(json.dumps(payload, ensure_ascii=False))
+            return
+        for title, field in SOURCE_FIELDS:
+            value = payload['result'].get(field)
+            if field == 'sensitive':
+                rendered = '是' if value == 1 else '否'
+            elif field == 'status':
+                rendered = '已发布' if value == 1 else '未发布'
+            else:
+                rendered = display_value(field, value)
+            console.print(Text(f'{title}：{rendered}'))
     except Exception as exc:
         fail(exc)
