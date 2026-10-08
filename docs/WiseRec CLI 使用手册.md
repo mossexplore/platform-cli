@@ -71,6 +71,9 @@ ml                                              WiseRec 命令行工具
 │   ├── cancel                                  取消执行
 │   ├── delete                                  删除任务
 │   └── clone                                   克隆任务
+├── model                                       模型信息查询
+│   ├── list                                    查询当前业务的模型列表
+│   └── detail                                  查询模型详情
 ├── algorithm                                   算法仓
 │   ├── list                                    查看算法仓列表
 │   ├── download                                下载算法仓文件
@@ -826,4 +829,47 @@ JSON 的 `result` 包含执行 ID、状态、原始退出码和输出。断线�
 ml jupyter exec --cwd projects/demo --output json -- python main.py
 ml jupyter exec --cwd projects/demo --timeout 120 --output json -- python -m pytest -q
 ml jupyter exec --cwd projects/demo --output json -- sh -c 'pwd && ls -la'
+```
+
+
+## 21. 模型查询
+
+### 21.1 命令格式
+
+```text
+ml model list [--page PAGE] [--page-size SIZE] [--name NAME] [--type TYPE] [--owner OWNER] [--team-id TEAM_ID] [--output table|json]
+ml model detail MODEL_ID [--output table|json]
+```
+
+### 21.2 参数与选项
+
+| 命令 | 参数或选项 | 用途 |
+| --- | --- | --- |
+| `list` | `--page PAGE` | 页码，默认 1，最小 1 |
+| `list` | `--page-size SIZE` | 每页条数，默认 10，最小 1 |
+| `list` | `--name NAME` | 模型名称条件，默认空字符串 |
+| `list` | `--type TYPE` | 模型类型条件，未指定时不限制 |
+| `list` | `--owner OWNER` | 归属者条件，未指定时不限制 |
+| `list` | `--team-id TEAM_ID` | 团队条件，默认空字符串 |
+| `detail` | `MODEL_ID` | 必填模型 ID，可从模型列表复制 |
+| 两个命令 | `--output table\|json` / `-o` | 默认沿用当前环境输出配置，table 为面向人工的展示，json 为完整接口响应 |
+
+### 21.3 说明
+
+先选择环境、登录并选择业务。查询使用当前环境的业务编码；四个列表条件可以组合使用，匹配规则由平台决定。每次查询指定的一页，不自动获取全部模型；列表固定查询云侧模型，其他查询条件暂不开放修改。
+
+列表展示模型 ID、名称、模型版本、业务编码、类型、创建时间、更新时间、归属者和团队，并显示分页信息。首列 ID 完整展示；长字段换行，缺失或空值显示 `-`，空列表显示“暂无模型”。带时区的时间转换为北京时间；不含时区的已格式化时间保持原值。
+
+详情按“字段：值”展示算法类型、标签、大小、存储、来源等信息。模型大小按 1024 进制转换为 B、KB、MB、GB 等单位；KB 及以上保留两位小数，0 显示 `0 B`。JSON 输出保留接口中的原始字节数、时间及扩展字段，便于程序处理。
+
+### 21.4 示例
+
+```bash
+ml model list
+ml model list --page 2 --page-size 20
+ml model list --name MODEL_NAME --type MODEL_TYPE
+ml model list --owner OWNER --team-id TEAM_ID
+ml model list -o json
+ml model detail MODEL_ID
+ml model detail MODEL_ID -o json
 ```
