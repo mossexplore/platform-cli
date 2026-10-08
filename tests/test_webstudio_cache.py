@@ -334,3 +334,49 @@ def test_login_validates_fresh_credentials_once(rt, requests, tmp_path):
         resolve(rt, ENV_ID, login=True, store=SelectionStore(tmp_path / 'selection.json'))
     assert probe.call_args.args[0].refresh is None
     assert connection.refresh is not None
+
+
+@pytest.mark.parametrize('command', [['files', 'stat', 'example', '-o', 'json'], ['doctor']])
+def test_jupyter_target_name_and_id_on_fresh_and_cached_connections(rt, requests, gateway, command):
+    import inspect
+    from typer.testing import CliRunner
+    from wiserec_cli.cli import app
+    from test_webstudio import studio
+    _, transport = gateway
+    expected = f'目标Web Studio名称：test0123，envId：{ENV_ID}'
+    options = {'mix_stderr': False} if 'mix_stderr' in inspect.signature(CliRunner).parameters else {}
+    with patch('test_webstudio.studio', return_value={**studio(), 'labelName': 'test0123'}), \
+         patch('wiserec_cli.commands.jupyter.runtime_from_context', return_value=rt), \
+         patch('wiserec_cli.commands.jupyter.JupyterClient',
+               side_effect=lambda connection: JupyterClient(connection, transport=transport)):
+        for _ in range(2):
+            result = CliRunner(**options).invoke(app, ['--config', str(rt.config.path), 'jupyter',
+                                              *command, '--studio-id', ENV_ID])
+            assert result.exit_code == 0, result.output
+            assert expected in result.stderr
+            assert TOKEN not in result.output
+            if command[0] == 'files':
+                assert json.loads(result.stdout)['studio_id'] == ENV_ID
+                assert expected not in result.stdout
+    assert len(requests) == 2  # 显示名称不会给缓存命中的命令增加平台请求
+
+
+def test_legacy_cache_fetches_name_once_and_preserves_session(rt, requests, gateway):
+    from test_webstudio import studio
+    seen, transport = gateway
+    fetch(rt, transport)
+    connection = resolve(rt, ENV_ID)
+    cache, key = connection.session.cache, connection.session.key
+    with cache.locked():
+        data = cache.read()
+        data[key].pop('studio_name')
+        cache.write(data)
+    old = cache.read()[key]
+    restored = resolve(rt, ENV_ID)
+    assert restored.studio_name == studio()['labelName']
+    updated = cache.read()[key]
+    for field in ('token', 'generation', 'cookies', 'expires_at', 'session_ready'):
+        assert updated[field] == old[field]
+    fetch(rt, transport)
+    assert len(requests) == 3  # 只补一次实例名称查询，不重新获取 accessUrl
+    assert sum(r.url.path.endswith('/lab') for r in seen) == 1

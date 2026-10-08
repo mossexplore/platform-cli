@@ -16,6 +16,15 @@ from .session import CachedSession
 from .urls import parse_access_url, server_url_for_instance, validate_server_urls
 
 
+def online_instance(service, target):
+    item = service.get(target)
+    if 'status' not in item:
+        raise JupyterError('Web Studio 响应缺少 status，无法确认实例是否可连接')
+    if item.get('status') != 'online':
+        raise JupyterError('Web Studio 当前不是 online 状态；请在管理台确认或启动实例')
+    return item
+
+
 @contextmanager
 def platform(runtime, *, timeout_ms=None, identity=None):
     # 平台认证输出不污染 --output json 的 stdout。
@@ -79,18 +88,23 @@ def resolve(runtime, studio_id=None, *, login=False, store=None, report=None, re
                 else:
                     entry = None
             if entry is None:
-                item = service.get(target)
-                if 'status' not in item:
-                    raise JupyterError('Web Studio 响应缺少 status，无法确认实例是否可连接')
-                if item.get('status') != 'online':
-                    raise JupyterError('Web Studio 当前不是 online 状态；请在管理台确认或启动实例')
+                item = online_instance(service, target)
+                studio_name = str(item.get('labelName') or '')
                 notify(f'实例查询：通过；Web Studio {target}')
                 server_url = server_url_for_instance(settings, item)
                 url, token = parse_access_url(server_url, service.access(target))
                 notify('访问地址获取：通过')
                 if ttl:
-                    entry = cache.put(cache_key, url, token, ttl)
+                    entry = cache.put(cache_key, url, token, ttl, studio_name=studio_name)
             else:
+                if not isinstance(entry.get('studio_name'), str):
+                    # 旧缓存只补查名称，保留已有凭据、会话和有效截止时间。
+                    item = online_instance(service, target)
+                    entry['studio_name'] = str(item.get('labelName') or '')
+                    data = cache.read()
+                    data[cache_key] = entry
+                    cache.write(data)
+                studio_name = entry['studio_name']
                 notify('连接缓存：命中')
             if ttl:
                 session = CachedSession(cache, cache_key, entry)
@@ -101,7 +115,7 @@ def resolve(runtime, studio_id=None, *, login=False, store=None, report=None, re
             path = runtime.config.path.parent / path
         verify = ssl.create_default_context(cafile=str(path))
     connection = Connection(url, token, business_id, settings.get('kernel', 'python3'), verify,
-                            runtime.config.timeout_ms / 1000, studio_id=target, session=session,
+                            runtime.config.timeout_ms / 1000, studio_id=target, studio_name=studio_name, session=session,
                             refresh=None if login else lambda: resolve(runtime, target, store=store,
                                 stale_generation=session.entry['generation'] if session else None))
     if login:

@@ -704,6 +704,8 @@ ml webstudio stop ENV_ID
 
 先登录平台并选择业务，再使用 `list` 找到实例。`login` 选择默认实例并建立 Jupyter 连接；`show` 查看当前默认实例。`start` 和 `stop` 改变远程实例状态，并清除当前环境的连接缓存，不会改变默认选择。启动超时或中断时，先用 `list --env-id ENV_ID` 核对状态，再决定是否重试。
 
+执行 Jupyter 命令时，标准错误输出显示目标提示：`目标Web Studio名称：STUDIO_NAME，envId：ENV_ID`，方便核对实例；`--output json` 的标准输出仍为 JSON 结果。
+
 在 Jupyter 命令中使用 `--studio-id ENV_ID` 可临时操作其他实例，并复用该实例的有效连接缓存。连接按配置、环境、账号、业务和实例隔离；平台登录凭据变化后自动重新获取连接。
 
 当前环境的 `jupyter.connection_cache_ttl_seconds` 默认 `3600` 秒（1 小时），可设为 `0` 禁用，最大 `3600` 秒。缓存保存临时 Token 和会话 Cookie，请勿分享用户配置目录中的 `webstudio-connections` 文件。到期后自动重新连接，`ml logout` 清除当前环境缓存，`ml logout --all` 清除全部缓存。每条命令仍按配置执行在线权限检查。

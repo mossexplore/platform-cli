@@ -40,7 +40,8 @@ def client_for(context, studio_id=None, report=None):
     report = report or (lambda value: typer.echo(value, err=True))
     connection = from_runtime(runtime_from_context(context), studio_id, report=report)
     if connection.studio_id:
-        typer.echo(f"目标 Web Studio：{connection.studio_id}", err=True)
+        name = ' '.join(_CONTROL.sub('', connection.studio_name).splitlines()) or '未提供名称'
+        typer.echo(f"目标Web Studio名称：{name}，envId：{connection.studio_id}", err=True)
     return JupyterClient(connection)
 
 

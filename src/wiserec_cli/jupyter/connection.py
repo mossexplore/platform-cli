@@ -33,6 +33,7 @@ class Connection:
     studio_id: str = ""
     session: Any = field(default=None, repr=False, compare=False)
     refresh: Any = field(default=None, repr=False, compare=False)
+    studio_name: str = ""
 
 
 def from_runtime(runtime, studio_id=None, report=None) -> Connection:

@@ -87,11 +87,11 @@ class ConnectionCache:
         finally:
             Path(temporary).unlink(missing_ok=True)
 
-    def put(self, key, url, token, ttl):
+    def put(self, key, url, token, ttl, studio_name=''):
         """调用者持有锁，时间从发现成功开始计算，不滑动续期。"""
         data = self.read()
         entry = dict(url=url, token=token, expires_at=time.time() + ttl,
-                     generation=str(uuid4()), cookies=[], session_ready=False)
+                     generation=str(uuid4()), cookies=[], session_ready=False, studio_name=studio_name)
         data[key] = entry
         self.write(data)
         return entry
