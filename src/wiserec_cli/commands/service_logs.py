@@ -39,8 +39,23 @@ def choose(items, label, option, interactive, describe):
     return items[index - 1]
 
 
-def select_host(query, interactive):
+def host_table(hosts):
     from .service import display_value
+    columns = (
+        ('集群', 'clusterName'), ('pod名称', 'nodeName'), ('podIP', 'nodeHost'),
+        ('主机IP', 'hostIp'), ('状态', 'health_status'),
+        ('创建时间', 'create_time'), ('更新时间', 'update_time'),
+    )
+    table = Table(show_header=True, header_style='bold cyan')
+    table.add_column('编号', justify='right', no_wrap=True)
+    for title, _ in columns:
+        table.add_column(title, min_width=1, overflow='fold')
+    for index, host in enumerate(hosts, 1):
+        table.add_row(str(index), *(Text(display_value(field, host)) for _, field in columns))
+    return table
+
+
+def select_host(query, interactive):
     page = 1
     cache = {}
     while True:
@@ -55,10 +70,7 @@ def select_host(query, interactive):
         if not interactive:
             raise ValueError('主机无法唯一确定，请同时指定 --pod 和 --cluster-name')
         error_console.print(f"主机列表 · 第 {page} 页 · 共 {result['total']} 条")
-        for index, host in enumerate(items, 1):
-            error_console.print(Text(f"{index}. {host.get('nodeName', '-')} · "
-                                     f"{host.get('clusterName', '-')} · "
-                                     f"{display_value('health_status', host)}"))
+        error_console.print(host_table(items))
         answer = str(click.prompt('输入编号选择，n 下一页，p 上一页，q 退出', err=True)).strip().lower()
         if answer == 'q':
             raise click.Abort()

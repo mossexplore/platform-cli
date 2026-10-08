@@ -165,3 +165,17 @@ def test_paging_quit(invoke):
         result = invoke(['logs', 'service'], handler)
     assert result.exit_code == 130
     assert len(calls) == 1
+
+
+def test_host_table_columns_values_and_beijing_time():
+    from wiserec_cli.commands.service_logs import host_table
+    table = host_table([{'clusterName': 'cluster', 'nodeName': '[red]pod[/red]',
+                        'nodeHost': '10.0.0.1', 'hostIp': '10.0.0.2', 'health_status': 0,
+                        'create_time': '2026-09-08T06:54:36.000+00:00',
+                        'update_time': '2026-09-08T07:54:36.000Z'}, {}])
+    assert [c.header for c in table.columns] == [
+        '编号', '集群', 'pod名称', 'podIP', '主机IP', '状态', '创建时间', '更新时间']
+    assert [str(c._cells[0]) for c in table.columns] == [
+        '1', 'cluster', '[red]pod[/red]', '10.0.0.1', '10.0.0.2', '正常',
+        '2026-09-08 14:54:36', '2026-09-08 15:54:36']
+    assert [str(c._cells[1]) for c in table.columns] == ['2'] + ['-'] * 7
