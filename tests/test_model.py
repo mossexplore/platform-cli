@@ -338,7 +338,7 @@ def test_detail_requires_code(invoke):
 
 TRAIN_TASK = {'version': '1.0', 'meta': {'uuid': 'task-trace'}, 'result': {
     'code': 0, 'des': 'success', 'extra': True, 'jobHistoryDetail': {
-        'taskName': '[red]task[/red]', 'businessId': 'browser', 'jobType': 'train',
+        'jobId': 'job-id', 'taskId': 'task-id', 'taskName': '[red]task[/red]', 'businessId': 'browser', 'jobType': 'train',
         'image': 'image:tag', 'imageSpecificInfo': '7C50G1GPU', 'maxHistoryNum': 0,
         'extra': {'retained': True}}}}
 
@@ -366,9 +366,10 @@ def test_train_task_chain_and_independent_output(invoke, output):
     if output == 'json':
         assert json.loads(result.stdout) == TRAIN_TASK
     else:
-        for text in ('任务名称：[red]task[/red]', '业务编码：browser', '任务类型：train',
+        for text in ('jobId：job-id', '任务Id：task-id', '任务名称：[red]task[/red]', '业务编码：browser', '任务类型：train',
                      '镜像：image:tag', '资源规格：7C50G1GPU', '历史记录数目：0'):
             assert text in result.stdout
+        assert result.stdout.index('jobId：') < result.stdout.index('任务Id：') < result.stdout.index('任务名称：')
         assert '模型版本' not in result.stdout
 
 

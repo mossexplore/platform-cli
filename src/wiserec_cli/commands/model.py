@@ -35,6 +35,7 @@ SOURCE_FIELDS = (
 )
 
 TRAIN_TASK_FIELDS = (
+    ('jobId', 'jobId'), ('任务Id', 'taskId'),
     ('任务名称', 'taskName'), ('业务编码', 'businessId'), ('任务类型', 'jobType'),
     ('镜像', 'image'), ('资源规格', 'imageSpecificInfo'), ('历史记录数目', 'maxHistoryNum'),
 )
