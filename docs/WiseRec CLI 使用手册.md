@@ -548,7 +548,7 @@ ml algorithm clone SOURCE_ID --name mnist_copy --version VERSION
 
 ```text
 ml service list [OPTIONS]
-ml service logs SERVICE_ID [--pod POD_NAME] [--type TYPE] [--file FILE_NAME] [-k TEXT] [-n N] [--list] [--no-input]
+ml service logs SERVICE_ID [--pod POD_NAME --cluster-name CLUSTER_NAME] [--type TYPE] [--file FILE_NAME] [-k TEXT] [-n N] [--list] [--no-input]
 ml service host list SERVICE_ID [-o table|json]
 ml service deployment list SERVICE_ID [-o table|json]
 ```
@@ -558,14 +558,16 @@ ml service deployment list SERVICE_ID [-o table|json]
 | 命令 | 主要参数与选项 |
 | --- | --- |
 | `list` | `--page`、`--page-size`；可用 `--name` / `--service-name`、`--model-name`、`--model-version` 筛选；可选 `--output` / `-o` |
-| `logs` | 必填 `SERVICE_ID`；可选 `--pod`、`--type`、`--file`；`--keyword` / `-k` 可重复，`--lines` / `-n` 默认 200；`--list` 只列文件，`--no-input` 禁止交互；高级选项 `--search-order` 默认 tail、`--grep-scope` 默认 C、`--grep-line` 默认 0 |
+| `logs` | 必填 `SERVICE_ID`；可选成对的 `--pod` 与 `--cluster-name`，以及 `--type`、`--file`；`--keyword` / `-k` 可重复，`--lines` / `-n` 默认 200；`--list` 只列文件，`--no-input` 禁止交互；高级选项 `--search-order` 默认 tail、`--grep-scope` 默认 C、`--grep-line` 默认 0 |
 | `host list`、`deployment list` | 必填 `SERVICE_ID`；可选 `--output` / `-o` |
 
 ### 14.3 说明
 
 先登录并选择业务，从 `list` 获取服务 ID。服务列表默认每页 10 条；主机和部署详情显示第一页 10 条，时间按北京时间显示。
 
-推荐使用 `ml service logs SERVICE_ID`。每次查询全部主机页，唯一主机和文件自动选择，多个候选项在终端按编号选择；类别无默认值，交互选择或通过 `--type` 指定。自动获取集群，Python 主机自动设置对应请求类型。`infer-python` 支持 run、interface、metrics、engine、ascend、mslite、alarm；`rtc` 支持 rtc、run、interface、dcs、metrics、gc、interface_manager、interface_extend、engine、monitor、catalina、dmq。文件列表和正文使用相同类别。
+推荐使用 `ml service logs SERVICE_ID`。主机每页 10 条，先显示第一页，输入 n/p 按需翻页，输入 q 退出；选中后立即继续，不扫描剩余页。整个服务仅一台主机或仅一个文件时自动选择；类别无默认值，交互选择或通过 `--type` 指定。自动获取集群，Python 主机自动设置对应请求类型。`infer-python` 支持 run、interface、metrics、engine、ascend、mslite、alarm；`rtc` 支持 rtc、run、interface、dcs、metrics、gc、interface_manager、interface_extend、engine、monitor、catalina、dmq。文件列表和正文使用相同类别。
+
+指定 `--pod` 时必须同时提供 `--cluster-name`；仅查询第一页，使用第一条主机的类型，直接查询指定 Pod 和集群，不验证其归属。请确保该服务主机类型一致且 Pod、集群填写正确。
 
 非交互环境或指定 `--no-input` 时，选择不唯一会报错并提示补充参数；不默认选择第一台主机。未知主机类型、无匹配主机或文件会报错，文件列表为空时提示暂无日志文件。`--list` 不可与 `--file`、关键词、行数及正文检索选项混用。默认读取末尾 200 行，不持续刷新；日志正文写入标准输出，选择提示和上下文写入标准错误，可将正文重定向保存。
 
@@ -578,7 +580,7 @@ ml service list --page 2 --page-size 20 -o json
 ml service logs SERVICE_ID
 ml service logs SERVICE_ID -k error -n 500
 ml service logs SERVICE_ID --list
-ml service logs SERVICE_ID --pod POD_NAME --type interface --file FILE_NAME --no-input
+ml service logs SERVICE_ID --pod POD_NAME --cluster-name CLUSTER_NAME --type interface --file FILE_NAME --no-input
 ml service host list SERVICE_ID
 ml service deployment list SERVICE_ID -o json
 ```

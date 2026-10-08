@@ -39,17 +39,43 @@ def choose(items, label, option, interactive, describe):
     return items[index - 1]
 
 
-def all_hosts(query):
+def select_host(query, interactive):
+    from .service import display_value
     page = 1
-    items = []
+    cache = {}
     while True:
-        result = query(page)
-        if not result['items'] and len(items) < result['total']:
-            raise ApiError('主机分页提前返回空页，请重试')
-        items.extend(result['items'])
-        if page * result['pageSize'] >= result['total']:
-            return items
-        page += 1
+        if page not in cache:
+            cache[page] = query(page)
+        result = cache[page]
+        items = result['items']
+        if not items:
+            raise ApiError('主机列表为空，请核对服务或重试')
+        if result['total'] == 1 and len(items) == 1:
+            return items[0]
+        if not interactive:
+            raise ValueError('主机无法唯一确定，请同时指定 --pod 和 --cluster-name')
+        error_console.print(f"主机列表 · 第 {page} 页 · 共 {result['total']} 条")
+        for index, host in enumerate(items, 1):
+            error_console.print(Text(f"{index}. {host.get('nodeName', '-')} · "
+                                     f"{host.get('clusterName', '-')} · "
+                                     f"{display_value('health_status', host)}"))
+        answer = str(click.prompt('输入编号选择，n 下一页，p 上一页，q 退出', err=True)).strip().lower()
+        if answer == 'q':
+            raise click.Abort()
+        if answer == 'n':
+            if page * result['pageSize'] < result['total']:
+                page += 1
+            else:
+                error_console.print('已经是最后一页')
+        elif answer == 'p':
+            if page > 1:
+                page -= 1
+            else:
+                error_console.print('已经是第一页')
+        elif answer.isdecimal() and 1 <= int(answer) <= len(items):
+            return items[int(answer) - 1]
+        else:
+            error_console.print('请输入当前页有效编号或 n、p、q')
 
 
 def file_table(files):
@@ -68,6 +94,7 @@ def service_logs(
     context: typer.Context,
     service_id: str = typer.Argument(..., help='服务 ID'),
     pod: Optional[str] = typer.Option(None, '--pod', help='Pod 名称'),
+    cluster_name: Optional[str] = typer.Option(None, '--cluster-name', help='集群名称，必须与 --pod 同时提供'),
     log_type: Optional[str] = typer.Option(None, '--type', help='日志类别'),
     file_name: Optional[str] = typer.Option(None, '--file', help='日志文件名称'),
     keywords: Optional[list[str]] = typer.Option(None, '--keyword', '-k', help='关键词，可重复'),
@@ -79,10 +106,12 @@ def service_logs(
     grep_line: int = typer.Option(0, '--grep-line', min=0, help='关键词上下文行数'),
 ):
     """选择服务主机和文件并查看日志"""
-    from .service import _required_text, _selected_business, display_value
+    from .service import _required_text, _selected_business
     try:
         service_id = _required_text(service_id, '服务 ID')
-        for value, label in ((pod, 'Pod'), (log_type, '日志类别'), (file_name, '文件名称')):
+        if (pod is None) != (cluster_name is None):
+            raise ValueError('--pod 与 --cluster-name 必须同时提供')
+        for value, label in ((cluster_name, '集群名称'), (pod, 'Pod'), (log_type, '日志类别'), (file_name, '文件名称')):
             if value is not None:
                 _required_text(value, label)
         search_order = _required_text(search_order, '检索顺序')
@@ -103,12 +132,17 @@ def service_logs(
             with redirect_stdout(sys.stderr):
                 return runtime.authenticated_call(query)
 
-        hosts = all_hosts(lambda page: call(lambda service: service.list_hosts(service_id, page)))
+        def query_hosts(page):
+            return call(lambda service: service.list_hosts(service_id, page))
+
         if pod is not None:
-            hosts = [host for host in hosts if host.get('nodeName') == pod]
-        host = choose(hosts, '主机', '--pod POD_NAME', interactive,
-                      lambda h: f"{h.get('nodeName', '-')} · {h.get('clusterName', '-')} · "
-                                f"{display_value('health_status', h)}")
+            first_page = query_hosts(1)
+            if not first_page['items']:
+                raise ApiError('主机列表为空，无法获取 infraType')
+            host = {'nodeName': pod.strip(), 'clusterName': cluster_name.strip(),
+                    'infraType': first_page['items'][0].get('infraType')}
+        else:
+            host = select_host(query_hosts, interactive)
         for key in ('nodeName', 'clusterName'):
             if not isinstance(host.get(key), str) or not host[key].strip():
                 raise ApiError(f'主机缺少有效的 {key}')

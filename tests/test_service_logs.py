@@ -55,15 +55,15 @@ def test_auto_single_and_exact_body(invoke, infra):
 
 
 def test_pagination_and_explicit_selection(invoke):
-    hosts = [{'nodeName': str(i), 'clusterName': 'other', 'infraType': 'rtc'} for i in range(10)]
+    hosts = [{'nodeName': str(i), 'clusterName': 'other', 'infraType': 'infer-python'} for i in range(10)]
     hosts.append({'nodeName': 'pod', 'clusterName': 'cluster', 'infraType': 'infer-python'})
     handler, calls = handler_for(hosts=hosts)
-    result = invoke(['logs', 'service', '--pod', 'pod', '--type', 'interface', '--file', 'app.log'], handler)
+    result = invoke(['logs', 'service', '--pod', 'pod', '--cluster-name', 'cluster', '--type', 'interface', '--file', 'app.log'], handler)
     assert result.exit_code == 0, result.output
-    assert [body['pageIndex'] for path, body in calls if path.endswith('queryServiceHostList')] == [1, 2]
+    assert [body['pageIndex'] for path, body in calls if path.endswith('queryServiceHostList')] == [1]
 
 
-@pytest.mark.parametrize('extra', [[], ['--type', 'bad'], ['--pod', 'missing', '--type', 'interface']])
+@pytest.mark.parametrize('extra', [[], ['--type', 'bad']])
 def test_unresolved_or_invalid_selection_stops(invoke, extra):
     handler, calls = handler_for()
     result = invoke(['logs', 'service', '--no-input'] + extra, handler)
@@ -122,3 +122,46 @@ def test_empty_files(invoke):
     assert result.exit_code == 0
     assert len(calls) == 2
     assert result.stdout == ''
+
+
+@pytest.mark.parametrize('extra', [['--pod', 'pod'], ['--cluster-name', 'cluster']])
+def test_pod_cluster_pair_required(invoke, extra):
+    handler, calls = handler_for()
+    result = invoke(['logs', 'service'] + extra, handler)
+    assert result.exit_code != 0
+    assert calls == []
+
+
+@pytest.mark.parametrize('answers,expected_pages', [(['1'], [1]), (['n', 'p', 'n', '1'], [1, 2])])
+def test_lazy_pages_and_previous_page_cache(invoke, answers, expected_pages):
+    hosts = [{'nodeName': 'pod', 'clusterName': 'cluster', 'infraType': 'infer-python'} for _ in range(11)]
+    handler, calls = handler_for(hosts=hosts)
+    with patch('wiserec_cli.commands.service_logs.can_prompt', return_value=True), \
+         patch('wiserec_cli.commands.service_logs.click.prompt', side_effect=answers):
+        result = invoke(['logs', 'service', '--type', 'interface'], handler)
+    assert result.exit_code == 0, result.stderr
+    assert [b['pageIndex'] for p, b in calls if p.endswith('queryServiceHostList')] == expected_pages
+
+
+def test_multiple_hosts_no_input_stops_at_first_page(invoke):
+    handler, calls = handler_for(hosts=[{'nodeName': 'other'}] * 20)
+    result = invoke(['logs', 'service', '--no-input'], handler)
+    assert result.exit_code != 0
+    assert len(calls) == 1
+    assert '--cluster-name' in result.stderr
+
+
+def test_explicit_pod_uses_first_host_type_without_matching(invoke):
+    handler, calls = handler_for(hosts=[{'nodeName': 'unrelated', 'infraType': 'infer-python'}] * 20)
+    result = invoke(['logs', 'service', '--pod', 'pod', '--cluster-name', 'cluster', '--type', 'interface'], handler)
+    assert result.exit_code == 0, result.stderr
+    assert len(calls) == 3
+
+
+def test_paging_quit(invoke):
+    handler, calls = handler_for(hosts=[{'nodeName': 'pod'}] * 20)
+    with patch('wiserec_cli.commands.service_logs.can_prompt', return_value=True), \
+         patch('wiserec_cli.commands.service_logs.click.prompt', return_value='q'):
+        result = invoke(['logs', 'service'], handler)
+    assert result.exit_code == 130
+    assert len(calls) == 1

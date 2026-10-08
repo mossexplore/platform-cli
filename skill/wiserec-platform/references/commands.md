@@ -88,13 +88,13 @@
 | 命令 | 用途与关键选项 |
 | --- | --- |
 | `ml service list -o json` | 分页查询服务；可用 `--page`、`--page-size`、`--name`/`--service-name`、`--model-name`、`--model-version` |
-| `ml service logs SERVICE_ID` | 推荐入口；实时遍历主机页，自动取得集群，选择主机、类别和文件后读取正文 |
-| `ml service logs SERVICE_ID --pod POD_NAME --type TYPE --list --no-input` | 只列日志文件，固定表格；不能与 --file、关键词、行数或正文检索选项混用 |
-| `ml service logs SERVICE_ID --pod POD_NAME --type TYPE --file FILE_NAME -k TEXT -n 200 --no-input` | 非交互检索；--keyword/-k 可重复，--lines/-n 默认 200，正文为原始文本 |
+| `ml service logs SERVICE_ID` | 推荐入口；按需分页选择主机，自动取得集群，选择类别和文件后读取正文 |
+| `ml service logs SERVICE_ID --pod POD_NAME --cluster-name CLUSTER_NAME --type TYPE --list --no-input` | 只列日志文件，固定表格；不能与 --file、关键词、行数或正文检索选项混用 |
+| `ml service logs SERVICE_ID --pod POD_NAME --cluster-name CLUSTER_NAME --type TYPE --file FILE_NAME -k TEXT -n 200 --no-input` | 非交互检索；--keyword/-k 可重复，--lines/-n 默认 200，正文为原始文本 |
 | `ml service host list SERVICE_ID -o json` | 主机视图固定第 1 页 10 条；nodeName 是 Pod 名称，不能当作完整主机集合 |
 | `ml service deployment list SERVICE_ID -o json` | 部署视图固定第 1 页 10 条，首列为 blockId |
 
-新入口不接受 `--cluster` 或 `-o json`。主机和文件只有一个候选时自动选择；多项时仅在交互终端提示。agent 使用 `--no-input`，无法唯一确定时补充参数；同名 Pod 跨集群不能随意选取，需让用户在交互终端选择。日志类别无默认值，自动化必须明确传入 `--type`。未指定 Pod 时也可在唯一主机情况下自动选择，文件同理。
+不接受 `--cluster` 或 `-o json`；指定 Pod 时使用 `--cluster-name`。主机和文件只有一个候选时自动选择；多项时仅在交互终端提示。agent 使用 `--no-input`，无法唯一确定时补充参数；指定 Pod 时必须同时提供其集群名。日志类别无默认值，自动化必须明确传入 `--type`。未指定 Pod 时也可在唯一主机情况下自动选择，文件同理。
 
 | 主机 infraType | 可用 --type 值 |
 | --- | --- |
@@ -104,6 +104,8 @@
 文件列表和正文都使用同一个 `data.serviceLogSearch.type`。CLI 对 `infer-python` 自动设置外层 `data.type=rtc_python`；`rtc` 不携带外层类型。不要把 `rtc_python` 当作主机 infraType 或传给 `--type`。未知主机类型报错，不绕过识别。
 
 高级选项为 `--search-order`（默认 tail）、`--grep-scope`（默认 C）、`--grep-line`（默认 0）。行数选项是 `--lines/-n`。日志不持续刷新；正文 stdout 可重定向到文件，选择提示和上下文在 stderr。空文件列表会提示暂无日志文件且不检索正文；指定的主机或文件不存在会失败。交互取消退出 130。注意日志内容可能包含敏感信息。
+
+主机交互浏览每页 10 条，n/p 翻页，q 取消；返回已浏览页使用本次缓存。`--pod` 和 `--cluster-name` 必须成对提供，此模式只读取主机第一页第一条的 infraType，直接使用指定 Pod 和集群，不验证归属；使用前确认服务主机类型一致。非交互且多主机时第一页后立即报错，不扫描全量。
 
 ## 数据集
 

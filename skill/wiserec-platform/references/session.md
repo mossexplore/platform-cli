@@ -42,7 +42,7 @@ ml business show
 
 - 训练任务的 `start`、`cancel`、`delete`、`clone` 和算法仓 `clone` 会改变平台状态。取消操作逐个处理执行实例，出现部分失败时以逐条反馈和退出码为准；结果不明时先重新查询任务、实例或目标资源。
 - 训练配置导出、训练日志下载和算法仓下载会写入本地文件。确认返回路径与大小；下载链接可能含临时签名，不传播到共享记录。
-- 服务列表先取得 `SERVICE_ID`，日志优先用 `ml service logs SERVICE_ID --no-input` 并补充 `--type`、必要的 `--pod` 和 `--file`。文件列表固定表格，正文为原始文本；不要加 `-o json`。无默认日志类别，多个候选项不能任取第一项；`infer-python` 到 `rtc_python` 的映射由 CLI 处理，详见 [命令索引](commands.md)。
+- 服务列表先取得 `SERVICE_ID`，日志优先用 `ml service logs SERVICE_ID --no-input` 并补充 `--type`、必要的 `--pod` 与 `--cluster-name`，以及 `--file`。文件列表固定表格，正文为原始文本；不要加 `-o json`。无默认日志类别，多个候选项不能任取第一项；`infer-python` 到 `rtc_python` 的映射由 CLI 处理，详见 [命令索引](commands.md)。
 - 模型详情、溯源和关联训练任务各自输出独立结果；查询训练任务用 `ml model source MODEL_ID --train-task -o json`，在 `result.jobHistoryDetail` 中取 jobId/taskId，不从来源字段猜测。
 - Web Studio 的 `start`、`stop` 改变远端状态，不改变默认实例；操作后用 `ml webstudio list --env-id ENV_ID` 核对。`stop` 可能中断该实例的运行任务或交互终端。
 

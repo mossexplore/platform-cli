@@ -46,8 +46,8 @@ ml model list -o json
 ml model detail MODEL_ID -o json
 ml model source MODEL_ID -o json
 ml model source MODEL_ID --train-task -o json
-ml service logs SERVICE_ID --pod POD_NAME --type interface --list --no-input
-ml service logs SERVICE_ID --pod POD_NAME --type interface --file FILE_NAME -k error -n 200 --no-input
+ml service logs SERVICE_ID --pod POD_NAME --cluster-name CLUSTER_NAME --type interface --list --no-input
+ml service logs SERVICE_ID --pod POD_NAME --cluster-name CLUSTER_NAME --type interface --file FILE_NAME -k error -n 200 --no-input
 ```
 
 占位符替换为真实目标。模型 source 默认返回溯源，`--train-task` 仅返回训练任务信息；两个 JSON 不混合。服务日志不支持 `-o json`，`--list` 显示文件表格，读取正文可重定向 stdout。用户在交互终端可直接运行 `ml service logs SERVICE_ID` 按编号选择；agent 普通进程使用 `--no-input`，遇到多个候选项需补充参数或询问用户。日志类别和类型约定见 [命令索引](references/commands.md)。
