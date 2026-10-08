@@ -332,3 +332,9 @@ def search_logs(
         typer.echo(content)
     except Exception as exc:
         fail(exc)
+
+
+# 独立模块负责引导流程，旧命令继续使用相同的接口服务。
+from .service_logs import service_logs
+
+service_app.command("logs")(service_logs)

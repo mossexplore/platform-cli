@@ -74,7 +74,7 @@ class ServiceCatalog:
             "items": self._items(result, "services", "查询服务列表"),
         }
 
-    def list_hosts(self, service_id: str) -> Dict[str, Any]:
+    def list_hosts(self, service_id: str, page: int = 1) -> Dict[str, Any]:
         business_id = self._business_id()
         payload = self.client.request(
             "POST", "/ai/backend/mep/services/rtcContainer/queryServiceHostList",
@@ -82,14 +82,14 @@ class ServiceCatalog:
                 "businessId": business_id, "serviceId": service_id,
                 "status": "", "hostIp": "", "clusterName": "",
                 "preheatStatus": "ALL", "quotaType": None,
-                "pageIndex": 1, "pageSize": 10,
+                "pageIndex": page, "pageSize": 10,
             },
             headers={"businessid": business_id},
         )
         result = self._result(payload, "查询服务主机视图")
         return {
             "total": self._count(result, "查询服务主机视图", required=True),
-            "pageIndex": 1, "pageSize": 10,
+            "pageIndex": page, "pageSize": 10,
             "items": self._items(result, "data", "查询服务主机视图"),
         }
 
@@ -115,7 +115,7 @@ class ServiceCatalog:
 
     def _pod_log_request(
         self, path: str, pod_name: str, cluster_name: str,
-        search: Dict[str, Any], action: str,
+        search: Dict[str, Any], action: str, infra_type: Optional[str] = None,
     ) -> Dict[str, Any]:
         business_id = self._business_id()
         payload = self.client.request(
@@ -126,6 +126,7 @@ class ServiceCatalog:
                     "podStatus": 0, "businessId": business_id,
                     "podName": pod_name, "clusterName": cluster_name,
                     "serviceLogSearch": search, "belongingService": "",
+                    **({"type": "rtc_python"} if infra_type == "rtc_python" else {}),
                 },
             },
             headers={"businessid": business_id},
@@ -134,10 +135,11 @@ class ServiceCatalog:
 
     def list_pod_log_files(
         self, pod_name: str, cluster_name: str, log_type: str,
+        infra_type: Optional[str] = None,
     ) -> list[dict[str, Any]]:
         result = self._pod_log_request(
             "/ai/backend/mep/services/rtcContainer/queryPodAdvanceLogFileList",
-            pod_name, cluster_name, {"type": log_type}, "查询日志文件列表",
+            pod_name, cluster_name, {"type": log_type}, "查询日志文件列表", infra_type,
         )
         return self._items(result, "podLogFiles", "查询日志文件列表")
 
@@ -145,6 +147,7 @@ class ServiceCatalog:
         self, pod_name: str, cluster_name: str, log_type: str,
         file_name: str, keywords: list[str], line: int,
         search_order: str, grep_scope: str, grep_line: int,
+        infra_type: Optional[str] = None,
     ) -> str:
         result = self._pod_log_request(
             "/ai/backend/mep/services/rtcContainer/queryPodAdvanceLog",
@@ -154,7 +157,7 @@ class ServiceCatalog:
                 "searchOrder": search_order, "logFileName": file_name,
                 "grepScope": grep_scope, "grepLine": grep_line,
             },
-            "检索日志",
+            "检索日志", infra_type,
         )
         data = result.get("data")
         if not isinstance(data, dict) or not isinstance(data.get("content"), str):

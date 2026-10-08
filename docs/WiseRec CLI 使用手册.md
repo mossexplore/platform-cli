@@ -81,6 +81,7 @@ ml                                              WiseRec 命令行工具
 │   └── clone                                   克隆算法仓
 ├── service                                     服务管理
 │   ├── list                                    查看服务列表
+│   ├── logs                                    选择服务主机和文件并查看日志
 │   ├── host                                    服务主机视图
 │   │   ├── list                                查看指定服务的主机列表
 │   │   └── logs                                主机日志
@@ -550,6 +551,7 @@ ml algorithm clone SOURCE_ID --name mnist_copy --version VERSION
 
 ```text
 ml service list [OPTIONS]
+ml service logs SERVICE_ID [--pod POD_NAME] [--type TYPE] [--file FILE_NAME] [-k TEXT] [-n N] [--list] [--no-input]
 ml service host list SERVICE_ID [-o table|json]
 ml service host logs list POD_NAME --cluster CLUSTER_NAME --type TYPE
 ml service host logs search POD_NAME --cluster CLUSTER_NAME --type TYPE --file FILE_NAME [OPTIONS]
@@ -561,6 +563,7 @@ ml service deployment list SERVICE_ID [-o table|json]
 | 命令 | 主要参数与选项 |
 | --- | --- |
 | `list` | `--page`、`--page-size`；可用 `--name` / `--service-name`、`--model-name`、`--model-version` 筛选；可选 `--output` / `-o` |
+| `logs` | 必填 `SERVICE_ID`；可选 `--pod`、`--type`、`--file`；`--keyword` / `-k` 可重复，`--lines` / `-n` 默认 200；`--list` 只列文件，`--no-input` 禁止交互；高级选项 `--search-order` 默认 tail、`--grep-scope` 默认 C、`--grep-line` 默认 0 |
 | `host list`、`deployment list` | 必填 `SERVICE_ID`；可选 `--output` / `-o` |
 | `host logs list` | 必填 `POD_NAME`、`--cluster CLUSTER_NAME`、`--type TYPE` |
 | `host logs search` | 必填 `POD_NAME`、`--cluster CLUSTER_NAME`、`--type TYPE`、`--file FILE_NAME`；可重复传入 `--keyword TEXT`，可选 `--line`、`--search-order`、`--grep-scope`、`--grep-line` |
@@ -569,13 +572,21 @@ ml service deployment list SERVICE_ID [-o table|json]
 
 先登录并选择业务，从 `list` 获取服务 ID。服务列表默认每页 10 条；主机和部署详情显示第一页 10 条，时间按北京时间显示。
 
-查看日志时，从主机列表获取 Pod 和集群，再用 `logs list` 找到文件，用 `logs search` 读取正文。文件列表与检索分别指定日志类型，例如 `rtc` 和 `interface`。检索默认读取末尾 200 行，可重复传入 `--keyword`。
+推荐使用 `ml service logs SERVICE_ID`。每次查询全部主机页，唯一主机和文件自动选择，多个候选项在终端按编号选择；类别无默认值，交互选择或通过 `--type` 指定。自动获取集群，Python 主机自动设置对应请求类型。`rtc_python` 支持 run、interface、metrics、engine、ascend、mslite、alarm；`rtc` 支持 rtc、run、interface、dcs、metrics、gc、interface_manager、interface_extend、engine、monitor、catalina、dmq。文件列表和正文使用相同类别。
+
+非交互环境或指定 `--no-input` 时，选择不唯一会报错并提示补充参数；不默认选择第一台主机。未知主机类型、无匹配主机或文件会报错，文件列表为空时提示暂无日志文件。`--list` 不可与 `--file`、关键词、行数及正文检索选项混用。默认读取末尾 200 行，不持续刷新；日志正文写入标准输出，选择提示和上下文写入标准错误，可将正文重定向保存。
+
+旧命令继续保留：从主机列表获取 Pod 和集群，再用 `logs list` 找到文件，用 `logs search` 读取正文。文件列表与检索分别指定日志类型，例如 `rtc` 和 `interface`。检索默认读取末尾 200 行，可重复传入 `--keyword`。
 
 ### 14.4 示例
 
 ```bash
 ml service list --name demo --model-name model --model-version MODEL_VERSION
 ml service list --page 2 --page-size 20 -o json
+ml service logs SERVICE_ID
+ml service logs SERVICE_ID -k error -n 500
+ml service logs SERVICE_ID --list
+ml service logs SERVICE_ID --pod POD_NAME --type interface --file FILE_NAME --no-input
 ml service host list SERVICE_ID
 ml service host logs list POD_NAME --cluster mep-mirror-az4 --type rtc
 ml service host logs search POD_NAME --cluster mep-mirror-az4 --type interface --file interface.log --keyword error
