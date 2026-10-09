@@ -132,6 +132,40 @@ class PlatformClient:
             self._mark_platform_response(response)
         return payload
 
+    def upload_file(self, path, *, params, metadata, file_path, timeout):
+        """流式发送一次 Multipart 请求，不自动重放写操作。"""
+        import json
+        import mimetypes
+
+        from .upload_progress import upload_content
+
+        headers = self._request_headers(None)
+        try:
+            with upload_content(file_path) as content:
+                request = self._client.build_request(
+                    "POST", path, params=params,
+                    data={"params": json.dumps(metadata)},
+                    files={"content": (file_path.name, content,
+                           mimetypes.guess_type(file_path.name)[0] or "application/octet-stream")},
+                    headers=headers, timeout=timeout,
+                )
+                # 客户端默认 JSON 头不能覆盖 Multipart 自动生成的 boundary。
+                request.headers["content-type"] = request.stream.content_type
+                response = self._client.send(request)
+        except httpx.HTTPError as exc:
+            raise ApiError("上传结果未确认，请查询目标目录核实后再决定是否重试") from exc
+        check_version_response(response)
+        if not response.is_success:
+            raise ApiError(f"上传未成功确认，HTTP {response.status_code}；请查询目标目录核实")
+        try:
+            payload = response.json()
+        except ValueError as exc:
+            raise ApiError("上传响应不是有效 JSON，请查询目标目录核实") from exc
+        result = payload.get("result") if isinstance(payload, dict) else None
+        if isinstance(result, dict) and type(result.get("code")) is int and result["code"] == 0:
+            self._mark_platform_response(response)
+        return payload
+
     @contextmanager
     def stream(self, method: str, path: str, *, params: Optional[Mapping[str, Any]] = None):
         """以当前登录和业务请求头读取平台文件响应。"""

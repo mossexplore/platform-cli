@@ -88,7 +88,10 @@ ml                                              WiseRec 命令行工具
 │       └── list                                查看指定服务的部署列表
 ├── dataset                                     数据集管理
 │   ├── list                                    分页查询数据集
-│   └── detail                                  查看数据集详情
+│   ├── detail                                  查看数据集详情
+│   └── files                                   管理数据集目录和文件
+│       ├── list                                查看指定目录内容
+│       └── upload                              向指定目录追加文件
 ├── featureset                                  特征集
 │   ├── wide                                    宽表特征集
 │   │   ├── list                                查看列表
@@ -592,6 +595,8 @@ ml service deployment list SERVICE_ID -o json
 ```text
 ml dataset list [OPTIONS]
 ml dataset detail DATASET_ID [-o table|json]
+ml dataset files list DATASET_ID [--dir REMOTE_DIR] [-o table|json]
+ml dataset files upload DATASET_ID LOCAL_FILE [--dir REMOTE_DIR] [--timeout SECONDS] [-o table|json]
 ```
 
 ### 15.2 参数与选项
@@ -600,10 +605,16 @@ ml dataset detail DATASET_ID [-o table|json]
 | --- | --- |
 | `list` | `--page`、`--page-size`；可用 `--name` / `--dataset-name`、`--create-user`、`--update-user`、`--bucket-name` 筛选；可选 `--output` / `-o` |
 | `detail` | 必填 `DATASET_ID`；可选 `--output` / `-o` |
+| `files list` | 必填 `DATASET_ID`；`--dir` 默认 `/`；可选 `--output` / `-o` |
+| `files upload` | 必填 `DATASET_ID`、`LOCAL_FILE`；`--dir` 默认 `/`；`--timeout` 默认 1800 秒，限制单次网络操作等待时间；可选 `--output` / `-o` |
 
 ### 15.3 说明
 
 先登录并选择业务。`list` 默认显示第一页 10 条，`detail` 查看指定数据集。大小自动换算，时间按北京时间显示；JSON 保留平台返回的其他字段。
+
+`files list` 查看当前目录，在表格上方显示“当前位置：完整路径”。完整路径列可用于下一次查询，例如 `/event/20240815`。空目录也显示当前位置；提示结果不完整时，不代表已列出所有文件。JSON 输出包含 `currentDir` 和保留原字段的 `response`。
+
+`files upload` 向已有数据集追加单个文件，自动查询数据集名称。仅支持 `.txt`、`.csv`、`.zip`、`.tar`、`.gz`、`.json`，扩展名大小写均可。文件名以英文字母或数字开头，仅可包含英文字母、数字、下划线、连字符和点。本地路径可包含中文，但文件名不可包含中文。当前保守限制为 2,000,000,000 字节。终端显示发送进度；发送完成不等于服务端处理完成。超时或断连后先查询目录核实，不自动重传。同名文件与压缩包处理规则由平台决定，当前不提供覆盖、解压或断点续传选项。上传结果 JSON 保留平台响应；请求成功后可查询目录确认处理结果。
 
 ### 15.4 示例
 
@@ -612,6 +623,11 @@ ml dataset list --name dog_cat --create-user l00123456
 ml dataset list --bucket-name sfs-turbo-mep-guian2 --page 2 --page-size 20
 ml dataset detail DATASET_ID
 ml dataset detail DATASET_ID -o json
+ml dataset files list DATASET_ID
+ml dataset files list DATASET_ID --dir /event
+ml dataset files list DATASET_ID --dir /event/20240815 -o json
+ml dataset files upload DATASET_ID ./sample.csv
+ml dataset files upload DATASET_ID ./sample.csv --dir /logs --timeout 1800
 ```
 
 ## 16. 特征集

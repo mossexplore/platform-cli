@@ -18,7 +18,7 @@ from ..services.dataset import DatasetService
 from .common import fail, runtime_from_context
 
 
-dataset_app = typer.Typer(no_args_is_help=True, help="数据集列表与详情查询")
+dataset_app = typer.Typer(no_args_is_help=True, help="数据集管理")
 BEIJING = timezone(timedelta(hours=8), name="Asia/Shanghai")
 LIST_COLUMNS = (
     ("数据集 ID", "dataSetId"), ("数据集名称", "dataSetName"),

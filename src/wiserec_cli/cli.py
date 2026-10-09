@@ -12,6 +12,7 @@ from . import __version__
 from .commands.access import access_app
 from .commands.algorithm import algorithm_app
 from .commands.dataset import dataset_app
+from .commands.dataset_files import files_app as dataset_files_app
 from .commands.service import service_app
 from .commands.auth import auth_app, login, logout
 from .commands.jupyter import jupyter_app
@@ -53,6 +54,7 @@ app.add_typer(train_app, name="train")
 app.add_typer(model_app, name="model")
 app.add_typer(algorithm_app, name="algorithm")
 app.add_typer(dataset_app, name="dataset")
+dataset_app.add_typer(dataset_files_app, name="files")
 app.add_typer(service_app, name="service")
 app.add_typer(featureset_app, name="featureset")
 app.add_typer(jupyter_app, name="jupyter")

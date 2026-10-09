@@ -30,6 +30,7 @@ class Runtime:
     def authenticated_call(
         self,
         operation: Callable[[PlatformClient], Any],
+        *, retry_auth: bool = True,
     ) -> Any:
         for attempt in range(2):
             credentials = self.auth.ensure_credentials(force_refresh=attempt == 1)
@@ -53,7 +54,7 @@ class Runtime:
                 ) as client:
                     return operation(client)
             except AuthenticationError:
-                if attempt == 0:
+                if attempt == 0 and retry_auth:
                     print("服务端认证已失效，将重新打开 Edge 刷新本地认证信息。")
                     continue
                 raise
