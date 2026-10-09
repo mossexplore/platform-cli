@@ -13,8 +13,6 @@ ml                                              WiseRec 命令行工具
 ├── tree                                        查看完整命令树
 ├── history                                     查看和管理本地命令历史
 │   ├── list                                    查询历史执行记录
-│   ├── show                                    查看单条记录
-│   ├── delete                                  删除单条记录
 │   └── clear                                   清理历史记录
 ├── auth                                        登录状态
 │   ├── status                                  查看当前登录状态
@@ -919,8 +917,6 @@ ml model source MODEL_ID --train-task -o json
 ```text
 ml history
 ml history list [--limit COUNT] [--search TEXT] [--env ENV_NAME] [--status STATUS] [-o table|json]
-ml history show RECORD_ID [-o table|json]
-ml history delete RECORD_ID
 ml history clear [--env ENV_NAME] [--before "YYYY-MM-DD HH:mm:ss"] [--yes]
 ml --no-history COMMAND [ARGS]...
 ```
@@ -929,20 +925,21 @@ ml --no-history COMMAND [ARGS]...
 
 | 参数或选项 | 说明 |
 | --- | --- |
-| `ml history` | 无需参数，显示最近 20 条记录 |
-| `--limit` | 最多显示条数，默认 20，范围 1 至 1000 |
+| `ml history` | 无需参数，交互终端中每页 20 条，非交互时显示最近 20 条 |
+| `--limit` | 最多显示条数，范围 1 至 1000；交互浏览默认包含全部匹配记录，非交互或 JSON 默认 20 条 |
 | `--search` | 按命令内容包含关键字筛选，不区分大小写 |
 | `--env` | 按执行前的环境筛选；清理时仅删除该环境记录 |
 | `--status` | `success`、`failed` 或 `interrupted` |
-| `RECORD_ID` | 历史记录序号，删除后不重新编号 |
 | `--before` | 删除严格早于指定北京时间的记录，与环境筛选取交集 |
 | `--yes` | 跳过清理确认；非交互执行清理时必须提供 |
-| `--output` / `-o` | list、show 支持 table 或 json，默认 table |
+| `--output` / `-o` | list 支持 table 或 json，默认 table |
 | `--no-history` | 全局选项，放在子命令前，仅本次不记录 |
 
 ### 22.3 说明
 
-历史自动保存到本次配置文件同级的 UTF-8 文本文件 `history.jsonl`，每行一条记录，最多保留最近 1000 条，超过后清理开始时间最早的记录。同目录的 `history.lock` 用于协调多个终端，`history.seq` 保存递增序号；清空不会重置序号。使用 `--config` 或 `ML_CONFIG` 指定其他配置时，历史随配置目录隔离。同一目录下的配置共用一份历史。
+`ml history` 和表格模式的 `ml history list` 在输入、输出均连接交互终端时启用翻页，每页 20 条，列表不显示序号。输入 `n` 后按回车查看下一页，`p` 返回上一页，`q` 或 Ctrl+C 退出。首尾页不循环，无效输入可重新输入。浏览使用进入时的固定记录快照，重新执行命令才能看到新记录。空列表直接返回；管道、重定向及 JSON 输出不等待输入。指定 `--limit` 时仅浏览该数量的匹配记录。
+
+历史自动保存到本次配置文件同级的 UTF-8 文本文件 `history.jsonl`，每行一条记录，最多保留最近 1000 条，超过后清理开始时间最早的记录。同目录的 `history.lock` 用于协调多个终端。使用 `--config` 或 `ML_CONFIG` 指定其他配置时，历史随配置目录隔离。同一目录下的配置共用一份历史。
 
 命令结束后记录开始时间、耗时、成功或失败状态、退出码、执行前后环境及经过脱敏的命令。正常 Ctrl+C 记录为中断；强制终止进程或断电可能不留记录，不显示执行中命令。时间按北京时间展示，不额外打印时区提示。环境切换记录中的环境列表示执行前环境，详情可查看切换后环境。
 
@@ -959,8 +956,6 @@ ml history
 ml history list --limit 50
 ml history list --search "dataset files" --env ENV_NAME
 ml history list --status failed -o json
-ml history show RECORD_ID
-ml history delete RECORD_ID
 ml history clear --before "2026-10-01 00:00:00"
 ml history clear --env ENV_NAME --yes
 ml history clear --yes

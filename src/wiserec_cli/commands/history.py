@@ -4,6 +4,7 @@ import sys
 from datetime import datetime
 from typing import Optional
 
+import click
 import typer
 from rich.table import Table
 from rich.text import Text
@@ -33,15 +34,26 @@ def show_list(context, limit, search, env, status, output):
     if status not in {None, 'success', 'failed', 'interrupted'}:
         raise ValueError('status 仅支持 success、failed、interrupted')
     rows = selected(store_for(context).read(), search, env, status)
-    rows.sort(key=lambda row: (row.get('started_at', 0), row['id']), reverse=True)
-    rows = rows[:limit]
+    rows.reverse()
+    rows.sort(key=lambda row: row.get('started_at', 0), reverse=True)
     if output == 'json':
-        print_result(rows, 'json')
+        print_result(rows[:limit or 20], 'json')
         return
-    table = Table('序号', '执行时间', '环境', '结果', '耗时', '命令')
+    if can_browse():
+        browse(rows if limit is None else rows[:limit])
+    else:
+        render_rows(rows[:limit or 20])
+
+
+def can_browse():
+    return sys.stdin.isatty() and sys.stdout.isatty()
+
+
+def render_rows(rows):
+    table = Table('执行时间', '环境', '结果', '耗时', '命令')
     labels = {'success': '成功', 'failed': '失败', 'interrupted': '中断'}
     for row in rows:
-        table.add_row(str(row['id']), Text(safe_text(row['time'])), Text(safe_text(row.get('env') or '-')),
+        table.add_row(Text(safe_text(row['time'])), Text(safe_text(row.get('env') or '-')),
             Text(labels.get(row['status'], row['status'])), f"{row.get('duration_ms', 0) / 1000:.2f}s",
             Text(safe_text(row['command'])))
     console.print(table)
@@ -49,19 +61,51 @@ def show_list(context, limit, search, env, status, output):
         console.print('暂无匹配的历史记录')
 
 
+def browse(rows):
+    if not rows:
+        render_rows(rows)
+        return
+    page = 0
+    size = 20
+    pages = (len(rows) + size - 1) // size
+    while True:
+        render_rows(rows[page * size:(page + 1) * size])
+        console.print(f'第 {page + 1} / {pages} 页 · 共 {len(rows)} 条记录')
+        while True:
+            try:
+                answer = click.prompt('[n] 下一页  [p] 上一页  [q] 退出，请输入',
+                                      default='', show_default=False).strip().lower()
+            except (KeyboardInterrupt, click.Abort, EOFError):
+                return
+            if answer == 'q':
+                return
+            if answer == 'n':
+                if page + 1 < pages:
+                    page += 1
+                    break
+                console.print('已经是最后一页')
+            elif answer == 'p':
+                if page > 0:
+                    page -= 1
+                    break
+                console.print('已经是第一页')
+            else:
+                console.print('请输入 n、p 或 q 后按回车')
+
+
 @history_app.callback()
 def default_history(context: typer.Context):
-    """默认显示最近 20 条记录"""
+    """交互浏览历史，非交互时显示最近 20 条"""
     if context.invoked_subcommand is None:
         try:
-            show_list(context, 20, '', None, None, 'table')
+            show_list(context, None, '', None, None, 'table')
         except Exception as exc:
             fail(exc)
 
 
 @history_app.command('list')
 def list_history(context: typer.Context,
-    limit: int = typer.Option(20, '--limit', min=1, max=1000, help='最多显示条数'),
+    limit: Optional[int] = typer.Option(None, '--limit', min=1, max=1000, help='最多显示条数；非交互默认 20'),
     search: str = typer.Option('', '--search', help='命令内容关键字'),
     env: Optional[str] = typer.Option(None, '--env', help='执行前的环境'),
     status: Optional[str] = typer.Option(None, '--status', help='success、failed 或 interrupted'),
@@ -69,40 +113,6 @@ def list_history(context: typer.Context,
     """查询历史执行记录"""
     try:
         show_list(context, limit, search, env, status, output)
-    except Exception as exc:
-        fail(exc)
-
-
-@history_app.command('show')
-def show_history(context: typer.Context,
-    record_id: int = typer.Argument(..., min=1, help='历史序号'),
-    output: str = typer.Option('table', '--output', '-o', help='table 或 json')):
-    """查看单条记录"""
-    try:
-        rows = [row for row in store_for(context).read() if row['id'] == record_id]
-        if not rows:
-            raise ValueError('历史记录不存在')
-        if output == 'json':
-            print_result(rows[0], 'json')
-        elif output == 'table':
-            table = Table('字段', '值')
-            for key, value in rows[0].items():
-                table.add_row(Text(safe_text(key)), Text(safe_text(str(value))))
-            console.print(table)
-        else:
-            raise ValueError('output 仅支持 table 或 json')
-    except Exception as exc:
-        fail(exc)
-
-
-@history_app.command('delete')
-def delete_history(context: typer.Context, record_id: int = typer.Argument(..., min=1, help='历史序号')):
-    """删除单条记录"""
-    try:
-        count = store_for(context).remove(lambda row: row['id'] == record_id, lambda count: True)
-        if not count:
-            raise ValueError('历史记录不存在')
-        console.print(f'已删除 {count} 条历史记录')
     except Exception as exc:
         fail(exc)
 

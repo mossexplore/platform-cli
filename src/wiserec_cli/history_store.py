@@ -6,6 +6,7 @@ import tempfile
 import time
 from contextlib import contextmanager
 from pathlib import Path
+from uuid import NAMESPACE_URL, uuid4, uuid5
 
 LIMIT = 1000
 
@@ -69,7 +70,6 @@ class HistoryStore:
     def __init__(self, config_path):
         self.path = Path(config_path).parent / 'history.jsonl'
         self.lock_path = self.path.with_suffix('.lock')
-        self.sequence_path = self.path.with_suffix('.seq')
 
     def _read(self):
         if not self.path.exists():
@@ -77,13 +77,17 @@ class HistoryStore:
         records = []
         damaged = 0
         with self.path.open('r', encoding='utf-8', errors='replace') as stream:
-            for line in stream:
+            for index, line in enumerate(stream):
                 try:
                     record = json.loads(line)
-                    if not isinstance(record, dict) or type(record.get('id')) is not int or not all(
+                    if not isinstance(record, dict) or not all(
                         isinstance(record.get(key), str) for key in ('command', 'time', 'status')
                     ):
                         raise ValueError('invalid record')
+                    record.pop('id', None)
+                    if not isinstance(record.get('_key'), str):
+                        # 无键的已有文本行生成稳定内部标识，不对用户暴露序号。
+                        record['_key'] = str(uuid5(NAMESPACE_URL, f'{self.path}:{index}:{line}'))
                     records.append(record)
                 except (ValueError, TypeError):
                     damaged += 1
@@ -96,29 +100,25 @@ class HistoryStore:
 
     def read(self):
         with file_lock(self.lock_path):
-            return self._read()
+            return [{key: value for key, value in row.items() if key != '_key'} for row in self._read()]
 
     def append(self, record):
         with file_lock(self.lock_path):
             records = self._read()
-            previous = max((row['id'] for row in records), default=0)
-            if self.sequence_path.exists():
-                previous = max(previous, int(self.sequence_path.read_text(encoding='utf-8')))
-            row = {**record, 'id': previous + 1}
-            # 先保留序号，崩溃时允许跳号，但不重用已分配序号。
-            atomic_write(self.sequence_path, str(row['id']))
+            row = {key: value for key, value in record.items() if key not in {'id', '_key'}}
+            row['_key'] = str(uuid4())
             records.append(row)
-            records.sort(key=lambda item: (item.get('started_at', 0), item['id']))
+            records.sort(key=lambda item: item.get('started_at', 0))
             self._write(records[-LIMIT:])
 
     def remove(self, predicate, confirm):
         with file_lock(self.lock_path):
-            ids = {row['id'] for row in self._read() if predicate(row)}
+            keys = {row['_key'] for row in self._read() if predicate(row)}
         # 确认期间不持锁；后续新记录不会被本次清理匹配。
-        if not ids or not confirm(len(ids)):
+        if not keys or not confirm(len(keys)):
             return 0
         with file_lock(self.lock_path):
             records = self._read()
-            remaining = [row for row in records if row['id'] not in ids]
+            remaining = [row for row in records if row['_key'] not in keys]
             self._write(remaining)
             return len(records) - len(remaining)

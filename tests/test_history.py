@@ -56,7 +56,6 @@ def test_history_without_valid_config_and_self_exclusion(config):
     assert len(json.loads(result.stdout)) == 1
     assert len(store.read()) == 1
     assert invoke(config, ['history']).exit_code == 0
-    assert invoke(config, ['history', 'show', '1']).exit_code == 0
 
 
 def test_opt_out_and_help(config, monkeypatch):
@@ -67,20 +66,22 @@ def test_opt_out_and_help(config, monkeypatch):
     assert not (config.parent / 'history.jsonl').exists()
 
 
-def test_filters_delete_clear_and_persistent_sequence(config):
+def test_filters_and_clear_without_sequence(config):
     store = HistoryStore(config)
     store.append(record(1))
     store.append({**record(2), 'env': 'test', 'status': 'failed'})
     result = invoke(config, ['history', 'list', '--env', 'test', '--status', 'failed', '-o', 'json'])
-    assert [row['id'] for row in json.loads(result.stdout)] == [2]
-    assert invoke(config, ['history', 'delete', '1']).exit_code == 0
+    rows = json.loads(result.stdout)
+    assert len(rows) == 1 and rows[0]['env'] == 'test'
+    assert all('id' not in row and '_key' not in row for row in rows)
     assert invoke(config, ['history', 'clear']).exit_code != 0
-    assert len(store.read()) == 1
+    assert len(store.read()) == 2
     assert invoke(config, ['history', 'clear', '--env', 'dev', '--yes']).exit_code == 0
     assert len(store.read()) == 1
     assert invoke(config, ['history', 'clear', '--yes']).exit_code == 0
     store.append(record(3))
-    assert store.read()[0]['id'] == 3
+    assert store.read()[0]['started_at'] == 3
+    assert not (config.parent / 'history.seq').exists()
 
 
 def test_before_is_exclusive_beijing(config):
@@ -91,7 +92,7 @@ def test_before_is_exclusive_beijing(config):
     store.append(record(cutoff - 1))
     store.append(record(cutoff))
     assert invoke(config, ['history', 'clear', '--before', '2026-10-01 00:00:00', '--yes']).exit_code == 0
-    assert [row['id'] for row in store.read()] == [2]
+    assert [row['started_at'] for row in store.read()] == [cutoff]
 
 
 def test_retention_and_damaged_tail(config):
@@ -101,7 +102,8 @@ def test_retention_and_damaged_tail(config):
     store.append(record(1001))
     rows = store.read()
     assert len(rows) == 1000
-    assert rows[0]['id'] == 2 and rows[-1]['id'] == 1001
+    assert rows[0]['started_at'] == 1 and rows[-1]['started_at'] == 1001
+    assert all('id' not in row and '_key' not in row for row in rows)
 
 
 def test_sensitive_commands_never_reach_disk(config):
@@ -128,12 +130,12 @@ def append_worker(args):
     HistoryStore(Path(config)).append(record(index))
 
 
-def test_multiple_processes_share_sequence(config):
+def test_multiple_processes_preserve_records(config):
     with ProcessPoolExecutor(max_workers=3) as pool:
         list(pool.map(append_worker, [(str(config), i) for i in range(15)]))
     rows = HistoryStore(config).read()
     assert len(rows) == 15
-    assert sorted(row['id'] for row in rows) == list(range(1, 16))
+    assert sorted(row['started_at'] for row in rows) == list(range(15))
 
 
 def test_interrupt_is_recorded(config):
@@ -163,7 +165,7 @@ def test_clear_preserves_records_added_during_confirmation(config):
         store.append(record(2))
         return True
     assert store.remove(lambda row: True, confirm) == 1
-    assert [row['id'] for row in store.read()] == [2]
+    assert [row['started_at'] for row in store.read()] == [2]
 
 
 def test_config_environment_variable_and_history_json(config, monkeypatch):
@@ -201,8 +203,140 @@ def test_history_location_default_and_explicit(tmp_path, monkeypatch):
         assert config_location('other.json') == tmp_path / 'other.json'
 
 
-def test_show_keeps_literal_markup_in_command(config):
+def test_list_keeps_literal_markup_in_command(config):
     HistoryStore(config).append({**record(), 'command': 'ml dataset list --name "[/red]"'})
-    result = invoke(config, ['history', 'show', '1'])
+    result = invoke(config, ['history', 'list'])
     assert result.exit_code == 0, result.output
     assert '[/red]' in result.stdout
+
+
+def test_interactive_pages_and_snapshot(config):
+    from wiserec_cli.commands import history as command
+    store = HistoryStore(config)
+    for index in range(45):
+        store.append(record(index))
+    pages = []
+    answers = iter(['n', 'p', 'n', 'n', 'q'])
+    first = True
+    def prompt(*args, **kwargs):
+        nonlocal first
+        if first:
+            store.append(record(100))
+            first = False
+        return next(answers)
+    with patch.object(command, 'can_browse', return_value=True), patch.object(
+        command, 'render_rows', side_effect=lambda rows: pages.append([row['started_at'] for row in rows])), patch(
+        'wiserec_cli.commands.history.click.prompt', side_effect=prompt):
+        result = invoke(config, ['history'])
+    assert result.exit_code == 0, result.output
+    assert [len(page) for page in pages] == [20, 20, 20, 20, 5]
+    assert pages[0] == pages[2] and pages[1] == pages[3]
+    assert all(100 not in page for page in pages)
+    assert '第 3 / 3 页' in result.stdout and '共 45 条记录' in result.stdout
+
+
+def test_interactive_boundaries_invalid_and_case_insensitive(config):
+    from wiserec_cli.commands import history as command
+    HistoryStore(config).append(record())
+    with patch.object(command, 'can_browse', return_value=True), patch.object(
+        command.click, 'prompt', side_effect=['p', 'n', 'bad', '', ' Q ']):
+        result = invoke(config, ['history'])
+    assert result.exit_code == 0, result.output
+    assert '已经是第一页' in result.stdout
+    assert '已经是最后一页' in result.stdout
+    assert '请输入 n、p 或 q' in result.stdout
+
+
+@pytest.mark.parametrize('error', [KeyboardInterrupt, EOFError])
+def test_interactive_interrupt_and_eof_exit_cleanly(config, error):
+    from wiserec_cli.commands import history as command
+    HistoryStore(config).append(record())
+    with patch.object(command, 'can_browse', return_value=True), patch.object(
+        command.click, 'prompt', side_effect=error):
+        result = invoke(config, ['history'])
+    assert result.exit_code == 0, result.output
+    assert len(HistoryStore(config).read()) == 1
+
+
+def test_empty_interactive_history_does_not_prompt(config):
+    from wiserec_cli.commands import history as command
+    with patch.object(command, 'can_browse', return_value=True), patch.object(command.click, 'prompt') as prompt:
+        result = invoke(config, ['history'])
+    assert result.exit_code == 0, result.output
+    assert '暂无匹配' in result.stdout
+    prompt.assert_not_called()
+
+
+def test_json_and_noninteractive_are_one_shot(config):
+    from wiserec_cli.commands import history as command
+    store = HistoryStore(config)
+    for index in range(25):
+        store.append(record(index))
+    with patch.object(command, 'can_browse', return_value=True), patch.object(command.click, 'prompt') as prompt:
+        result = invoke(config, ['history', 'list', '-o', 'json'])
+    assert len(json.loads(result.stdout)) == 20
+    prompt.assert_not_called()
+    pages = []
+    with patch.object(command, 'can_browse', return_value=False), patch.object(command.click, 'prompt') as prompt, patch.object(
+        command, 'render_rows', side_effect=lambda rows: pages.append(rows)):
+        result = invoke(config, ['history'])
+    assert result.exit_code == 0
+    assert len(pages) == 1 and len(pages[0]) == 20
+    prompt.assert_not_called()
+
+
+def test_interactive_filter_and_explicit_limit(config):
+    from wiserec_cli.commands import history as command
+    store = HistoryStore(config)
+    for index in range(30):
+        store.append({**record(index), 'env': 'dev' if index % 2 else 'test'})
+    pages = []
+    with patch.object(command, 'can_browse', return_value=True), patch.object(command.click, 'prompt', return_value='q'), patch.object(
+        command, 'render_rows', side_effect=lambda rows: pages.append(rows)):
+        result = invoke(config, ['history', 'list', '--env', 'dev', '--limit', '10'])
+    assert result.exit_code == 0, result.output
+    assert len(pages[0]) == 10 and all(row['env'] == 'dev' for row in pages[0])
+    assert '共 10 条记录' in result.stdout
+
+
+def test_redirected_stdout_disables_browsing():
+    from types import SimpleNamespace
+    from unittest.mock import Mock
+    from wiserec_cli.commands import history as command
+    with patch.object(command, 'sys', SimpleNamespace(
+        stdin=Mock(isatty=lambda: True), stdout=Mock(isatty=lambda: False))):
+        assert not command.can_browse()
+
+
+@pytest.mark.parametrize('name', ['show', 'delete'])
+def test_single_record_commands_are_removed(config, name):
+    result = invoke(config, ['history', name, '1'])
+    assert result.exit_code == 2
+    result = invoke(config, ['history', '--help'])
+    assert name not in result.stdout
+
+
+def test_legacy_numbered_records_hide_ids_and_ignore_sequence_file(config):
+    store = HistoryStore(config)
+    store.path.write_text(json.dumps({**record(), 'id': 128}) + '\n')
+    (config.parent / 'history.seq').write_text('not a sequence')
+    table = invoke(config, ['history'])
+    assert table.exit_code == 0, table.output
+    assert '序号' not in table.stdout and '128' not in table.stdout
+    rows = json.loads(invoke(config, ['history', 'list', '-o', 'json']).stdout)
+    assert rows == [record()]
+    store.append(record(1))
+    assert len(store.read()) == 2
+    assert all('id' not in row for row in map(json.loads, store.path.read_text().splitlines()))
+    assert (config.parent / 'history.seq').read_text() == 'not a sequence'
+
+
+def test_clear_does_not_remove_identical_replacement_record(config):
+    store = HistoryStore(config)
+    store.append(record(1))
+    def confirm(count):
+        store.remove(lambda row: True, lambda count: True)
+        store.append(record(1))
+        return True
+    assert store.remove(lambda row: True, confirm) == 0
+    assert store.read() == [record(1)]
