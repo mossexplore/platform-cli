@@ -14,3 +14,8 @@ credentials.json
 access-service/.env
 access-service/docker/service.env
 access-service/docker/certs/
+
+# Local command history beside custom configuration
+history.jsonl
+history.lock
+history.seq

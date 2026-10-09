@@ -39,6 +39,54 @@ def format_invocation(args):
 
 
 class InvocationGroup(TyperGroup):
+    def main(self, args=None, *positional, **kwargs):
+        import sys
+        import click
+        from .history_recording import ACTIVE_RECORD, InvocationRecord
+        from .history_store import warning
+
+        arguments = list(sys.argv[1:] if args is None else args)
+        record = None
+        try:
+            record = InvocationRecord(arguments)
+        except (OSError, ValueError):
+            warning('无法准备命令历史，原命令继续执行')
+        token = ACTIVE_RECORD.set(record)
+        code = 1
+        try:
+            result = super().main(arguments, *positional, **kwargs)
+            code = result if type(result) is int else 0
+            return result
+        except SystemExit as exc:
+            code = exc.code if isinstance(exc.code, int) else 0 if exc.code is None else 1
+            raise
+        except click.exceptions.Exit as exc:
+            code = exc.exit_code
+            raise
+        except click.ClickException as exc:
+            code = exc.exit_code
+            raise
+        except (KeyboardInterrupt, click.Abort):
+            code = 130
+            raise
+        finally:
+            try:
+                if record is not None:
+                    record.finish(code)
+            finally:
+                ACTIVE_RECORD.reset(token)
+
+    def invoke(self, ctx):
+        import click
+        from .history_recording import ACTIVE_RECORD
+        try:
+            return super().invoke(ctx)
+        except (KeyboardInterrupt, click.Abort):
+            record = ACTIVE_RECORD.get()
+            if record is not None:
+                record.interrupted = True
+            raise
+
     def parse_args(self, ctx, args):
         begin_invocation()
         # 必须在 Click 消费参数前捕获；兼容真实入口和 CliRunner，不读取其他进程参数。

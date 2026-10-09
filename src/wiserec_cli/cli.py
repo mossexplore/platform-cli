@@ -9,6 +9,7 @@ from typing import Optional
 import typer
 
 from . import __version__
+from .commands.history import history_app
 from .commands.access import access_app
 from .commands.algorithm import algorithm_app
 from .commands.dataset import dataset_app
@@ -42,6 +43,7 @@ app = typer.Typer(
 app.command("login")(login)
 app.command("logout")(logout)
 app.command("tree")(show_tree)
+app.add_typer(history_app, name="history")
 app.add_typer(auth_app, name="auth")
 app.add_typer(access_app, name="access")
 app.add_typer(business_app, name="business")
@@ -80,6 +82,7 @@ def initialize(
         resolve_path=True,
         help="config.json 路径，也可使用 ML_CONFIG 环境变量",
     ),
+    no_history: bool = typer.Option(False, "--no-history", help="不保存本次命令历史"),
     version: bool = typer.Option(
         False,
         "--version",
@@ -89,8 +92,8 @@ def initialize(
     ),
 ) -> None:
     """初始化 CLI 运行时。"""
-    del version
-    if context.invoked_subcommand == "tree":
+    del version, no_history
+    if context.invoked_subcommand in {"tree", "history"}:
         return
     try:
         context.obj = Runtime(config_path=config)

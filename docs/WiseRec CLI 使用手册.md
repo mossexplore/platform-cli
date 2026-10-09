@@ -11,6 +11,11 @@ ml                                              WiseRec 命令行工具
 ├── login                                       登录平台
 ├── logout                                      退出登录
 ├── tree                                        查看完整命令树
+├── history                                     查看和管理本地命令历史
+│   ├── list                                    查询历史执行记录
+│   ├── show                                    查看单条记录
+│   ├── delete                                  删除单条记录
+│   └── clear                                   清理历史记录
 ├── auth                                        登录状态
 │   ├── status                                  查看当前登录状态
 │   └── ping                                    管理终端会话自动保活
@@ -187,6 +192,7 @@ ml tree
 | 选项 | 用途 |
 | --- | --- |
 | `--help` | 显示命令帮助；可放在各级命令后 |
+| `--no-history` | 放在命令前，不保存本次调用；环境变量 `ML_HISTORY=0` 可关闭自动记录 |
 | `ml tree` | 显示完整命令树及简短用途，无需登录或选择业务 |
 | `--output` / `-o` | 部分查询命令支持 `table` 或 `json`，以对应命令帮助为准 |
 
@@ -904,4 +910,60 @@ ml model source MODEL_ID
 ml model source MODEL_ID -o json
 ml model source MODEL_ID --train-task
 ml model source MODEL_ID --train-task -o json
+```
+
+## 22. 本地命令历史
+
+### 22.1 命令格式
+
+```text
+ml history
+ml history list [--limit COUNT] [--search TEXT] [--env ENV_NAME] [--status STATUS] [-o table|json]
+ml history show RECORD_ID [-o table|json]
+ml history delete RECORD_ID
+ml history clear [--env ENV_NAME] [--before "YYYY-MM-DD HH:mm:ss"] [--yes]
+ml --no-history COMMAND [ARGS]...
+```
+
+### 22.2 参数与选项
+
+| 参数或选项 | 说明 |
+| --- | --- |
+| `ml history` | 无需参数，显示最近 20 条记录 |
+| `--limit` | 最多显示条数，默认 20，范围 1 至 1000 |
+| `--search` | 按命令内容包含关键字筛选，不区分大小写 |
+| `--env` | 按执行前的环境筛选；清理时仅删除该环境记录 |
+| `--status` | `success`、`failed` 或 `interrupted` |
+| `RECORD_ID` | 历史记录序号，删除后不重新编号 |
+| `--before` | 删除严格早于指定北京时间的记录，与环境筛选取交集 |
+| `--yes` | 跳过清理确认；非交互执行清理时必须提供 |
+| `--output` / `-o` | list、show 支持 table 或 json，默认 table |
+| `--no-history` | 全局选项，放在子命令前，仅本次不记录 |
+
+### 22.3 说明
+
+历史自动保存到本次配置文件同级的 UTF-8 文本文件 `history.jsonl`，每行一条记录，最多保留最近 1000 条，超过后清理开始时间最早的记录。同目录的 `history.lock` 用于协调多个终端，`history.seq` 保存递增序号；清空不会重置序号。使用 `--config` 或 `ML_CONFIG` 指定其他配置时，历史随配置目录隔离。同一目录下的配置共用一份历史。
+
+命令结束后记录开始时间、耗时、成功或失败状态、退出码、执行前后环境及经过脱敏的命令。正常 Ctrl+C 记录为中断；强制终止进程或断电可能不留记录，不显示执行中命令。时间按北京时间展示，不额外打印时区提示。环境切换记录中的环境列表示执行前环境，详情可查看切换后环境。
+
+查看和清理历史无需登录、联网或有效的平台配置内容。帮助、版本、命令树、历史管理自身及内部后台活动不记录。设置 `ML_HISTORY=0` 关闭自动记录，仍可查询已有记录；环境变量的设置方式依使用的终端而定。
+
+记录写入前隐藏敏感参数，不读取文件或标准输入内容，不保存输出及平台响应。Jupyter exec 的任意子进程参数整体隐藏；含脱敏或截断标记的命令不可直接完整复用。请勿在普通参数中嵌入敏感内容，不希望留存的调用使用 `--no-history`。本功能不会接管终端方向键，也不自动重新执行历史命令。
+
+clear 先匹配记录再确认，确认期间新完成的记录保留。没有匹配项时显示清理 0 条。末尾损坏或无效的记录会被跳过并提示，下次更新时移除损坏行。目录不可写或文件忙时，自动保存只告警，不改变原命令结果；主动查询或清理失败则报错。
+
+### 22.4 示例
+
+```bash
+ml history
+ml history list --limit 50
+ml history list --search "dataset files" --env ENV_NAME
+ml history list --status failed -o json
+ml history show RECORD_ID
+ml history delete RECORD_ID
+ml history clear --before "2026-10-01 00:00:00"
+ml history clear --env ENV_NAME --yes
+ml history clear --yes
+ml --no-history dataset list
+ml --config CONFIG_PATH history
 ```
