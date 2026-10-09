@@ -57,7 +57,6 @@ def render_page(result: Dict[str, Any], output: str) -> None:
     if not result["items"]:
         console.print("暂无特征集")
     console.print(f"第 {result['pageIndex']} 页 · 每页 {result['pageSize']} 条 · 共 {result['count']} 条")
-    console.print("时间：Asia/Shanghai (UTC+08:00)")
 
 
 @wide_app.command("list")

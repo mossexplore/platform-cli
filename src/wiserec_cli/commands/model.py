@@ -94,7 +94,6 @@ def render_list(payload, page, page_size, output):
     if not result['models']:
         console.print('暂无模型')
     console.print(f"第 {page} 页 · 每页 {page_size} 条 · 本页 {len(result['models'])} 条 · 共 {result['count']} 条")
-    console.print('时间：Asia/Shanghai (UTC+08:00)')
 
 
 def render_detail(payload, output):

@@ -153,7 +153,6 @@ def render_page(view: str, result: dict[str, Any], output: str) -> None:
         console.print(f"第 {result['pageIndex']} 页 · 每页 {result['pageSize']} 条 · 共 {total} 条")
     if view != "list":
         console.print("详情视图仅显示第 1 页 10 条")
-        console.print("时间：Asia/Shanghai (UTC+08:00)")
 
 
 def _selected_output(runtime: Any, output: Optional[str]) -> str:

@@ -281,6 +281,7 @@ class FeatureSetCommandTest(unittest.TestCase):
         text = stream.getvalue()
         positions = [text.index(title) for title, _ in COLUMNS]
         self.assertEqual(positions, sorted(positions))
-        for expected in ("[bold]literal", "model", "2026-09-08 11:30:58", "Asia/Shanghai"):
+        for expected in ("[bold]literal", "model", "2026-09-08 11:30:58"):
             self.assertIn(expected, text)
+        self.assertNotIn("Asia/Shanghai", text)
         self.assertEqual(record, original)

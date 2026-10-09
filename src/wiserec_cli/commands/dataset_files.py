@@ -28,11 +28,11 @@ def render_files(payload, directory, output):
             table.add_row(Text('文件夹' if item['dir'] else '文件'), Text(item['name']),
                 Text(_time(item['lastModifyDate']) if item.get('lastModifyDate') is not None else '-'),
                 Text(_size(item['size']) if item.get('size') is not None else '-'),
-                Text(child_path(directory, item['path'])))
+                Text(child_path(directory, item['path'])),
+                style='yellow' if item['dir'] else None)
         console.print(table)
         if not info['files']:
             console.print('当前目录为空')
-        console.print('时间：Asia/Shanghai (UTC+08:00)')
     if info['hasMore']:
         error_console.print('警告：当前结果不完整，接口分页规则尚未提供')
 

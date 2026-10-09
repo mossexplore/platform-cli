@@ -101,7 +101,6 @@ def render_list(result: dict[str, Any], output: str) -> None:
     if not result["items"]:
         console.print("暂无数据集记录")
     console.print(f"第 {result['pageIndex']} 页 · 每页 {result['pageSize']} 条 · 共 {result['total']} 条")
-    console.print("时间：Asia/Shanghai (UTC+08:00)")
 
 
 def render_detail(data: dict[str, Any], output: str) -> None:
@@ -114,7 +113,6 @@ def render_detail(data: dict[str, Any], output: str) -> None:
     for title, field in DETAIL_FIELDS:
         table.add_row(title, Text(display_value(field, data.get(field))))
     console.print(table)
-    console.print("时间：Asia/Shanghai (UTC+08:00)")
 
 
 def _selected_output(runtime: Any, output: Optional[str]) -> str:

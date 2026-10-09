@@ -108,7 +108,6 @@ def render_page(
         empty_message = "暂无执行实例" if task is not None else "暂无训练任务"
         console.print("暂无执行记录" if history_task_id is not None else empty_message)
     console.print(f"第 {result['pageIndex']} 页 · 每页 {result['pageSize']} 条 · 共 {result['count']} 条")
-    console.print("时间：Asia/Shanghai (UTC+08:00)")
     if (task is not None or history_task_id is not None) and result["count"] > 10:
         order = "倒序" if history_task_id is not None else "升序"
         console.print(f"当前仅展示第 1 页 10 条，暂不支持翻页；按开始时间{order}排列。")
