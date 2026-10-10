@@ -9,20 +9,20 @@
 
 启用权限校验后，CLI 在执行业务命令前向权限系统检查当前账号和环境的授权，通过后再调用平台接口。权限系统独立部署，数据保存在 MySQL；客户端校验不替代平台自身的权限控制。
 
-源码中的 CLI 版本为 **1.0.5.7**；当前正式发布的权限管理系统与 CLI 版本为 **1.0.3.7**。本次源码改进见 [1.0.5.7 变更说明](docs/RELEASE_NOTES_1.0.5.7.md)。本地开发参见 [Jupyter 本地开发指南](docs/Jupyter本地开发指南.md)，已发布内容见 [1.0.3.7 发布说明](docs/RELEASE_NOTES_1.0.3.7.md)。
+CLI 与权限管理系统统一版本为 **1.0.5.7**，相较上一正式版 1.0.3.7 的能力和升级要求见 [发布说明](docs/RELEASE_NOTES_1.0.5.7.md)。本地开发参见 [Jupyter 本地开发指南](docs/Jupyter本地开发指南.md)。
 
 新增本地命令历史：`ml history` 查看最近记录，`ml history clear` 清理。历史以文本保存在配置目录，最多保留 1000 条；`ml --no-history COMMAND` 可跳过本次记录。
 
-## 下载 1.0.3.7 正式版本
+## 下载 1.0.5.7 正式版本
 
-前往 [GitHub 正式版本](https://github.com/mossexplore/platform-cli/releases/tag/v1.0.3.7)，按需要下载：
+前往 [GitHub 正式版本](https://github.com/mossexplore/platform-cli/releases/tag/v1.0.5.7)，按需要下载：
 
 | 文件 | 用途 |
 | --- | --- |
-| `wiserec-cli-1.0.3.7-windows-py3-online.zip` | Windows 联网安装，支持企业 Python 包源 |
-| `wiserec-cli-1.0.3.7-windows-x64-py312-offline.zip` | Windows x64、Python 3.12 离线安装 |
-| `wiserec_cli-1.0.3.7-py3-none-any.whl` | 通过 pip 安装 CLI，依赖另行准备 |
-| `cli-access-1.0.3.7-linux-amd64.tar.gz` | Linux x86_64 权限系统 Docker 镜像 |
+| `wiserec-cli-1.0.5.7-windows-py3-online.zip` | Windows 联网安装，支持企业 Python 包源 |
+| `wiserec-cli-1.0.5.7-windows-x64-py312-offline.zip` | Windows x64、Python 3.12 离线安装 |
+| `wiserec_cli-1.0.5.7-py3-none-any.whl` | 通过 pip 安装 CLI，依赖另行准备 |
+| `cli-access-1.0.5.7-linux-amd64.tar.gz` | Linux x86_64 权限系统 Docker 镜像 |
 
 Release 同时提供配置示例、安装指南和 `SHA256SUMS` 校验文件。
 
@@ -50,18 +50,18 @@ ml --help
 服务支持 Docker 部署，复用现有 MySQL 8.x。内网服务器无需拉取镜像，可下载 Release 中的离线镜像后导入：
 
 ```bash
-docker load -i cli-access-1.0.3.7-linux-amd64.tar.gz
+docker load -i cli-access-1.0.5.7-linux-amd64.tar.gz
 ```
 
 接着按 [Docker 部署速查](docs/权限管理系统Docker安装部署与调试指南.md) 完成配置和启动：
 
 - 配置保存在宿主机 `/opt/cli-access-config/service.env`，只读挂载到容器 `/run/cli-access`。
-- 使用镜像 `cli-access:1.0.3.7` 启动，默认端口 `8008`。
+- 使用镜像 `cli-access:1.0.5.7` 启动，默认端口 `8008`。
 - 管理页面：`http://服务器IP:8008/cli-permission`。
 - 管理员添加与平台登录账号一致的人员、配置对应环境并授予访问权限。
 - 修改挂载配置后执行 `docker restart cli-access`；运行日志使用 `docker logs -f cli-access`。
 
-新数据库需要初始化并创建管理员；已有结构版本 10 且管理员正常时无需重新初始化。由权限系统 1.0.3.2 升级至 1.0.3.7 没有结构迁移，步骤见 [升级与回滚指南](docs/权限管理系统1.0.3.2升级至1.0.3.7指南.md)。更早的结构版本需先按历史指南迁移。
+新数据库需要初始化并创建管理员；已有结构版本 10 且管理员正常时无需重新初始化。由权限系统 1.0.3.7 升级至 1.0.5.7 没有结构迁移，步骤见 [升级与回滚指南](docs/权限管理系统1.0.3.7升级至1.0.5.7指南.md)。更早的结构版本需先按历史指南迁移。
 
 ## CLI 接入权限系统
 
