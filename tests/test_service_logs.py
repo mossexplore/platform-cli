@@ -71,12 +71,16 @@ def test_unresolved_or_invalid_selection_stops(invoke, extra):
     assert len(calls) == 1
 
 
-@pytest.mark.parametrize('extra', [['--file', 'a'], ['-k', 'error'], ['-n', '200']])
+@pytest.mark.parametrize('extra', [
+    ['--file', 'a'], ['-k', 'error'], ['-n', '200'],
+    ['--search-order', 'tail'], ['--grep-scope', 'C'], ['--grep-line', '0'],
+])
 def test_list_conflicts_before_request(invoke, extra):
     handler, calls = handler_for()
     result = invoke(['logs', 'service', '--list'] + extra, handler)
     assert result.exit_code != 0
     assert calls == []
+    assert '--list 不能与' in result.stderr
 
 
 def test_list_only(invoke):

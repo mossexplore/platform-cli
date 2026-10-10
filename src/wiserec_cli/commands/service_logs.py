@@ -137,7 +137,8 @@ def service_logs(
         if any(not word.strip() for word in keywords or []):
             raise ValueError('关键词不能为空白')
         body_options = ('file_name', 'keywords', 'lines', 'search_order', 'grep_scope', 'grep_line')
-        if list_only and any(context.get_parameter_source(name) == click.core.ParameterSource.COMMANDLINE
+        # Typer may use its bundled Click enum; compare the public source name.
+        if list_only and any(getattr(context.get_parameter_source(name), 'name', None) == 'COMMANDLINE'
                              for name in body_options):
             raise ValueError('--list 不能与文件、关键词、行数或正文检索选项同时使用')
         interactive = not no_input and can_prompt()
