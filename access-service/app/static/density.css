@@ -144,13 +144,18 @@
 .people-table th:nth-child(4) { width: 230px; }
 .people-table th:nth-child(5), .people-table th:nth-child(6), .environment-table th:nth-child(5), .environment-table th:nth-child(6) { width: 156px; }
 
-/* 人员授权环境胶囊保持单行 */
-.people-table th:nth-child(4), .people-table td.people-environments { min-width: 280px; }
+/* 环境列宽度不随标签数量增长；无脚本时完整换行展示 */
+.management-page .table-scroll > .people-table { table-layout: fixed; }
+.people-table th:nth-child(4) { width: 280px; }
 .people-table th:nth-child(5), .people-table th:nth-child(6) { width: 136px; }
 .people-table th:nth-child(7) { width: 84px; }
 .people-table td:nth-child(7) { max-width: 84px; }
-.people-table .grant-pills { width: max-content; min-width: 100%; overflow: visible; flex-wrap: nowrap; }
-.people-table .grant-pills .badge { flex: 0 0 auto; max-width: none; overflow: visible; text-overflow: clip; display: inline-flex; white-space: nowrap; }
+.people-table .grant-pills { width: 100%; min-width: 0; overflow: hidden; flex-wrap: wrap; align-items: center; white-space: normal; }
+.people-table .grant-pills .badge { flex: 0 0 auto; max-width: 100%; white-space: normal; overflow-wrap: anywhere; text-align: left; }
+.people-table .grant-pills.is-collapsed { flex-wrap: nowrap; }
+.people-table .grant-pills.is-collapsed .badge { max-width: none; white-space: nowrap; }
+.people-table .grant-pills [hidden] { display: none; }
+.people-table .environment-toggle { flex: 0 0 auto; max-width: 100%; white-space: normal; }
 
 /* 环境表格：地址完整展示 */
 .management-page .table-scroll > .environment-table { table-layout: auto; min-width: 1000px; }

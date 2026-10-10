@@ -71,7 +71,8 @@ def test_single_edit_entry_contains_person_and_grant_controls(system):
     login(client)
     html = client.get('/cli-permission/admin?tab=users').text
     row = html.split('data-account="alice"')[1].split('</tr>')[0]
-    assert row.count('<button') == 2
+    assert row.count('<button') == 3
+    assert 'aria-controls="environment-pills-1"' in row
     assert 'aria-label="删除 alice"' in row
     assert 'aria-label="编辑 alice"' in row
     panel = html.split('<dialog class="drawer person-editor" id="account-grants-1"')[1].split('</dialog>')[0]
@@ -123,3 +124,22 @@ def test_environment_summary_only_shows_effective_grants(system):
     row = client.get('/cli-permission/admin?tab=users').text.split('data-account="alice"')[1].split('</tr>')[0]
     assert '未授权' in row and 'class="count"' not in row
     assert 'prod' not in row and 'a-expiring' not in row
+
+
+def test_many_environments_remain_available_to_expand(system):
+    app, client, _ = system
+    with app.state.sessions() as db:
+        for index in range(9):
+            env = Environment(name=f'env-{index}', display_name=f'环境 {index}',
+                              platform_origin='https://example.com', enabled=True)
+            db.add(env)
+            db.flush()
+            db.add(Grant(user_id=1, environment_id=env.id, enabled=True))
+        db.commit()
+    login(client)
+    html = client.get('/cli-permission/admin?tab=users').text
+    row = html.split('data-account="alice"')[1].split('</tr>')[0]
+    assert '展开全部（10）' in row
+    assert 'data-environment-pills' in row
+    assert all(f'>env-{index}</span>' in row for index in range(9))
+    assert '/cli-permission/static/environment-pills.js' in html
