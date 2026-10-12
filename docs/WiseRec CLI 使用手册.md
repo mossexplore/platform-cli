@@ -163,7 +163,7 @@ ml business use
 
 ### 2.3 说明
 
-完整解压管理员提供的安装包，运行 `install.cmd` 后重新打开终端。使用前准备好所需 Python 环境和 Microsoft Edge，依次选择环境、登录、选择业务。
+完整解压管理员提供的安装包，运行 `install.cmd` 后重新打开终端。安装分两个阶段：先安装 CLI，再安装 OpenCode skill 和 `/ml` command。第二阶段失败不影响 CLI 使用，解决提示的问题后重新运行安装程序即可重试。资源默认位于当前用户的 `~/.config/opencode`，设置 `OPENCODE_CONFIG_DIR` 可指定目录。每次安装完整替换 `skills/wiserec-platform` 和 `commands/ml.md`，请勿直接修改这些文件。重新打开 OpenCode 会话后，可输入 `/ml 查询当前业务下的模型`，也可输入 `/ml` 查看用法。直接安装 Wheel 不自动安装 OpenCode 资源。使用前准备好所需 Python 环境和 Microsoft Edge，依次选择环境、登录、选择业务。
 
 ### 2.4 示例
 

@@ -8,6 +8,6 @@ if errorlevel 1 (
   exit /b 1
 )
 echo.
-echo Installation completed successfully.
+echo CLI installation completed. See the separate OpenCode resource result above.
 pause
 endlocal

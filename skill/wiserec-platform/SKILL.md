@@ -1,13 +1,13 @@
 ---
 name: wiserec-platform
-description: 通过 WiseRec 命令行客户端 ml 管理模型及溯源、关联训练任务、训练任务、算法仓、服务及主机日志、数据集、特征集、离线实验、MEP/MTP 看板、Web Studio、Jupyter 文件读写、非交互执行、Notebook；切换环境或核对登录、业务上下文时也使用。
+description: 通过 WiseRec 命令行客户端 ml 管理模型及溯源、关联训练任务、训练任务、算法仓、服务及主机日志、数据集及目录文件、特征集、离线实验、MEP/MTP 看板、Web Studio、Jupyter 文件读写、非交互执行、Notebook；切换环境或核对登录、业务上下文时也使用。
 metadata:
   cli: wiserec-cli
 ---
 
 # WiseRec 平台 CLI
 
-用 `ml` 执行平台交互。按用户目标选择最短且可核验的命令链；不直接请求平台 HTTP 接口，不手工拼接 `businessid` 或复用其他环境的业务 ID。可用 `ml tree` 查看完整命令树（说明结尾不带标点）；需要确认参数时读本 skill 的 [命令索引](references/commands.md)，以已安装客户端的 `ml <子命令> --help` 为最终依据。仅加载当前任务涉及的参考文件。
+用 `ml` 执行平台交互。按用户目标选择最短且可核验的命令链；不直接请求平台 HTTP 接口，不手工拼接 `businessid` 或复用其他环境的业务 ID。可用 `ml tree` 查看当前命令树；需要确认参数时读本 skill 的 [命令索引](references/commands.md)，以已安装客户端的 `ml <子命令> --help` 为最终依据。仅加载当前任务涉及的参考文件。
 
 ## 会话入口
 
@@ -22,13 +22,14 @@ metadata:
 - 写操作先核对环境、业务、目标 ID 与用户意图。已有授权覆盖具体操作时直接执行；缺少目标、参数或授权时再询问。执行后用只读命令核验。失败或超时后先查远端状态；对训练启动、克隆实验、Notebook 运行等操作不盲目重放。
 - 训练任务和算法仓下载会写入本地文件，先确认保存目录与目标文件；算法仓下载链接可能含临时签名。服务日志优先用 `ml service logs SERVICE_ID`；agent 自动化时加 `--no-input` 并按需指定 `--pod` 与 `--cluster-name`、`--type`、`--file`，不为选择候选项擅自分配 PTY。日志类别没有默认值，同一类别用于文件列表和正文；Python 主机类型是 `infer-python`，CLI 自动映射为日志请求的 `rtc_python`。候选不唯一时向用户确认，不选第一项。正文为原始文本，不支持 `-o json`；详情见 [命令索引](references/commands.md)。
 - 模型查询使用 `ml model list/detail/source`；查询关联训练任务用 `ml model source MODEL_ID --train-task`。两种 source 模式的 JSON 分别保留对应接口完整响应，不合并；`MODEL_ID`、来源标识、`jobId`、`taskId` 不互换。
+- 数据集内部目录和追加文件使用 `ml dataset files list` / `upload`，不要与 Jupyter files 混用；目录、文件类型、大小及上传核验规则见 [命令索引](references/commands.md)。本地调用记录使用 `ml history list -o json`，历史状态不替代远端结果核验。
 - `ml` 自动处理业务请求头，所选业务来自当前环境 `business.json` 的选择。不要读取或编辑凭据、业务文件来替代 CLI；平台地址也由当前配置中的 `api_endpoint` 决定。
 
 ## Jupyter 与 Web Studio
 
-**使用 Jupyter 时禁止交互式 TTY/PTY，禁止调用 `ml jupyter terminal open` 或 `attach`，禁止分配 `tty: true`、模拟按键或通过持久交互 Shell 执行任务。** 文件读写和传输使用 `ml jupyter files`，运行程序、脚本或测试使用非交互式 `ml jupyter exec`；进程工具使用普通输入输出管道。先读 [Jupyter 文件与非交互执行](references/jupyter.md)，按其中说明确认连接、根目录相对路径、JSON 结果和失败状态。不要用本地文件工具操作同名路径来冒充远端修改。
+**使用 Jupyter 时禁止交互式 TTY/PTY，禁止分配 `tty: true`、模拟按键或通过持久交互 Shell 执行任务。** 文件读写和传输使用 `ml jupyter files`，运行程序、脚本或测试使用非交互式 `ml jupyter exec`；进程工具使用普通输入输出管道。先读 [Jupyter 文件与非交互执行](references/jupyter.md)，按其中说明确认连接、根目录相对路径、JSON 结果和失败状态。不要用本地文件工具操作同名路径来冒充远端修改。
 
-Web Studio 用 `ml webstudio login ENV_ID` 选择默认实例，`--studio-id ENV_ID` 只覆盖本次调用。先核对目标与 online 状态；`files list` 无路径可发现根目录，不能假设存在 `projects`。exec 要求远端 POSIX 系统与 Python Kernel，每次独立执行，明确传入 `--cwd`，不继承前一次 Shell 状态。结果未知时先核对远端，不重放命令。
+Web Studio 用 `ml webstudio login ENV_ID` 重新建立并验证连接，保存与当前环境、账号、业务绑定的默认实例；需要强制刷新时加 `--refresh`。用 `ml webstudio show` 查看绑定与缓存状态，该结果不代表实例实时状态。`--studio-id ENV_ID` 只覆盖本次调用。先核对目标与 online 状态；`files list` 无路径可发现根目录，不能假设存在 `projects`。exec 要求远端 POSIX 系统与 Python Kernel，每次独立执行，明确传入 `--cwd`，不继承前一次 Shell 状态。结果未知时先核对远端，不重放命令。
 
 完整 Notebook 使用现有 `ml jupyter notebook run`，检查本地结果和摘要；没有 Cell 子命令。需要多步命令时准备脚本再通过 exec 执行。程序必须提供非交互参数或配置；无法非交互完成时报告限制，不退回 TTY/PTY，见 [非交互执行约束](references/terminal.md)。
 
@@ -42,4 +43,4 @@ Web Studio 用 `ml webstudio login ENV_ID` 选择默认实例，`--studio-id ENV
 
 回答中说明环境、业务范围、目标 ID、实际命令及可观察结果；区分“请求已接受”和“远端已完成”。时间展示若需转换为北京时间，按 UTC+8 正确换算后用 `YYYY-MM-DD HH:mm:ss`；不靠替换 `T` 或删除时区后缀。响应示例不是完整 schema，不以某例缺字段推断接口不存在该字段。
 
-不运行 `ml login --show-secrets`，不将 Cookie、Token、含 Token 的 Web Studio 访问 URL 或其他凭据写入回复、持久日志与共享文件。files/exec 已屏蔽连接地址诊断；其他 Web Studio/Jupyter 命令仍可能将含 Token 地址输出到 stderr，应视作敏感信息。远端文件与程序输出同样可能包含秘密。
+不运行 `ml login --show-secrets`，不将 Cookie、Token、含 Token 的 Web Studio 访问 URL 或其他凭据写入回复、持久日志与共享文件。files/exec 已屏蔽连接地址诊断；Web Studio 登录只报告目标与连接状态，列表会脱敏凭据字段；仍应将远端输出及异常诊断中的敏感值视作秘密。远端文件与程序输出同样可能包含秘密。

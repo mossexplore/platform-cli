@@ -9,7 +9,7 @@
 | 执行整个本地 Notebook 并保存结果 | `ml jupyter notebook run` |
 | 多步命令或需要输入 | 改为脚本、非交互参数或配置，再用 exec；无法改写则报告限制 |
 
-**禁止使用交互式 TTY/PTY、terminal open/attach、模拟按键或持久交互 Shell。** files 与 exec 必须通过普通进程工具捕获输出；不得将交互终端作为失败时的后备方案。当前 CLI 没有 `cell`、后台 `jobs` 或独立 Kernel 管理命令，不要构造这些命令。
+**禁止使用交互式 TTY/PTY、模拟按键或持久交互 Shell。** files 与 exec 必须通过普通进程工具捕获输出；不得将交互终端作为失败时的后备方案。当前 CLI 没有 `cell`、后台 `jobs` 或独立 Kernel 管理命令，不要构造这些命令。
 
 ## 连接与路径
 
@@ -21,7 +21,7 @@ ml webstudio login ENV_ID
 ml jupyter files list --output json
 ```
 
-ENV_ID 必须来自用户目标或查询结果；已有默认实例时先用 `ml webstudio show` 核对，无需重复登录。也可在每条命令上用 `--studio-id ENV_ID` 临时指定实例。实例未启动时，按用户授权启动后查询 online 状态。直连模式使用现有 Jupyter 配置，不执行 Web Studio 登录。不要自行改写认证文件。
+ENV_ID 必须来自用户目标或查询结果；已有默认实例时先用 `ml webstudio show` 核对当前环境、账号、业务绑定及缓存状态，无需重复登录；它不反映实例实时状态，必要时查询实例列表。登录会重新建立并验证连接，`--refresh` 可强制重新获取凭据和会话。也可在每条命令上用 `--studio-id ENV_ID` 临时指定实例。实例未启动时，按用户授权启动后查询 online 状态。直连模式使用现有 Jupyter 配置，不执行 Web Studio 登录。不要自行改写认证文件。
 
 远端路径相对 Jupyter 文件浏览器的根目录。`files list` 省略路径查看根目录；使用返回条目的 `path` 继续操作，不假设存在 `projects`。路径不能以 `/` 开头或含 `..`，不能使用本地 Windows 路径。交互终端中的 `cd` 不影响 files 或 exec，exec 每次显式传 `--cwd`。LOCAL 是本机文件，REMOTE 是远端文件，两者不可互换。
 
@@ -101,4 +101,4 @@ exec 完成或超时会清理同一进程组，不适合启动后台常驻服务
 
 ## 输出与凭据
 
-新 files/exec 命令已屏蔽连接发现阶段的带 Token 地址诊断，但登录、doctor、Notebook、Terminal 等路径仍可能输出敏感地址。远端文件或程序输出也可能包含秘密；仅报告任务所需内容，不传播凭据。认证失败先完成会话处理，不在混合输出中猜 JSON。
+files/exec 已屏蔽连接发现阶段的带 Token 地址诊断；Web Studio 登录仅报告目标与连接状态，列表会脱敏凭据字段。其他异常诊断仍需检查敏感信息。远端文件或程序输出也可能包含秘密；仅报告任务所需内容，不传播凭据。认证失败先完成会话处理，不在混合输出中猜 JSON。

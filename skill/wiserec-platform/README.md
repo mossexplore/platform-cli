@@ -1,26 +1,16 @@
 # WiseRec Platform skill
 
-此目录是可独立分发的 Agent Skill。复制整个 `wiserec-platform` 目录，保留 `SKILL.md` 与 `references/` 的相对位置。它覆盖当前项目的环境、业务、看板、离线实验、模型详情与溯源、关联训练任务、训练任务、算法仓、服务日志、数据集、特征集、Web Studio 和 Jupyter 命令。需要安装可用的 WiseRec `ml` CLI；具体命令以安装版本的 `--help` 为准。Jupyter 操作禁止使用交互式 TTY/PTY，文件操作用 files，程序执行用非交互式 exec；不得调用 terminal open/attach。普通进程工具即可捕获结果。文件读写和程序执行指南见 [Jupyter 文件与非交互执行](references/jupyter.md)。
+此目录是可独立分发的 Agent Skill。复制整个 `wiserec-platform` 目录，保留 `SKILL.md` 与 `references/` 的相对位置。它覆盖当前项目的环境、业务、看板、离线实验、模型详情与溯源、关联训练任务、训练任务、算法仓、服务日志、数据集及目录文件、特征集、Web Studio 和 Jupyter 命令。需要安装可用的 WiseRec `ml` CLI；具体命令以安装版本的 `--help` 为准。Jupyter 操作禁止使用交互式 TTY/PTY，文件操作用 files，程序执行用非交互式 exec；普通进程工具即可捕获结果。文件读写和程序执行指南见 [Jupyter 文件与非交互执行](references/jupyter.md)。
 
-## Windows OpenCode 安装
+## OpenCode 安装与使用
 
-在**包含本仓库 `skill` 目录**的位置打开 Windows PowerShell 5.1 或 PowerShell 7。项目级安装：
+OpenCode 集成分两个可见阶段执行：先安装并验证 CLI，再安装 `wiserec-platform` skill 和唯一的 `/ml` command。第二阶段失败会显示原因，CLI 仍可正常使用；排除文件占用或目录权限问题后，重新运行安装程序即可重试。
 
-```powershell
-$target = '.opencode\skills\wiserec-platform'
-New-Item -ItemType Directory -Force -Path $target | Out-Null
-Copy-Item -Path '.\skill\wiserec-platform\*' -Destination $target -Recurse -Force
-```
+默认目标为当前用户的 `~/.config/opencode`，设置 `OPENCODE_CONFIG_DIR` 时使用该目录。每次安装都会删除旧 `skills/wiserec-platform` 目录和 `commands/ml.md`，完整写入随包的新资源，同版本重装也会更新。WiseRec skill 与 `/ml` command 由安装程序管理，请勿直接修改这些文件。其他 skill、command 和 OpenCode 配置不受影响。项目目录或兼容目录中的同名副本需自行移除，以免加载旧副本。
 
-全局安装：
+完成后重新打开 OpenCode 会话，输入 `/ml 查询当前业务下的模型`；输入 `/ml` 可检查使用上下文并查看用法。需要允许 OpenCode 加载 skill 和调用终端工具，安装程序不会修改权限。直接通过 pip 安装 Wheel 不自动执行这一阶段，自动安装入口为官方 Windows 安装包。
 
-```powershell
-$target = Join-Path $HOME '.config\opencode\skills\wiserec-platform'
-New-Item -ItemType Directory -Force -Path $target | Out-Null
-Copy-Item -Path '.\skill\wiserec-platform\*' -Destination $target -Recurse -Force
-```
-
-OpenCode 也识别 `.agents\skills\wiserec-platform` 和 `.claude\skills\wiserec-platform` 等兼容位置。其他 agent 按其自身的 Agent Skills 发现路径安装；本 skill 不依赖另一个 skill、bash 或额外脚本。安装后确认目标位置存在 `SKILL.md` 和全部参考文件，重新启动或刷新 agent 会话，询问其可用 skill 列表并核对 `wiserec-platform`。若已有同名 skill，先检查加载优先级，避免读到旧副本。
+手工分发时需同时复制整个 skill 目录至 `skills/wiserec-platform`，并将仓库 `skill/commands/ml.md` 复制至 OpenCode 的 `commands/ml.md`。
 
 ## 本机核对
 
@@ -33,11 +23,13 @@ ml auth status
 ml business show
 ml service logs --help
 ml model source --help
+ml dataset files --help
+ml history list --help
 ml jupyter files --help
 ml jupyter exec --help
 ```
 
-安装 `ml` 后若当前终端仍找不到命令，重新打开终端再检查。真正使用业务命令前按 `SKILL.md` 核对业务选择。若 `ml service logs --help` 不存在，说明安装的 CLI 版本尚未包含该命令；其他命令同样以安装版本的帮助为准。若 files/exec 帮助不存在，先更新实际调用的 CLI；只复制 skill 不会安装或更新 CLI。`ml login` 需要 Edge 和图形界面，不能在无人值守的无头环境完成交互登录。
+安装 `ml` 后若当前终端仍找不到命令，重新打开终端再检查。真正使用业务命令前按 `SKILL.md` 核对业务选择。命令及参数以实际安装的 CLI 帮助为准；入口缺失时更新实际调用的 CLI，不能只复制 skill。`ml login` 需要 Edge 和图形界面，不能在无人值守的无头环境完成交互登录。
 
 ## 模型与服务日志入口
 

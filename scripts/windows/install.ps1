@@ -128,6 +128,7 @@ foreach ($RequiredCommand in @(
 }
 
 $BundleDirectory = $ScriptDirectory
+Write-Host "[Stage 1/2] Installing WiseRec CLI" -ForegroundColor Cyan
 Write-Host "[1/7] Verifying release package..." -ForegroundColor Cyan
 Test-ReleaseChecksums -BundleDirectory $BundleDirectory
 
@@ -306,6 +307,23 @@ Write-Host "  If ml still uses another installation, run where.exe ml and check 
 if ($PathChanged) {
     Write-Host ""
     Write-Host "Open a new CMD or PowerShell window before running ml." -ForegroundColor Yellow
+}
+Write-Host ""
+Write-Host "[Stage 2/2] Installing OpenCode skill and /ml command" -ForegroundColor Cyan
+$OpenCodeInstalled = $false
+try {
+    Invoke-Checked -Command $VirtualEnvironmentPython -Arguments @(
+        "-m", "wiserec_cli.opencode_install"
+    )
+    $OpenCodeInstalled = $true
+} catch {
+    Write-Warning "OpenCode skill and /ml command installation failed: $_"
+    Write-Warning "CLI installation succeeded and ml remains usable. Rerun install.cmd to retry."
+}
+if ($OpenCodeInstalled) {
+    Write-Host "Result: CLI and OpenCode resources installed successfully." -ForegroundColor Green
+} else {
+    Write-Warning "Result: CLI installed; OpenCode resources failed."
 }
 Write-Host ""
 Write-Host "Next steps:"

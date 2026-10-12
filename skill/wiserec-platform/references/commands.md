@@ -22,6 +22,15 @@
 
 `ml logout` 仅在用户要求退出或相应故障处理时使用。不要读写 `credentials.json`、`business.json` 来替代上述命令。
 
+## 本地历史记录
+
+| 命令 | 用途与关键选项 |
+| --- | --- |
+| `ml history list -o json` | 非交互查询最近 20 条本地历史；支持 `--limit`、`--search`、`--env`、`--status` |
+| `ml history clear [--env NAME] [--before "YYYY-MM-DD HH:mm:ss"] --yes` | 删除匹配记录；时间按北京时间，非交互必须传 `--yes`，需用户授权 |
+
+历史状态为 `success`、`failed`、`interrupted`。历史只反映本地调用结果，不证明远端任务最终成功；不能从历史恢复凭据或盲目重放写操作。直接 `ml history` 在交互终端浏览，Agent 使用 list 的 JSON 输出。
+
 ## 用户、MEP、训练看板
 
 | 命令 | 用途与关键选项 |
@@ -79,7 +88,7 @@
 | `ml model source MODEL_ID -o json` | 查询模型来源；内部从详情取得 `sourceId`，JSON 为来源接口完整响应 |
 | `ml model source MODEL_ID --train-task -o json` | 从来源取得 `jobId` 再查询关联训练任务；JSON 仅为训练任务接口完整响应 |
 
-三个命令均支持 `--output table|json` / `-o`，默认沿用环境配置。模型列表项位于 `result.models`。模型详情和来源字段位于 `result`；训练任务字段位于 `result.jobHistoryDetail`，其中 `jobId` 为执行标识，`taskId` 为任务标识。人工展示依次包括 jobId、任务Id、任务名称、业务编码、任务类型、镜像、资源规格、历史记录数目。
+四种调用均支持 `--output table|json` / `-o`，默认沿用环境配置。模型列表项位于 `result.models`。模型详情和来源字段位于 `result`；训练任务字段位于 `result.jobHistoryDetail`，其中 `jobId` 为执行标识，`taskId` 为任务标识。人工展示依次包括 jobId、任务Id、任务名称、业务编码、任务类型、镜像、资源规格、历史记录数目。
 
 溯源的模型版本读取 `modelVersion`，不是详情中的 `modelTag`。敏感值 1 显示“是”，其他值“否”；状态值 1 显示“已发布”，其他值“未发布”；时间换算为北京时间。普通字段缺失显示 `-`，0 保留。详情、溯源和关联训练任务均要求 `result.code` 为整数 0；必要的 sourceId/jobId 缺失或响应结构无效时停止，不猜测关联关系。
 
@@ -113,6 +122,12 @@
 | --- | --- |
 | `ml dataset list -o json` | 可用 `--page`、`--page-size`、`--name`/`--dataset-name`、`--create-user`、`--update-user`、`--bucket-name` |
 | `ml dataset detail DATASET_ID -o json` | 查询指定数据集详情 |
+| `ml dataset files list DATASET_ID --dir / -o json` | 查看数据集内部目录；`--dir` 默认 `/` |
+| `ml dataset files upload DATASET_ID LOCAL_FILE --dir / -o json` | 向目标目录追加本地单文件；`--timeout` 默认 1800 秒，最小 1 秒 |
+
+数据集文件路径与 Jupyter 路径不同：这里以 `/` 表示数据集根目录，使用 `/` 分隔，不允许反斜杠及 `.`、`..` 路径段。目录 JSON 外层为 `currentDir` 与 `response`；条目在 `response.result.fileInfos.files`。`hasMore=true` 表示结果不完整，当前命令无目录分页选项，不自行拼接不存在的选项。
+
+上传仅支持 `.txt`、`.csv`、`.zip`、`.tar`、`.gz`、`.json`，大小不超过 2,000,000,000 字节。文件名须以英文字母或数字开头，仅含英文字母、数字、下划线、短横线和点。上传不是覆盖操作，没有 `--overwrite`；先核对目标数据集和目录，成功后重新 list 核验。失败或超时不自动重传，先查远端是否已经接收。
 
 ## 特征集
 
@@ -128,16 +143,12 @@
 | 命令 | 用途与关键选项 |
 | --- | --- |
 | `ml webstudio list -o json` | 实例列表；可用 `--page`、`--page-size`、`--name`、`--status`、`--relator`、`--env-id`、`--business-id` |
-| `ml webstudio show` | 查看当前默认实例；保存的名称可能不是实时状态 |
-| `ml webstudio login ENV_ID` | 连接 online 实例并保存默认目标；可能打印含 Token 的访问 URL |
+| `ml webstudio show` | 固定 JSON，查看当前环境、账号与业务绑定的默认实例及缓存状态；不代表实例实时状态 |
+| `ml webstudio login ENV_ID [--refresh]` | 重新建立并验证连接，保存当前环境、账号和业务绑定的默认实例；`--refresh` 强制重新获取连接凭据和会话 |
 | `ml webstudio start ENV_ID` | 启动实例；完成提示后用列表核对实际状态 |
 | `ml webstudio stop ENV_ID` | 停止实例；可能中断正在运行的 Notebook 或终端，先核对目标 |
 | `ml jupyter doctor [--studio-id ENV_ID]` | 检查 HTTP、Kernel、Terminal 接口；不验证 WebSocket |
 | `ml jupyter notebook run SOURCE -o json [--studio-id ENV_ID]` | 执行本地 `.ipynb`，可用 `--download`、`--kernel`、`--cwd`、`--timeout`、`--startup-timeout` |
-| `ml jupyter terminal list [--studio-id ENV_ID]` | 当前实例终端列表 |
-| `ml jupyter terminal open [--studio-id ENV_ID]` | 本 skill 禁止调用；程序执行改用 `ml jupyter exec` |
-| `ml jupyter terminal attach NAME [--studio-id ENV_ID]` | 本 skill 禁止调用；程序执行改用 `ml jupyter exec` |
-| `ml jupyter terminal close NAME [--studio-id ENV_ID]` | 删除远端终端，可能中止远端进程 |
 
 文件与执行命令均支持 `--studio-id ENV_ID`、`--output text|json`；操作前读 [Jupyter 文件与非交互执行](jupyter.md)。
 
@@ -155,4 +166,4 @@
 | `ml jupyter files delete PATH -o json` | 立即删除文件或空目录，无确认、不递归 |
 | `ml jupyter exec --cwd PATH -o json -- PROGRAM [ARGS...]` | 非交互执行；支持 `--timeout`、`--startup-timeout`、`--max-output`、`--kernel` |
 
-禁止使用交互式 TTY/PTY，见 [非交互执行约束](terminal.md)。terminal list/close 仅在用户要求检查或关闭既有终端时使用，不用于建立交互执行流程。Notebook 默认前台执行，结果写入本地独立目录；失败或超时时检查摘要和远端状态，不自动重跑。Web Studio 动态连接使用当前环境业务选择，终端名称不能跨实例复用。`ml webstudio start` 和 `stop` 不改变默认实例选择。
+禁止使用交互式 TTY/PTY，见 [非交互执行约束](terminal.md)。Notebook 默认前台执行，结果写入本地独立目录；失败或超时时检查摘要和远端状态，不自动重跑。Web Studio 动态连接使用当前环境业务选择，终端名称不能跨实例复用。`ml webstudio start` 和 `stop` 不改变默认实例选择。

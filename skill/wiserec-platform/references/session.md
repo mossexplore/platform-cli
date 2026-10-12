@@ -20,7 +20,7 @@ ml business show
 ## 登录与业务选择
 
 - 无缓存或已过期：在有图形界面且安装 Edge 的 Windows 会话执行 `ml login`，让用户完成 SSO 或验证码，再复查 `ml auth status`。agent 可以启动命令并等待用户交互，但不能代替用户输入凭据，也不能假定无图形界面的终端可登录。
-- 未选业务：用 `ml business list` 取得当前环境候选，按用户明确的租户/团队选择执行 `ml business use --tenant TENANT_ID [--team TEAM_ID] [--department DEPARTMENT_ID]`，再 `ml business show` 核对。`--tenant` 为必选项，不能只传 team/department。业务 ID 不从其他环境复制。
+- 未选业务：用 `ml business list` 取得当前环境候选，按用户明确的租户/团队选择执行 `ml business use --tenant TENANT_ID [--team TEAM_ID] [--department DEPARTMENT_ID]`，再 `ml business show` 核对。非交互按 ID 选择时必须传 `--tenant`，不能只传 team/department；不传 ID 会进入交互选择，`--search` 可筛选交互候选，Agent 不依赖交互提示。业务 ID 不从其他环境复制。
 - `ml business refresh` 会启动浏览器读取业务目录；仅在目录确实缺失或失效时使用。刷新后重新核对选择。
 - 权限拒绝时停止该业务操作并报告原因。`ml access status` 可用于检查；除非正在排查连接问题，不运行 `--diagnose`，因为它可能显示内部地址和账号。
 
@@ -47,4 +47,5 @@ ml business show
 - Web Studio 的 `start`、`stop` 改变远端状态，不改变默认实例；操作后用 `ml webstudio list --env-id ENV_ID` 核对。`stop` 可能中断该实例的运行任务或交互终端。
 
 - Jupyter 文件写入、上传、下载、移动和删除按 [文件操作](jupyter.md) 的覆盖及路径规则执行；delete 无二次确认，调用前核对用户目标。副作用不明时先用 stat/read/list 核验。
+- 数据集目录与追加文件使用 `ml dataset files list` / `upload`；上传后重新查询目录核验，不能在超时后盲目重传。详情见 [数据集命令](commands.md)。
 - `ml jupyter exec` 结果在 JSON 的 result 内；断线不自动重跑，不把释放 Kernel 等同于远端进程停止。CLI 未提供后台任务查询命令。
