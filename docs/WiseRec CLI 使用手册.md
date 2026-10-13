@@ -78,6 +78,14 @@ ml                                              WiseRec 命令行工具
 │   ├── list                                    查询当前业务的模型列表
 │   ├── detail                                  查询模型详情
 │   └── source                                  查询模型溯源或关联训练任务信息
+├── resource                                    资源管理
+│   └── template                                资源模板查询
+│       ├── list                                查询资源模板列表
+│       └── detail                              查询资源模板详情
+├── deployment                                  部署管理
+│   └── template                                部署模板查询
+│       ├── list                                查询部署模板列表
+│       └── detail                              查询部署模板详情
 ├── algorithm                                   算法仓
 │   ├── list                                    查看算法仓列表
 │   ├── download                                下载算法仓文件
@@ -961,4 +969,95 @@ ml history clear --env ENV_NAME --yes
 ml history clear --yes
 ml --no-history dataset list
 ml --config CONFIG_PATH history
+```
+
+
+## 23. 资源模板查询
+
+### 23.1 命令格式
+
+```text
+ml resource template list [OPTIONS]
+ml resource template detail RESOURCE_TEMPLATE_ID [--output table|json]
+```
+
+### 23.2 参数与选项
+
+| 命令 | 参数或选项 | 用途 |
+| --- | --- | --- |
+| `list` | `--page`、`--page-size` | 默认第 1 页、每页 10 条，均须为正整数 |
+| `list` | `--name` | 模板名称条件，默认空字符串 |
+| `list` | `--env` | 模板所属环境条件，默认不筛选，不切换 CLI 连接环境 |
+| `list` | `--framework-name` | 推理框架包名称条件，默认空字符串 |
+| `list` | `--framework-type` | 框架类型条件，默认不筛选 |
+| `list` | `--resource-type`、`--template-type` | 资源类型和模板类型条件，均默认 `docker` |
+| `detail` | `RESOURCE_TEMPLATE_ID` | 必填资源模板 ID，从列表第一列获取 |
+| 两个命令 | `--output table\|json` / `-o` | 默认沿用当前环境输出配置 |
+
+### 23.3 说明
+
+先选择环境、登录并选择业务。列表条件可组合，匹配规则由平台决定；每次仅查询指定页。其他筛选条件暂不开放。
+
+列表展示资源模板 ID、模板名称、环境、YAML 模板名、镜像名称、镜像标签、业务编码、集群名称、创建时间、更新时间和状态，并显示分页信息。首列 ID 完整展示，长字段换行；状态为 0 显示“在用”，其他有效值显示“停用”，缺失值显示 `-`。时间按北京时间展示；不带时区的时间已是北京时间，不重复转换。
+
+详情按基本信息、推理框架、扩展信息展示。镜像名称与标签使用空格分隔；配额类型为 guaranteed 显示“核心配额”，其他有效值显示“弹性配额”。默认资源规格由 CPU、以 G 为单位的内存及 NPU 组合，例如 `1C2G`、`4C8G1NPU`，NPU 为零时省略。环境变量、Hosts 映射、主机调度和启动参数分别展示，启动参数保持原顺序，自定义启动命令仅显示。
+
+框架名称由关联框架包的名称与标识通过 `@` 连接，参数配置逐组展示，密码和 Secret 等值原样显示。未关联框架时显示提示；关联框架查询失败时保留资源模板详情并报错。参数配置解析失败时仍显示其他详情，命令返回失败。
+
+列表 JSON 输出为完整接口响应；详情 JSON 输出包含 `resourceTemplate` 和 `frameworkPackage` 两个接口响应，未关联框架或框架查询失败时后者为 null，查询失败仍返回非零退出码。JSON 保留额外字段、原始时间、状态和框架配置字符串，敏感值不脱敏。
+
+### 23.4 示例
+
+```bash
+ml resource template list
+ml resource template list --name TEMPLATE_NAME --env TEMPLATE_ENV
+ml resource template list --framework-name FRAMEWORK_NAME --framework-type FRAMEWORK_TYPE
+ml resource template list --resource-type RESOURCE_TYPE --template-type TEMPLATE_TYPE
+ml resource template list --page 2 --page-size 20 -o json
+ml resource template detail RESOURCE_TEMPLATE_ID
+ml resource template detail RESOURCE_TEMPLATE_ID -o json
+```
+
+
+## 24. 部署模板查询
+
+### 24.1 命令格式
+
+```text
+ml deployment template list [OPTIONS]
+ml deployment template detail DEPLOY_TEMPLATE_ID [--output table|json]
+```
+
+### 24.2 参数与选项
+
+| 命令 | 参数或选项 | 用途 |
+| --- | --- | --- |
+| `list` | `--page`、`--page-size` | 默认第 1 页、每页 10 条，均须为正整数 |
+| `list` | `--framework-name` | 推理框架包名称条件，默认空字符串 |
+| `list` | `--env` | 模板所属环境条件，默认不筛选，不切换 CLI 连接环境 |
+| `list` | `--framework-type` | 框架类型条件，默认不筛选 |
+| `detail` | `DEPLOY_TEMPLATE_ID` | 必填部署模板 ID，从列表第一列获取 |
+| 两个命令 | `--output table\|json` / `-o` | 默认沿用当前环境输出配置 |
+
+### 24.3 说明
+
+先选择环境、登录并选择业务。列表仅开放框架包名称、模板环境和框架类型三个筛选条件，可组合使用，匹配规则由平台决定。每次只查询指定页，其他条件保持平台默认值。
+
+列表展示部署模板 ID、模板名称、环境、业务编码、组件包、模板类型、资源模板、推理类型、是否默认模板、创建时间、更新时间和是否系统模板。首列 ID 完整展示，长字段换行；多个组件以 `名称@标识` 形式用英文逗号连接，多个资源模板名称也用英文逗号连接。默认模板和系统模板标志为数字 0 或字符串 "0" 时显示“否”，其他有效值显示“是”，缺失值显示 `-`。时间按北京时间展示，毫秒时间戳正确转换。
+
+详情按基本信息、健康检查参数、容器资源模板三个区块展示。基本信息区分自定义组件与平台公共组件；最大并发数与调用方超时分别展示，超时单位为毫秒。健康检查时间参数按字段标注秒，不健康阈值展示原值。
+
+详情自动展开全部关联容器资源模板，使用部署模板的模板类型、业务编码和每个关联名称查询，不分页，再按名称完全相等筛选。关联资源表展示模板名称、YAML 模板名、镜像名称、镜像标签、集群名称、实例数、创建时间、更新时间和状态，不展示容器类别。资源状态为 0 显示“在用”，其他有效值显示“停用”。没有关联项时正常显示提示；关联项查询失败、没有精确匹配或存在多个同名项时，保留其他结果并返回非零退出码，同名项全部展示。
+
+列表 JSON 为完整接口响应。详情 JSON 包含 `deploymentTemplate` 和 `resourceTemplates`，后者逐项包含查询名称 `requestedName`、完整关联查询响应 `response`、精确匹配数据 `exactMatches` 及错误 `error`；正常项的 error 为 null。保留原始时间、标志及额外字段，敏感值不脱敏。
+
+### 24.4 示例
+
+```bash
+ml deployment template list
+ml deployment template list --env TEMPLATE_ENV
+ml deployment template list --framework-name FRAMEWORK_NAME --framework-type FRAMEWORK_TYPE
+ml deployment template list --page 2 --page-size 20 -o json
+ml deployment template detail DEPLOY_TEMPLATE_ID
+ml deployment template detail DEPLOY_TEMPLATE_ID -o json
 ```
