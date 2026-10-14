@@ -16,7 +16,7 @@ from ..output import console
 from ..services.model import ModelService
 from .common import fail, runtime_from_context
 
-model_app = typer.Typer(no_args_is_help=True, help='模型信息查询')
+model_app = typer.Typer(no_args_is_help=True, help='模型查询与部署')
 LIST_COLUMNS = (
     ('模型 ID', 'modelId'), ('模型名称', 'name'), ('模型版本', 'version'),
     ('业务编码', 'businessId'), ('类型', 'type'), ('创建时间', 'createTime'),

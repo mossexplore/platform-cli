@@ -74,10 +74,11 @@ ml                                              WiseRec 命令行工具
 │   ├── cancel                                  取消执行
 │   ├── delete                                  删除任务
 │   └── clone                                   克隆任务
-├── model                                       模型信息查询
+├── model                                       模型查询与部署
 │   ├── list                                    查询当前业务的模型列表
 │   ├── detail                                  查询模型详情
-│   └── source                                  查询模型溯源或关联训练任务信息
+│   ├── source                                  查询模型溯源或关联训练任务信息
+│   └── deploy                                  使用部署模板将模型部署为服务
 ├── resource                                    资源管理
 │   └── template                                资源模板查询
 │       ├── list                                查询资源模板列表
@@ -1061,4 +1062,55 @@ ml deployment template list --framework-name FRAMEWORK_NAME --framework-type FRA
 ml deployment template list --page 2 --page-size 20 -o json
 ml deployment template detail DEPLOY_TEMPLATE_ID
 ml deployment template detail DEPLOY_TEMPLATE_ID -o json
+```
+
+
+## 25. 模型部署
+
+### 25.1 命令格式
+
+```text
+ml model deploy MODEL_ID --template DEPLOY_TEMPLATE_ID [OPTIONS]
+```
+
+### 25.2 参数与选项
+
+| 参数或选项 | 用途 |
+| --- | --- |
+| `MODEL_ID` | 必填模型 ID，从 `ml model list` 获取 |
+| `--template DEPLOY_TEMPLATE_ID` | 必填部署模板 ID，从 `ml deployment template list` 获取 |
+| `--qps COUNT` | 单实例最大 QPS，必须为正整数；未指定时不提交该字段 |
+| `--update-mode rolling\|in-place` | 滚动更新或原地更新，默认 rolling |
+| `--health-check-mode default\|response-code\|response-code-and-data` | 默认检查、响应码匹配、响应码及数据匹配，默认 default；无需额外匹配参数 |
+| `--health-port PORT` | 健康检查端口，默认 18090，范围 1 至 65535 |
+| `--description TEXT` | 服务文档描述，默认空字符串 |
+| `--request-file FILE`、`--response-file FILE` | UTF-8 输入和输出报文文件，路径相对于当前工作目录，文本原样读取；未指定时为空字符串 |
+| `--dry-run` | 查询、校验并预览，不提交部署 |
+| `--yes` | 跳过交互确认；非交互环境提交时必填 |
+| `--output table\|json` / `-o` | 默认沿用当前环境输出配置 |
+
+### 25.3 说明
+
+先选择环境、登录并选择业务，准备模型及部署模板 ID。部署模板必须关联至少一个有效容器资源模板，关联几个资源模板就部署几个区域，不支持区域选择或配置覆盖文件。每个关联名称必须精确匹配唯一资源模板，缺失、同名歧义或查询失败时不提交部署。模板及资源必须提供必填配置，框架配置必须为有效的非空 JSON 对象。
+
+服务名称及服务版本分别沿用所选模型的名称及版本，不另行指定。最大并发数和调用超时来自部署模板；组件包包括自定义和公共组件。各区域沿用资源模板的镜像、资源规格、框架参数、环境变量、Hosts、主机标签、启动参数及自定义启动命令。实际提交实例数固定为 1，不继承资源模板实例数，不配置弹性伸缩。
+
+健康检查优先使用部署模板值，仅在缺失、null 或空字符串时采用默认值：检查类型 httpGet、检查方法 health、检查超时 5 秒、拉起超时 120 秒、延迟检查 120 秒、检查间隔 10 秒、不健康阈值 3、优雅下线时间 10 秒。告警上报领域取当前业务所属真实租户的首个服务组，不提供选择参数。
+
+提交前展示目标环境、业务、模型、模板、服务参数、健康检查来源、全部区域和服务文档摘要，章节标题使用青色加粗，表格内不编号。交互环境确认后提交；拒绝确认则取消。JSON 模式的摘要及确认写入标准错误，标准输出仅包含发布接口响应；`--dry-run -o json` 输出完整待提交请求，包括原样框架参数及敏感值。
+
+接口结果码为 0 时显示部署成功和服务 ID；非零时显示失败原因并返回非零退出码，不解析描述文本判断结果。响应缺少有效结果码、请求超时或连接异常时，提交结果未确认，应先用 `ml service list` 查询，再决定是否重试。发布请求不自动重放。预览后账号、环境或业务变化时停止提交，需要重新执行命令。
+
+### 25.4 示例
+
+```bash
+ml model list
+ml deployment template list
+ml model deploy MODEL_ID --template DEPLOY_TEMPLATE_ID --dry-run
+ml model deploy MODEL_ID --template DEPLOY_TEMPLATE_ID --dry-run -o json
+ml model deploy MODEL_ID --template DEPLOY_TEMPLATE_ID
+ml model deploy MODEL_ID --template DEPLOY_TEMPLATE_ID --qps 100 --update-mode in-place
+ml model deploy MODEL_ID --template DEPLOY_TEMPLATE_ID --health-check-mode response-code --health-port 18090
+ml model deploy MODEL_ID --template DEPLOY_TEMPLATE_ID --description SERVICE_DESCRIPTION --request-file REQUEST_FILE --response-file RESPONSE_FILE
+ml model deploy MODEL_ID --template DEPLOY_TEMPLATE_ID --yes -o json
 ```

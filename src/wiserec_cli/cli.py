@@ -27,6 +27,7 @@ from .commands.mtp import mtp_app
 from .commands.offline import offline_app
 from .commands.train import train_app
 from .commands.model import model_app
+from .commands.model_deploy import deploy as deploy_model
 from .commands.resource import resource_app
 from .commands.deployment import deployment_app
 from .commands.tree import show_tree
@@ -55,6 +56,7 @@ app.add_typer(mep_app, name="mep")
 app.add_typer(mtp_app, name="mtp")
 app.add_typer(offline_app, name="offline")
 app.add_typer(train_app, name="train")
+model_app.command("deploy")(deploy_model)
 app.add_typer(model_app, name="model")
 app.add_typer(resource_app, name="resource")
 app.add_typer(deployment_app, name="deployment")
