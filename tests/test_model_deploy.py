@@ -444,3 +444,43 @@ def test_optional_resource_collections_reject_non_arrays(invoke, backend, field,
     assert result.exit_code == 1
     assert f'{field} 必须为数组' in result.stderr
     assert not backend.publishes
+
+
+@pytest.mark.parametrize('state', ['missing', 'null', 'empty'])
+def test_manual_required_service_fields(invoke, backend, state):
+    for key in ['serviceTimeout', 'executeLimit']:
+        if state == 'missing':
+            backend.template.pop(key)
+        else:
+            backend.template[key] = None if state == 'null' else ''
+    result = invoke(['--yes', '--service-timeout', '5000', '--execute-limit', '200', '-o', 'json'], backend)
+    assert result.exit_code == 0, result.output
+    service = json.loads(backend.publishes[0].content)['data']['serviceInfo']
+    assert service['serviceTimeout'] == 5000 and service['executeLimit'] == '200'
+
+
+def test_manual_service_fields_override_template(invoke, backend):
+    result = invoke(['--dry-run', '-o', 'json', '--service-timeout', '8000', '--execute-limit', '0'], backend)
+    assert result.exit_code == 0, result.output
+    service = json.loads(result.stdout)['data']['serviceInfo']
+    assert service['serviceTimeout'] == 8000 and service['executeLimit'] == '0'
+    assert backend.template['serviceTimeout'] == 3000
+
+
+@pytest.mark.parametrize('missing', [['serviceTimeout'], ['executeLimit'], ['serviceTimeout', 'executeLimit']])
+def test_missing_service_fields_provide_retry_guidance(invoke, backend, missing):
+    for field in missing:
+        backend.template.pop(field)
+    result = invoke(['--yes'], backend)
+    assert result.exit_code == 1 and not backend.publishes
+    assert f'ml model deploy {MODEL_ID} --template {TEMPLATE_ID}' in result.stderr
+    for field, option in [('serviceTimeout', '--service-timeout'), ('executeLimit', '--execute-limit')]:
+        if field in missing:
+            assert option in result.stderr
+    assert '占位符' in result.stderr
+
+
+@pytest.mark.parametrize('args', [['--service-timeout', '0'], ['--execute-limit', '-1']])
+def test_invalid_manual_service_fields_prevent_query(invoke, backend, args):
+    assert invoke(['--dry-run', *args], backend).exit_code != 0
+    assert not backend.calls

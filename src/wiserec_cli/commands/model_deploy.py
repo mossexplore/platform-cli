@@ -10,7 +10,7 @@ from rich.text import Text
 
 from ..errors import BusinessError
 from ..output import console
-from ..services.deploy_payload import HEALTH_MODES, UPDATE_MODES
+from ..services.deploy_payload import HEALTH_MODES, UPDATE_MODES, MissingDeployOptions
 from ..services.model_deploy import ModelDeployService
 from .common import fail, runtime_from_context
 from .model import selected_output
@@ -40,6 +40,8 @@ def read_document(path):
 def deploy(context: typer.Context,
            model_id: str = typer.Argument(..., help='模型 ID'),
            template_id: str = typer.Option(..., '--template', help='部署模板 ID'),
+           service_timeout: Optional[int] = typer.Option(None, '--service-timeout', min=1, help='调用方最大容忍超时时间（ms），优先于模板'),
+           execute_limit: Optional[int] = typer.Option(None, '--execute-limit', min=0, help='单实例最大并发数，优先于模板'),
            qps: Optional[int] = typer.Option(None, '--qps', min=1, help='单实例最大 QPS，未指定时不提交该字段'),
            update_mode: str = typer.Option('rolling', '--update-mode', help='rolling 或 in-place'),
            health_mode: str = typer.Option('default', '--health-check-mode', help='default、response-code 或 response-code-and-data'),
@@ -65,7 +67,8 @@ def deploy(context: typer.Context,
         def prepare(client):
             identity = context_identity(runtime, client)
             payload, template, framework_names = ModelDeployService(client).prepare(
-                model_id, template_id, identity[4], qps=qps, update_mode=update_mode,
+                model_id, template_id, identity[4], service_timeout=service_timeout, execute_limit=execute_limit,
+                qps=qps, update_mode=update_mode,
                 health_mode=health_mode, health_port=health_port, description=description,
                 request_content=request_content, response_content=response_content)
             return payload, template, identity, framework_names
@@ -97,5 +100,8 @@ def deploy(context: typer.Context,
             console.print(Text(f"结果：{result.get('des', '')}"))
         if result['code'] != 0:
             raise ValueError(f"部署失败：code={result['code']}，des={result.get('des', '')}")
+    except MissingDeployOptions as exc:
+        typer.echo(f'错误: {exc}', err=True)
+        raise typer.Exit(code=1)
     except Exception as exc:
         fail(exc)

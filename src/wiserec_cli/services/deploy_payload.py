@@ -94,7 +94,30 @@ def resource_block(resource_id, resource, framework):
     return block
 
 
-def build_payload(model, template, blocks, scope, *, qps=None, update_mode='rolling',
+class MissingDeployOptions(ApiError):
+    """缺失参数的命令指引应原样输出，避免终端折行破坏可复制命令。"""
+
+
+def resolve_service_fields(model, template, service_timeout=None, execute_limit=None):
+    resolved_timeout = template.get('serviceTimeout') if service_timeout is None else service_timeout
+    resolved_limit = template.get('executeLimit') if execute_limit is None else execute_limit
+    missing = []
+    if resolved_timeout is None or resolved_timeout == '':
+        missing.append(('--service-timeout', '调用方最大容忍超时时间（ms）', 'TIMEOUT_MS'))
+    if resolved_limit is None or resolved_limit == '':
+        missing.append(('--execute-limit', '单实例最大能承受并发数', 'MAX_CONCURRENT_REQUESTS'))
+    if missing:
+        details = '；'.join(f'{option}（{label}）' for option, label, _ in missing)
+        command = f"ml model deploy {model['modelId']} --template {template.get('deployTemplateId', 'DEPLOY_TEMPLATE_ID')}"
+        command += ''.join(f' {option} {placeholder}' for option, _, placeholder in missing)
+        raise MissingDeployOptions(f'部署模板未配置且命令未提供：{details}。请填写对应参数后重试\n'
+                       f'命令格式：{command}\n将占位符替换为实际数值：超时时间为正整数，单位毫秒；并发数为非负整数')
+    integer(resolved_timeout, 'serviceTimeout', 1)
+    integer(resolved_limit, 'executeLimit')
+    return resolved_timeout, resolved_limit
+
+
+def build_payload(model, template, blocks, scope, *, service_timeout=None, execute_limit=None, qps=None, update_mode='rolling',
                   health_mode='default', health_port=18090, description='', request_content='', response_content=''):
     if update_mode not in UPDATE_MODES or health_mode not in HEALTH_MODES:
         raise ApiError('更新模式或健康检查模式不合法')
@@ -106,11 +129,12 @@ def build_payload(model, template, blocks, scope, *, qps=None, update_mode='roll
     for key in ('tags', 'modelPkgLocationReplicas'):
         if not isinstance(model_info[key], list):
             raise ApiError(f'{key} 必须为数组')
+    resolved_timeout, resolved_limit = resolve_service_fields(model, template, service_timeout, execute_limit)
     service = {
         'inferenceType': required(template, 'inferenceType'), 'serviceId': None,
         'serviceName': model['modelName'], 'serviceVersion': model['modelVersion'],
-        'serviceTimeout': required(template, 'serviceTimeout'),
-        'executeLimit': required(template, 'executeLimit'),
+        'serviceTimeout': resolved_timeout,
+        'executeLimit': str(resolved_limit) if execute_limit is not None else resolved_limit,
         'updateMode': UPDATE_MODES[update_mode], 'env': required(template, 'env'),
     }
     integer(service['serviceTimeout'], 'serviceTimeout', 1)

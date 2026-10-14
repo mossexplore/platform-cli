@@ -3,7 +3,7 @@ from ..errors import ApiError, AuthenticationError
 from .deployment import DeploymentTemplateService
 from .resource import ResourceTemplateService
 from .model import ModelService
-from .deploy_payload import build_payload, required, resource_block
+from .deploy_payload import build_payload, required, resource_block, resolve_service_fields
 
 PUBLISH_PATH = '/ai/backend/mep/services/rtcContainer/publish'
 
@@ -20,6 +20,7 @@ class ModelDeployService:
         template = resolved['deploymentTemplate']['result']['template']
         if template.get('deployTemplateId') != template_id:
             raise ApiError('部署模板详情 ID 与请求不一致')
+        resolve_service_fields(model, template, options.get('service_timeout'), options.get('execute_limit'))
         resources = resolved['resourceTemplates']
         if not resources or any(item['error'] or len(item['exactMatches']) != 1 for item in resources):
             raise ApiError('部署模板关联资源缺失、查询失败或名称不唯一，无法部署')
