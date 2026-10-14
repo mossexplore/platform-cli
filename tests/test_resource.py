@@ -301,9 +301,20 @@ def test_detail_type_translations(resource_type, framework_type, expected_resour
     with patch('wiserec_cli.commands.resource.console') as mocked:
         render_detail(payload, FRAMEWORK, 'table')
     table = mocked.print.call_args_list[1].args[0]
-    fields = {str(key): str(val) for key, val in zip(table.columns[1]._cells, table.columns[2]._cells)}
+    fields = {str(key): str(val) for key, val in zip(table.columns[0]._cells, table.columns[1]._cells)}
     assert fields['资源类型'] == expected_resource
     assert fields['框架类型'] == expected_framework
     # 人工展示的转换不得改变原始响应或 JSON 数据
     assert payload['result']['templateType'] == resource_type
     assert payload['result']['frameworkType'] == framework_type
+
+
+def test_detail_tables_have_no_numbering_columns():
+    from wiserec_cli.commands.resource import render_detail
+    with patch('wiserec_cli.commands.resource.console') as mocked:
+        render_detail(DETAIL, FRAMEWORK, 'table')
+    tables = [call.args[0] for call in mocked.print.call_args_list if hasattr(call.args[0], 'columns')]
+    assert len(tables) == 8
+    assert all(column.header != '编号' for table in tables for column in table.columns)
+    assert [column.header for column in tables[0].columns] == ['字段', '值']
+    assert [column.header for column in tables[-1].columns] == ['参数']

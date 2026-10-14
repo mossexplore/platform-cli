@@ -55,8 +55,8 @@ def components(data, common=None):
 
 def display(field, data):
     raw = data.get(field)
-    if field == 'healthType' and raw == 'httpGet':
-        return 'http'
+    if field == 'healthType':
+        return {'httpGet': 'http', 'tcpSocket': 'tcp'}.get(raw, value(field, data))
     if field in {'defaultFlag', 'isSystem'}:
         return '-' if raw is None or raw == '' else '否' if str(raw) == '0' else '是'
     if field == 'comptPkgInfoList':
@@ -70,6 +70,15 @@ def display(field, data):
             raise ValueError('dockerResourceTemplate 应为名称列表')
         return ','.join(raw)
     return value(field, data)
+
+
+def detail_display(field, data):
+    raw = data.get(field)
+    if field == 'deployTemplateType':
+        return '-' if raw is None or raw == '' else '容器' if raw == 'docker' else '虚拟机'
+    if field == 'inferenceType':
+        return {'online': '在线推理', 'offline': '离线推理'}.get(raw, display(field, data))
+    return display(field, data)
 
 
 def selected_service(runtime, client):
@@ -103,15 +112,13 @@ def render_detail(payload, output):
     data = payload['deploymentTemplate']['result']['template']
     for index, (title, fields) in enumerate([('基本信息', BASIC_FIELDS), ('健康检查参数', HEALTH_FIELDS)], 1):
         console.print(f'{index}、{title}', style='bold cyan')
-        console.print(table_for(['编号', '字段', '值'], [
-            (f'{index}.{i}', label, display(field, data)) for i, (label, field) in enumerate(fields, 1)]))
+        console.print(table_for(['字段', '值'], [(label, detail_display(field, data)) for label, field in fields]))
     console.print('3、容器资源模板', style='bold cyan')
     resources = payload['resourceTemplates']
     rows = [item for entry in resources for item in entry['exactMatches']]
     if rows:
-        console.print(table_for(['编号'] + [title for title, _ in RESOURCE_COLUMNS],
-                               [[f'3.{i}'] + [value(field, item) for _, field in RESOURCE_COLUMNS]
-                                for i, item in enumerate(rows, 1)]))
+        console.print(table_for([title for title, _ in RESOURCE_COLUMNS],
+                               [[value(field, item) for _, field in RESOURCE_COLUMNS] for item in rows]))
     elif not resources:
         console.print('暂无关联容器资源模板')
     else:

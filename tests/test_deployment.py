@@ -176,15 +176,15 @@ def test_detail_fields_and_resource_order():
         render_detail(payload, 'table')
     tables = [c.args[0] for c in mocked.print.call_args_list if hasattr(c.args[0], 'columns')]
     assert len(tables) == 3
-    basic = {str(k): str(v) for k, v in zip(tables[0].columns[1]._cells, tables[0].columns[2]._cells)}
+    basic = {str(k): str(v) for k, v in zip(tables[0].columns[0]._cells, tables[0].columns[1]._cells)}
     assert basic['单服务实例最大能承受并发数（超过了会触发流控）'] == '102'
     assert basic['服务调用方最大容忍超时时间（ms）'] == '101'
     assert basic['组件包'] == 'Custom@1' and basic['公共组件包（平台提供）'] == 'Common@2'
     assert len(tables[1].columns[0]._cells) == 8
-    assert str(tables[1].columns[2]._cells[0]) == 'http'
-    assert [str(c) for c in tables[2].columns[1]._cells] == ['first', 'second']
-    assert len(tables[2].columns) == 10
-    assert [str(c) for c in tables[2].columns[0]._cells] == ['3.1', '3.2']
+    assert str(tables[1].columns[1]._cells[0]) == 'http'
+    assert [str(c) for c in tables[2].columns[0]._cells] == ['first', 'second']
+    assert len(tables[2].columns) == 9
+    assert all(column.header != '编号' for table in tables for column in table.columns)
 
 
 @pytest.mark.parametrize('args', [['list', '--page', '0'], ['list', '--page-size', '0'],
@@ -306,6 +306,35 @@ def test_name_filter(invoke, name):
     assert json.loads(result.stdout) == LIST
 
 
-@pytest.mark.parametrize('raw,expected', [('httpGet', 'http'), ('tcpSocket', 'tcpSocket'), (None, '-')])
+@pytest.mark.parametrize('raw,expected', [('httpGet', 'http'), ('tcpSocket', 'tcp'), (None, '-')])
 def test_health_type_display(raw, expected):
     assert display('healthType', {'healthType': raw}) == expected
+
+
+@pytest.mark.parametrize('raw,expected', [('online', '在线推理'), ('offline', '离线推理'),
+                                         ('other', 'other'), (None, '-')])
+def test_detail_inference_type_translation(raw, expected):
+    detail = deepcopy(DETAIL)
+    detail['result']['template']['inferenceType'] = raw
+    payload = {'deploymentTemplate': detail, 'resourceTemplates': []}
+    with patch('wiserec_cli.commands.deployment.console') as mocked:
+        render_detail(payload, 'table')
+    table = mocked.print.call_args_list[1].args[0]
+    fields = {str(k): str(v) for k, v in zip(table.columns[0]._cells, table.columns[1]._cells)}
+    assert fields['推理类型'] == expected
+    assert detail['result']['template']['inferenceType'] == raw
+    assert display('inferenceType', {'inferenceType': raw}) == (str(raw) if raw is not None else '-')
+
+
+@pytest.mark.parametrize('raw,expected', [('docker', '容器'), ('vm', '虚拟机'),
+                                         ('other', '虚拟机'), (None, '-'), ('', '-')])
+def test_detail_resource_type_translation(raw, expected):
+    detail = deepcopy(DETAIL)
+    detail['result']['template']['deployTemplateType'] = raw
+    with patch('wiserec_cli.commands.deployment.console') as mocked:
+        render_detail({'deploymentTemplate': detail, 'resourceTemplates': []}, 'table')
+    table = mocked.print.call_args_list[1].args[0]
+    fields = {str(k): str(v) for k, v in zip(table.columns[0]._cells, table.columns[1]._cells)}
+    assert fields['资源模板类型'] == expected
+    assert detail['result']['template']['deployTemplateType'] == raw
+    assert display('deployTemplateType', {'deployTemplateType': raw}) == (raw or '-')
