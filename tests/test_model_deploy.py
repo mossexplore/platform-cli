@@ -326,7 +326,7 @@ def test_missing_document_and_access_denied(invoke, backend):
     assert not backend.calls
 
 
-@pytest.mark.parametrize('field', ['modelName', 'modelVersion', 'pkgId', 'modelHistoryList'])
+@pytest.mark.parametrize('field', ['modelName', 'modelVersion', 'pkgId'])
 def test_missing_model_field_prevents_publish(invoke, backend, field):
     backend.model.pop(field)
     result = invoke(['--yes'], backend)
@@ -506,3 +506,53 @@ def test_cpu_and_memory_remain_required(invoke, backend, field):
     result = invoke(['--yes'], backend)
     assert result.exit_code == 1 and not backend.publishes
     assert field in result.stderr
+
+
+@pytest.mark.parametrize('state', ['missing', 'null', 'empty'])
+def test_optional_fields_together(invoke, backend, state):
+    defaults = {'customStartupCommand': '', 'sfsLocation': '', 'gpu': '0', 'npu': '0',
+                'hostLabels': [], 'hostIpNames': [], 'envs': [], 'args': []}
+    model_defaults = {'sourceEnv': '', 'teamId': '', 'tags': [], 'modelHistoryList': []}
+    for mapping, fields in [(backend.resources['area-a'], defaults), (backend.model, model_defaults),
+                            (backend.template, {'comptPkgInfoList': []})]:
+        for key, default in fields.items():
+            if state == 'missing':
+                mapping.pop(key)
+            else:
+                mapping[key] = None if state == 'null' else ('' if key in ('gpu', 'npu') else default)
+    result = invoke(['--yes', '-o', 'json'], backend)
+    assert result.exit_code == 0, result.output
+    data = json.loads(backend.publishes[0].content)['data']
+    block = data['serviceBlocks'][0]
+    for key, expected in defaults.items():
+        assert (block['resourceRequire'][key] if key in ('gpu', 'npu') else block[key]) == expected
+    for source, target in [('sourceEnv', 'modelSourceEnv'), ('teamId', 'teamId'),
+                           ('tags', 'tags'), ('modelHistoryList', 'modelPkgLocationReplicas')]:
+        assert data['modelInfo'][target] == model_defaults[source]
+    assert data['comptPkgs'] == []
+    assert data['serviceBlocks'][1]['customStartupCommand'] == 'sleep 30;'
+
+
+@pytest.mark.parametrize('field', ['customStartupCommand', 'sfsLocation'])
+@pytest.mark.parametrize('value', [[], {}, 0])
+def test_optional_text_rejects_invalid_types(invoke, backend, field, value):
+    backend.resources['area-a'][field] = value
+    result = invoke(['--yes'], backend)
+    assert result.exit_code == 1 and not backend.publishes
+    assert f'{field} 必须为字符串' in result.stderr
+
+
+@pytest.mark.parametrize('field', ['tags', 'modelHistoryList'])
+def test_optional_model_lists_reject_invalid_types(invoke, backend, field):
+    backend.model[field] = 'not-a-list'
+    assert invoke(['--yes'], backend).exit_code == 1
+    assert not backend.publishes
+
+
+@pytest.mark.parametrize('field', ['gpu', 'npu'])
+@pytest.mark.parametrize('value', ['invalid', '-1', '1.5'])
+def test_invalid_accelerators_have_clear_errors(invoke, backend, field, value):
+    backend.resources['area-a'][field] = value
+    result = invoke(['--yes'], backend)
+    assert result.exit_code == 1 and f'{field} 必须为不小于 0 的整数' in result.stderr
+    assert not backend.publishes

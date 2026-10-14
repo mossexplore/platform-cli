@@ -35,8 +35,23 @@ def required(data, key, *, allow_empty=False):
     return deepcopy(data[key])
 
 
-def mapped(data, fields):
-    return {target: required(data, source, allow_empty=True) for target, source in fields.items()}
+def optional(data, key, default):
+    value = data.get(key)
+    return deepcopy(default if value is None else value)
+
+
+def optional_text(data, key):
+    value = optional(data, key, '')
+    if not isinstance(value, str):
+        raise ApiError(f'{key} 必须为字符串')
+    return value
+
+
+def mapped(data, fields, defaults=None):
+    defaults = defaults or {}
+    return {target: (optional_text(data, source) if isinstance(defaults[source], str)
+                     else optional(data, source, defaults[source])) if source in defaults
+            else required(data, source, allow_empty=True) for target, source in fields.items()}
 
 
 def integer(value, field, minimum=0):
@@ -73,7 +88,7 @@ def resource_block(resource_id, resource, framework):
         'imageName': required(resource, 'appImageName'), 'imageVersion': required(resource, 'imageTag'),
         'swrInstanceId': None,
         'resourceRequire': {'cpu': required(resource, 'cpu'),
-                            **{key: '0' if resource.get(key) is None else deepcopy(resource[key])
+                            **{key: '0' if resource.get(key) is None or resource.get(key) == '' else deepcopy(resource[key])
                                for key in ('gpu', 'npu')}},
         'inferFramework': {
             'inferFrameId': required(resource, 'frameworkPkgId'),
@@ -81,10 +96,12 @@ def resource_block(resource_id, resource, framework):
             'inferFrameBucketId': required(framework, 'pkgStorageLocation'),
             'inferFrameStoreType': required(framework, 'storageType'), 'configuration': configuration,
         },
-        'volumes': [], 'sfsLocation': required(resource, 'sfsLocation', allow_empty=True),
-        'customStartupCommand': required(resource, 'customStartupCommand', allow_empty=True),
+        'volumes': [], 'sfsLocation': optional_text(resource, 'sfsLocation'),
+        'customStartupCommand': optional_text(resource, 'customStartupCommand'),
         'elasticConfig': None,
     }
+    for field in ('gpu', 'npu'):
+        integer(block['resourceRequire'][field], field)
     block['resourceRequire'].update(memory=memory[:-1], replicas='1')
     for key in ('hostLabels', 'hostIpNames', 'envs', 'args'):
         items = resource.get(key)
@@ -127,7 +144,7 @@ def build_payload(model, template, blocks, scope, *, service_timeout=None, execu
         raise ApiError('部署模板必须关联至少一个有效容器资源模板')
     for key in ('modelId', 'modelName', 'modelVersion'):
         required(model, key)
-    model_info = mapped(model, MODEL_FIELDS)
+    model_info = mapped(model, MODEL_FIELDS, {'sourceEnv': '', 'teamId': '', 'tags': [], 'modelHistoryList': []})
     for key in ('tags', 'modelPkgLocationReplicas'):
         if not isinstance(model_info[key], list):
             raise ApiError(f'{key} 必须为数组')
@@ -155,7 +172,7 @@ def build_payload(model, template, blocks, scope, *, service_timeout=None, execu
     grace = template.get('terminationGracePeriodSeconds')
     health['terminationGracePeriodSeconds'] = integer(10 if grace is None or grace == '' else grace,
                                                      'terminationGracePeriodSeconds')
-    components = required(template, 'comptPkgInfoList', allow_empty=True)
+    components = optional(template, 'comptPkgInfoList', [])
     if not isinstance(components, list) or not all(isinstance(item, dict) for item in components):
         raise ApiError('comptPkgInfoList 必须为对象数组')
     return {
