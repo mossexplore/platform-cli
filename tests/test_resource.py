@@ -102,6 +102,8 @@ def test_detail_chain_and_complete_values(invoke, output):
     else:
         for text in ['PredictionService@1.9.1', '1C2G', '核心配额', 'registry/image tag',
                      'original-secret', '[red]literal[/red]', 'additional.group', 'KEY', 'VALUE',
+                     '1、基本信息', '2、推理框架', '2.1、推理框架名称', '2.2、参数配置',
+                     '2.2.1、jvm.args', '3、扩展信息', '3.1、环境变量', '3.4、启动参数',
                      'example.local', '10.1.1.1', '/start.sh', '--debug', 'sleep 30;', '/sfs', '100']:
             assert text in result.stdout
 
@@ -283,3 +285,25 @@ def test_stopped_status_and_elastic_quota(invoke):
         render_list(payload, 1, 10, 'table')
     table = mocked.print.call_args_list[0].args[0]
     assert str(table.columns[-1]._cells[0]) == '停用'
+
+
+@pytest.mark.parametrize('resource_type,framework_type,expected_resource,expected_framework', [
+    ('docker', 'rtc', '容器', '推理框架'),
+    ('vm', 'gateway', '虚拟机', '网关框架'),
+    ('other', 'algo', '虚拟机', '算子框架'),
+    (None, None, '-', '-'),
+    ('docker', 'custom-framework', '容器', 'custom-framework'),
+])
+def test_detail_type_translations(resource_type, framework_type, expected_resource, expected_framework):
+    from wiserec_cli.commands.resource import render_detail
+    payload = deepcopy(DETAIL)
+    payload['result'].update(templateType=resource_type, frameworkType=framework_type)
+    with patch('wiserec_cli.commands.resource.console') as mocked:
+        render_detail(payload, FRAMEWORK, 'table')
+    table = mocked.print.call_args_list[1].args[0]
+    fields = {str(key): str(val) for key, val in zip(table.columns[1]._cells, table.columns[2]._cells)}
+    assert fields['资源类型'] == expected_resource
+    assert fields['框架类型'] == expected_framework
+    # 人工展示的转换不得改变原始响应或 JSON 数据
+    assert payload['result']['templateType'] == resource_type
+    assert payload['result']['frameworkType'] == framework_type

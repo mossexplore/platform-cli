@@ -20,14 +20,14 @@ class DeploymentTemplateService:
             raise ApiError(f"部署模板查询失败：code={result.get('code')}，des={result.get('des', '')}")
         return payload
 
-    def list_templates(self, page=1, page_size=10, framework_name='', env=None, framework_type=None):
+    def list_templates(self, page=1, page_size=10, framework_name='', env=None, framework_type=None, name=None):
         if page < 1 or page_size < 1:
             raise ValueError('page 和 page-size 必须为正整数')
         payload = self._call(PREFIX + 'queryList', {
             'pageIndex': page, 'pageSize': page_size, 'inferenceType': None,
             'env': env, 'frameworkType': framework_type, 'gatewayName': None,
             'isSystem': None, 'frameworkPkgId': '', 'frameworkPkgName': framework_name,
-            'deployTemplateType': None, 'deployTemplateName': None,
+            'deployTemplateType': None, 'deployTemplateName': name,
             'businessId': self.client.business_id, 'componentName': None, 'componentVersion': None,
         })
         result = payload['result']

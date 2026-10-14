@@ -88,19 +88,22 @@ def render_detail(payload, framework, output):
         return
     data = payload['result']
     fields = [('容器资源模板名称', value('dockerResourceTemplateName', data)),
-              ('资源类型', value('templateType', data)), ('环境', value('env', data)),
+              ('资源类型', '-' if data.get('templateType') in (None, '') else
+               '容器' if data['templateType'] == 'docker' else '虚拟机'), ('环境', value('env', data)),
               ('集群名称', value('clusterName', data)),
               ('镜像', ' '.join(str(data[key]) for key in ('appImageName', 'imageTag') if data.get(key)) or '-'),
               ('自定义 YAML', value('containerSpec', data)),
               ('配额类型', '-' if not data.get('quotaType') else
                '核心配额' if data['quotaType'] == 'guaranteed' else '弹性配额'),
-              ('框架类型', value('frameworkType', data)), ('默认资源规格', resource_spec(data)),
+              ('框架类型', {'rtc': '推理框架', 'gateway': '网关框架', 'algo': '算子框架'}.get(
+                  data.get('frameworkType'), value('frameworkType', data))), ('默认资源规格', resource_spec(data)),
               ('挂载 SFS 标识', value('sfsLocation', data)), ('实例数', value('replicas', data))]
-    console.print('基本信息', style='bold cyan')
-    console.print(table_for(['字段', '值'], fields))
-    console.print('推理框架', style='bold cyan')
+    console.print('1、基本信息', style='bold cyan')
+    console.print(table_for(['编号', '字段', '值'], [(f'1.{i}', label, val) for i, (label, val) in enumerate(fields, 1)]))
+    console.print('2、推理框架', style='bold cyan')
     package = framework['result']['data'] if framework else None
-    console.print(Text('推理框架名称：' + (f"{package['name']}@{package['version']}" if package else '未关联推理框架' if not data.get('frameworkPkgId') else '框架信息不可用')))
+    console.print(Text('2.1、推理框架名称：' + (f"{package['name']}@{package['version']}" if package else '未关联推理框架' if not data.get('frameworkPkgId') else '框架信息不可用')))
+    console.print('2.2、参数配置', style='bold')
     config = data.get('frameworkConfiguration')
     parse_error = False
     if config:
@@ -113,37 +116,38 @@ def render_detail(payload, framework, output):
             parse_error = True
             config = None
     if config:
-        for group, parameters in config.items():
-            console.print(Text(str(group)), style='bold')
+        for index, (group, parameters) in enumerate(config.items(), 1):
+            console.print(Text(f'2.2.{index}、{group}'), style='bold')
             rows = parameters.items() if isinstance(parameters, dict) else [('值', parameters)]
-            console.print(table_for(['参数名', '参数值'], [
-                (key, json.dumps(val, ensure_ascii=False) if isinstance(val, (dict, list)) else val)
-                for key, val in rows]))
+            console.print(table_for(['编号', '参数名', '参数值'], [
+                (f'2.2.{index}.{i}', key, json.dumps(val, ensure_ascii=False) if isinstance(val, (dict, list)) else val)
+                for i, (key, val) in enumerate(rows, 1)]))
     elif not parse_error:
         console.print('暂无参数配置')
-    console.print('扩展信息', style='bold cyan')
-    for title, field, headers, keys in (
+    console.print('3、扩展信息', style='bold cyan')
+    for index, (title, field, headers, keys) in enumerate((
         ('环境变量', 'envs', ['变量名', '变量值'], ['envKey', 'envValue']),
         ('Hosts 映射', 'hostIpNames', ['域名', '映射 IP'], ['hostName', 'hostIp']),
         ('主机调度', 'hostLabels', ['主机标签键', '主机标签值'], ['hostLabelKey', 'hostLabelValue']),
-    ):
-        console.print(title, style='bold')
+    ), 1):
+        console.print(f'3.{index}、{title}', style='bold')
         items = data.get(field)
         if items:
             if not isinstance(items, list) or not all(isinstance(item, dict) for item in items):
                 raise ValueError(f'{field} 应为对象列表')
-            console.print(table_for(headers, [[value(key, item) for key in keys] for item in items]))
+            console.print(table_for(['编号'] + headers, [[f'3.{index}.{i}'] + [value(key, item) for key in keys]
+                                                        for i, item in enumerate(items, 1)]))
         else:
             console.print('暂无')
-    console.print('启动参数', style='bold')
+    console.print('3.4、启动参数', style='bold')
     args = data.get('args')
     if args:
         if not isinstance(args, list):
             raise ValueError('args 应为列表')
-        console.print(table_for(['参数'], [[arg] for arg in args]))
+        console.print(table_for(['编号', '参数'], [[f'3.4.{i}', arg] for i, arg in enumerate(args, 1)]))
     else:
         console.print('暂无')
-    console.print(Text('自定义启动命令：' + value('customStartupCommand', data)))
+    console.print(Text('3.5、自定义启动命令：' + value('customStartupCommand', data)))
     if parse_error:
         raise ValueError('frameworkConfiguration 参数配置解析失败')
 

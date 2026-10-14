@@ -55,6 +55,8 @@ def components(data, common=None):
 
 def display(field, data):
     raw = data.get(field)
+    if field == 'healthType' and raw == 'httpGet':
+        return 'http'
     if field in {'defaultFlag', 'isSystem'}:
         return '-' if raw is None or raw == '' else '否' if str(raw) == '0' else '是'
     if field == 'comptPkgInfoList':
@@ -99,15 +101,17 @@ def render_detail(payload, output):
         typer.echo(json.dumps(payload, ensure_ascii=False))
         return
     data = payload['deploymentTemplate']['result']['template']
-    for title, fields in [('基本信息', BASIC_FIELDS), ('健康检查参数', HEALTH_FIELDS)]:
-        console.print(title, style='bold cyan')
-        console.print(table_for(['字段', '值'], [(label, display(field, data)) for label, field in fields]))
-    console.print('容器资源模板', style='bold cyan')
+    for index, (title, fields) in enumerate([('基本信息', BASIC_FIELDS), ('健康检查参数', HEALTH_FIELDS)], 1):
+        console.print(f'{index}、{title}', style='bold cyan')
+        console.print(table_for(['编号', '字段', '值'], [
+            (f'{index}.{i}', label, display(field, data)) for i, (label, field) in enumerate(fields, 1)]))
+    console.print('3、容器资源模板', style='bold cyan')
     resources = payload['resourceTemplates']
     rows = [item for entry in resources for item in entry['exactMatches']]
     if rows:
-        console.print(table_for([title for title, _ in RESOURCE_COLUMNS],
-                               [[value(field, item) for _, field in RESOURCE_COLUMNS] for item in rows]))
+        console.print(table_for(['编号'] + [title for title, _ in RESOURCE_COLUMNS],
+                               [[f'3.{i}'] + [value(field, item) for _, field in RESOURCE_COLUMNS]
+                                for i, item in enumerate(rows, 1)]))
     elif not resources:
         console.print('暂无关联容器资源模板')
     else:
@@ -121,6 +125,7 @@ def render_detail(payload, output):
 def list_templates(context: typer.Context,
                    page: int = typer.Option(1, '--page', min=1, help='页码'),
                    page_size: int = typer.Option(10, '--page-size', min=1, help='每页条数'),
+                   name: Optional[str] = typer.Option(None, '--name', help='部署模板名称条件'),
                    framework_name: str = typer.Option('', '--framework-name', help='推理框架包名称条件'),
                    env: Optional[str] = typer.Option(None, '--env', help='模板环境条件，不切换连接环境'),
                    framework_type: Optional[str] = typer.Option(None, '--framework-type', help='框架类型条件'),
@@ -131,7 +136,7 @@ def list_templates(context: typer.Context,
         selected = selected_output(runtime, output)
         with redirect_stdout(sys.stderr):
             payload = runtime.authenticated_call(lambda client: selected_service(runtime, client).list_templates(
-                page, page_size, framework_name, env, framework_type))
+                page, page_size, framework_name, env, framework_type, name=name))
         render_list(payload, page, page_size, selected)
     except Exception as exc:
         fail(exc)

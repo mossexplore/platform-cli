@@ -78,10 +78,12 @@ def test_filters_and_page(invoke):
     def handler(request):
         assert request.url.host == 'console.example'
         assert json.loads(request.content) == {**DEFAULT, 'pageIndex': 2, 'pageSize': 20,
-            'env': 'other', 'frameworkType': 'rtc', 'frameworkPkgName': 'PredictionService'}
+            'env': 'other', 'frameworkType': 'rtc', 'frameworkPkgName': 'PredictionService',
+            'deployTemplateName': 'deployment-name'}
         return httpx.Response(200, json=LIST)
     assert invoke(['list', '--page', '2', '--page-size', '20', '--env', 'other',
-                   '--framework-type', 'rtc', '--framework-name', 'PredictionService'], handler).exit_code == 0
+                   '--framework-type', 'rtc', '--framework-name', 'PredictionService',
+                   '--name', 'deployment-name'], handler).exit_code == 0
 
 
 @pytest.mark.parametrize('output', ['json', 'table'])
@@ -112,6 +114,7 @@ def test_detail_exact_matching_and_three_field_requests(invoke, output):
     else:
         for text in ['[red]literal[/red]', 'Custom@1', 'Common@2', 'healthvllm', 'description', '100', '在用']:
             assert text in result.stdout
+        assert all(title in result.stdout for title in ['1、基本信息', '2、健康检查参数', '3、容器资源模板'])
         assert '-fuzzy' not in result.stdout
         assert '容器类别' not in result.stdout
 
@@ -173,17 +176,19 @@ def test_detail_fields_and_resource_order():
         render_detail(payload, 'table')
     tables = [c.args[0] for c in mocked.print.call_args_list if hasattr(c.args[0], 'columns')]
     assert len(tables) == 3
-    basic = {str(k): str(v) for k, v in zip(tables[0].columns[0]._cells, tables[0].columns[1]._cells)}
+    basic = {str(k): str(v) for k, v in zip(tables[0].columns[1]._cells, tables[0].columns[2]._cells)}
     assert basic['单服务实例最大能承受并发数（超过了会触发流控）'] == '102'
     assert basic['服务调用方最大容忍超时时间（ms）'] == '101'
     assert basic['组件包'] == 'Custom@1' and basic['公共组件包（平台提供）'] == 'Common@2'
     assert len(tables[1].columns[0]._cells) == 8
-    assert [str(c) for c in tables[2].columns[0]._cells] == ['first', 'second']
-    assert len(tables[2].columns) == 9
+    assert str(tables[1].columns[2]._cells[0]) == 'http'
+    assert [str(c) for c in tables[2].columns[1]._cells] == ['first', 'second']
+    assert len(tables[2].columns) == 10
+    assert [str(c) for c in tables[2].columns[0]._cells] == ['3.1', '3.2']
 
 
 @pytest.mark.parametrize('args', [['list', '--page', '0'], ['list', '--page-size', '0'],
-    ['list', '--name', 'test'], ['list', '--is-system', '0'], ['list', '--business-id', 'other'],
+    ['list', '--is-system', '0'], ['list', '--business-id', 'other'],
     ['list', '--inference-type', 'online'], ['list', '-o', 'yaml'], ['detail', ' ']])
 def test_invalid_arguments_no_request(invoke, args):
     handler = Mock()
@@ -288,3 +293,19 @@ def test_no_business():
         with pytest.raises(BusinessError):
             operation()
     client.request.assert_not_called()
+
+
+@pytest.mark.parametrize('name', ['TEMPLATE_NAME', '中文模板', ''])
+def test_name_filter(invoke, name):
+    def handler(request):
+        assert json.loads(request.content) == {**DEFAULT, 'deployTemplateName': name}
+        assert request.headers['businessid'] == 'pps'
+        return httpx.Response(200, json=LIST)
+    result = invoke(['list', '--name', name, '-o', 'json'], handler)
+    assert result.exit_code == 0, result.output
+    assert json.loads(result.stdout) == LIST
+
+
+@pytest.mark.parametrize('raw,expected', [('httpGet', 'http'), ('tcpSocket', 'tcpSocket'), (None, '-')])
+def test_health_type_display(raw, expected):
+    assert display('healthType', {'healthType': raw}) == expected
