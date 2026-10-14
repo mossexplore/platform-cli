@@ -419,3 +419,28 @@ def test_preview_displays_complete_documents(invoke, backend, tmp_path):
                   '[red]literal description[/red]', '125', 'original-secret', 'sleep 30;']:
         assert value in result.stdout
     assert not backend.publishes
+
+
+@pytest.mark.parametrize('field', ['hostLabels', 'hostIpNames', 'envs', 'args'])
+@pytest.mark.parametrize('state', ['missing', 'null', 'empty'])
+def test_optional_resource_collections_default_to_empty(invoke, backend, field, state):
+    if state == 'missing':
+        backend.resources['area-a'].pop(field)
+    else:
+        backend.resources['area-a'][field] = None if state == 'null' else []
+    result = invoke(['--yes', '-o', 'json'], backend)
+    assert result.exit_code == 0, result.output
+    assert len(backend.publishes) == 1
+    blocks = json.loads(backend.publishes[0].content)['data']['serviceBlocks']
+    assert blocks[0][field] == []
+    assert blocks[1][field] == backend.resources['area-b'][field]
+
+
+@pytest.mark.parametrize('field', ['hostLabels', 'hostIpNames', 'envs', 'args'])
+@pytest.mark.parametrize('value', ['', {}, 'invalid', 0])
+def test_optional_resource_collections_reject_non_arrays(invoke, backend, field, value):
+    backend.resources['area-a'][field] = value
+    result = invoke(['--yes'], backend)
+    assert result.exit_code == 1
+    assert f'{field} 必须为数组' in result.stderr
+    assert not backend.publishes

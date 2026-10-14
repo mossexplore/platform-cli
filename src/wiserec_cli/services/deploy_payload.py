@@ -85,10 +85,12 @@ def resource_block(resource_id, resource, framework):
     }
     block['resourceRequire'].update(memory=memory[:-1], replicas='1')
     for key in ('hostLabels', 'hostIpNames', 'envs', 'args'):
-        items = required(resource, key, allow_empty=True)
+        items = resource.get(key)
+        if items is None:
+            items = []
         if not isinstance(items, list):
             raise ApiError(f'{key} 必须为数组')
-        block[key] = items
+        block[key] = deepcopy(items)
     return block
 
 
