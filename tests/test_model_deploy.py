@@ -191,7 +191,7 @@ def test_dry_run_table(invoke, backend):
     result = invoke(['--dry-run'], backend)
     assert result.exit_code == 0, result.output
     assert all(s in result.stdout for s in ['1、基本信息', '2、部署区域', '3、扩展参数', '4、服务文档',
-                                          '未提交部署', '2.1、area-a', '2.2、area-b', '停用'])
+                                          '未提交部署', '2.1、area-a-cluster', '2.2、area-b-cluster', '停用'])
     assert not backend.publishes
 
 
@@ -391,8 +391,12 @@ def test_preview_structure_values_and_no_table_numbering(invoke, backend):
     tables = [c.args[0] for c in mocked.print.call_args_list if hasattr(c.args[0], 'columns')]
     assert all(col.header != '编号' for table in tables for col in table.columns)
     basic = {str(k): str(v) for k, v in zip(tables[0].columns[0]._cells, tables[0].columns[1]._cells)}
-    assert basic['单服务实例最大 QPS'] == '-'
+    assert basic['单服务实例最大QPS（超过了会触发流控）'] == '-'
     assert basic['部署方式'] == '容器部署'
+    assert list(basic) == ['模型名称', '模型版本', '部署方式', '更新模式', '环境', '推理类型',
+        '单服务实例最大QPS（超过了会触发流控）', '单服务实例最大能承受并发数（超过了会触发流控）',
+        '服务调用方最大容忍超时时间（ms）', '自定义组件包', '公共组件包（平台提供）']
+    assert '2.1、area-a-cluster' in headings and '2.2、area-b-cluster' in headings
     region = {str(k): str(v) for k, v in zip(tables[1].columns[0]._cells, tables[1].columns[1]._cells)}
     assert region['实例数'] == '1'
     assert region['名称'] == region['描述'] == '未填写'

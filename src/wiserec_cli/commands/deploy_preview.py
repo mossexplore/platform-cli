@@ -32,7 +32,7 @@ def shown(value):
 
 def region_preview(index, name, block, framework_names):
     prefix = f'2.{index}'
-    heading(f'{prefix}、{name}')
+    heading(f"{prefix}、{block['clusterName']}")
     heading(f'{prefix}.1、基本信息')
     resource = block['resourceRequire']
     spec = f"{resource['cpu']}C{resource['memory']}G"
@@ -80,15 +80,12 @@ def preview(payload, template, identity, template_id, request_file, response_fil
     components = data['comptPkgs']
     heading('1、基本信息')
     console.print(table_for(['字段', '值'], [
-        ('当前平台环境', identity[0]), ('当前业务', identity[3]), ('真实租户', identity[4]),
-        ('模型 ID', model['modelId']), ('模型名称', model['modelName']), ('模型版本', model['modelVersion']),
-        ('部署模板 ID', template_id), ('部署模板名称', template.get('deployTemplateName', '-')),
-        ('服务名称', service['serviceName']), ('服务版本', service['serviceVersion']),
+        ('模型名称', model['modelName']), ('模型版本', model['modelVersion']),
         ('部署方式', '容器部署'), ('更新模式', '滚动更新' if service['updateMode'] == '1' else '原地更新'),
         ('环境', service['env']),
         ('推理类型', {'online': '在线推理', 'offline': '离线推理'}.get(service['inferenceType'], service['inferenceType'])),
-        ('单服务实例最大 QPS', service.get('requestLimit', '-')),
-        ('单服务实例最大并发数', service['executeLimit']), ('服务调用方最大容忍超时时间（ms）', service['serviceTimeout']),
+        ('单服务实例最大QPS（超过了会触发流控）', service.get('requestLimit', '-')),
+        ('单服务实例最大能承受并发数（超过了会触发流控）', service['executeLimit']), ('服务调用方最大容忍超时时间（ms）', service['serviceTimeout']),
         ('自定义组件包', ','.join(f"{p['comptPkgName']}@{p['comptPkgVersion']}" for p in components if p['businessId'] != 'common') or '-'),
         ('公共组件包（平台提供）', ','.join(f"{p['comptPkgName']}@{p['comptPkgVersion']}" for p in components if p['businessId'] == 'common') or '-'),
     ]))
