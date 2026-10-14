@@ -484,3 +484,25 @@ def test_missing_service_fields_provide_retry_guidance(invoke, backend, missing)
 def test_invalid_manual_service_fields_prevent_query(invoke, backend, args):
     assert invoke(['--dry-run', *args], backend).exit_code != 0
     assert not backend.calls
+
+
+@pytest.mark.parametrize('field', ['gpu', 'npu'])
+@pytest.mark.parametrize('state', ['missing', 'null', 'configured'])
+def test_optional_accelerators(invoke, backend, field, state):
+    if state == 'missing':
+        backend.resources['area-a'].pop(field)
+    else:
+        backend.resources['area-a'][field] = None if state == 'null' else '2'
+    result = invoke(['--yes', '-o', 'json'], backend)
+    assert result.exit_code == 0, result.output
+    blocks = json.loads(backend.publishes[0].content)['data']['serviceBlocks']
+    assert blocks[0]['resourceRequire'][field] == ('2' if state == 'configured' else '0')
+    assert blocks[1]['resourceRequire'][field] == backend.resources['area-b'][field]
+
+
+@pytest.mark.parametrize('field', ['cpu', 'memory'])
+def test_cpu_and_memory_remain_required(invoke, backend, field):
+    backend.resources['area-a'].pop(field)
+    result = invoke(['--yes'], backend)
+    assert result.exit_code == 1 and not backend.publishes
+    assert field in result.stderr

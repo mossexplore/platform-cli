@@ -72,7 +72,9 @@ def resource_block(resource_id, resource, framework):
         'templateId': required(resource, 'containerSpec'), 'clusterName': required(resource, 'clusterName'),
         'imageName': required(resource, 'appImageName'), 'imageVersion': required(resource, 'imageTag'),
         'swrInstanceId': None,
-        'resourceRequire': {key: required(resource, key) for key in ('cpu', 'gpu', 'npu')},
+        'resourceRequire': {'cpu': required(resource, 'cpu'),
+                            **{key: '0' if resource.get(key) is None else deepcopy(resource[key])
+                               for key in ('gpu', 'npu')}},
         'inferFramework': {
             'inferFrameId': required(resource, 'frameworkPkgId'),
             'inferFrameObjectId': required(framework, 'pkgStorageId'),
