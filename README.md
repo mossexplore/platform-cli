@@ -95,3 +95,26 @@ OpenCode 集成分两个可见阶段执行：先安装并验证 CLI，再安装 
 默认目标为当前用户的 `~/.config/opencode`，设置 `OPENCODE_CONFIG_DIR` 时使用该目录。每次安装都会删除旧 `skills/wiserec-platform` 目录和 `commands/ml.md`，完整写入随包的新资源，同版本重装也会更新。WiseRec skill 与 `/ml` command 由安装程序管理，请勿直接修改这些文件。其他 skill、command 和 OpenCode 配置不受影响。项目目录或兼容目录中的同名副本需自行移除，以免加载旧副本。
 
 完成后重新打开 OpenCode 会话，输入 `/ml 查询当前业务下的模型`；输入 `/ml` 可检查使用上下文并查看用法。需要允许 OpenCode 加载 skill 和调用终端工具，安装程序不会修改权限。直接通过 pip 安装 Wheel 不自动执行这一阶段，自动安装入口为官方 Windows 安装包。
+
+
+## Windows 本地代码打包并安装
+
+在仓库根目录的 CMD 中运行：
+
+```bat
+scripts\build-install.cmd
+```
+
+脚本使用当前本地工作区源码，依次调用现有的联网打包和安装脚本，不自动拉取远程代码。先更新本地代码再执行即可安装所需源码；未提交的本地修改也会参与打包。需要 Windows PowerShell、Python、联网包源及现有安装脚本要求的 Microsoft Edge。默认沿用当前用户的 CLI 安装目录，支持同版本重新安装，安装后重新打开终端使用 `ml`。
+
+每次产物保存在 `release\local-builds` 下的独立目录，打包失败不会继续安装，不会选择旧包。构建包属于本地验证产物，不是 GitHub 正式发行版。安装过程同时沿用原安装器的 OpenCode 资源安装流程，具体结果见终端输出。
+
+可选参数：
+
+```bat
+scripts\build-install.cmd -IndexUrl https://PACKAGE_HOST/simple
+scripts\build-install.cmd -InstallDirectory "D:\Tools\WiseRecCLI"
+scripts\build-install.cmd -OutputDirectory "D:\Builds\WiseRecCLI"
+```
+
+`-Force` 会按原安装器规则重建安装虚拟环境，日常同版本覆盖无需指定；`-SkipEdgeCheck` 仅跳过安装时的 Edge 检查。打包和安装阶段共用 `-IndexUrl`；企业证书等 pip 环境配置继续沿用现有脚本行为。执行失败时返回非零退出码。
