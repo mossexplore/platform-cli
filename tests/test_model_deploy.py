@@ -152,7 +152,7 @@ def test_full_publish_contract(invoke, backend):
             'hostIpNames': backend.resources[name]['hostIpNames'], 'envs': backend.resources[name]['envs'],
             'sfsLocation': '/sfs', 'args': ['/start.sh'], 'customStartupCommand': 'sleep 30;', 'elasticConfig': None}
     assert len([r for r in backend.calls if 'queryFrameworkPkgDetail' in r.url.path]) == 1
-    assert '1、部署目标' in result.stderr
+    assert '1、基本信息' in result.stderr
 
 
 @pytest.mark.parametrize('mode,expected', [('default', 'Default'), ('response-code', 'RespCodeMatch'),
@@ -190,8 +190,8 @@ def test_default_health_values(invoke, backend):
 def test_dry_run_table(invoke, backend):
     result = invoke(['--dry-run'], backend)
     assert result.exit_code == 0, result.output
-    assert all(s in result.stdout for s in ['1、部署目标', '2、服务参数', '3、健康检查', '4、部署区域',
-                                          '5、服务文档', '未提交部署', '各区域实例数：1'])
+    assert all(s in result.stdout for s in ['1、基本信息', '2、部署区域', '3、扩展参数', '4、服务文档',
+                                          '未提交部署', '2.1、area-a', '2.2、area-b', '停用'])
     assert not backend.publishes
 
 
@@ -374,3 +374,44 @@ def test_original_source_values_not_changed(invoke, backend):
     before = deepcopy((backend.model, backend.template, backend.resources, backend.framework))
     assert invoke(['--dry-run'], backend).exit_code == 0
     assert before == (backend.model, backend.template, backend.resources, backend.framework)
+
+
+def test_preview_structure_values_and_no_table_numbering(invoke, backend):
+    from wiserec_cli.commands.deploy_preview import preview
+    payload = json.loads(invoke(['--dry-run', '-o', 'json'], backend).stdout)
+    before = deepcopy(payload)
+    with patch('wiserec_cli.commands.deploy_preview.console') as mocked:
+        preview(payload, backend.template, ('prod', 'url', 'user', 'pps', 'pps'), TEMPLATE_ID,
+                None, None, {'framework-id': 'framework@framework-version'})
+    headings = [str(c.args[0]) for c in mocked.print.call_args_list if c.kwargs.get('style')]
+    assert all(c.kwargs['style'] == 'bold cyan' for c in mocked.print.call_args_list if c.kwargs.get('style'))
+    assert all(title in headings for title in ['1、基本信息', '2、部署区域', '3、扩展参数', '4、服务文档',
+        '2.1.1、基本信息', '2.1.2、推理框架', '2.1.2.1、rtc.properties', '2.1.3、弹性伸缩',
+        '2.1.4、扩展信息', '2.2.1、基本信息', '2.2.4.5、自定义启动命令'])
+    tables = [c.args[0] for c in mocked.print.call_args_list if hasattr(c.args[0], 'columns')]
+    assert all(col.header != '编号' for table in tables for col in table.columns)
+    basic = {str(k): str(v) for k, v in zip(tables[0].columns[0]._cells, tables[0].columns[1]._cells)}
+    assert basic['单服务实例最大 QPS'] == '-'
+    assert basic['部署方式'] == '容器部署'
+    region = {str(k): str(v) for k, v in zip(tables[1].columns[0]._cells, tables[1].columns[1]._cells)}
+    assert region['实例数'] == '1'
+    assert region['名称'] == region['描述'] == '未填写'
+    assert region['默认资源规格'] == '2C8G1NPU'
+    cells = [str(cell) for table in tables for col in table.columns for cell in col._cells]
+    assert 'framework@framework-version' in cells and 'original-secret' in cells
+    assert 'KEY' in cells and 'VALUE' in cells and 'host.example' in cells and '/start.sh' in cells
+    assert payload == before
+    assert 'requestLimit' not in payload['data']['serviceInfo']
+
+
+def test_preview_displays_complete_documents(invoke, backend, tmp_path):
+    request, response = tmp_path/'request.txt', tmp_path/'response.txt'
+    request.write_text('request line one\nrequest line two\n', encoding='utf-8')
+    response.write_text('response line one\nresponse line two\n', encoding='utf-8')
+    result = invoke(['--dry-run', '--request-file', str(request), '--response-file', str(response),
+                     '--description', '[red]literal description[/red]', '--qps', '125'], backend)
+    assert result.exit_code == 0, result.output
+    for value in ['request line one\nrequest line two', 'response line one\nresponse line two',
+                  '[red]literal description[/red]', '125', 'original-secret', 'sleep 30;']:
+        assert value in result.stdout
+    assert not backend.publishes

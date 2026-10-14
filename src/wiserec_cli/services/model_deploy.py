@@ -46,7 +46,8 @@ class ModelDeployService:
         scope = required(entries[0], 'serviceGroup')
         if not isinstance(scope, str) or not scope.strip():
             raise ApiError('真实租户首个 serviceGroup 无效')
-        return build_payload(model, template, blocks, scope, **options), template
+        return (build_payload(model, template, blocks, scope, **options), template,
+                {key: f"{item['name']}@{item['version']}" for key, item in frameworks.items()})
 
     def publish(self, payload):
         try:

@@ -10,11 +10,11 @@ from rich.text import Text
 
 from ..errors import BusinessError
 from ..output import console
-from ..services.deploy_payload import HEALTH_DEFAULTS, HEALTH_MODES, UPDATE_MODES
+from ..services.deploy_payload import HEALTH_MODES, UPDATE_MODES
 from ..services.model_deploy import ModelDeployService
 from .common import fail, runtime_from_context
 from .model import selected_output
-from .resource import table_for
+from .deploy_preview import preview
 
 
 def context_identity(runtime, client):
@@ -35,58 +35,6 @@ def interactive_input():
 def read_document(path):
     return '' if path is None else path.read_text(encoding='utf-8')
 
-
-def preview(payload, template, identity, template_id, request_file, response_file):
-    data = payload['data']
-    service, model = data['serviceInfo'], data['modelInfo']
-    console.print('1、部署目标', style='bold cyan')
-    console.print(table_for(['字段', '值'], [
-        ('当前平台环境', identity[0]), ('当前业务', identity[3]), ('真实租户', identity[4]),
-        ('模型 ID', model['modelId']), ('模型名称', model['modelName']), ('模型版本', model['modelVersion']),
-        ('部署模板 ID', template_id), ('部署模板名称', template.get('deployTemplateName', '-')),
-        ('服务名称', service['serviceName']), ('服务版本', service['serviceVersion']),
-        ('部署目标环境', service['env']),
-    ]))
-    console.print('2、服务参数', style='bold cyan')
-    components = data['comptPkgs']
-    console.print(table_for(['字段', '值'], [
-        ('推理类型', {'online': '在线推理', 'offline': '离线推理'}.get(service['inferenceType'], service['inferenceType'])),
-        ('更新模式', '滚动更新' if service['updateMode'] == '1' else '原地更新'),
-        ('调用超时（ms）', service['serviceTimeout']), ('最大并发数', service['executeLimit']),
-        ('单实例最大 QPS', service.get('requestLimit', '未指定，使用平台规则')),
-        ('组件包', ','.join(f"{p['comptPkgName']}@{p['comptPkgVersion']}" for p in components if p['businessId'] != 'common') or '-'),
-        ('公共组件包', ','.join(f"{p['comptPkgName']}@{p['comptPkgVersion']}" for p in components if p['businessId'] == 'common') or '-'),
-    ]))
-    console.print('3、健康检查', style='bold cyan')
-    health_rows = []
-    for field, val in data['extendConfiguration'].items():
-        if field in HEALTH_DEFAULTS:
-            source = HEALTH_DEFAULTS[field][0]
-            origin = '默认值' if template.get(source) is None or template.get(source) == '' else '部署模板'
-        elif field == 'terminationGracePeriodSeconds':
-            origin = '默认值' if template.get(field) is None or template.get(field) == '' else '部署模板'
-        else:
-            origin = '真实租户' if field == 'alarmWiseEyeScope' else '命令参数或默认值'
-        health_rows.append((field, val, origin))
-    console.print(table_for(['参数', '值', '来源'], health_rows))
-    console.print('4、部署区域', style='bold cyan')
-    names = template['dockerResourceTemplate']
-    rows = []
-    for name, block in zip(names, data['serviceBlocks']):
-        resource = block['resourceRequire']
-        spec = f"{resource['cpu']}C{resource['memory']}G / GPU {resource['gpu']} / NPU {resource['npu']}"
-        rows.append((name, block['clusterName'], block['imageName'], block['imageVersion'], spec, resource['replicas']))
-    console.print(table_for(['模板名称', '集群', '镜像', '镜像标签', '资源规格', '实际实例数'], rows))
-    console.print(Text(f"部署区域：{len(rows)}；各区域实例数：1，使用部署命令固定默认值；弹性伸缩：未配置"))
-    console.print('5、服务文档', style='bold cyan')
-    document = data['serviceDocument']
-    console.print(table_for(['字段', '值'], [
-        ('描述', document['description'] or '-'),
-        ('输入报文文件', str(request_file) if request_file else '-'),
-        ('输入报文长度（字符）', len(document['requestContent'])),
-        ('输出报文文件', str(response_file) if response_file else '-'),
-        ('输出报文长度（字符）', len(document['responseContent'])),
-    ]))
 
 
 def deploy(context: typer.Context,
@@ -116,18 +64,18 @@ def deploy(context: typer.Context,
         selected = selected_output(runtime, output)
         def prepare(client):
             identity = context_identity(runtime, client)
-            payload, template = ModelDeployService(client).prepare(
+            payload, template, framework_names = ModelDeployService(client).prepare(
                 model_id, template_id, identity[4], qps=qps, update_mode=update_mode,
                 health_mode=health_mode, health_port=health_port, description=description,
                 request_content=request_content, response_content=response_content)
-            return payload, template, identity
+            return payload, template, identity, framework_names
         with redirect_stdout(sys.stderr):
-            payload, template, identity = runtime.authenticated_call(prepare)
+            payload, template, identity, framework_names = runtime.authenticated_call(prepare)
         if dry_run and selected == 'json':
             typer.echo(json.dumps(payload, ensure_ascii=False))
             return
         with redirect_stdout(sys.stderr) if selected == 'json' else redirect_stdout(sys.stdout):
-            preview(payload, template, identity, template_id, request_file, response_file)
+            preview(payload, template, identity, template_id, request_file, response_file, framework_names)
         if dry_run:
             console.print('预览完成，未提交部署')
             return
