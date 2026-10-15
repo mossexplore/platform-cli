@@ -1,104 +1,104 @@
-# Jupyter 文件与非交互执行
+# Web Studio 与 Jupyter
 
-## 选择操作入口
+## 选择入口
 
-| 用户任务 | 首选命令 |
+| 用户任务 | 命令 |
 | --- | --- |
 | 查目录、读写或传输文件 | `ml jupyter files` |
 | 执行脚本、测试或一次性远端命令 | `ml jupyter exec` |
 | 执行整个本地 Notebook 并保存结果 | `ml jupyter notebook run` |
-| 多步命令或需要输入 | 改为脚本、非交互参数或配置，再用 exec；无法改写则报告限制 |
+| 多步命令 | 写成脚本上传后用 exec 执行，或用 `sh -c` |
+| 需要交互输入的程序 | 改用程序的非交互参数或配置；做不到时向用户报告限制 |
 
-**禁止使用交互式 TTY/PTY、模拟按键或持久交互 Shell。** files 与 exec 必须通过普通进程工具捕获输出；不得将交互终端作为失败时的后备方案。当前 CLI 没有 `cell`、后台 `jobs` 或独立 Kernel 管理命令，不要构造这些命令。
+**禁止 `ml jupyter terminal open`、`ml jupyter terminal attach`，禁止分配 TTY/PTY、模拟按键或维持交互 Shell**，失败时也不能退回交互终端。`ml jupyter terminal list` 可以只读查看；`ml jupyter terminal close NAME` 会结束其中的进程且无确认，仅在用户明确要求时使用。CLI 没有 Cell、后台任务或 Kernel 管理命令，不要构造这些命令。
 
-## 连接与路径
+## 连接实例
 
-先按 [会话检查](session.md) 核对环境、认证与当前业务。Web Studio 模式下：
+先按 [session.md](session.md) 完成环境、认证和业务检查，然后：
 
-```text
+```powershell
+ml webstudio show
 ml webstudio list --status online -o json
 ml webstudio login ENV_ID
-ml jupyter files list --output json
+ml jupyter files list -o json
 ```
 
-ENV_ID 必须来自用户目标或查询结果；已有默认实例时先用 `ml webstudio show` 核对当前环境、账号、业务绑定及缓存状态，无需重复登录；它不反映实例实时状态，必要时查询实例列表。登录会重新建立并验证连接，`--refresh` 可强制重新获取凭据和会话。也可在每条命令上用 `--studio-id ENV_ID` 临时指定实例。实例未启动时，按用户授权启动后查询 online 状态。直连模式使用现有 Jupyter 配置，不执行 Web Studio 登录。不要自行改写认证文件。
+- `ml webstudio show` 显示当前环境、账号和业务绑定的默认实例及缓存状态，不代表实例实时状态；已有合适的默认实例时无需重复登录。
+- ENV_ID 必须来自用户指定或查询结果。`login` 重新建立并验证连接，并保存为默认实例；`--refresh` 强制重新获取凭据和会话。单次命令可用 `--studio-id ENV_ID` 临时指定实例。
+- 实例未运行时，经用户授权运行 `ml webstudio start ENV_ID`（接口可能约 15 秒才返回），再用 `ml webstudio list --env-id ENV_ID -o json` 确认状态。`stop` 可能中断运行中的 Notebook 或终端，先核对目标。start 和 stop 不改变默认实例。
+- `ml jupyter doctor` 同时检查 Kernel 与终端管理接口，它失败不一定代表文件接口不可用；文件任务直接用 `files list` 验证。
 
-远端路径相对 Jupyter 文件浏览器的根目录。`files list` 省略路径查看根目录；使用返回条目的 `path` 继续操作，不假设存在 `projects`。路径不能以 `/` 开头或含 `..`，不能使用本地 Windows 路径。交互终端中的 `cd` 不影响 files 或 exec，exec 每次显式传 `--cwd`。LOCAL 是本机文件，REMOTE 是远端文件，两者不可互换。
+## 远端路径
 
-`doctor` 会同时检查 Kernel 和 Terminal 管理接口；其失败不一定代表 Contents API 不可用。文件任务直接用只读的 `files list` 验证所需能力。
+- 路径相对 Jupyter 文件浏览器的根目录。先省略路径运行 `files list` 查看根目录，再使用返回条目的 `path`，不要假设存在 `projects`。
+- 远端路径不能以 `/` 开头或包含 `..`，不能使用 Windows 本地路径。LOCAL 是本机文件，REMOTE 是远端文件，两者不可互换。
+- 不要用本地文件工具修改同名本地路径来冒充远端修改。
 
 ## 文件命令
 
-各命令均支持 `--studio-id ENV_ID` 和 `--output text|json`（`-o`），默认 text；Agent 优先 JSON。
+均支持 `--studio-id ENV_ID` 和 `-o text|json`，Agent 使用 `-o json`。
 
-| 命令（接在 `ml jupyter` 后） | 参数与行为 |
+| 命令（接在 `ml jupyter` 后） | 行为 |
 | --- | --- |
-| `files list [PATH]` | 仅列一层目录，不是递归搜索 |
-| `files stat PATH` | 元数据，无文件正文 |
-| `files read PATH` | UTF-8 文本；可用 `--start-line N --end-line N`，从 1 开始且包含首尾 |
-| `files write PATH --from-file LOCAL` | 从本地 UTF-8 文件写入；也可用 `--stdin`，二选一 |
-| `files mkdir PATH` | 创建一个目录，父目录必须存在，不支持 `-p` |
-| `files upload LOCAL REMOTE` | 单文件上传，含二进制；REMOTE 包含目标文件名 |
-| `files download REMOTE LOCAL` | 单文件下载；LOCAL 含文件名，本地父目录须存在 |
-| `files move SOURCE TARGET` | 移动或重命名，不覆盖目标 |
-| `files copy SOURCE TARGET_DIR` | 单文件复制到已有目录，新文件名由服务端决定，读取返回 path |
-| `files delete PATH` | 立即删除文件或空目录，无交互确认、不递归 |
+| `files list [PATH]` | 只列一层，不递归 |
+| `files stat PATH` | 类型、大小、时间和可写性，不含正文 |
+| `files read PATH [--start-line N] [--end-line N]` | UTF-8 文本，行号从 1 开始且含首尾 |
+| `files write PATH --from-file LOCAL` | 从本地 UTF-8 文件写入；也可 `--stdin`，二选一 |
+| `files mkdir PATH` | 创建一层目录，父目录必须存在 |
+| `files upload LOCAL REMOTE` | 上传单文件，含二进制；REMOTE 包含目标文件名 |
+| `files download REMOTE LOCAL` | 下载单文件；LOCAL 含文件名，本地父目录须存在 |
+| `files move SOURCE TARGET` | 移动或重命名，不覆盖 |
+| `files copy SOURCE TARGET_DIR` | 复制单文件到已有目录，新文件名由服务端决定，从返回的 path 读取 |
+| `files delete PATH` | 立即删除文件或空目录，无确认、不递归 |
 
-write、upload、download 默认不覆盖已有文件，覆盖必须传 `--overwrite` 并符合用户意图。move 没有覆盖选项。上传、下载、复制不递归处理目录；文件命令不是 Shell，没有通配符展开。行范围在下载完整文本后切片，文件传输会占用内存，不适合超大文件。
+- write、upload、download 默认不覆盖已有文件；覆盖须加 `--overwrite` 且符合用户意图。命令不递归处理目录，也不展开通配符。
+- 编辑远端文件：先 read，在本地准备完整内容，用 `write --from-file --overwrite` 写回，再 read 核验。Windows 上优先 `--from-file`，避免 `--stdin` 的编码问题。避免与用户在浏览器中同时编辑同一文件。
+- read 和传输会把整个文件读入内存，不适合超大文件。
+- 成功 JSON 为 `{server_url, studio_id, business_id, result}`：目录子项在 `result.content`（数组），read 的正文也在 `result.content`（字符串）。失败退出 1 并返回 `{status: "FAILED", error: ...}`；参数错误退出 2，可能只有用法文本。
 
-Agent 编辑文件时，先读取目标，再在本地准备内容，用 write 写回并读取核验。避免与浏览器同时编辑：存在性检查不提供原子并发保护。`--stdin` 仅在宿主能可靠传入 UTF-8 标准输入并关闭输入时使用；Windows 上优先 `--from-file`，避免本地 Shell 的编码与转义差异。Notebook 整体文件可 upload/download；不要把普通文本替换当作 Cell API。
-
-下面假设已查询并确认远端 `workspace` 目录存在，本地 `main.py` 是准备好的 UTF-8 文件：
-
-```text
+```powershell
 ml jupyter files list workspace -o json
-ml jupyter files write workspace/main.py --from-file ./main.py -o json
+ml jupyter files write workspace/main.py --from-file '.\main.py' --overwrite -o json
 ml jupyter files read workspace/main.py -o json
-ml jupyter files upload ./data.csv workspace/data.csv -o json
-ml jupyter files download workspace/data.csv ./downloaded.csv -o json
+ml jupyter files download workspace/data.csv '.\data.csv' -o json
 ```
-
-成功 JSON 是 `{server_url, studio_id, business_id, result}`。目录子项在 `result.content`，read 正文也在 `result.content`，不要混用数组和字符串。stat/write 等返回模型可能有其他字段。时间按北京时间显示。操作失败退出 1 并返回 `{status: "FAILED", error: ...}`；参数解析错误退出 2，可能只有用法文本，不保证 JSON。
 
 ## 非交互执行
 
-```text
-ml jupyter exec [OPTIONS] -- PROGRAM [ARGS...]
-ml jupyter exec --cwd workspace --output json -- python main.py
-ml jupyter exec --cwd workspace --timeout 120 --output json -- python -m pytest -q
-ml jupyter exec --cwd workspace --output json -- sh -c 'pwd && ls -la'
+```powershell
+ml jupyter exec --cwd workspace -o json -- python main.py
+ml jupyter exec --cwd workspace --timeout 600 -o json -- python -m pytest -q
+ml jupyter exec --cwd workspace -o json -- sh -c 'pwd && ls -la'
 ```
 
-远端须是 Linux/macOS 等 POSIX 系统且有 Python/IPython Kernel；本地 Windows 可连接此类远端。每次用独立 Kernel 启动程序，不继承已有 Notebook 变量、先前 exec 的 cd/export 或交互 Shell 状态。程序通过远端 PATH 查找，必要时使用远端程序绝对路径。不要将“Python Kernel 可用”推断为某个命令或虚拟环境必然可用。
+- 远端须是 POSIX 系统且有 Python Kernel，本地 Windows 可以连接。每次调用使用独立 Kernel，不继承 Notebook 变量或上一次 exec 的 `cd`、`export`，每次都显式传 `--cwd`。程序按远端 PATH 查找，Kernel 可用不代表某个命令或虚拟环境可用。
+- PROGRAM 与 ARGS 放在 `--` 之后，CLI 不隐式使用 Shell；需要管道或重定向时显式用 `sh -c`。注意本地 PowerShell 和远端 sh 两层引号，复杂命令写成脚本上传后执行。
+- 标准输入关闭，不能用于密码提示或交互程序。stdout、stderr 在结束后一次返回；各自默认最多保留 1 MiB（`--max-output`），超出截断并标记 `truncated`；`output_incomplete=true` 表示输出未收齐。
+- 时限：`--startup-timeout`（Kernel 就绪，默认 60 秒）加 `--timeout`（程序执行，默认 60 秒）。shell 工具的 `timeout` 设为两者之和再加至少 60 秒。
+- exec 结束或超时会清理同一进程组，不适合启动后台常驻服务。
 
-| 选项 | 默认值与用途 |
-| --- | --- |
-| `--cwd PATH` | 默认 Jupyter 根目录，必须为已有目录 |
-| `--timeout SECONDS` | 60，最小 0.1；远端程序执行时限 |
-| `--startup-timeout SECONDS` | 60，最小 0.1；Kernel 就绪等待 |
-| `--kernel NAME` | 当前环境配置；必须选择 Python Kernel |
-| `--max-output BYTES` | stdout/stderr 各自最多保留 1048576 字节，可设 1–10485760 |
-| `--output text|json` / `-o` | text 为缩进 JSON，json 为单行结果 |
-| `--studio-id ENV_ID` | 单次覆盖默认实例 |
+执行结果在 JSON 的 `result` 中：
 
-PROGRAM 与 ARGS 置于 `--` 后；CLI 不隐式使用 Shell。需要管道、重定向时显式 `sh -c`，同时正确处理本地 Shell 与远端 Shell 两层引用，不拼接未经转义的输入。标准输入关闭，不能用于密码提示或交互程序。
-
-进程工具等待时间应覆盖 Kernel 启动、程序超时和清理余量；宿主返回非交互进程句柄时，仅用于等待和读取同一调用的结果，不分配 PTY、不模拟输入、不重复启动。stdout/stderr 在完成后返回，不是实时流。超过上限会截断并标记 `truncated`，不提供完整日志文件或任务查询接口；`output_incomplete=true` 表示管道输出未完全收齐。
-
-成功调用的 JSON 外层与 files 相同，执行结果在 `result`：
-
-| result.status | CLI 退出码 | Agent 处理 |
+| `result.status` | CLI 退出码 | 处理 |
 | --- | --- | --- |
-| `SUCCEEDED` | 0 | 核对 stdout/stderr 和用户预期产物 |
-| `FAILED` | 原始退出码 1–123，其余为 1 | 查看 error、stderr 和原始 exit_code；修正原因后再执行 |
-| `TIMED_OUT` | 124 | 远端已确认超时并终止进程组，仍需核对副作用 |
-| `LOST` | 2 | 提交后结果未知；不能视为参数错误或自动重跑 |
+| `SUCCEEDED` | 0 | 核对 stdout、stderr 和预期产物 |
+| `FAILED` | 原始退出码 1–123，其余为 1 | 查看 error、stderr 和 `exit_code`，修正后再执行 |
+| `TIMED_OUT` | 124 | 远端已终止进程组，仍需核对副作用 |
+| `LOST` | 2 | 结果未知，不当作参数错误，不自动重跑 |
 | `INTERRUPTED` | 130 | 本地中断，不能断言远端已停止 |
 
-`exit_code` 可能为空；用 status 与 remote_state 判断，不把 CLI 退出码当作原始子进程退出码。`cleanup_errors` 非空时按 kernel_id 检查遗留资源，不声称已释放。断线时释放 Kernel 的尝试不保证子进程停止。
+`exit_code` 可能为空，以 `status` 和 `remote_state` 为准。`cleanup_errors` 非空时说明 Kernel 可能遗留，按 `kernel_id` 报告，不要声称已释放。
 
-exec 完成或超时会清理同一进程组，不适合启动后台常驻服务；主动脱离进程组的子进程不保证清理。没有后台 jobs/status/cancel 命令，超时不是自动重试授权。
+## Notebook
 
-## 输出与凭据
+```powershell
+ml jupyter notebook run '.\analysis.ipynb' --download '.\results' -o json
+```
 
-files/exec 已屏蔽连接发现阶段的带 Token 地址诊断；Web Studio 登录仅报告目标与连接状态，列表会脱敏凭据字段。其他异常诊断仍需检查敏感信息。远端文件或程序输出也可能包含秘密；仅报告任务所需内容，不传播凭据。认证失败先完成会话处理，不在混合输出中猜 JSON。
+- 上传本地 `.ipynb` 并按顺序执行全部单元格，失败也保存部分结果；结果写入 `--download` 目录下每次新建的子目录（默认相对当前目录的 `results`）。
+- 时限为 `--startup-timeout`（默认 60 秒）加 `--timeout`（全部单元格，默认 600 秒），shell 工具的 `timeout` 相应设为两者之和再加至少 60 秒。
+- 失败或超时检查摘要和远端状态，不自动重跑。
+
+## 凭据
+
+files 和 exec 不输出带 Token 的连接地址；Web Studio 列表会脱敏凭据字段。其他异常诊断、远端文件和程序输出仍可能含秘密，只报告任务需要的内容。认证失败时先处理会话，不在混合输出中猜测 JSON。
