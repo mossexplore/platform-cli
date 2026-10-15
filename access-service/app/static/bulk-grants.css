@@ -16,6 +16,6 @@
 .bulk-dialog [data-bulk-preview] { margin-top:24px; }
 .bulk-dialog [data-bulk-changes] td { white-space:normal; overflow-wrap:anywhere; max-width:300px; }
 .bulk-dialog [data-bulk-warnings] { color:#9c4000; padding-left:20px; }
-.people-table .bulk-check { width:42px; min-width:42px; }
+.management-page .people-table .bulk-check { width:42px; min-width:42px; }
 .bulk-check input { width:18px; height:18px; cursor:pointer; }
 @media(max-width:600px) { .bulk-body { padding:16px; } .bulk-dialog .drawer-footer { flex-wrap:wrap; } .bulk-dialog .drawer-heading { padding:16px; } }

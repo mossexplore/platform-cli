@@ -130,26 +130,25 @@
 .grant-detail-list > button { margin-bottom: 14px; }
 
 /* 人员表格 */
-.management-page .table-scroll > .people-table { table-layout: auto; min-width: 1000px; }
-.people-table th:nth-child(1) { width: 130px; }
-.people-table th:nth-child(2) { width: 80px; }
-.people-table th:nth-child(3) { width: 90px; }
+.management-page .table-scroll > .people-table { table-layout: fixed; min-width: 1260px; }
+/* 从右侧定位业务列，避免左侧插入多选框后列宽错位 */
+.people-table th:nth-last-child(8) { width: 130px; }
+.people-table th:nth-last-child(7) { width: 80px; }
+.people-table th:nth-last-child(6) { width: 90px; }
 .people-actions { white-space: nowrap; text-align: left; }
 .people-actions button + button { margin-left: 6px; }
 .management-page .people-table th:last-child { width: 115px; }
 .management-page .table-scroll th.actions { width: 105px; }
 .management-page .delete-link { color: var(--danger); margin-left: 6px; }
 .management-page .delete-link:hover { background: var(--danger-bg); color: var(--danger); }
-.management-page .people-table, .management-page .environment-table { min-width: 1220px; }
-.people-table th:nth-child(4) { width: 230px; }
-.people-table th:nth-child(5), .people-table th:nth-child(6), .environment-table th:nth-child(5), .environment-table th:nth-child(6) { width: 156px; }
+.management-page .environment-table { min-width: 1220px; }
+.environment-table th:nth-child(5), .environment-table th:nth-child(6) { width: 156px; }
 
 /* 环境列宽度不随标签数量增长；无脚本时完整换行展示 */
-.management-page .table-scroll > .people-table { table-layout: fixed; }
-.people-table th:nth-child(4) { width: 280px; }
-.people-table th:nth-child(5), .people-table th:nth-child(6) { width: 136px; }
-.people-table th:nth-child(7) { width: 84px; }
-.people-table td:nth-child(7) { max-width: 84px; }
+.people-table th:nth-last-child(5) { width: auto; }
+.people-table th:nth-last-child(4), .people-table th:nth-last-child(3) { width: 164px; }
+.people-table th:nth-last-child(2) { width: 100px; }
+.people-table td:nth-last-child(2) { max-width: 100px; overflow-wrap: anywhere; white-space: normal; }
 .people-table .grant-pills { width: 100%; min-width: 0; overflow: hidden; flex-wrap: wrap; align-items: center; white-space: normal; }
 .people-table .grant-pills .badge { flex: 0 0 auto; max-width: 100%; white-space: normal; overflow-wrap: anywhere; text-align: left; }
 .people-table .grant-pills.is-collapsed { flex-wrap: nowrap; }
