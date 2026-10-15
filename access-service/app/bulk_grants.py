@@ -36,8 +36,17 @@ class EnvironmentEdit(BaseModel):
 class BulkRequest(BaseModel):
     csrf: str = Field(max_length=64)
     user_ids: list[int] = Field(min_length=1, max_length=100)
-    edits: list[EnvironmentEdit] = Field(min_length=1, max_length=100)
+    edits: list[EnvironmentEdit] = Field(default_factory=list, max_length=100)
+    reset: bool = False
     token: str = Field(default='', max_length=200)
+
+    @model_validator(mode='after')
+    def validate_request(self):
+        if not self.reset and not self.edits:
+            raise ValueError('请选择环境')
+        if self.reset and any(edit.operation != 'enable' or edit.expiry_mode != 'keep' or edit.note_mode != 'keep' for edit in self.edits):
+            raise ValueError('重设只接受勾选的环境')
+        return self
 
 
 def snapshot(grant):
@@ -61,14 +70,26 @@ def plan(db, body):
     if len(ids) * len(env_ids) > 2000:
         raise HTTPException(400, '每批最多 2,000 个人员与环境组合，请拆分操作')
     users = db.scalars(select(User).where(User.id.in_(ids)).order_by(User.id).with_for_update()).all()
-    envs = db.scalars(select(Environment).where(Environment.id.in_(env_ids)).order_by(Environment.id).with_for_update()).all()
-    if len(users) != len(ids) or len(envs) != len(env_ids):
+    query = select(Environment)
+    if not body.reset:
+        query = query.where(Environment.id.in_(env_ids))
+    envs = db.scalars(query.order_by(Environment.id).with_for_update()).all()
+    if len(users) != len(ids) or not set(env_ids).issubset({env.id for env in envs}):
         raise HTTPException(409, '人员或环境已删除，请刷新列表重新选择')
-    if any(not env.enabled for env in envs):
+    if len(ids) * len(envs) > 2000:
+        raise HTTPException(400, '每批最多 2,000 个人员与环境组合，请拆分操作')
+    if any(not env.enabled and env.id in env_ids for env in envs):
         raise HTTPException(409, '所选环境已停用，请重新配置')
+    selected_ids = set(env_ids)
+    if body.reset:
+        env_ids = [env.id for env in envs]
     grants = {(g.user_id, g.environment_id): g for g in db.scalars(select(Grant).where(
         Grant.user_id.in_(ids), Grant.environment_id.in_(env_ids)).order_by(Grant.id).with_for_update()).all()}
     edits = {edit.environment_id: edit for edit in body.edits}
+    if body.reset:
+        edits = {env.id: EnvironmentEdit(environment_id=env.id,
+            operation='enable' if env.id in selected_ids else 'revoke',
+            expiry_mode='forever' if env.id in selected_ids else 'keep') for env in envs}
     dates = {}
     for edit in body.edits:
         if edit.expiry_mode == 'set':
@@ -108,7 +129,7 @@ def plan(db, body):
             changes.append({'user_id': user.id, 'environment_id': env.id, 'username': user.username,
                 'environment': env.name, 'before': before, 'after': after,
                 'before_text': describe(before), 'after_text': describe(after), 'kind': kind})
-    state = {'input': {'user_ids': ids, 'edits': [edits[i].model_dump() for i in env_ids]},
+    state = {'input': {'user_ids': ids, 'reset': body.reset, 'edits': [edits[i].model_dump() for i in env_ids]},
         'users': [[u.id, u.username, u.display_name, u.enabled, str(u.updated_at)] for u in users],
         'environments': [[e.id, e.name, e.enabled, str(e.updated_at)] for e in envs],
         'grants': [[u.id, e.id, snapshot(grants.get((u.id, e.id)))] for u in users for e in envs]}

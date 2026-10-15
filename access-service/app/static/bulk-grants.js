@@ -19,7 +19,7 @@
     allEnvironments.checked = count > 0 && count === environmentInputs.length;
     allEnvironments.indeterminate = count > 0 && count < environmentInputs.length;
     allEnvironments.disabled = environmentInputs.length === 0;
-    saveButton.disabled = busy || selected.size === 0 || count === 0;
+    saveButton.disabled = busy || selected.size === 0;
   }
   const filters = new URLSearchParams(location.search);
   const scope = JSON.stringify(['q', 'status', 'grant_status'].map(k => filters.get(k) || ''));
@@ -124,8 +124,7 @@
   function payload() {
     const edits = [...form.querySelectorAll('[name="environments"]:checked')].map(input => ({
       environment_id: Number(input.value), operation: 'enable'}));
-    if (!edits.length) throw new Error('请至少选择一个授权环境');
-    return {csrf: dialog.dataset.csrf, user_ids: [...selected.keys()], edits};
+    return {csrf: dialog.dataset.csrf, user_ids: [...selected.keys()], edits, reset: true};
   }
   async function request(action, body) {
     const response = await fetch(`/cli-permission/admin/grants/bulk/${action}`, {

@@ -4,6 +4,7 @@
 <div class="form-error" role="alert" hidden></div>
 <div class="bulk-section-heading"><h3>授权人员</h3><span class="count" data-bulk-count></span></div><div class="bulk-selected" data-bulk-selected></div>
 <form id="bulk-edit-form">
+<p class="hint">保存后仅保留勾选环境的授权，统一长期有效；未勾选的旧授权将撤销。全部取消将撤销所有环境授权。</p>
 <fieldset class="bulk-environments"><legend>授权环境 <span data-environment-count>已选 0 个</span></legend>
 <div class="bulk-environment-heading"><input type="checkbox" data-environments-all aria-label="全选可授权环境"><span>环境名称</span><span>环境标识</span><span>状态</span></div>
 {% for env in bulk_environments %}<label class="bulk-environment-choice"><input type="checkbox" name="environments" value="{{ env.id }}" aria-label="{{ env.name }}" {% if not env.enabled %}disabled{% endif %}><strong>{{ env.display_name }}</strong><span class="mono">{{ env.name }}</span><span class="badge {{ 'positive' if env.enabled else 'neutral' }}">{{ '已启用' if env.enabled else '已停用' }}</span></label>{% else %}<p class="bulk-empty">暂无环境</p>{% endfor %}

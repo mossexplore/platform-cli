@@ -12,6 +12,57 @@ from test_service import system, login
 BASE = '/cli-permission/admin/grants/bulk/'
 
 
+def test_reset_replaces_all_people_environments_including_disabled_and_expired(system):
+    app, client, _ = system
+    add_person(app, enabled=False)
+    with app.state.sessions() as db:
+        env = Environment(name='disabled-old', display_name='旧环境', platform_origin='https://example.com', enabled=False)
+        db.add(env)
+        db.flush()
+        for user_id in (1, 2):
+            db.add(Grant(user_id=user_id, environment_id=env.id, enabled=True, note='history'))
+        grant = db.get(Grant, 1)
+        grant.expires_at, grant.note = now() - timedelta(days=1), 'keep'
+        db.commit()
+    data = body(login(client), operation='enable')
+    data['reset'] = True
+    assert save_preview(client, data).status_code == 200
+    with app.state.sessions() as db:
+        for user_id in (1, 2):
+            selected = db.scalar(select(Grant).where(Grant.user_id == user_id, Grant.environment_id == 1))
+            assert selected.enabled and selected.expires_at is None
+            old = db.scalar(select(Grant).where(Grant.user_id == user_id, Grant.environment_id != 1))
+            assert not old.enabled and old.note == 'history'
+        assert db.get(Grant, 1).note == 'keep'
+        assert not db.get(User, 2).enabled
+        audits = db.scalars(select(Audit).where(Audit.action == 'grants.bulk_save')).all()
+        assert len(audits) == 4
+        assert len({json.loads(a.detail)['batch_id'] for a in audits}) == 1
+
+
+def test_reset_empty_selection_revokes_every_environment_without_deleting_records(system):
+    app, client, _ = system
+    add_person(app)
+    data = {'csrf': login(client), 'user_ids': [1, 2], 'edits': [], 'reset': True}
+    assert save_preview(client, data).status_code == 200
+    with app.state.sessions() as db:
+        assert db.get(Grant, 1) is not None and not db.get(Grant, 1).enabled
+        assert db.scalar(select(Grant).where(Grant.user_id == 2)) is None
+
+
+def test_reset_detects_changes_to_unselected_environments(system):
+    app, client, _ = system
+    add_person(app)
+    data = {'csrf': login(client), 'user_ids': [1, 2], 'edits': [], 'reset': True}
+    data['token'] = client.post(BASE + 'preview', json=data).json()['token']
+    with app.state.sessions() as db:
+        db.get(Grant, 1).note = 'concurrent'
+        db.commit()
+    assert client.post(BASE + 'save', json=data).status_code == 409
+    with app.state.sessions() as db:
+        assert db.get(Grant, 1).enabled
+
+
 def body(csrf, **edit):
     return {'csrf': csrf, 'user_ids': [1, 2], 'edits': [{'environment_id': 1, **edit}]}
 
