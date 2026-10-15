@@ -4,16 +4,27 @@
   if (!dialog) return;
   const table = document.querySelector('.people-table');
   const toolbar = document.querySelector('[data-bulk-toolbar]');
+  const openButton = toolbar.querySelector('[data-bulk-open]');
+  openButton.textContent = '批量编辑';
+  toolbar.prepend(openButton);
+  document.querySelector('.filter-bar button').insertAdjacentElement('afterend', toolbar);
   const form = document.querySelector('#bulk-edit-form');
   const error = dialog.querySelector('.form-error');
-  const previewPanel = dialog.querySelector('[data-bulk-preview]');
   const saveButton = dialog.querySelector('[data-bulk-save]');
-  const previewButton = dialog.querySelector('[data-bulk-preview-button]');
+  const environmentInputs = [...form.querySelectorAll('[name="environments"]:not(:disabled)')];
+  const allEnvironments = form.querySelector('[data-environments-all]');
+  function updateEnvironments() {
+    const count = environmentInputs.filter(input => input.checked).length;
+    form.querySelector('[data-environment-count]').textContent = `已选 ${count} 个`;
+    allEnvironments.checked = count > 0 && count === environmentInputs.length;
+    allEnvironments.indeterminate = count > 0 && count < environmentInputs.length;
+    allEnvironments.disabled = environmentInputs.length === 0;
+    saveButton.disabled = busy || selected.size === 0 || count === 0;
+  }
   const filters = new URLSearchParams(location.search);
   const scope = JSON.stringify(['q', 'status', 'grant_status'].map(k => filters.get(k) || ''));
   const storageKey = `bulk-grants:${dialog.dataset.actor}:${dialog.dataset.csrf}`;
   let selected = new Map();
-  let token = '';
   let busy = false;
   try {
     const stored = JSON.parse(sessionStorage.getItem(storageKey) || 'null');
@@ -55,10 +66,7 @@
   const empty = table.querySelector('td.empty');
   if (empty) empty.colSpan = 9;
   function invalidate() {
-    token = '';
-    previewPanel.hidden = true;
-    saveButton.hidden = true;
-    saveButton.disabled = true;
+    error.hidden = true;
   }
   function refresh() {
     invalidate();
@@ -67,10 +75,13 @@
     all.checked = checked > 0 && checked === checkboxes.length;
     all.indeterminate = checked > 0 && checked < checkboxes.length;
     all.disabled = checkboxes.length === 0;
-    toolbar.hidden = selected.size === 0;
+    toolbar.hidden = false;
     toolbar.querySelector('[data-selection-count]').textContent = `已选 ${selected.size} 人`;
+    toolbar.querySelector('[data-selection-count]').hidden = selected.size === 0;
+    toolbar.querySelector('[data-selection-clear]').hidden = selected.size === 0;
+    toolbar.querySelector('[data-bulk-open]').disabled = selected.size === 0;
     dialog.querySelector('[data-bulk-count]').textContent = `${selected.size} 人`;
-    previewButton.disabled = selected.size === 0;
+    updateEnvironments();
     const people = dialog.querySelector('[data-bulk-selected]');
     people.replaceChildren();
     selected.forEach((name, id) => {
@@ -106,87 +117,50 @@
   toolbar.querySelector('[data-bulk-open]').addEventListener('click', () => { error.hidden = true; dialog.showModal(); });
   form.addEventListener('input', invalidate);
   form.addEventListener('change', event => {
-    const row = event.target.closest('[data-bulk-env]');
-    if (!row) return;
-    const revoked = row.querySelector('[name="operation"]').value === 'revoke';
-    ['expiry_mode', 'note_mode'].forEach(name => {
-      const field = row.querySelector(`[name="${name}"]`);
-      if (revoked) field.value = 'keep';
-      field.disabled = revoked;
-    });
-    [['expiry_mode', 'expires_at'], ['note_mode', 'note']].forEach(([mode, name]) => {
-      const field = row.querySelector(`[name="${name}"]`);
-      field.hidden = revoked || row.querySelector(`[name="${mode}"]`).value !== 'set';
-      field.disabled = field.hidden;
-      field.required = !field.hidden;
-    });
+    if (event.target === allEnvironments) environmentInputs.forEach(input => { input.checked = allEnvironments.checked; });
     invalidate();
+    updateEnvironments();
   });
   function payload() {
-    const edits = [...form.querySelectorAll('[data-bulk-env]')].map(row => {
-      const value = name => row.querySelector(`[name="${name}"]`).value;
-      return {environment_id: Number(row.dataset.bulkEnv), operation: value('operation'),
-        expiry_mode: value('expiry_mode'), expires_at: value('expires_at'), note_mode: value('note_mode'), note: value('note')};
-    }).filter(edit => edit.operation !== 'keep' || edit.expiry_mode !== 'keep' || edit.note_mode !== 'keep');
-    if (!edits.length) throw new Error('请至少设置一项环境变更');
-    return {csrf: dialog.dataset.csrf, user_ids: [...selected.keys()], edits, token};
+    const edits = [...form.querySelectorAll('[name="environments"]:checked')].map(input => ({
+      environment_id: Number(input.value), operation: 'enable'}));
+    if (!edits.length) throw new Error('请至少选择一个授权环境');
+    return {csrf: dialog.dataset.csrf, user_ids: [...selected.keys()], edits};
   }
   async function request(action, body) {
     const response = await fetch(`/cli-permission/admin/grants/bulk/${action}`, {
       method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)});
     if (response.ok && response.headers.get('content-type')?.includes('application/json')) return response.json();
     const html = new DOMParser().parseFromString(await response.text(), 'text/html');
-    throw new Error(html.querySelector('[role="alert"]')?.textContent || '请求未完成，请核对登录状态后重试');
+    const message = html.querySelector('[role="alert"]')?.textContent || '请求未完成，请核对登录状态后重试';
+    throw new Error(message.includes('预览已过期') ? '人员、环境或授权已变化，请重新点击确定授权' : message);
   }
   function setBusy(value) {
     busy = value;
     dialog.querySelectorAll('button').forEach(button => { button.disabled = value; });
     form.inert = value;
-    if (!value) { previewButton.disabled = selected.size === 0; saveButton.disabled = !token; }
+    saveButton.textContent = value ? '正在授权…' : '确定授权';
+    if (!value) updateEnvironments();
   }
   dialog.addEventListener('cancel', event => { if (busy) event.preventDefault(); });
-  async function perform(action) {
+  async function perform() {
     if (busy) return;
     error.hidden = true;
     try {
       const body = payload();
       setBusy(true);
-      const result = await request(action, body);
-      if (action === 'save') {
-        selected.clear(); refresh();
-        location.assign('/cli-permission/admin?tab=users&saved=1');
-        return;
-      }
-      token = result.changes.length ? result.token : '';
-      const c = result.counts;
-      dialog.querySelector('[data-bulk-summary]').textContent = `影响 ${result.affected_users} 人；新增 ${c.created} 项，修改 ${c.updated} 项，撤销 ${c.revoked} 项，未变化 ${c.unchanged} 项`;
-      const warnings = dialog.querySelector('[data-bulk-warnings]');
-      warnings.replaceChildren();
-      const messages = [...result.warnings];
-      if (c.revoked) messages.unshift(`本次将撤销 ${c.revoked} 项授权，请核对人员和环境`);
-      if (!token) messages.push('没有实际变更，无需保存');
-      messages.forEach(message => { const li = document.createElement('li'); li.textContent = message; warnings.append(li); });
-      const rows = dialog.querySelector('[data-bulk-changes]');
-      rows.replaceChildren();
-      result.changes.forEach(change => {
-        const row = document.createElement('tr');
-        ['username', 'environment', 'before_text', 'after_text'].forEach(key => {
-          const td = document.createElement('td'); td.textContent = change[key]; row.append(td);
-        });
-        rows.append(row);
-      });
-      previewPanel.hidden = false;
-      saveButton.hidden = false;
-      saveButton.textContent = `确认保存 ${result.changes.length} 项变更`;
-      previewPanel.scrollIntoView({block: 'nearest'});
+      // Obtain a fresh snapshot and save without an extra confirmation step.
+      const result = await request('preview', body);
+      if (result.changes.length) await request('save', {...body, token: result.token});
+      selected.clear(); refresh();
+      location.assign('/cli-permission/admin?tab=users&saved=1');
     } catch (problem) {
       invalidate();
-      error.textContent = problem.message === 'Failed to fetch' ? '连接中断，编辑内容已保留；请核对是否已保存，再重新预览' : problem.message;
+      error.textContent = problem.message === 'Failed to fetch' ? '连接中断，编辑内容已保留；请核对是否已保存后重试' : problem.message;
       error.hidden = false;
       error.scrollIntoView({block: 'nearest'});
     } finally { setBusy(false); }
   }
-  form.addEventListener('submit', event => { event.preventDefault(); perform('preview'); });
-  saveButton.addEventListener('click', () => perform('save'));
+  form.addEventListener('submit', event => { event.preventDefault(); perform(); });
   refresh();
 })();

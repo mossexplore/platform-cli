@@ -31,6 +31,7 @@ const observer = new ResizeObserver((entries) => {
 });
 document.querySelectorAll('.main-content > .panel .table-scroll > table > tbody > tr > td').forEach((cell) => {
   if (cell.colSpan > 1 || cell.querySelector('button,a,input') || cell.closest('.grant-accounts') || cell.classList.contains('people-environments') || cell.matches('.administrators-table td:nth-child(4), .logs-table td:nth-child(1), .logs-table td:nth-child(7), .environment-table .origin, .environment-table td:nth-child(2), .environment-table td:nth-child(5), .environment-table td:nth-child(6)')) return;
+  if (cell.matches('.people-table td:nth-last-child(6)')) return;
   const preview = document.createElement('div');
   preview.className = 'cell-preview';
   const text = cell.innerText;
@@ -67,7 +68,8 @@ function sizeListRows() {
     }
     const top = table.getBoundingClientRect().top + window.scrollY;
     const available = window.innerHeight - top - table.tHead.getBoundingClientRect().height - pager.getBoundingClientRect().height - trailingHeight;
-    table.style.setProperty('--list-row-height', `${Math.max(52, Math.floor(available / 10))}px`);
+    const minimum = table.classList.contains('people-table') ? 28 : 52;
+    table.style.setProperty('--list-row-height', `${Math.max(minimum, Math.floor(available / 10))}px`);
   }
 }
 window.addEventListener('resize', sizeListRows);

@@ -163,7 +163,10 @@ def test_labels_and_controls_render_without_changing_public_application(system):
     login(client)
     html = client.get('/cli-permission/admin?tab=users').text
     assert 'id="bulk-grants"' in html and 'bulk-grants.js' in html
-    assert 'data-bulk-env="1"' in html
+    assert 'name="environments" value="1"' in html
+    panel = html.split('id="bulk-grants"')[1].split('</dialog>')[0]
+    assert 'name="operation"' not in panel and 'name="expiry_mode"' not in panel
+    assert '确定授权' in panel and 'data-bulk-preview' not in panel
     html = client.get('/cli-permission/admin/applications').text
     assert '<h1>权限审批</h1>' in html and '<strong>权限审批</strong>' in html
     assert '<title>权限审批' in html and '>权限审批' in html
