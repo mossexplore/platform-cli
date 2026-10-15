@@ -1,0 +1,13 @@
+{% macro top_select(name, label, value) %}
+<select name="{{ name }}" form="analytics-filter-form" aria-label="{{ label }}榜单数量" data-ranking-top>{% for option in top_options %}<option value="{{ option }}" {% if value == option %}selected{% endif %}>TOP{{ option }}</option>{% endfor %}</select>
+{% endmacro %}
+<section class="panel analytics-ranking" aria-labelledby="analytics-commands-title">
+<div class="panel-title"><h2 id="analytics-commands-title">常用命令</h2><div class="analytics-ranking-actions"><span class="muted">按检查次数排序</span>{{ top_select('commands_top', '常用命令', commands_top) }}</div></div>
+<div class="table-scroll" tabindex="0" role="region" aria-label="常用命令榜单"><table><thead><tr><th>命令名称</th><th class="ranking-number">检查次数</th><th class="ranking-number">占比</th></tr></thead><tbody>
+{% for name,count in commands %}<tr><td><a class="mono" href="{{ log_link(command_exact=name) }}">{{ name or 'unknown' }}</a></td><td class="ranking-number">{{ count }}</td><td class="ranking-number">{{ '%.1f'|format(count / total * 100) }}%</td></tr>{% else %}<tr><td colspan="3"><div class="empty">暂无命令记录</div></td></tr>{% endfor %}
+</tbody></table></div></section>
+<section class="panel analytics-ranking" aria-labelledby="analytics-users-title">
+<div class="panel-title"><h2 id="analytics-users-title">活跃用户</h2><div class="analytics-ranking-actions"><span class="muted">按检查次数排序</span>{{ top_select('actors_top', '活跃用户', actors_top) }}</div></div>
+<div class="table-scroll" tabindex="0" role="region" aria-label="活跃用户榜单"><table><thead><tr><th>用户名</th><th>姓名</th><th class="ranking-number">检查次数</th><th class="ranking-number">占比</th></tr></thead><tbody>
+{% for name,count in actors %}<tr><td><a href="{{ log_link(username_exact=name) }}">{{ name }}</a></td><td>{{ actor_names.get(name) or '—' }}</td><td class="ranking-number">{{ count }}</td><td class="ranking-number">{{ '%.1f'|format(count / total * 100) }}%</td></tr>{% else %}<tr><td colspan="4"><div class="empty">暂无用户记录</div></td></tr>{% endfor %}
+</tbody></table></div></section>

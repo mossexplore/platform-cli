@@ -7,11 +7,12 @@ from fastapi.responses import RedirectResponse
 from sqlalchemy import case, func, select, text
 
 from .admin_auth import admin_session
-from .models import CallLog, now
+from .models import CallLog, User, now
 from .security import BEIJING, display_time, expiry
 
 router = APIRouter()
 GRAINS = {'hour': '小时', 'day': '天', 'week': '周'}
+TOP_OPTIONS = (10, 20, 30, 50)
 
 
 def count_value(value):
@@ -98,9 +99,9 @@ def command_series(db, filters, grain, names):
     return result
 
 
-def top_rows(db, filters, field):
+def top_rows(db, filters, field, limit=10):
     rows = db.execute(select(field, func.count().label('total')).where(*filters).group_by(field)
-                      .order_by(func.count().desc(), field).limit(10)).all()
+                      .order_by(func.count().desc(), field).limit(limit)).all()
     return [(name, count_value(count)) for name, count in rows]
 
 
@@ -119,7 +120,8 @@ def analytics(request: Request, grain: str = Query('day', max_length=8),
               begin: str = Query('', max_length=32), end: str = Query('', max_length=32),
               username: str = Query('', max_length=128), environment: str = Query('', max_length=64),
               business_id: str = Query('', max_length=256),
-              cli_version: str = Query('', max_length=64)):
+              cli_version: str = Query('', max_length=64),
+              commands_top: int = Query(10), actors_top: int = Query(10)):
     with request.app.state.sessions() as db:
         try:
             admin, session = admin_session(request, db)
@@ -127,6 +129,8 @@ def analytics(request: Request, grain: str = Query('day', max_length=8),
             if exc.status_code == 401:
                 return RedirectResponse('/cli-permission/login', status_code=303)
             raise
+        if commands_top not in TOP_OPTIONS or actors_top not in TOP_OPTIONS:
+            raise HTTPException(400, '榜单数量仅支持 10、20、30、50')
         start, stop = bounds(begin, end, grain)
         params = dict(username=username, environment=environment,
                       business_id=business_id, cli_version=cli_version)
@@ -140,7 +144,8 @@ def analytics(request: Request, grain: str = Query('day', max_length=8),
         totals = db.execute(select(func.count(), denied, func.count(func.distinct(CallLog.actor))).where(*filters)).one()
         total, rejected, users = (count_value(value) for value in totals)
         points = trend_rows(db, filters, start, stop, grain)
-        commands = top_rows(db, filters, CallLog.command)
+        command_ranking = top_rows(db, filters, CallLog.command, max(10, commands_top))
+        commands = command_ranking[:commands_top]
         chart_commands = [name for name, _ in commands[:5]]
         series = command_series(db, filters, grain, chart_commands)
         chart_points = []
@@ -157,8 +162,10 @@ def analytics(request: Request, grain: str = Query('day', max_length=8),
         if other:
             chart_distribution.append({'label': '其他命令', 'value': other, 'href': ''})
         chart_ranking = [{'label': name or 'unknown', 'value': count,
-            'href': log_link(params, start, stop, command_exact=name)} for name, count in commands]
-        actors = top_rows(db, filters, CallLog.actor)
+            'href': log_link(params, start, stop, command_exact=name)} for name, count in command_ranking[:10]]
+        actors = top_rows(db, filters, CallLog.actor, actors_top)
+        actor_names = dict(db.execute(select(User.username, User.display_name).where(
+            User.username.in_([name for name, _ in actors]))).all()) if actors else {}
         return request.app.state.templates.TemplateResponse(request=request, name='analytics.html', context={
             'admin': admin, 'csrf': session.csrf, 'tab': 'analytics', 'grain': grain,
             'advanced_active': any(params.values()),
@@ -171,6 +178,7 @@ def analytics(request: Request, grain: str = Query('day', max_length=8),
             'users': users, 'points': points,
             'chart': {'points': chart_points, 'commands': [name or 'unknown' for name in chart_commands],
                       'distribution': chart_distribution, 'ranking': chart_ranking, 'grain': GRAINS[grain]},
-            'commands': commands, 'actors': actors,
+            'commands': commands, 'actors': actors, 'actor_names': actor_names,
+            'commands_top': commands_top, 'actors_top': actors_top, 'top_options': TOP_OPTIONS,
             'log_link': lambda **extra: log_link(params, start, stop, **extra),
             'point_link': lambda point: log_link(params, point['start'], point['stop'])})

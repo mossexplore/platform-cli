@@ -1,4 +1,7 @@
 'use strict';
+document.querySelectorAll('[data-ranking-top]').forEach(select => {
+  select.addEventListener('change', () => select.form.requestSubmit());
+});
 const filterToggle = document.querySelector('[data-toggle-analytics-filters]');
 if (filterToggle) {
   filterToggle.addEventListener('click', () => {

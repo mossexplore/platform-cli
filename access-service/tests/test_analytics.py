@@ -122,7 +122,8 @@ def test_dashboard_renders_decimal_aggregates_from_mysql(system, monkeypatch):
 
     monkeypatch.setattr(session_type, 'execute', execute_with_decimal_sum)
     response = client.get('/cli-permission/admin/analytics', params={
-        'begin': '2026-09-10T00:00:00', 'end': '2026-09-11T23:59:59'})
+        'begin': '2026-09-10T00:00:00', 'end': '2026-09-11T23:59:59',
+        'commands_top': 50, 'actors_top': 30})
     assert response.status_code == 200
     chart = json.loads(unescape(re.search(r"data-analysis-chart='([^']+)'", response.text)[1]))
     assert chart['points'][0]['total'] == 1

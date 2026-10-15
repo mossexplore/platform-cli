@@ -4,7 +4,7 @@
 {% block content %}
 <div class="page-heading analytics-heading"><div><p class="eyebrow">ACCESS ANALYTICS</p><h1>数据看板</h1><p class="subtitle">了解授权检查量、调用趋势与常用命令。统计不代表业务命令执行结果。</p></div><a href="{{ log_link() }}">查看调用日志</a></div>
 <section class="panel analytics-filters" aria-label="查询条件">
-<form method="get" action="/cli-permission/admin/analytics" class="analytics-filter-form">
+<form id="analytics-filter-form" method="get" action="/cli-permission/admin/analytics" class="analytics-filter-form">
   <div class="analytics-filter-primary">
     <label>开始时间<input type="datetime-local" name="begin" value="{{ begin }}" step="1" required></label>
     <label>结束时间<input type="datetime-local" name="end" value="{{ end }}" step="1" required></label>
@@ -32,8 +32,7 @@
   {% else %}<div class="empty"><strong>所选范围暂无调用记录</strong><p>调整筛选条件，或等待 CLI 发起在线授权检查。</p></div>{% endif %}
 </section>
 <div class="analytics-grid">
-  <section class="panel" aria-labelledby="analytics-commands-title"><div class="panel-title"><h2 id="analytics-commands-title">常用命令 <span class="count">Top 10</span></h2><span class="muted">按检查次数排序</span></div><div class="table-scroll"><table><thead><tr><th>命令名称</th><th>检查次数</th><th>占比</th></tr></thead><tbody>{% for name,count in commands %}<tr><td><a class="mono" href="{{ log_link(command_exact=name) }}">{{ name or 'unknown' }}</a></td><td>{{ count }}</td><td>{{ '%.1f'|format(count / total * 100) }}%</td></tr>{% else %}<tr><td colspan="3"><div class="empty">暂无命令记录</div></td></tr>{% endfor %}</tbody></table></div></section>
-  <section class="panel" aria-labelledby="analytics-users-title"><div class="panel-title"><h2 id="analytics-users-title">活跃用户 <span class="count">Top 10</span></h2><span class="muted">按检查次数排序</span></div><div class="table-scroll"><table><thead><tr><th>用户名</th><th>检查次数</th><th>占比</th></tr></thead><tbody>{% for name,count in actors %}<tr><td><a href="{{ log_link(username_exact=name) }}">{{ name }}</a></td><td>{{ count }}</td><td>{{ '%.1f'|format(count / total * 100) }}%</td></tr>{% else %}<tr><td colspan="3"><div class="empty">暂无用户记录</div></td></tr>{% endfor %}</tbody></table></div></section>
+  {% include 'analytics_rankings.html' %}
 </div>
 <details class="list-help analytics-help"><summary>统计口径与数据范围</summary><p>本页统计权限服务收到并写入数据库的在线授权检查；客户端预检查和网关检查分别计数，不合并为业务执行次数。授权通过不代表业务执行成功。帮助、登录、本地配置以及未触发检查的命令不在范围内。用户名由客户端上报；历史记录和旧客户端可能缺少完整命令等字段。</p></details>
 <script src="/cli-permission/static/analytics.js" defer></script>

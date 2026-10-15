@@ -50,7 +50,12 @@ a:hover .analysis-mark, a:focus .analysis-mark { opacity: .72; }
 .analytics-grid .panel { min-width: 0; }
 .analytics-grid .panel + .panel { margin-top: 0; }
 .analytics-grid .table-scroll > table { min-width: 0; }
-.analytics-grid th:nth-child(n+2), .analytics-grid td:nth-child(n+2) { text-align: right; width: 100px; font-variant-numeric: tabular-nums; }
+.analytics-grid .ranking-number { text-align: right; width: 90px; font-variant-numeric: tabular-nums; }
+.analytics-ranking-actions { display:flex; gap:12px; align-items:center; }
+.analytics-ranking-actions select { width:96px; min-height:30px; padding:4px 10px; font-size:13px; }
+.analytics-ranking .table-scroll { max-height:440px; overflow:auto; }
+.analytics-ranking thead th { position:sticky; top:0; z-index:1; background:var(--fill); }
+.analytics-ranking td { overflow-wrap:anywhere; }
 .analytics-grid td:first-child { overflow-wrap: anywhere; }
 .analytics-help { margin-top: 16px; }
 @media (max-width: 1100px) { .analytics-filter-primary { grid-template-columns: repeat(3,minmax(0,1fr)); } .analytics-filter-actions { grid-column: 1 / -1; justify-content: flex-end; } .analytics-filter-advanced { grid-template-columns: repeat(2,minmax(0,1fr)); } .analytics-stats { grid-template-columns: repeat(2,minmax(0,1fr)); } .analytics-grid { grid-template-columns: 1fr; } }
