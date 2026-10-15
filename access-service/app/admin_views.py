@@ -51,7 +51,7 @@ def grant_state(item, user, environment):
 
 ACTIONS = {'grants.selection_save': '配置环境授权', 'users.delete': '删除人员', 'environments.delete': '删除环境', 'version_policy.update': '编辑版本策略', 'version_policy.delete': '删除版本策略', 'administrators.delete': '删除管理员', 'administrators.reset_password': '重置管理员密码', 'administrators.create': '创建管理员', 'administrators.update_name': '更新管理员姓名', 'administrators.enable': '启用管理员', 'administrators.disable': '停用管理员', 'login': '登录管理台', 'logout': '退出登录', 'login_failed': '登录失败',
            'users.save': '更新人员', 'environments.save': '更新环境',
-           'grants.save': '更新授权', 'grants.batch_save': '批量配置授权'}
+           'grants.save': '更新授权', 'grants.batch_save': '批量配置授权', 'grants.bulk_save': '多人批量编辑授权'}
 FIELDS = {'role': '管理角色', 'username': '账号', 'display_name': '名称', 'enabled': '启用状态',
           'environment': '适用环境', 'business_id': '业务 ID', 'mode': '执行模式',
           'minimum_version': '最低版本', 'recommended_version': '推荐版本',
@@ -111,6 +111,10 @@ def audit_detail(item):
     changes = [{'field': '姓名' if key == 'display_name' and item.action.startswith('administrators.') else label,
                 'before': display(key, before.get(key)), 'after': display(key, after.get(key))}
                for key, label in FIELDS.items() if key in after and before.get(key) != after[key]]
+    if item.action == 'grants.bulk_save':
+        changes.insert(0, {'field': '批次', 'before': '—', 'after': data['batch_id']})
+        return {'label': ACTIONS[item.action],
+                'summary': f"{after['username']} · {after['name']} · 批次 {data['batch_id']}", 'changes': changes}
     return {'label': ACTIONS.get(item.action, item.action),
             'summary': ('新增' if not before else '修改') + ' · ' + str(after.get('username') or after.get('name') or '环境授权'),
             'changes': changes}

@@ -42,6 +42,7 @@ def people_page(request, db, admin, session, page, q, status, grant_status, save
         'grant_states': grant_states,
         'available_environments': db.scalars(select(Environment).where(Environment.enabled.is_(True)).order_by(Environment.name)).all(),
         'configurable_environments': db.scalars(select(Environment).where(Environment.enabled.is_(True)).order_by(Environment.name)).all(),
+        'bulk_environments': db.scalars(select(Environment).order_by(Environment.name)).all(),
         'count': count, 'page': page, 'q': q, 'status': status, 'grant_status': grant_status, 'saved': saved,
         'stats': overview(db),
         'previous': str(request.url.include_query_params(page=page-1)),

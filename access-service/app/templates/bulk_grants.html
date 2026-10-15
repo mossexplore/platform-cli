@@ -1,0 +1,19 @@
+<dialog class="bulk-dialog" id="bulk-grants" aria-labelledby="bulk-title" data-csrf="{{ csrf }}" data-actor="{{ admin.id }}">
+<div class="drawer-heading"><h2 id="bulk-title">批量编辑环境授权</h2><button type="button" class="secondary" data-close>关闭</button></div>
+<div class="bulk-body">
+<div class="form-error" role="alert" hidden></div>
+<h3>已选人员 <span data-bulk-count></span></h3><div class="bulk-selected" data-bulk-selected></div>
+<form id="bulk-edit-form">
+<div class="table-scroll"><table class="bulk-environments"><thead><tr><th>环境</th><th>授权操作</th><th>有效期（北京时间）</th><th>备注</th></tr></thead><tbody>
+{% for env in bulk_environments %}<tr data-bulk-env="{{ env.id }}">
+<td><strong>{{ env.display_name }}</strong><small>{{ env.name }}{% if not env.enabled %} · 已停用{% endif %}</small></td>
+<td><select name="operation" aria-label="{{ env.name }} 授权操作" {% if not env.enabled %}disabled{% endif %}><option value="keep">保持不变</option><option value="enable">开通授权</option><option value="revoke">撤销授权</option></select></td>
+<td><select name="expiry_mode" aria-label="{{ env.name }} 有效期" {% if not env.enabled %}disabled{% endif %}><option value="keep">保持原值</option><option value="forever">长期有效</option><option value="set">指定到期时间</option></select><input type="datetime-local" name="expires_at" step="1" aria-label="{{ env.name }} 到期时间" hidden disabled></td>
+<td><select name="note_mode" aria-label="{{ env.name }} 备注" {% if not env.enabled %}disabled{% endif %}><option value="keep">保持原值</option><option value="set">统一设置</option><option value="clear">清空</option></select><input name="note" maxlength="1000" aria-label="{{ env.name }} 统一备注" hidden disabled></td>
+</tr>{% else %}<tr><td colspan="4">暂无环境</td></tr>{% endfor %}
+</tbody></table></div>
+</form>
+<section data-bulk-preview hidden><h3>变更预览</h3><p data-bulk-summary role="status"></p><ul data-bulk-warnings></ul><div class="table-scroll"><table><thead><tr><th>人员</th><th>环境</th><th>修改前</th><th>修改后</th></tr></thead><tbody data-bulk-changes></tbody></table></div></section>
+</div>
+<div class="drawer-footer"><button type="button" class="secondary" data-close>取消</button><button type="submit" form="bulk-edit-form" data-bulk-preview-button>预览变更</button><button type="button" data-bulk-save hidden disabled>确认保存</button></div>
+</dialog>

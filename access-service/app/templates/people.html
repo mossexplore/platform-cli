@@ -5,6 +5,8 @@
 {% block title %}人员授权{% endblock %}
 {% block content %}
 <script src="/cli-permission/static/environment-pills.js" defer></script>
+<script src="/cli-permission/static/bulk-grants.js" defer></script>
+<link rel="stylesheet" href="/cli-permission/static/bulk-grants.css">
 <div class="page-heading"><h1>人员授权</h1><button data-open="create">新增人员</button></div>
 {% if saved %}<div class="success" role="status">保存成功，新的配置将在下一次 CLI 业务请求时生效。</div>{% endif %}
 <div class="stats-grid">
@@ -19,7 +21,9 @@
 {% else %}<tr><td colspan="8" class="empty">暂无匹配人员，请调整筛选或新增人员。</td></tr>{% endfor %}
 </tbody></table></div>
 {% include 'pagination.html' %}
+<div class="bulk-toolbar" hidden data-bulk-toolbar><span data-selection-count></span><button type="button" data-bulk-open>批量编辑环境授权</button><button type="button" class="secondary" data-selection-clear>清空选择</button></div>
 </section>
+{% include 'bulk_grants.html' %}
 {{ editor(csrf, 'users', users, environments, available_environments) }}
 {% include 'configure_grants.html' %}
 {% for grant in grants %}{{ editor(csrf, 'grants', users, environments, available_environments, grant, 'grant-edit-' ~ grant.id) }}{% endfor %}

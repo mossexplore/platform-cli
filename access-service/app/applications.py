@@ -23,7 +23,7 @@ def render(request, template, **context):
 
 def admin_context(request, db):
     actor, session = admin_session(request, db)
-    return {'admin': actor, 'csrf': session.csrf, 'tab': 'applications', 'page_title': '权限申请'}
+    return {'admin': actor, 'csrf': session.csrf, 'tab': 'applications', 'page_title': '权限审批'}
 
 
 @router.get('/apply')
