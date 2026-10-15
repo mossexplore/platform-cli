@@ -1,6 +1,6 @@
 # WiseRec Platform skill
 
-此目录是可独立分发的 Agent Skill。复制整个 `wiserec-platform` 目录，保留 `SKILL.md` 与 `references/` 的相对位置。它覆盖当前项目的环境、业务、看板、离线实验、模型详情与溯源、关联训练任务、训练任务、算法仓、服务日志、数据集及目录文件、特征集、Web Studio 和 Jupyter 命令。需要安装可用的 WiseRec `ml` CLI；具体命令以安装版本的 `--help` 为准。Jupyter 操作禁止使用交互式 TTY/PTY，文件操作用 files，程序执行用非交互式 exec；普通进程工具即可捕获结果。文件读写和程序执行指南见 [Jupyter 文件与非交互执行](references/jupyter.md)。
+此目录是可独立分发的 Agent Skill。复制整个 `wiserec-platform` 目录，保留 `SKILL.md` 与 `references/` 的相对位置。它覆盖当前项目的环境、业务、看板、离线实验、模型详情与溯源、模板部署、资源模板与部署模板、关联训练任务、训练任务、算法仓、服务日志、数据集及目录文件、特征集、Web Studio 和 Jupyter 命令。需要安装可用的 WiseRec `ml` CLI；具体命令以安装版本的 `--help` 为准。Jupyter 操作禁止使用交互式 TTY/PTY，文件操作用 files，程序执行用非交互式 exec；普通进程工具即可捕获结果。文件读写和程序执行指南见 [Jupyter 文件与非交互执行](references/jupyter.md)。
 
 ## OpenCode 安装与使用
 
@@ -23,6 +23,9 @@ ml auth status
 ml business show
 ml service logs --help
 ml model source --help
+ml model deploy --help
+ml resource template list --help
+ml deployment template list --help
 ml dataset files --help
 ml history list --help
 ml jupyter files --help
@@ -43,6 +46,16 @@ ml service logs SERVICE_ID --pod POD_NAME --cluster-name CLUSTER_NAME --type int
 ```
 
 占位符替换为真实目标。模型 source 默认返回溯源，`--train-task` 仅返回训练任务信息；两个 JSON 不混合。服务日志不支持 `-o json`，`--list` 显示文件表格，读取正文可重定向 stdout。用户在交互终端可直接运行 `ml service logs SERVICE_ID` 按编号选择；agent 普通进程使用 `--no-input`，遇到多个候选项需补充参数或询问用户。日志类别和类型约定见 [命令索引](references/commands.md)。
+
+## 模板与模型部署入口
+
+```powershell
+ml model list --name MODEL_NAME -o json
+ml deployment template list --name TEMPLATE_NAME -o json
+ml model deploy MODEL_ID --template DEPLOY_TEMPLATE_ID --dry-run -o json
+```
+
+先核对查询结果中的实际 ID，名称匹配不唯一时继续筛选或请用户选择。模板缺少调用超时或最大并发数时，分别补充 `--service-timeout MILLISECONDS`、`--execute-limit COUNT`。已有具体部署授权时，使用 `ml model deploy MODEL_ID --template DEPLOY_TEMPLATE_ID --yes -o json` 提交，之后按返回服务 ID 核验。部署详情、参数和异常处理见 [模板与模型部署](references/deployment.md)；框架配置不脱敏，不分享完整预览。
 
 ## Jupyter 使用入口
 

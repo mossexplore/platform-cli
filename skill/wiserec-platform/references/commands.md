@@ -1,6 +1,6 @@
 # `ml` 命令索引
 
-本索引按当前项目命令树整理，用于定位命令；已安装版本的 `ml <子命令> --help` 是参数依据。`--config PATH` 是**全局**选项，应放在子命令前。`TASK_ID`、`JOB_ID`、`PROJECT_ID`、`NAMESPACE_ID`、`EXPERIMENT_ID`、`ALGORITHM_ID`、`MODEL_ID`、`SERVICE_ID`、`POD_NAME`、`DATASET_ID`、`SET_ID`、`ENV_ID` 等占位符表示不同对象，不能互换。只在命令明确支持时加 `-o json`。
+本索引按当前项目命令树整理，用于定位命令；已安装版本的 `ml <子命令> --help` 是参数依据。`--config PATH` 是**全局**选项，应放在子命令前。`TASK_ID`、`JOB_ID`、`PROJECT_ID`、`NAMESPACE_ID`、`EXPERIMENT_ID`、`ALGORITHM_ID`、`MODEL_ID`、`RESOURCE_TEMPLATE_ID`、`DEPLOY_TEMPLATE_ID`、`SERVICE_ID`、`POD_NAME`、`DATASET_ID`、`SET_ID`、`ENV_ID` 等占位符表示不同对象，不能互换。只在命令明确支持时加 `-o json`。
 
 ## 环境、认证、业务、权限
 
@@ -91,6 +91,21 @@
 四种调用均支持 `--output table|json` / `-o`，默认沿用环境配置。模型列表项位于 `result.models`。模型详情和来源字段位于 `result`；训练任务字段位于 `result.jobHistoryDetail`，其中 `jobId` 为执行标识，`taskId` 为任务标识。人工展示依次包括 jobId、任务Id、任务名称、业务编码、任务类型、镜像、资源规格、历史记录数目。
 
 溯源的模型版本读取 `modelVersion`，不是详情中的 `modelTag`。敏感值 1 显示“是”，其他值“否”；状态值 1 显示“已发布”，其他值“未发布”；时间换算为北京时间。普通字段缺失显示 `-`，0 保留。详情、溯源和关联训练任务均要求 `result.code` 为整数 0；必要的 sourceId/jobId 缺失或响应结构无效时停止，不猜测关联关系。
+
+## 资源模板、部署模板与模型部署
+
+| 命令 | 用途与关键选项 |
+| --- | --- |
+| `ml resource template list -o json` | 资源模板列表；可用 `--name`、`--env`、`--framework-name`、`--framework-type`、`--resource-type`、`--template-type`、`--page`、`--page-size` |
+| `ml resource template detail RESOURCE_TEMPLATE_ID -o json` | 资源模板详情及关联推理框架；JSON 为 `resourceTemplate` 与 `frameworkPackage` |
+| `ml deployment template list -o json` | 部署模板列表；可用 `--name`、`--env`、`--framework-name`、`--framework-type`、`--page`、`--page-size` |
+| `ml deployment template detail DEPLOY_TEMPLATE_ID -o json` | 基本信息、健康检查及全部关联资源；JSON 为 `deploymentTemplate` 与 `resourceTemplates` |
+| `ml model deploy MODEL_ID --template DEPLOY_TEMPLATE_ID --dry-run -o json` | 查询并输出完整待提交请求，不创建服务 |
+| `ml model deploy MODEL_ID --template DEPLOY_TEMPLATE_ID --yes -o json` | 提交部署；必须已有用户针对目标的授权 |
+
+两个模板列表默认第 1 页、每页 10 条。资源条目在 `result.resourceTemplateInfoList`，ID 是 `dockerId`；部署模板条目在 `result.deployTemplates`，ID 是 `deployTemplateId`。`--env` 仅筛选模板环境，不切换 CLI 连接环境。名称筛选匹配由平台决定，必须检查真实候选，不能默认选择第一项。
+
+部署可选参数包括 `--service-timeout`、`--execute-limit`、`--qps`、`--update-mode`、`--health-check-mode`、`--health-port`、`--description`、`--request-file`、`--response-file`。参数默认值、JSON 路径、模板关联规则、预览及失败处理见 [模板与模型部署](deployment.md)，执行部署前按需读取。详情及完整预览可能包含框架 Secret，不直接转发完整输出。
 
 ## 服务与主机日志
 

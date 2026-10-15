@@ -1,6 +1,6 @@
 ---
 name: wiserec-platform
-description: 通过 WiseRec 命令行客户端 ml 管理模型及溯源、关联训练任务、训练任务、算法仓、服务及主机日志、数据集及目录文件、特征集、离线实验、MEP/MTP 看板、Web Studio、Jupyter 文件读写、非交互执行、Notebook；切换环境或核对登录、业务上下文时也使用。
+description: 通过 WiseRec 命令行客户端 ml 管理模型查询、溯源与模板部署、资源模板和部署模板、训练任务、算法仓、服务及主机日志、数据集及目录文件、特征集、离线实验、MEP/MTP 看板、Web Studio、Jupyter 文件读写、非交互执行、Notebook；切换环境或核对登录、业务上下文时也使用。
 metadata:
   cli: wiserec-cli
 ---
@@ -22,6 +22,7 @@ metadata:
 - 写操作先核对环境、业务、目标 ID 与用户意图。已有授权覆盖具体操作时直接执行；缺少目标、参数或授权时再询问。执行后用只读命令核验。失败或超时后先查远端状态；对训练启动、克隆实验、Notebook 运行等操作不盲目重放。
 - 训练任务和算法仓下载会写入本地文件，先确认保存目录与目标文件；算法仓下载链接可能含临时签名。服务日志优先用 `ml service logs SERVICE_ID`；agent 自动化时加 `--no-input` 并按需指定 `--pod` 与 `--cluster-name`、`--type`、`--file`，不为选择候选项擅自分配 PTY。日志类别没有默认值，同一类别用于文件列表和正文；Python 主机类型是 `infer-python`，CLI 自动映射为日志请求的 `rtc_python`。候选不唯一时向用户确认，不选第一项。正文为原始文本，不支持 `-o json`；详情见 [命令索引](references/commands.md)。
 - 模型查询使用 `ml model list/detail/source`；查询关联训练任务用 `ml model source MODEL_ID --train-task`。两种 source 模式的 JSON 分别保留对应接口完整响应，不合并；`MODEL_ID`、来源标识、`jobId`、`taskId` 不互换。
+- 模型部署使用 `ml model deploy MODEL_ID --template DEPLOY_TEMPLATE_ID`，资源模板和部署模板分别使用 `ml resource template`、`ml deployment template`。先读 [模板与模型部署](references/deployment.md)，定位唯一模型及模板、预览全部关联区域；根据用户已有授权决定是否提交，非交互提交用 `--yes`。模板缺少调用超时或最大并发数时用 `--service-timeout`、`--execute-limit` 补充，不猜值。发布结果未知时先查询服务，不自动重放。
 - 数据集内部目录和追加文件使用 `ml dataset files list` / `upload`，不要与 Jupyter files 混用；目录、文件类型、大小及上传核验规则见 [命令索引](references/commands.md)。本地调用记录使用 `ml history list -o json`，历史状态不替代远端结果核验。
 - `ml` 自动处理业务请求头，所选业务来自当前环境 `business.json` 的选择。不要读取或编辑凭据、业务文件来替代 CLI；平台地址也由当前配置中的 `api_endpoint` 决定。
 
@@ -43,4 +44,4 @@ Web Studio 用 `ml webstudio login ENV_ID` 重新建立并验证连接，保存�
 
 回答中说明环境、业务范围、目标 ID、实际命令及可观察结果；区分“请求已接受”和“远端已完成”。时间展示若需转换为北京时间，按 UTC+8 正确换算后用 `YYYY-MM-DD HH:mm:ss`；不靠替换 `T` 或删除时区后缀。响应示例不是完整 schema，不以某例缺字段推断接口不存在该字段。
 
-不运行 `ml login --show-secrets`，不将 Cookie、Token、含 Token 的 Web Studio 访问 URL 或其他凭据写入回复、持久日志与共享文件。files/exec 已屏蔽连接地址诊断；Web Studio 登录只报告目标与连接状态，列表会脱敏凭据字段；仍应将远端输出及异常诊断中的敏感值视作秘密。远端文件与程序输出同样可能包含秘密。
+不运行 `ml login --show-secrets`，不将 Cookie、Token、含 Token 的 Web Studio 访问 URL 或其他凭据写入回复、持久日志与共享文件。files/exec 已屏蔽连接地址诊断；Web Studio 登录只报告目标与连接状态，列表会脱敏凭据字段；资源模板详情、部署模板详情和部署预览 JSON 不脱敏框架参数，可能含 Secret；只读取本次任务必要字段，不将完整响应或密钥复制到回复、共享文件与日志。仍应将远端输出及异常诊断中的敏感值视作秘密。远端文件与程序输出同样可能包含秘密。

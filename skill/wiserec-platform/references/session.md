@@ -34,6 +34,8 @@ ml business show
 | 权限拒绝 | 停止并告知用户或管理员处理，不绕过检查 |
 | 用法错误 | 查 `ml <子命令> --help`，修正参数，不按网络问题重试 |
 | 网络超时 | 只读查询可在确认环境后有限重试；写操作先查是否已经生效 |
+| 部署缺少 serviceTimeout / executeLimit | 根据 CLI 指引补充 `--service-timeout` / `--execute-limit`，由用户给出数值，不自定生产参数 |
+| 部署提示结果未确认 | 先按模型名称及模型版本查询服务，核对实际环境和状态，不自动重放发布请求 |
 | 结果为空 | 核对环境、业务、筛选条件和分页；无数据时如实报告 |
 
 `ml` 的一般退出码：0 成功，1 执行错误，2 参数用法错误。Notebook 和 exec 有自己的超时和中断状态，不能仅凭 0/1/2 概括。exec 的退出码 2 还可能表示 LOST，须结合 JSON 的 result.status 判断，详见 [Jupyter 执行状态](jupyter.md)。平台自动认证刷新可能向 stdout 写提示；将其视为人类信息，不在混合文本中凭括号位置猜测 JSON。
@@ -43,6 +45,7 @@ ml business show
 - 训练任务的 `start`、`cancel`、`delete`、`clone` 和算法仓 `clone` 会改变平台状态。取消操作逐个处理执行实例，出现部分失败时以逐条反馈和退出码为准；结果不明时先重新查询任务、实例或目标资源。
 - 训练配置导出、训练日志下载和算法仓下载会写入本地文件。确认返回路径与大小；下载链接可能含临时签名，不传播到共享记录。
 - 服务列表先取得 `SERVICE_ID`，日志优先用 `ml service logs SERVICE_ID --no-input` 并补充 `--type`、必要的 `--pod` 与 `--cluster-name`，以及 `--file`。文件列表固定表格，正文为原始文本；不要加 `-o json`。无默认日志类别，多个候选项不能任取第一项；`infer-python` 到 `rtc_python` 的映射由 CLI 处理，详见 [命令索引](commands.md)。
+- 模型部署会创建服务，需核对模型、模板、全部关联区域及用户授权。接口整数 code=0 按发布接口约定判为成功，非零为失败；取得 `serviceId` 后用 `ml service list`、`ml service deployment list SERVICE_ID` 核对远端状态，不从描述文本猜测。详细流程见 [模板与模型部署](deployment.md)。
 - 模型详情、溯源和关联训练任务各自输出独立结果；查询训练任务用 `ml model source MODEL_ID --train-task -o json`，在 `result.jobHistoryDetail` 中取 jobId/taskId，不从来源字段猜测。
 - Web Studio 的 `start`、`stop` 改变远端状态，不改变默认实例；操作后用 `ml webstudio list --env-id ENV_ID` 核对。`stop` 可能中断该实例的运行任务或交互终端。
 
