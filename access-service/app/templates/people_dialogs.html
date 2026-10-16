@@ -1,0 +1,6 @@
+{% from 'forms.html' import editor, fields %}
+{% from 'delete_dialog.html' import delete_dialog %}
+{% include 'configure_grants.html' %}
+{% for grant in grants %}{{ editor(csrf, 'grants', users, environments, available_environments, grant, 'grant-edit-' ~ grant.id) }}{% endfor %}
+{% include 'person_editor.html' %}
+{% for group in grant_groups %}{{ delete_dialog(csrf, 'users', group.user, group.grants|length) }}{% endfor %}

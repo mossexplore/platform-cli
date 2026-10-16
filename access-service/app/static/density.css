@@ -130,10 +130,10 @@
 .grant-detail-list > button { margin-bottom: 14px; }
 
 /* 人员表格 */
-.management-page .table-scroll > .people-table { table-layout: fixed; min-width: 1260px; }
+.management-page .table-scroll > .people-table { table-layout: fixed; min-width: 1420px; }
 /* 从右侧定位业务列，避免左侧插入多选框后列宽错位 */
 .people-table th:nth-last-child(8) { width: 130px; }
-.people-table th:nth-last-child(7) { width: 80px; }
+.people-table th:nth-last-child(7) { width: 240px; }
 .people-table th:nth-last-child(6) { width: 90px; }
 .people-actions { white-space: nowrap; text-align: left; }
 .people-actions button + button { margin-left: 6px; }

@@ -140,6 +140,19 @@ def analytics(request: Request, grain: str = Query('day', max_length=8),
                 filters.append(getattr(CallLog, key) == params[key])
         if username:
             filters.append(CallLog.actor.contains(username, autoescape=True))
+        fragment = request.headers.get('X-Fragment')
+        if fragment in ('ranking-commands', 'ranking-actors'):
+            kind = fragment.removeprefix('ranking-')
+            total = count_value(db.scalar(select(func.count()).select_from(CallLog).where(*filters)))
+            rows = top_rows(db, filters, CallLog.command if kind == 'commands' else CallLog.actor,
+                            commands_top if kind == 'commands' else actors_top)
+            names = dict(db.execute(select(User.username, User.display_name).where(
+                User.username.in_([name for name, _ in rows]))).all()) if kind == 'actors' and rows else {}
+            return request.app.state.templates.TemplateResponse(request=request,
+                name='analytics_ranking_fragment.html', context={
+                    'kind': kind, 'commands': rows if kind == 'commands' else [],
+                    'actors': rows if kind == 'actors' else [], 'actor_names': names, 'total': total,
+                    'log_link': lambda **extra: log_link(params, start, stop, **extra)})
         denied = func.sum(case((CallLog.allowed.is_(False), 1), else_=0))
         totals = db.execute(select(func.count(), denied, func.count(func.distinct(CallLog.actor))).where(*filters)).one()
         total, rejected, users = (count_value(value) for value in totals)

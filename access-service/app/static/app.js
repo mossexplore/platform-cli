@@ -5,7 +5,10 @@ document.addEventListener('click', (event) => {
   if (open) document.getElementById(open.dataset.open)?.showModal();
   if (event.target.closest('[data-close]')) event.target.closest('dialog')?.close();
 });
+function initEditorForms() {
 document.querySelectorAll('[data-editor]').forEach((form) => {
+  if (form.dataset.editorReady) return;
+  form.dataset.editorReady = 'true';
   form.addEventListener('submit', async (event) => {
     event.preventDefault();
     const error = form.querySelector('.form-error');
@@ -49,6 +52,10 @@ document.querySelectorAll('[data-editor]').forEach((form) => {
   });
 });
 
+}
+initEditorForms();
+document.addEventListener('people-page-updated', initEditorForms);
+
 // Passwords only live in this response and dialog; no local/session storage.
 document.addEventListener('click', async (event) => {
   const button = event.target.closest('[data-copy-credentials]');
@@ -66,7 +73,10 @@ document.addEventListener('click', async (event) => {
     status.textContent = '浏览器不允许自动复制，已选中账号和密码，请按 Ctrl+C（Mac：⌘C）复制。';
   }
 });
+function initDialogClose() {
 document.querySelectorAll('dialog').forEach((dialog) => {
+  if (dialog.dataset.closeReady) return;
+  dialog.dataset.closeReady = 'true';
   dialog.addEventListener('close', () => {
     if (dialog.dataset.credentialsGenerated === 'true') {
       dialog.querySelector('[data-credential-text]').value = '';
@@ -75,8 +85,15 @@ document.querySelectorAll('dialog').forEach((dialog) => {
   });
 });
 
+}
+initDialogClose();
+document.addEventListener('people-page-updated', initDialogClose);
+
 // The server independently enforces the same exact confirmation value.
+function initDeleteForms() {
 document.querySelectorAll('[data-delete]').forEach((form) => {
+  if (form.dataset.deleteReady) return;
+  form.dataset.deleteReady = 'true';
   const input = form.querySelector('[data-delete-confirm]');
   const submit = form.querySelector('[type="submit"]');
   input.addEventListener('input', () => { submit.disabled = input.value !== 'yes'; });
@@ -86,6 +103,10 @@ document.querySelectorAll('[data-delete]').forEach((form) => {
     form.querySelector('.form-error').hidden = true;
   });
 });
+
+}
+initDeleteForms();
+document.addEventListener('people-page-updated', initDeleteForms);
 
 // The backend interprets datetime-local values as Beijing time (UTC+8).
 document.addEventListener('click', (event) => {

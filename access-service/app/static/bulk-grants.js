@@ -40,6 +40,8 @@
   heading.append(all);
   table.tHead.rows[0].prepend(heading);
   const checkboxes = [];
+  function bindRows() {
+    checkboxes.length = 0;
   table.querySelectorAll('tbody tr[data-account]').forEach(row => {
     const edit = row.querySelector('[data-open^="account-grants-"]');
     const id = Number(edit.dataset.open.replace('account-grants-', ''));
@@ -65,6 +67,9 @@
   });
   const empty = table.querySelector('td.empty');
   if (empty) empty.colSpan = 9;
+  }
+  bindRows();
+  document.addEventListener('people-page-updated', () => { bindRows(); refresh(); });
   function invalidate() {
     error.hidden = true;
   }

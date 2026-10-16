@@ -29,7 +29,13 @@ const observer = new ResizeObserver((entries) => {
     button.hidden = !overflow;
   }
 });
+const previewCells = new Set();
+function initCellPreviews() {
+  for (const cell of previewCells) {
+    if (!cell.isConnected) { observer.unobserve(cell); previewCells.delete(cell); }
+  }
 document.querySelectorAll('.main-content > .panel .table-scroll > table > tbody > tr > td').forEach((cell) => {
+  if (cell.classList.contains('has-cell-preview')) return;
   if (cell.colSpan > 1 || cell.querySelector('button,a,input') || cell.closest('.grant-accounts') || cell.classList.contains('people-environments') || cell.matches('.administrators-table td:nth-child(4), .logs-table td:nth-child(1), .logs-table td:nth-child(7), .environment-table .origin, .environment-table td:nth-child(2), .environment-table td:nth-child(6), .environment-table td:nth-child(7)')) return;
   if (cell.matches('.people-table td:nth-last-child(6)')) return;
   const preview = document.createElement('div');
@@ -52,7 +58,12 @@ document.querySelectorAll('.main-content > .panel .table-scroll > table > tbody 
   cell.classList.add('has-cell-preview');
   cell.append(preview, button);
   observer.observe(cell);
+  previewCells.add(cell);
 });
+
+}
+initCellPreviews();
+document.addEventListener('people-page-updated', () => { initCellPreviews(); sizeListRows(); });
 
 // Size a normal ten-row page to the available viewport, including its pager.
 // Short result sets retain the same row height instead of stretching a few records.

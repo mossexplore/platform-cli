@@ -35,7 +35,7 @@ def people_page(request, db, admin, session, page, q, status, grant_status, save
     grant_groups = [{'user': user, 'grants': grouped[user.id],
                      'visible_grants': [grant for grant in grouped[user.id]
                                         if grant_states[grant.id][0] in ('positive', 'warning')]} for user in people]
-    return request.app.state.templates.TemplateResponse(request=request, name='people.html', context={
+    return request.app.state.templates.TemplateResponse(request=request, name=('people_fragment.html' if request.headers.get('X-Fragment') == 'people' else 'people.html'), context={
         'admin': admin, 'csrf': session.csrf, 'tab': 'users', 'page_title': '人员与授权',
         'people': people, 'grants': grants, 'grant_groups': grant_groups,
         'users': users, 'environments': {key: env.name for key, env in env_objects.items()},

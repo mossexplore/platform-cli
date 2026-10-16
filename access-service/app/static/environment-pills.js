@@ -1,7 +1,13 @@
 'use strict';
 
 // Measure natural label widths, including gaps and the disclosure control.
-document.querySelectorAll('[data-environment-pills]').forEach((list) => {
+const environmentObservers = new Map();
+function initEnvironmentPills() {
+  for (const [list, observer] of environmentObservers) {
+    if (!list.isConnected) { observer.disconnect(); environmentObservers.delete(list); }
+  }
+  document.querySelectorAll('[data-environment-pills]').forEach((list) => {
+  if (environmentObservers.has(list)) return;
   const pills = [...list.querySelectorAll('.badge')];
   const button = list.querySelector('.environment-toggle');
   if (!button) return;
@@ -41,11 +47,17 @@ document.querySelectorAll('[data-environment-pills]').forEach((list) => {
   });
   // Ignore height-only changes caused by expansion to avoid observer loops.
   let lastWidth;
-  new ResizeObserver(() => {
+  const resizeObserver = new ResizeObserver(() => {
     if (lastWidth === list.clientWidth) return;
     lastWidth = list.clientWidth;
     render();
-  }).observe(list);
+  });
+  resizeObserver.observe(list);
+  environmentObservers.set(list, resizeObserver);
   document.fonts?.ready.then(render);
   render();
 });
+
+}
+initEnvironmentPills();
+document.addEventListener('people-page-updated', initEnvironmentPills);

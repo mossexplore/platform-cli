@@ -8,10 +8,10 @@ function setup(widths, width) {
   const pills = widths.map(width => ({hidden: false, getBoundingClientRect: () => ({width})}));
   const button = {hidden: true, textContent: '', setAttribute(k, v) { this[k] = v; },
     addEventListener(k, fn) { this[k] = fn; }, getBoundingClientRect: () => ({width: 100})};
-  const list = {clientWidth: width, classList: {add() {}, remove() {}},
+  const list = {isConnected: true, clientWidth: width, classList: {add() {}, remove() {}},
     querySelectorAll: () => pills, querySelector: () => button};
   let resize;
-  vm.runInNewContext(source, {document: {querySelectorAll: () => [list]},
+  vm.runInNewContext(source, {document: {querySelectorAll: () => [list], addEventListener() {}},
     getComputedStyle: () => ({columnGap: '6'}), ResizeObserver: class {
       constructor(fn) { resize = fn; } observe() {}
     }});
