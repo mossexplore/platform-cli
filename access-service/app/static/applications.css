@@ -277,3 +277,5 @@
   .receipt-environments li { flex-direction: column; gap: 4px; }
   .receipt-environments span { text-align: left; }
 }
+
+.approval-selection-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }

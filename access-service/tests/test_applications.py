@@ -29,7 +29,7 @@ def approval(client, csrf, item_id, username='l00123456', name='张三', **extra
     assert response.status_code == 200, response.text
     snapshot = re.search('name="snapshot" value="([^"]+)"', response.text)[1]
     return {'csrf': csrf, 'username': username, 'display_name': name, 'snapshot': snapshot,
-            'environments': re.findall('name="environments" value="([^"]+)" checked', response.text), **extra}
+            'environments': re.findall('name="environments" value="([^"]+)"', response.text), **extra}
 
 
 def test_public_form_private_receipt_and_duplicate(system):

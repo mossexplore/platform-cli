@@ -8,6 +8,7 @@
 <label>环境标识 <span class="required">*</span><input name="name" required maxlength="64" value="{{ item.name if item else '' }}" {% if item %}readonly{% endif %} placeholder="例如 production"><small>与 CLI 中的环境标识一致，创建后不可修改。</small></label>
 <label>显示名称 <span class="required">*</span><input name="display_name" required maxlength="128" value="{{ item.display_name if item else '' }}" placeholder="例如 生产环境"></label>
 <label>平台地址 <span class="required">*</span><input name="platform_origin" type="url" required maxlength="512" value="{{ item.platform_origin if item else '' }}" placeholder="https://platform.example.com"><small>HTTP 或 HTTPS 源地址，不包含 /dashboard 等路径。</small></label>
+<div class="state-field"><div><strong>默认开通环境</strong><p>审批时预选此环境，仅在环境启用时生效，不会自动授权。</p></div><label class="switch"><input type="checkbox" aria-label="默认开通环境" name="default_grant" value="true" {% if item and item.default_grant %}checked{% endif %}><span></span></label></div>
 {% else %}
 <label>平台账号 <span class="required">*</span><input name="username" required maxlength="128" value="{{ users[item.user_id] if item else username }}" {% if item or username %}readonly{% endif %} placeholder="填写已添加的人员账号"></label>
 {% if item %}<label>授权环境<input name="environment" required maxlength="64" value="{{ environments[item.environment_id] }}" readonly></label>

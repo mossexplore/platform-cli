@@ -4,14 +4,14 @@ from .models import Base, CallLog, SchemaVersion, AccessApplication, Application
 
 from .version_models import VersionPolicy, VersionException
 
-SCHEMA_VERSION = 10
+SCHEMA_VERSION = 11
 
 
 def migrate(engine, sessions):
     SchemaVersion.__table__.create(engine, checkfirst=True)
     with sessions() as db:
         versions = db.scalars(select(SchemaVersion.version)).all()
-        if versions not in ([], [1], [2], [3], [4], [5], [6], [7], [8], [9], [10]):
+        if versions not in ([], [1], [2], [3], [4], [5], [6], [7], [8], [9], [10], [11]):
             raise RuntimeError('数据库版本不兼容，不能自动迁移')
         if not versions:
             Base.metadata.create_all(engine)
@@ -75,6 +75,11 @@ def migrate(engine, sessions):
         if 'deleted_at' not in columns:
             with engine.begin() as connection:
                 connection.execute(text('ALTER TABLE cli_version_policies ADD COLUMN deleted_at DATETIME NULL'))
+    if version < 11:
+        columns = {column['name'] for column in inspect(engine).get_columns('environments')}
+        if 'default_grant' not in columns:
+            with engine.begin() as connection:
+                connection.execute(text('ALTER TABLE environments ADD COLUMN default_grant BOOLEAN NOT NULL DEFAULT 0'))
     with sessions() as db:
         db.get(SchemaVersion, version).version = SCHEMA_VERSION
         db.commit()

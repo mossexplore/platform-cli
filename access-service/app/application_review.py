@@ -29,7 +29,7 @@ def review_state(db, username, application_id, lock=False):
     duplicate = db.scalar(duplicate_query.with_for_update() if lock else duplicate_query)
     state = {
         'environments': [{'id': e.id, 'name': e.name, 'display_name': e.display_name,
-                          'origin': e.platform_origin} for e in environments],
+                          'origin': e.platform_origin, 'default_grant': e.default_grant} for e in environments],
         'user': {'id': user.id, 'username': user.username, 'name': user.display_name,
                  'enabled': user.enabled} if user else None,
         'grants': [{'id': g.id, 'environment_id': g.environment_id, 'enabled': g.enabled,

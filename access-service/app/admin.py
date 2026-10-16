@@ -110,7 +110,8 @@ def save_user(request: Request, csrf: str = Form(max_length=64), item_id: int = 
 def save_environment(request: Request, csrf: str = Form(max_length=64), item_id: int = Form(0, ge=0),
                      name: str = Form(min_length=1, max_length=64),
                      display_name: str = Form(min_length=1, max_length=128),
-                     platform_origin: str = Form(max_length=512), enabled: bool = Form(False)):
+                     platform_origin: str = Form(max_length=512), enabled: bool = Form(False),
+                     default_grant: bool = Form(False)):
     with request.app.state.sessions() as db:
         admin = authorize_form(request, db, csrf)
         item = existing(db, Environment, item_id) if item_id else Environment(name=name.strip())
@@ -118,6 +119,7 @@ def save_environment(request: Request, csrf: str = Form(max_length=64), item_id:
         if not item.name or (item_id and item.name != name):
             raise HTTPException(400, '环境标识不可为空，已建环境不可重命名')
         item.display_name, item.platform_origin, item.enabled = display_name, origin(platform_origin), enabled
+        item.default_grant = default_grant
         db.add(item)
         return record(db, admin, 'environments.save', before, item)
 
