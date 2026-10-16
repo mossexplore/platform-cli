@@ -11,6 +11,7 @@ import typer
 from ..output import console, print_result
 from ..models import BEIJING_TIMEZONE
 from ..errors import BusinessError
+from ..access_guidance import show_access_guidance
 from .. import ping
 from .common import fail, runtime_from_context
 
@@ -31,8 +32,9 @@ def login(
     """打开 Edge 登录并刷新当前环境的本地认证信息。"""
     try:
         runtime = runtime_from_context(context)
-        runtime.auth.login(show_secrets=show_secrets)
-        if runtime.config.auto_ping:
+        credentials = runtime.auth.login(show_secrets=show_secrets)
+        has_access = show_access_guidance(runtime, credentials)
+        if has_access and runtime.config.auto_ping:
             console.print(ping.auto_start(runtime, after_login=True))
     except Exception as exc:
         fail(exc)

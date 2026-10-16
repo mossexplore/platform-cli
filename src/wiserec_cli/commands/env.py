@@ -7,6 +7,7 @@ from .. import ping
 
 from ..access import AccessDeniedError, access_enabled, check_access
 from ..client_metadata import VersionPolicyError
+from ..access_guidance import show_access_guidance
 from ..errors import MlError
 from ..output import console, print_result
 from .common import fail, runtime_from_context
@@ -64,20 +65,19 @@ def list_environments(context: typer.Context) -> None:
     try:
         runtime = runtime_from_context(context)
         settings = runtime.config.access_control
+        show_access_guidance(runtime)
         print_result(
             [
                 {
-                    "current": (
+                    "当前在用环境": (
                         "*" if item.name == runtime.config.current_name else ""
                     ),
-                    "name": item.name,
-                    "api_endpoint": item.api_endpoint,
-                    "access_status": _access_status(runtime, item, settings),
-                    "output_format": item.output_format,
-                    "verify_ssl": runtime.config.verify_ssl_for(item),
+                    "环境标识": item.name,
+                    "管理台地址": item.api_endpoint,
+                    "状态": _access_status(runtime, item, settings),
                 }
                 for item in runtime.config.profiles()
-            ], wrap_columns=("api_endpoint",)
+            ], wrap_columns=("管理台地址",)
         )
     except Exception as exc:
         fail(exc)
@@ -89,6 +89,7 @@ def show_environment(context: typer.Context) -> None:
     try:
         runtime = runtime_from_context(context)
         profile = runtime.config.current_profile()
+        show_access_guidance(runtime)
         print_result(
             {
                 "name": profile.name,
@@ -112,7 +113,8 @@ def use_environment(context: typer.Context, name: str = typer.Argument(...)) -> 
         if previous != name:
             ping.detach(runtime, previous)
         console.print(f"当前环境已切换为: {profile.name}")
-        if runtime.config.auto_ping:
+        has_access = show_access_guidance(runtime)
+        if has_access and runtime.config.auto_ping:
             console.print(ping.auto_start(runtime))
     except Exception as exc:
         fail(exc)

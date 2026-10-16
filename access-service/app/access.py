@@ -3,7 +3,7 @@ import secrets
 from fastapi import APIRouter, Header, Request, HTTPException
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
-from sqlalchemy import select
+from sqlalchemy import select, or_
 from .models import Environment, User, Grant, CallLog, now
 from .security import origin
 from .version_policy import metadata, evaluate_version
@@ -17,6 +17,24 @@ class Check(BaseModel):
     platform_origin: str = Field(min_length=1, max_length=512)
     full_command: str = Field(default='', strict=True, max_length=8192)
     command: str = Field(default='unknown', min_length=1, max_length=128, pattern=r'^[a-zA-Z0-9 _-]+$')
+
+
+class UserAccessQuery(BaseModel):
+    username: str = Field(strict=True, min_length=1, max_length=128, pattern=r'\S')
+
+
+@router.post('/api/v1/access/summary')
+def user_access_summary(body: UserAccessQuery, request: Request):
+    # Identity is client-reported, as with access/check. This is guidance only;
+    # it never authorizes a platform call and exposes no grant or environment list.
+    with request.app.state.sessions() as db:
+        grant = db.execute(select(User.username, Grant.id).join(User, Grant.user_id == User.id)
+            .join(Environment, Grant.environment_id == Environment.id)
+            .where(User.username == body.username, User.enabled.is_(True),
+                   Environment.enabled.is_(True), Grant.enabled.is_(True),
+                   or_(Grant.expires_at.is_(None), Grant.expires_at > now()))
+            .limit(1)).first()
+        return {'username': body.username, 'has_access': grant is not None and grant[0] == body.username}
 
 
 def denied(reason, message):
