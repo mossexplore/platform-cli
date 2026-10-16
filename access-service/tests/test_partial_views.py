@@ -72,3 +72,32 @@ def test_ranking_fragment_normalizes_mysql_decimal(system, monkeypatch):
     assert type(response.context['total']) is int
     assert type(response.context['commands'][0][1]) is int
     assert '>5</td>' in response.text
+
+
+def test_fragment_links_stay_on_browser_origin_behind_proxy(system):
+    """Backend HTTP/Host must never leak into URLs fetched by an HTTPS browser."""
+    from html import unescape
+    from urllib.parse import urljoin, urlsplit, parse_qs
+    app, client, _ = system
+    with app.state.sessions() as db:
+        db.add_all(User(username=f'proxy-{i}') for i in range(12))
+        db.commit()
+    login(client)
+    # The proxy forwards HTTP internally; the browser visits HTTPS externally.
+    public = 'https://permissions.example.com'
+    people = client.get('/cli-permission/admin?tab=users&q=proxy')
+    href = unescape(re.search(r'href="([^"]+)">下一页', people.text)[1])
+    resolved = urlsplit(urljoin(public+'/cli-permission/admin?tab=users&q=proxy', href))
+    assert resolved.scheme == 'https' and resolved.netloc == 'permissions.example.com'
+    assert resolved.path == '/cli-permission/admin'
+    assert parse_qs(resolved.query) == {'tab':['users'], 'q':['proxy'], 'page':['2']}
+    fragment = client.get(resolved.path+'?'+resolved.query, headers={'X-Fragment':'people'})
+    back = unescape(re.search(r'href="([^"]+)">上一页', fragment.text)[1])
+    assert urlsplit(urljoin(public+resolved.path, back)).netloc == 'permissions.example.com'
+    dashboard = client.get(PATH, params=RANGE)
+    urls = re.findall(r'data-ranking-url="([^"]+)"', dashboard.text)
+    assert len(urls) == 2
+    for value in urls:
+        target = urlsplit(urljoin(public+PATH, unescape(value)))
+        assert target.scheme == 'https' and target.netloc == 'permissions.example.com'
+        assert target.path == PATH and parse_qs(target.query)['begin'] == [RANGE['begin']]

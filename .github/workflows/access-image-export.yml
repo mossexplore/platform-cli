@@ -6,6 +6,10 @@ on:
         description: 'Previously tested GHCR image digest (sha256:...)'
         required: true
         type: string
+      formal_release:
+        description: 'Export version-only filename and local image tag for Release assets'
+        type: boolean
+        default: false
 permissions:
   contents: read
 jobs:
@@ -32,6 +36,7 @@ jobs:
           DIGEST: ${{ inputs.digest }}
           OWNER: ${{ github.repository_owner }}
           OUTPUT_DIR: ${{ runner.temp }}/offline-image
+          FORMAL_RELEASE: ${{ inputs.formal_release }}
         run: |
           export IMAGE_REFERENCE="ghcr.io/${OWNER,,}/cli-access@$DIGEST"
           bash access-service/ci/export-image.sh
