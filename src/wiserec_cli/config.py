@@ -69,14 +69,14 @@ def _package_install_stamp() -> str:
 
 
 def reset_packaged_config() -> Path:
-    """安装器入口：更新默认配置，保留自动保活两项设置。"""
+    """安装器入口：更新默认配置，保留环境选择与自动保活设置。"""
     destination = user_config_dir() / "config.json"
     _sync_packaged_config(destination, force=True)
     return destination
 
 
 def _sync_packaged_config(destination: Path, *, force: bool = False) -> None:
-    """更新包内配置时保留用户明确设置的自动保活选项。"""
+    """更新包内配置时保留用户环境选择与明确设置的自动保活选项。"""
     template = _packaged_config_text()
     signature = f"{__version__}:{sha256(template.encode('utf-8')).hexdigest()}:{_package_install_stamp()}"
     marker = _config_marker_path(destination)
@@ -93,13 +93,34 @@ def _sync_packaged_config(destination: Path, *, force: bool = False) -> None:
     if destination.exists():
         try:
             previous = json.loads(destination.read_text(encoding="utf-8"))
-        except (OSError, json.JSONDecodeError):
-            previous = None
-        if isinstance(previous, dict) and isinstance(previous.get("auth"), dict):
-            for key in ("auto_ping", "ping_interval_minutes"):
-                if key in previous["auth"]:
-                    settings["auth"][key] = previous["auth"][key]
-                    preserved = True
+        except (OSError, json.JSONDecodeError) as exc:
+            raise ConfigError(
+                f"无法读取原配置 {destination}，已保留原文件；请修复配置后重新安装或运行"
+            ) from exc
+        previous_manager = ConfigManager.__new__(ConfigManager)
+        previous_manager.path = destination
+        previous_manager._data = previous
+        try:
+            if not isinstance(previous, dict):
+                raise ConfigError("配置文件顶层必须是 JSON 对象")
+            previous_manager._validate()
+        except (ConfigError, TypeError, ValueError) as exc:
+            raise ConfigError(f"原配置无效，已保留 {destination}；请修复配置：{exc}") from exc
+        current = previous["current"]
+        if not any(item.get("name") == current for item in settings.get("profiles", [])):
+            raise ConfigError(
+                f"新配置中不存在原环境 {current!r}，已保留 {destination}；"
+                "请通过 --config 指定原配置并使用 ml env use 选择新包支持的环境后重试"
+            )
+        settings["current"] = current
+        preserved = True
+        for key in ("auto_ping", "ping_interval_minutes"):
+            if key in previous.get("auth", {}):
+                settings.setdefault("auth", {})[key] = previous["auth"][key]
+    candidate = ConfigManager.__new__(ConfigManager)
+    candidate.path = destination
+    candidate._data = settings
+    candidate._validate()
     content = json.dumps(settings, ensure_ascii=False, indent=2) + "\n" if preserved else template
     _install_packaged_config(destination, content)
     temporary = marker.with_name(f".{marker.name}.{os.getpid()}.tmp")

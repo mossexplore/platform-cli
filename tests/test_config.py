@@ -5,6 +5,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
+from wiserec_cli.errors import ConfigError
 from wiserec_cli.access import access_enabled
 from wiserec_cli.config import (
     ConfigManager,
@@ -118,10 +119,8 @@ class ConfigManagerTest(unittest.TestCase):
         self.assertTrue(path.exists())
         self.assertEqual(ConfigManager(path).current_name, "dev")
 
-    def test_new_install_overwrites_config_once(self):
+    def test_package_upgrade_preserves_selected_environment(self):
         destination = Path(self.temporary.name) / "ml" / "config.json"
-        destination.parent.mkdir(parents=True)
-        destination.write_text('{"current": "old"}\n', encoding="utf-8")
 
         _sync_packaged_config(destination)
 
@@ -134,7 +133,7 @@ class ConfigManagerTest(unittest.TestCase):
 
         with patch("wiserec_cli.config.__version__", "999.0.0"):
             _sync_packaged_config(destination)
-        self.assertEqual(ConfigManager(destination).current_name, "dev")
+        self.assertEqual(ConfigManager(destination).current_name, "test")
 
     def test_package_update_preserves_manual_ping_settings(self):
         destination = Path(self.temporary.name) / "ml" / "config.json"
@@ -160,29 +159,81 @@ class ConfigManagerTest(unittest.TestCase):
                 with self.assertRaisesRegex(Exception, "auth\\.(auto_ping|ping_interval_minutes)"):
                     ConfigManager(self.path)
 
-    def test_installer_overwrites_even_same_version_and_corrupt_local_config(self):
+    def test_installer_preserves_selection_but_updates_other_settings(self):
         root = Path(self.temporary.name) / "user-config"
         template = self.path.read_text()
         with patch("wiserec_cli.config.user_config_dir", return_value=root), \
              patch("wiserec_cli.config._packaged_config_text", return_value=template):
             destination = reset_packaged_config()
-            for previous in ('not json', '{"access_control":{"enabled":true,"url":"http://old"},"extra":1}'):
-                destination.write_text(previous)
-                self.assertEqual(reset_packaged_config(), destination)
-                self.assertEqual(destination.read_text(), template)
+            ConfigManager(destination).use_profile("test")
+            previous = json.loads(destination.read_text())
+            previous["profiles"][1]["api_endpoint"] = "https://old.example.com"
+            destination.write_text(json.dumps(previous))
+            reset_packaged_config()
+            manager = ConfigManager(destination)
+            self.assertEqual(manager.current_name, "test")
+            self.assertEqual(manager.current_profile().api_endpoint,
+                             "https://test.example.com/dashboard")
 
-    def test_same_version_reinstall_detected_without_resetting_every_command(self):
+    def test_failed_sync_preserves_config_and_marker(self):
+        destination = Path(self.temporary.name) / "installed-config.json"
+        marker = destination.with_name(".installed-config.json.installed")
+        template = self.path.read_text()
+        with patch("wiserec_cli.config._packaged_config_text", return_value=template):
+            _sync_packaged_config(destination)
+            original_marker = marker.read_bytes()
+            baseline = json.loads(template)
+            missing = dict(baseline, current="removed")
+            missing["profiles"] = baseline["profiles"] + [{
+                "name": "removed", "api_endpoint": "https://removed.example.com"}]
+            for previous in ("not json", "[]", '{}',
+                             json.dumps(dict(baseline, current=123)),
+                             json.dumps(dict(baseline, current="unknown")),
+                             json.dumps(missing)):
+                with self.subTest(previous=previous):
+                    destination.write_text(previous)
+                    with self.assertRaises(ConfigError):
+                        _sync_packaged_config(destination, force=True)
+                    self.assertEqual(destination.read_text(), previous)
+                    self.assertEqual(marker.read_bytes(), original_marker)
+
+    def test_same_version_reinstall_preserves_selection(self):
         destination = Path(self.temporary.name) / "installed-config.json"
         template = self.path.read_text()
         with patch("wiserec_cli.config._packaged_config_text", return_value=template):
             with patch("wiserec_cli.config._package_install_stamp", return_value="install-1"):
                 _sync_packaged_config(destination)
-                destination.write_text('{"local":"edit"}')
+                ConfigManager(destination).use_profile("test")
+                before = destination.read_bytes()
                 _sync_packaged_config(destination)
-                self.assertEqual(destination.read_text(), '{"local":"edit"}')
+                self.assertEqual(destination.read_bytes(), before)
             with patch("wiserec_cli.config._package_install_stamp", return_value="install-2"):
                 _sync_packaged_config(destination)
-                self.assertEqual(destination.read_text(), template)
+                self.assertEqual(ConfigManager(destination).current_name, "test")
+
+    def test_changed_template_default_does_not_switch_existing_user(self):
+        destination = Path(self.temporary.name) / "installed-config.json"
+        template = self.path.read_text()
+        with patch("wiserec_cli.config._packaged_config_text", return_value=template):
+            _sync_packaged_config(destination)
+        updated = json.loads(template)
+        updated["current"] = "test"
+        with patch("wiserec_cli.config._packaged_config_text", return_value=json.dumps(updated)):
+            _sync_packaged_config(destination)
+            self.assertEqual(ConfigManager(destination).current_name, "dev")
+            fresh = destination.with_name("fresh.json")
+            _sync_packaged_config(fresh)
+            self.assertEqual(ConfigManager(fresh).current_name, "test")
+
+    def test_invalid_candidate_does_not_replace_config(self):
+        original = self.path.read_bytes()
+        template = json.loads(original)
+        template["api"]["verify_ssl"] = "invalid"
+        with patch("wiserec_cli.config._packaged_config_text", return_value=json.dumps(template)):
+            with self.assertRaises(ConfigError):
+                _sync_packaged_config(self.path, force=True)
+        self.assertEqual(self.path.read_bytes(), original)
+        self.assertFalse(self.path.with_name(".config.json.installed").exists())
 
 
 if __name__ == "__main__":

@@ -1,5 +1,6 @@
 """授权必须在实际业务调用前验证；不可缓存撤销结果。"""
 import json
+from pathlib import Path
 from unittest.mock import Mock, patch
 import httpx
 import pytest
@@ -122,10 +123,12 @@ def test_missing_access_url_fails_closed(inputs, settings):
 def test_upgrade_replaces_access_configuration(tmp_path):
     target = tmp_path / 'config.json'
     settings = {'enabled': True, 'url': 'https://access.example.com'}
-    target.write_text(json.dumps({'old': 'config', 'access_control': settings}))
-    with patch('wiserec_cli.config._packaged_config_text', return_value='{"new":"config"}'):
+    baseline = json.loads((Path(__file__).resolve().parents[1] / 'config.json').read_text())
+    previous = dict(baseline, access_control=settings)
+    target.write_text(json.dumps(previous))
+    with patch('wiserec_cli.config._packaged_config_text', return_value=json.dumps(baseline)):
         _sync_packaged_config(target)
-    assert json.loads(target.read_text()) == {'new': 'config'}
+    assert json.loads(target.read_text()) == baseline
 
 
 @pytest.mark.parametrize('scheme', ['http', 'https'])
