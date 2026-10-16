@@ -4,6 +4,9 @@ import sys
 from contextlib import redirect_stdout
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, Optional
+from pathlib import Path
+
+from ..featureset_export import export_features, readable_size
 
 import typer
 from rich.table import Table
@@ -14,7 +17,7 @@ from ..services.featureset import FeatureSetService
 from .common import fail, runtime_from_context
 
 
-featureset_app = typer.Typer(no_args_is_help=True, help="特征集查询")
+featureset_app = typer.Typer(no_args_is_help=True, help="特征集")
 wide_app = typer.Typer(no_args_is_help=True, help="宽表特征集查询")
 model_app = typer.Typer(no_args_is_help=True, help="模型特征集查询")
 featureset_app.add_typer(wide_app, name="wide")
@@ -101,5 +104,37 @@ def get_config(
                 lambda client: FeatureSetService(client).get_config(set_id)
             )
         print_result(config, "json")
+    except Exception as exc:
+        fail(exc)
+
+
+@wide_app.command("export")
+@model_app.command("export")
+def export_set(
+    context: typer.Context,
+    set_id: str = typer.Argument(..., help="特征集 ID"),
+    lang: str = typer.Option("zh_cn", "--lang", help="zh_cn 或 en_us"),
+    file: Optional[Path] = typer.Option(None, "--file", help="本地 CSV 保存路径"),
+    output: str = typer.Option("text", "--output", "-o", help="text 或 json"),
+) -> None:
+    """导出特征集中的特征为 CSV 文件"""
+    try:
+        if not set_id.strip():
+            raise ValueError("特征集 ID 不能为空")
+        if lang not in {"zh_cn", "en_us"}:
+            raise ValueError("--lang 仅支持 zh_cn 或 en_us")
+        if output not in {"text", "json"}:
+            raise ValueError("--output 仅支持 text 或 json")
+        runtime = runtime_from_context(context)
+        with redirect_stdout(sys.stderr):
+            result = runtime.authenticated_call(
+                lambda client: export_features(client, set_id, lang, file)
+            )
+        if output == "json":
+            print_result(result, "json")
+        else:
+            console.print("导出成功")
+            console.print(f"文件：{result['file']}", markup=False, soft_wrap=True)
+            console.print(f"大小：{readable_size(result['bytes'])}")
     except Exception as exc:
         fail(exc)

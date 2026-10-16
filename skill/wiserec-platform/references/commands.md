@@ -84,6 +84,7 @@
 | `ml dataset files upload DATASET_ID LOCAL_FILE` | 追加单个文件 | | 上传文件 |
 | `ml featureset wide list` / `ml featureset model list` | 宽表 / 模型特征集 | | |
 | `ml featureset wide config SET_ID` / `ml featureset model config SET_ID` | 特征集配置 | | |
+| `ml featureset wide export SET_ID` / `ml featureset model export SET_ID` | 导出特征 CSV，重名自动编号 | `--lang zh_cn\|en_us`、`--file PATH` | `--output text\|json` |
 
 ## Web Studio 与 Jupyter
 

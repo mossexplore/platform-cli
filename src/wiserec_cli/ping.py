@@ -287,7 +287,7 @@ def status(runtime: Any) -> Dict[str, Any]:
         "自动保活": "启用" if runtime.config.auto_ping else "关闭",
         "状态": entry.get("status", "未启动") if running else "未运行",
         "进程 ID": worker_pid if running else "-",
-        "终端窗口数": len(owners),
+        "保活终端数": len(owners),
         "间隔（分钟）": runtime.config.ping_interval_minutes,
         "上次请求": displayed(entry.get("last_attempt")),
         "上次平台确认成功": displayed(entry.get("last_confirmed")),

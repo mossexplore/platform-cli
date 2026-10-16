@@ -167,7 +167,8 @@ class PlatformClient:
         return payload
 
     @contextmanager
-    def stream(self, method: str, path: str, *, params: Optional[Mapping[str, Any]] = None):
+    def stream(self, method: str, path: str, *, params: Optional[Mapping[str, Any]] = None,
+               inspect_json: bool = True):
         """以当前登录和业务请求头读取平台文件响应。"""
         try:
             with self._client.stream(
@@ -176,7 +177,7 @@ class PlatformClient:
             ) as response:
                 # 流式成功响应尚未读取，response.json() 会触发 ResponseNotRead。
                 # 仅对错误或 JSON 响应读取包装体，以保留版本准入诊断。
-                if not response.is_success or "json" in response.headers.get("content-type", "").lower():
+                if not response.is_success or (inspect_json and "json" in response.headers.get("content-type", "").lower()):
                     response.read()
                     check_version_response(response)
                 if response.status_code in {401, 403, 419, 440}:

@@ -1,6 +1,6 @@
-# CLI 权限管理服务（1.0.5.7）
+# CLI 权限管理服务（1.0.7.1）
 
-正式附件见 [v1.0.5.7 Release](https://github.com/mossexplore/platform-cli/releases/tag/v1.0.5.7)。人员授权页的环境列按可用宽度显示完整标签，超出时可展开全部，展开后自动换行。
+正式附件见 [v1.0.7.1 Release](https://github.com/mossexplore/platform-cli/releases/tag/v1.0.7.1)。升级要求结构 10 → 11，见 [1.0.5.7 → 1.0.7.1 升级指南](../docs/权限管理系统1.0.5.7升级至1.0.7.1指南.md)。人员授权页的环境列按可用宽度显示完整标签，超出时可展开全部，展开后自动换行。
 
 支持 Docker Compose 部署与 GitHub Actions → GHCR 自动制作镜像，详见 [Docker 部署与发布指南](../docs/权限管理系统Docker部署与发布指南.md)。下面保留原内网离线包部署方式。
 

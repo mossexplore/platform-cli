@@ -195,7 +195,7 @@ class PingTest(unittest.TestCase):
             shown = status(self.runtime)
         process.assert_not_called()
         self.assertEqual(shown["状态"], "running")
-        self.assertEqual(shown["终端窗口数"], 1)
+        self.assertEqual(shown["保活终端数"], 1)
         self.assertEqual(shown["成功次数"], 0)
 
     def test_two_terminals_share_one_worker_and_last_owner_can_stop(self):

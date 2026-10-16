@@ -22,10 +22,10 @@ trap cleanup EXIT
 "${compose[@]}" up -d --wait --wait-timeout 240 mysql
 "${compose[@]}" run --rm cli-access python -m app.manage migrate
 "${compose[@]}" run --rm cli-access python -m app.manage migrate
-"${compose[@]}" up -d --wait --wait-timeout 120 cli-access
-"${compose[@]}" exec -T cli-access python - <<'PY'
+"${compose[@]}" run --rm -T cli-access python - <<'PY'
 import os
 from app.models import Admin, Environment, Grant, User, database
+from sqlalchemy import text
 from app.security import password_hash
 assert os.getuid() == 10001
 engine, sessions = database(os.environ['DATABASE_URL'])
@@ -37,6 +37,25 @@ with sessions() as db:
     db.flush()
     db.add(Grant(user_id=user.id, environment_id=environment.id))
     db.commit()
+# Test-only fixture matching the previous formal release's schema 10.
+# This isolated MySQL database is never a production database.
+with engine.begin() as connection:
+    connection.execute(text('ALTER TABLE environments DROP COLUMN default_grant'))
+    connection.execute(text('UPDATE schema_versions SET version=10'))
+engine.dispose()
+PY
+"${compose[@]}" run --rm cli-access python -m app.manage migrate
+"${compose[@]}" run --rm cli-access python -m app.manage migrate
+"${compose[@]}" up -d --wait --wait-timeout 120 cli-access
+"${compose[@]}" exec -T cli-access python - <<'PY'
+import os
+from sqlalchemy import select
+from app.models import Environment, Grant, SchemaVersion, database
+engine, sessions = database(os.environ['DATABASE_URL'])
+with sessions() as db:
+    assert db.scalar(select(SchemaVersion.version)) == 11
+    assert db.scalar(select(Environment)).default_grant is False
+    assert db.scalar(select(Grant)) is not None
 engine.dispose()
 PY
 python ci/smoke.py "http://127.0.0.1:$HTTP_PORT"

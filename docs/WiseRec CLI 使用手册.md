@@ -107,10 +107,12 @@ ml                                              WiseRec 命令行工具
 ├── featureset                                  特征集
 │   ├── wide                                    宽表特征集
 │   │   ├── list                                查看列表
-│   │   └── config                              查看配置
+│   │   ├── config                              查看配置
+│   │   └── export                              导出特征集中的特征为 CSV 文件
 │   └── model                                   模型特征集
 │       ├── list                                查看列表
-│       └── config                              查看配置
+│       ├── config                              查看配置
+│       └── export                              导出特征集中的特征为 CSV 文件
 ├── jupyter                                     文件、非交互执行、Notebook 与终端
 │   ├── doctor                                  检查连接状态
 │   ├── exec                                    非交互执行远端程序
@@ -656,6 +658,8 @@ ml dataset files upload DATASET_ID ./sample.csv --dir /logs --timeout 1800
 ### 16.1 命令格式
 
 ```text
+ml featureset wide export SET_ID [--lang zh_cn|en_us] [--file PATH] [--output text|json]
+ml featureset model export SET_ID [--lang zh_cn|en_us] [--file PATH] [--output text|json]
 ml featureset wide list [OPTIONS]
 ml featureset model list [OPTIONS]
 ml featureset wide config SET_ID
@@ -668,14 +672,20 @@ ml featureset model config SET_ID
 | --- | --- |
 | `wide list`、`model list` | `--name`、`--page`、`--page-size`、`--output` / `-o` |
 | `wide config`、`model config` | 必填 `SET_ID`；直接输出 JSON |
+| `wide export`、`model export` | 必填 `SET_ID`；`--lang` 默认 `zh_cn`，可选 `en_us`；`--file PATH` 指定文件路径；`--output` / `-o` 默认 `text`，可选 `json` |
 
 ### 16.3 说明
 
 `wide` 查询宽表特征集，`model` 查询模型特征集。列表展示 ID、名称、类型、场景和创建、修改信息；时间按北京时间显示。先从列表取得 `SET_ID`，再查看配置。配置查询固定输出 JSON，不提供 `--output` 选项。
 
+导出前须登录并选择当前环境的业务。`wide export` 与 `model export` 分别用于导出宽表和模型特征集，原样保存服务端 CSV，保留编码、列及字段值。默认保存到当前目录，优先使用响应文件名，缺失时使用 `featuresInSet.csv`。重名时依次尝试 `featuresInSet (1).csv`、`featuresInSet (2).csv`，指定文件名同样自动编号，不覆盖已有文件；目标父目录须已存在。失败时清理临时文件。默认摘要显示最终绝对路径及自动换算的 B、KB、MB、GB 等大小单位，按 1024 换算，最多保留两位小数；JSON 摘要包含 `setId`、`lang`、`file` 和整数 `bytes`。`--lang` 控制服务端导出语言，`--output` 仅控制摘要格式。
+
 ### 16.4 示例
 
 ```bash
+ml featureset wide export SET_ID
+ml featureset model export SET_ID --lang en_us
+ml featureset wide export SET_ID --file ./exports/features.csv -o json
 ml featureset wide list --name demo
 ml featureset model list --page 2 -o json
 ml featureset wide config SET_ID
