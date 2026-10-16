@@ -1,5 +1,8 @@
 """登录过程的单行进度与环境别名校验。"""
 
+import os
+from contextlib import contextmanager
+
 from .errors import AuthenticationError
 from .output import console
 
@@ -32,3 +35,17 @@ class LoginProgress:
 
     def __exit__(self, *_):
         self.stop()
+
+
+@contextmanager
+def quiet_node_warnings():
+    """Let the login driver inherit quiet warnings without changing TLS settings."""
+    previous = os.environ.get('NODE_NO_WARNINGS')
+    os.environ['NODE_NO_WARNINGS'] = '1'
+    try:
+        yield
+    finally:
+        if previous is None:
+            os.environ.pop('NODE_NO_WARNINGS', None)
+        else:
+            os.environ['NODE_NO_WARNINGS'] = previous

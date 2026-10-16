@@ -103,3 +103,40 @@ def test_login_only_keeps_actionable_ping_messages(message, visible):
          patch('wiserec_cli.commands.auth.console', console):
         login(None, False)
     assert console.print.called is visible
+
+
+@pytest.mark.parametrize('previous', [None, '0', '1'])
+@pytest.mark.parametrize('failure', [False, True])
+def test_node_warning_setting_restored_even_on_failure(monkeypatch, previous, failure):
+    import os
+    from wiserec_cli.login_output import quiet_node_warnings
+    if previous is None:
+        monkeypatch.delenv('NODE_NO_WARNINGS', raising=False)
+    else:
+        monkeypatch.setenv('NODE_NO_WARNINGS', previous)
+    monkeypatch.setenv('NODE_TLS_REJECT_UNAUTHORIZED', '0')
+    try:
+        with quiet_node_warnings():
+            assert os.environ['NODE_NO_WARNINGS'] == '1'
+            assert os.environ['NODE_TLS_REJECT_UNAUTHORIZED'] == '0'
+            if failure:
+                raise RuntimeError('login failed')
+    except RuntimeError:
+        assert failure
+    assert os.environ.get('NODE_NO_WARNINGS') == previous
+    assert os.environ['NODE_TLS_REJECT_UNAUTHORIZED'] == '0'
+
+
+def test_real_node_hides_warnings_but_keeps_errors(monkeypatch):
+    import subprocess
+    from playwright._impl._driver import compute_driver_executable
+    from wiserec_cli.login_output import quiet_node_warnings
+    node, _ = compute_driver_executable()
+    monkeypatch.delenv('NODE_NO_WARNINGS', raising=False)
+    script = "process.emitWarning('login driver warning'); console.error('login failed'); process.exitCode = 1"
+    baseline = subprocess.run([node, '-e', script], capture_output=True, text=True)
+    assert 'Warning: login driver warning' in baseline.stderr
+    with quiet_node_warnings():
+        result = subprocess.run([node, '-e', script], capture_output=True, text=True)
+    assert 'Warning' not in result.stderr
+    assert 'login failed' in result.stderr and result.returncode == 1

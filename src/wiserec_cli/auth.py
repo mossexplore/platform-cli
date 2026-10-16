@@ -18,7 +18,7 @@ from .credentials import CredentialStore
 from .errors import ApiError, AuthenticationError, BusinessError, CredentialError
 from .models import Credentials, Profile
 from .output import console, print_result
-from .login_output import LoginProgress
+from .login_output import LoginProgress, quiet_node_warnings
 
 
 def _parse_user_info(response_body: Any) -> Optional[Dict[str, str]]:
@@ -74,7 +74,7 @@ class BrowserAuthenticator:
 
         user_info_url = f"{profile.base_url}/ai/user/info"
         user_data_dir.mkdir(parents=True, exist_ok=True)
-        with progress, sync_playwright() as playwright:
+        with progress, quiet_node_warnings(), sync_playwright() as playwright:
             context = playwright.chromium.launch_persistent_context(
                 user_data_dir=str(user_data_dir),
                 channel=browser_channel,
