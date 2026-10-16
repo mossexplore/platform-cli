@@ -1,7 +1,9 @@
 """环境列表的一次性权限查询，不替代业务调用前的实时鉴权。"""
 from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, Field
-from .access import Check, UserAccessQuery, recorded_check, user_access_summary
+from .access import Check, recorded_check
+from sqlalchemy import select, or_
+from .models import Environment, Grant, User, now
 
 router = APIRouter()
 
@@ -20,7 +22,17 @@ def environment_access(body: EnvironmentBatch, request: Request):
     names = [item.environment for item in body.environments]
     if len(names) != len(set(names)):
         raise HTTPException(422, '环境标识不能重复')
-    summary = user_access_summary(UserAccessQuery(username=body.username), request) if body.username else None
+    authorizations = []
+    if body.username:
+        with request.app.state.sessions() as db:
+            rows = db.execute(select(Environment.name, Environment.platform_origin)
+                .join(Grant, Grant.environment_id == Environment.id)
+                .join(User, Grant.user_id == User.id)
+                .where(User.username == body.username, User.enabled.is_(True),
+                       Environment.enabled.is_(True), Grant.enabled.is_(True),
+                       or_(Grant.expires_at.is_(None), Grant.expires_at > now()))).all()
+            authorizations = [{'environment': name, 'platform_origin': origin}
+                              for name, origin in rows]
     results = []
     for item in body.environments:
         check = Check(username=item.username, environment=item.environment,
@@ -29,5 +41,5 @@ def environment_access(body: EnvironmentBatch, request: Request):
         result = recorded_check(check, request, item.business_id)
         results.append({'environment': item.environment, 'username': item.username,
                         'business_id': item.business_id, 'result': result})
-    return {'username': body.username, 'has_access': summary['has_access'] if summary else None,
-            'environments': results}
+    return {'username': body.username, 'has_access': bool(authorizations) if body.username else None,
+            'environments': results, 'authorizations': authorizations}

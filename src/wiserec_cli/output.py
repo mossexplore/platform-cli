@@ -13,7 +13,7 @@ console = Console()
 error_console = Console(stderr=True)
 
 
-def print_result(value: Any, output_format: str = "table", *, wrap_columns=()) -> None:
+def print_result(value: Any, output_format: str = "table", *, wrap_columns=(), row_style=None) -> None:
     selected = output_format.lower()
     if selected == "json":
         console.print_json(json.dumps(value, ensure_ascii=False, default=str))
@@ -37,7 +37,10 @@ def print_result(value: Any, output_format: str = "table", *, wrap_columns=()) -
         for key in keys:
             table.add_column(str(key), overflow="fold" if key in wrap_columns else "ellipsis")
         for item in value:
-            table.add_row(*(str(item.get(key, "")) for key in keys))
+            table.add_row(
+                *(str(item.get(key, "")) for key in keys),
+                style=row_style(item) if row_style else None,
+            )
     else:
         table.add_column("结果")
         table.add_row(str(value))

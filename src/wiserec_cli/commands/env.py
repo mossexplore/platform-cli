@@ -26,12 +26,14 @@ def list_environments(context: typer.Context) -> None:
                     "当前在用环境": (
                         "*" if item.name == runtime.config.current_name else ""
                     ),
-                    "环境标识": item.alias or item.name,
+                    "环境标识": item.name,
+                    "环境名": item.alias or item.name,
                     "管理台地址": item.api_endpoint,
                     "状态": statuses[item.name],
                 }
                 for item in runtime.config.profiles()
-            ], wrap_columns=("管理台地址",)
+            ], wrap_columns=("管理台地址",),
+            row_style=lambda row: "bold green" if row["当前在用环境"] == "*" else None,
         )
     except Exception as exc:
         fail(exc)

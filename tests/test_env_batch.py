@@ -4,7 +4,7 @@ from unittest.mock import patch
 
 import httpx
 import pytest
-from test_env_status import make_runtime
+from test_env_status import make_runtime, grants
 from wiserec_cli.business import Department, Tenant
 from wiserec_cli.env_access import environment_statuses, query_environment_access
 from wiserec_cli.errors import MlError
@@ -28,15 +28,15 @@ def test_multiple_accounts_environments_and_summary_take_one_http_request(tmp_pa
         assert payload['username'] == 'alice'
         assert request.headers['businessid'] == 'dev-business'
         assert [(item['username'], item['business_id']) for item in payload['environments']] == [
-            ('alice', 'dev-business'), ('bob', 'test-business')]
+            ('alice', 'dev-business')]
         assert 'cookie' not in request.content.decode() and 'csrf' not in request.content.decode()
-        return httpx.Response(200, json={'username': 'alice', 'has_access': True,
+        return httpx.Response(200, json={'username': 'alice', 'has_access': True, 'authorizations': grants(runtime),
             'environments': [{**item, 'result': {'allowed': True, 'username': item['username'],
                 'environment': item['environment']}} for item in reversed(payload['environments'])]})
     client = httpx.Client(transport=httpx.MockTransport(respond))
     with patch('wiserec_cli.env_access.httpx.Client', return_value=client), \
          patch('wiserec_cli.access_guidance.check_user_access') as summary:
-        assert environment_statuses(runtime) == {'dev': '已开通', 'test': '已开通'}
+        assert environment_statuses(runtime) == {'dev': '登录使用中', 'test': '已授权'}
     assert len(requests) == 1
     assert str(requests[0].url).endswith('/cli-permission/api/v1/access/environments')
     summary.assert_not_called()
@@ -45,7 +45,8 @@ def test_multiple_accounts_environments_and_summary_take_one_http_request(tmp_pa
 def test_no_identity_and_no_eligible_environments_do_not_query(tmp_path):
     runtime = make_runtime(tmp_path)
     with patch('wiserec_cli.env_access.httpx.Client') as client:
-        assert environment_statuses(runtime) == {'dev': '未登录', 'test': '未登录'}
+        with pytest.raises(MlError, match='请先执行 ml login'):
+            environment_statuses(runtime)
         client.assert_not_called()
 
 
@@ -53,11 +54,10 @@ def test_summary_only_still_prompts_to_apply(tmp_path):
     runtime = make_runtime(tmp_path)
     runtime.credentials.save(Credentials.create('dev', 'cookie', 'csrf', 'alice', 600))
     with patch('wiserec_cli.env_access.query_environment_access', return_value={
-        'username': 'alice', 'has_access': False, 'environments': []}) as query, \
-         patch('wiserec_cli.env_access.console.print') as output:
-        assert environment_statuses(runtime)['dev'] == '未选择业务'
+        'username': 'alice', 'has_access': False, 'environments': []}) as query:
+        with pytest.raises(MlError, match='https://access.example.com/apply'):
+            environment_statuses(runtime)
     query.assert_called_once_with(runtime.config.access_control, 'alice', [], None)
-    assert 'https://access.example.com/apply' in output.call_args.args[0]
 
 
 def test_batch_unavailable_reports_failure_without_serial_fallback(tmp_path):
@@ -68,11 +68,10 @@ def test_batch_unavailable_reports_failure_without_serial_fallback(tmp_path):
         requests.append(request)
         return httpx.Response(404)
     with patch('wiserec_cli.env_access.httpx.Client', return_value=httpx.Client(
-        transport=httpx.MockTransport(respond))), patch('wiserec_cli.env_access.console.print') as output:
-        assert environment_statuses(runtime)['dev'] == '查询失败'
+        transport=httpx.MockTransport(respond))):
+        with pytest.raises(MlError, match='更新权限服务'):
+            environment_statuses(runtime)
     assert len(requests) == 1
-    assert '更新权限服务' in output.call_args.args[0]
-    assert '/apply' not in output.call_args.args[0]
 
 
 @pytest.mark.parametrize('bad', ['missing', 'duplicate', 'username', 'business', 'decision', 'summary'])
@@ -96,9 +95,10 @@ def test_version_restriction_is_reported_per_environment(tmp_path):
     context(runtime, 'dev', 'alice')
     context(runtime, 'test', 'alice')
     def respond(settings, username, checks, business_id):
-        return {'username': username, 'has_access': True, 'environments': [
+        return {'username': username, 'has_access': True, 'authorizations': grants(runtime), 'environments': [
             {**item, 'result': {'allowed': False, 'reason': 'CLI_VERSION_TOO_OLD'} if item['environment'] == 'dev'
              else {'allowed': True, 'username': item['username'], 'environment': item['environment']}}
             for item in checks]}
     with patch('wiserec_cli.env_access.query_environment_access', side_effect=respond):
-        assert environment_statuses(runtime) == {'dev': 'CLI版本受限', 'test': '已开通'}
+        with pytest.raises(MlError):
+            environment_statuses(runtime)

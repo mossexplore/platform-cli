@@ -3,16 +3,8 @@ import httpx
 
 from .access import access_enabled
 from .access_transport import permission_url, tls_verify
-from .client_metadata import VersionPolicyError, client_headers, handle_version_result
+from .client_metadata import client_headers, handle_version_result
 from .errors import MlError
-from .output import console
-
-
-DENIAL_STATUS = {
-    'GRANT_EXPIRED': '授权已过期', 'ENVIRONMENT_DISABLED': '环境未启用',
-    'ENVIRONMENT_MISMATCH': '地址不匹配', 'USER_DISABLED': '账号未启用',
-    'NOT_GRANTED': '未开通',
-}
 
 
 def local_status(runtime, profile):
@@ -90,41 +82,45 @@ def environment_statuses(runtime):
     settings = runtime.config.access_control
     profiles = runtime.config.profiles()
     if not access_enabled(settings):
-        return {p.name: '校验已关闭' for p in profiles}
+        raise MlError('权限校验已关闭，无法查询环境授权状态')
     if not settings.get('url'):
-        return {p.name: '地址未配置' for p in profiles}
-    statuses, checks = {}, []
-    username, business_id = None, None
-    for profile in profiles:
-        status, check, owner = local_status(runtime, profile)
-        statuses[profile.name] = status
-        if check:
-            checks.append(check)
-        if profile.name == runtime.config.current_name:
-            username = owner
-            business_id = check['business_id'] if check else None
-    if username is None:
-        console.print('当前环境尚无登录账号，请先执行 ml login 查询 CLI 权限')
-    if not checks and username is None:
-        return statuses
-    try:
-        response = query_environment_access(settings, username, checks, business_id)
-    except MlError as exc:
-        console.print(str(exc), markup=False)
-        return statuses
+        raise MlError('请先配置权限服务地址 access_control.url')
+    local = {p.name: local_status(runtime, p) for p in profiles}
+    _, current_check, username = local[runtime.config.current_name]
+    if not username:
+        raise MlError('当前环境尚无登录账号，请先执行 ml login 查询 CLI 权限')
+    checks = [check for _, check, owner in local.values() if check and owner == username]
+    response = query_environment_access(settings, username, checks,
+                                        current_check['business_id'] if current_check else None)
     if response['has_access'] is False:
-        console.print(f"请打开{settings['url'].rstrip('/')}/apply进行CLI权限申请"
-                      '（若地址无法打开，将*.hwcloudtest.cn加入代理排除），权限通过后方可执行CLI命令',
-                      markup=False)
+        raise MlError(f"请打开{settings['url'].rstrip('/')}/apply进行CLI权限申请"
+                      '（若地址无法打开，将*.hwcloudtest.cn加入代理排除），权限通过后方可执行CLI命令')
+    authorizations = response.get('authorizations')
+    if not isinstance(authorizations, list):
+        raise MlError('权限服务尚不支持完整环境授权状态，请联系管理员更新权限服务')
+    grants = {}
+    for item in authorizations:
+        if (not isinstance(item, dict) or not isinstance(item.get('environment'), str)
+                or not isinstance(item.get('platform_origin'), str)
+                or item['environment'] in grants):
+            raise MlError('环境授权状态响应格式错误')
+        grants[item['environment']] = item['platform_origin'].rstrip('/')
+    decisions = {}
     for item in response['environments']:
-        decision = item['result']
-        try:
-            handle_version_result(decision)
-        except VersionPolicyError:
-            status = 'CLI版本受限'
+        handle_version_result(item['result'])
+        decisions[item['environment']] = item['result']['allowed']
+    statuses = {}
+    for profile in profiles:
+        status, check, owner = local[profile.name]
+        allowed = grants.get(profile.name) == profile.base_url.rstrip('/')
+        if profile.name in decisions:
+            allowed = allowed and decisions[profile.name]
+        if not allowed:
+            statuses[profile.name] = '未授权'
+        elif owner == username and status == '登录已过期':
+            statuses[profile.name] = '登录已过期'
+        elif owner == username and check:
+            statuses[profile.name] = '登录使用中'
         else:
-            reason = decision.get('reason')
-            status = '已开通' if decision['allowed'] else DENIAL_STATUS.get(
-                reason if isinstance(reason, str) else '', '未通过')
-        statuses[item['environment']] = status
+            statuses[profile.name] = '已授权'
     return statuses

@@ -348,7 +348,7 @@ class AuthManagerTest(unittest.TestCase):
                 ) as result_printer:
                     result = authenticator.login(
                         profile=Profile(
-                            name="dev",
+                            name="dev", alias="开发环境",
                             api_endpoint="https://dev.example.com/dashboard",
                         ),
                         timeout_ms=30000,
@@ -368,23 +368,16 @@ class AuthManagerTest(unittest.TestCase):
             business_store.require_selection("dev", "jack").tenant_id,
             "mep",
         )
-        print_mock.assert_any_call("正在等待登录成功...")
         result_printer.assert_called_once_with(
             {
-                "环境": "dev",
+                "环境": "开发环境",
                 "账号": "jack",
                 "中文名": "张三",
                 "部门": "技术部",
                 "businessId": "mep",
             }
         )
-        print_mock.assert_any_call(
-            "正在等待业务目录加载完成（最多 30 秒）..."
-        )
-        print_mock.assert_any_call(
-            "已读取并解析 ai-businessList，共 1 个部门"
-        )
-        print_mock.assert_any_call("业务目录已保存到本地")
+        print_mock.assert_not_called()
         self.assertEqual(len(context.pages[0].wait_for_timeout_calls), 2)
         self.assertTrue(context.closed)
         self.assertEqual(authenticator._wait_for_credentials.call_count, 2)

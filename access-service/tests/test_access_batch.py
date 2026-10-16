@@ -63,7 +63,7 @@ def test_summary_and_unknown_environment_are_independent(system):
     assert response['has_access'] is True
     assert response['environments'][0]['result']['reason'] == 'ENVIRONMENT_DISABLED'
     assert query(client, [], username='unknown').json() == {
-        'username': 'unknown', 'has_access': False, 'environments': []}
+        'username': 'unknown', 'has_access': False, 'environments': [], 'authorizations': []}
     response = query(client, [check()], username=None).json()
     assert response['username'] is None and response['has_access'] is None
     assert response['environments'][0]['result']['allowed'] is True
@@ -76,3 +76,20 @@ def test_bad_batches_are_rejected_before_recording(system, checks):
     assert query(client, checks).status_code == 422
     with app.state.sessions() as db:
         assert db.scalar(select(CallLog)) is None
+
+
+@pytest.mark.parametrize('disabled', ['grant', 'environment', 'user', 'expired'])
+def test_authorizations_only_include_effective_grants(system, disabled):
+    app, client, _ = system
+    assert query(client, []).json()['authorizations'] == [
+        {'environment': 'prod', 'platform_origin': 'https://platform.example.com'}]
+    with app.state.sessions() as db:
+        if disabled == 'expired':
+            db.scalar(select(Grant)).expires_at = datetime(2000, 1, 1)
+        else:
+            model = {'grant': Grant, 'environment': Environment, 'user': User}[disabled]
+            db.scalar(select(model)).enabled = False
+        db.commit()
+    result = query(client, []).json()
+    assert result['has_access'] is False
+    assert result['authorizations'] == []

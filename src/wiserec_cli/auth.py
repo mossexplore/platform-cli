@@ -17,7 +17,8 @@ from .client import PlatformClient
 from .credentials import CredentialStore
 from .errors import ApiError, AuthenticationError, BusinessError, CredentialError
 from .models import Credentials, Profile
-from .output import print_result
+from .output import console, print_result
+from .login_output import LoginProgress
 
 
 def _parse_user_info(response_body: Any) -> Optional[Dict[str, str]]:
@@ -63,6 +64,7 @@ class BrowserAuthenticator:
         verify_ssl: bool = True,
         show_secrets: bool = False,
     ) -> Credentials:
+        progress = LoginProgress(profile.alias)
         try:
             from playwright.sync_api import sync_playwright
         except ImportError as exc:
@@ -72,7 +74,7 @@ class BrowserAuthenticator:
 
         user_info_url = f"{profile.base_url}/ai/user/info"
         user_data_dir.mkdir(parents=True, exist_ok=True)
-        with sync_playwright() as playwright:
+        with progress, sync_playwright() as playwright:
             context = playwright.chromium.launch_persistent_context(
                 user_data_dir=str(user_data_dir),
                 channel=browser_channel,
@@ -97,14 +99,12 @@ class BrowserAuthenticator:
             context.on("request", capture_auth_request)
 
             try:
-                print(f"当前环境: {profile.name}")
-                print(f"Edge Profile: {user_data_dir}")
-                print(f"正在打开: {profile.api_endpoint}")
                 page.goto(
                     profile.api_endpoint,
                     wait_until="domcontentloaded",
                     timeout=timeout_ms,
                 )
+                progress.update("正在获取用户信息…")
                 credentials = self._wait_for_credentials(
                     context=context,
                     profile=profile,
@@ -117,11 +117,9 @@ class BrowserAuthenticator:
                     ),
                     captured_headers=captured_headers,
                 )
-                reused_session = credentials is not None
 
                 if credentials is None:
-                    print("未发现有效的持久登录会话，需要用户完成登录。")
-                    print("正在等待登录成功...")
+                    progress.update("等待浏览器完成登录…")
                     credentials = self._wait_for_credentials(
                         context=context,
                         profile=profile,
@@ -130,6 +128,7 @@ class BrowserAuthenticator:
                         request_timeout_ms=timeout_ms,
                         wait_timeout_ms=login_timeout_ms,
                         captured_headers=captured_headers,
+                        progress=progress,
                     )
                 if credentials is None:
                     raise AuthenticationError(
@@ -137,6 +136,7 @@ class BrowserAuthenticator:
                         "有效的 Cookie、csrftoken 和用户信息"
                     )
 
+                progress.update("正在确认业务信息…")
                 business_warning = self._refresh_business_catalog(
                     context,
                     profile,
@@ -150,7 +150,7 @@ class BrowserAuthenticator:
                     ),
                 )
                 self.store.save(credentials)
-                business_id = "未选择"
+                business_id = "未获取"
                 if self.business_store is not None:
                     try:
                         business_id = self.business_store.require_selection(
@@ -158,28 +158,28 @@ class BrowserAuthenticator:
                         ).business_id
                     except BusinessError:
                         pass
-                source = "持久 Edge 会话" if reused_session else "用户登录"
-                print(
-                    f"已通过{source}刷新认证信息，有效期 {ttl_seconds} 秒"
-                )
+                context.close()
+                progress.stop()
+                console.print("登录成功，用户信息如下：")
                 print_result(
                     {
-                        "环境": profile.name,
-                        "账号": credentials.username,
-                        "中文名": credentials.cn_name,
-                        "部门": credentials.department,
+                        "环境": progress.alias,
+                        "账号": credentials.username or "未获取",
+                        "中文名": credentials.cn_name or "未获取",
+                        "部门": credentials.department or "未获取",
                         "businessId": business_id,
                     }
                 )
+                if business_id == "未获取" and not business_warning:
+                    print("尚未选择业务，请执行 ml business list 查看并使用 ml business use 选择业务")
                 if business_warning:
                     print(f"警告: {business_warning}")
                 if show_secrets:
                     print(f"cookie: {credentials.cookie}")
                     print(f"csrftoken: {credentials.csrftoken}")
-                print("认证成功，正在自动关闭 Edge...")
-                context.close()
                 return credentials
             except Exception as exc:
+                progress.stop()
                 if page.is_closed():
                     raise
                 print(f"登录失败: {exc}")
@@ -213,10 +213,6 @@ class BrowserAuthenticator:
     ) -> str:
         if self.business_store is None:
             return ""
-        print(
-            "正在等待业务目录加载完成"
-            f"（最多 {wait_timeout_ms // 1000} 秒）..."
-        )
         deadline = time.monotonic() + wait_timeout_ms / 1000
         last_error = ""
 
@@ -227,10 +223,6 @@ class BrowserAuthenticator:
             if raw_business_list:
                 try:
                     departments = parse_business_list(raw_business_list)
-                    print(
-                        "已读取并解析 ai-businessList，"
-                        f"共 {len(departments)} 个部门"
-                    )
                     self.business_store.refresh(
                         profile=profile.name,
                         username=credentials.username,
@@ -239,7 +231,6 @@ class BrowserAuthenticator:
                             context, "ai-businessId"
                         ),
                     )
-                    print("业务目录已保存到本地")
                     return ""
                 except Exception as exc:
                     last_error = str(exc)
@@ -267,10 +258,13 @@ class BrowserAuthenticator:
         request_timeout_ms: int,
         wait_timeout_ms: int,
         captured_headers: Deque[Dict[str, str]],
+        progress=None,
     ) -> Optional[Credentials]:
         deadline = time.monotonic() + wait_timeout_ms / 1000
         while time.monotonic() < deadline:
             while captured_headers:
+                if progress is not None:
+                    progress.update("正在获取用户信息…")
                 credentials = self._credentials_from_headers(
                     context=context,
                     profile=profile,
@@ -281,6 +275,8 @@ class BrowserAuthenticator:
                 )
                 if credentials is not None:
                     return credentials
+                if progress is not None:
+                    progress.update("等待浏览器完成登录…")
 
             open_pages = [page for page in context.pages if not page.is_closed()]
             if not open_pages:

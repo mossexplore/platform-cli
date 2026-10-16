@@ -35,7 +35,9 @@ def login(
         credentials = runtime.auth.login(show_secrets=show_secrets)
         has_access = show_access_guidance(runtime, credentials)
         if has_access and runtime.config.auto_ping:
-            console.print(ping.auto_start(runtime, after_login=True))
+            message = ping.auto_start(runtime, after_login=True)
+            if isinstance(message, str) and message.startswith(("警告", "无法", "尚未", "当前环境的自动保活已手动停止")):
+                console.print(message, markup=False)
     except Exception as exc:
         fail(exc)
 
