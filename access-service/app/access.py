@@ -74,7 +74,9 @@ def recorded_check(body, request, businessid, source='client'):
                 result['version_policy'] = decision
         # Client-reported identity is not platform-verified. Gateway records are
         # trusted only under the documented gateway authentication contract.
-        db.add(CallLog(actor=body.username,
+        # MySQL DATETIME has second precision and may round fractional seconds
+        # into the next second, outside the dashboard's current time window.
+        db.add(CallLog(actor=body.username, created_at=now().replace(microsecond=0),
             command=body.command, full_command=body.full_command, environment=body.environment, business_id=businessid,
             source_ip=(request.client.host if request.client else '')[:64],
             allowed=result['allowed'], reason=result.get('reason', 'ALLOWED'),

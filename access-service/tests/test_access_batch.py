@@ -1,5 +1,6 @@
 """批量环境查询保留逐环境身份、业务、版本策略和调用记录。"""
 import pytest
+from datetime import datetime
 from sqlalchemy import select
 from app.models import CallLog, Environment, Grant, User
 from test_service import system
@@ -45,6 +46,15 @@ def test_batch_preserves_business_scoped_version_policy(system):
     assert response['environments'][0]['result']['reason'] == 'CLI_VERSION_TOO_OLD'
     with app.state.sessions() as db:
         assert db.scalar(select(CallLog)).allowed is False
+
+
+def test_call_timestamp_matches_mysql_second_precision(system, monkeypatch):
+    app, client, _ = system
+    timestamp = datetime(2026, 10, 16, 6, 0, 0, 999999)
+    monkeypatch.setattr('app.access.now', lambda: timestamp)
+    assert query(client, [check()]).status_code == 200
+    with app.state.sessions() as db:
+        assert db.scalar(select(CallLog)).created_at == timestamp.replace(microsecond=0)
 
 
 def test_summary_and_unknown_environment_are_independent(system):
