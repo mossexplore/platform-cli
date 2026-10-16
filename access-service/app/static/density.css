@@ -142,7 +142,6 @@
 .management-page .delete-link { color: var(--danger); margin-left: 6px; }
 .management-page .delete-link:hover { background: var(--danger-bg); color: var(--danger); }
 .management-page .environment-table { min-width: 1220px; }
-.environment-table th:nth-child(5), .environment-table th:nth-child(6) { width: 156px; }
 
 /* 环境列宽度不随标签数量增长；无脚本时完整换行展示 */
 .people-table th:nth-last-child(5) { width: auto; }
@@ -163,11 +162,11 @@
 .environment-table td:nth-child(2) { white-space: nowrap; overflow-wrap: normal; max-width: none; }
 .environment-table th:nth-child(3), .environment-table td.origin { width: 160px; min-width: 160px; }
 .environment-table td.origin { white-space: nowrap; overflow-wrap: normal; word-break: normal; }
-.environment-table th:nth-child(4) { width: 80px; }
-.environment-table th:nth-child(5), .environment-table th:nth-child(6) { width: 176px; min-width: 176px; }
-.environment-table td:nth-child(5), .environment-table td:nth-child(6) { white-space: nowrap; }
-.environment-table th:nth-child(7) { width: 84px; }
-.environment-table td:nth-child(7) { max-width: 84px; }
+.environment-table th:nth-child(5) { width: 80px; }
+.environment-table th:nth-child(6), .environment-table th:nth-child(7) { width: 176px; min-width: 176px; }
+.environment-table td:nth-child(6), .environment-table td:nth-child(7) { white-space: nowrap; }
+.environment-table th:nth-child(8) { width: 84px; }
+.environment-table td:nth-child(8) { max-width: 84px; }
 
 /* 分页控件 */
 .management-page .pagination { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; }
