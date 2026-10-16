@@ -64,7 +64,9 @@ def test_no_authorization_prints_error_without_table(tmp_path, capsys):
          pytest.raises(typer.Exit):
         list_environments(None)
     table.assert_not_called()
-    assert 'https://access.example.com/apply' in capsys.readouterr().err
+    actual = ''.join(capsys.readouterr().err.splitlines())
+    assert actual == ('错误：请打开https://access.example.com/apply进行CLI权限申请'
+                      '（若地址无法打开，将*.hwcloudtest.cn加入代理排除），权限通过后方可执行CLI命令')
 
 
 def test_columns_alias_and_highlight(tmp_path):

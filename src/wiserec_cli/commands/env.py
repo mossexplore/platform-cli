@@ -7,7 +7,7 @@ from .. import ping
 
 from ..env_access import environment_statuses
 from ..access_guidance import show_access_guidance
-from ..output import console, print_result
+from ..output import console, error_console, print_result
 from .common import fail, runtime_from_context
 
 
@@ -36,7 +36,8 @@ def list_environments(context: typer.Context) -> None:
             row_style=lambda row: "bold green" if row["当前在用环境"] == "*" else None,
         )
     except Exception as exc:
-        fail(exc)
+        error_console.print(f"错误：{exc}", markup=False)
+        raise typer.Exit(code=1) from None
 
 
 @env_app.command("show")
