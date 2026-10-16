@@ -26,10 +26,17 @@ def make_runtime(tmp_path, access_control=None):
 
 def capture_rows(runtime, decision=None):
     output = []
+    def respond(settings, username, checks, business_id):
+        if isinstance(decision, MlError) and not isinstance(decision, AccessDeniedError):
+            raise decision
+        return {'username': username, 'has_access': True if username else None,
+                'environments': [{**item, 'result':
+                    {'allowed': False, 'reason': decision.reason} if decision else
+                    {'allowed': True, 'username': item['username'], 'environment': item['environment']}}
+                    for item in checks]}
     with patch("wiserec_cli.commands.env.runtime_from_context", return_value=runtime), \
          patch("wiserec_cli.commands.env.print_result", side_effect=lambda rows, **_: output.append(rows)), \
-         patch("wiserec_cli.commands.env.show_access_guidance", return_value=True), \
-         patch("wiserec_cli.commands.env.check_access", side_effect=decision) as check:
+         patch("wiserec_cli.env_access.query_environment_access", side_effect=respond) as check:
         list_environments(None)
     return output[0], check
 
@@ -44,9 +51,10 @@ def test_each_environment_checks_its_own_business_id(tmp_path):
     rows, check = capture_rows(runtime)
     assert list(rows[0]) == ["当前在用环境", "环境标识", "管理台地址", "状态"]
     assert [row["状态"] for row in rows] == ["已开通", "已开通"]
-    assert [(call.args[1].name, call.args[3].business_id) for call in check.call_args_list] == [
+    check.assert_called_once()
+    assert [(item['environment'], item['business_id']) for item in check.call_args.args[2]] == [
         ("dev", "dev-business"), ("test", "test-business")]
-    assert all(call.kwargs["command"] == "ml env list" for call in check.call_args_list)
+    assert check.call_args.args[3] == 'dev-business'
 
 
 def test_missing_local_context_does_not_check_or_switch_environment(tmp_path):
@@ -55,7 +63,8 @@ def test_missing_local_context_does_not_check_or_switch_environment(tmp_path):
     rows, check = capture_rows(runtime)
     assert [row["状态"] for row in rows] == ["未选择业务", "未登录"]
     assert runtime.config.current_name == "dev"
-    check.assert_not_called()
+    check.assert_called_once()
+    assert check.call_args.args[2] == []
 
 
 def test_explicit_disable_and_missing_url_never_send_checks(tmp_path):
@@ -90,7 +99,9 @@ def test_tampered_selected_business_id_never_reaches_service(tmp_path):
     runtime.business.path.write_text(json.dumps(data))
     rows, check = capture_rows(runtime)
     assert rows[0]["状态"] == "业务信息异常"
-    check.assert_not_called()
+    check.assert_called_once()
+    assert check.call_args.args[2] == []
+    assert check.call_args.args[3] is None
 
 
 def test_environment_list_displays_alias_but_matches_original_identifier(tmp_path):

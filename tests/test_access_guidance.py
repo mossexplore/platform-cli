@@ -74,7 +74,7 @@ def test_valid_access_without_business_selection(tmp_path):
     assert query.call_args.args[-1] is None
 
 
-@pytest.mark.parametrize('command', [list_environments, show_environment, use_environment])
+@pytest.mark.parametrize('command', [show_environment, use_environment])
 def test_all_environment_commands_query_user_access(tmp_path, command):
     runtime = make_runtime(tmp_path)
     with patch('wiserec_cli.commands.env.runtime_from_context', return_value=runtime), \

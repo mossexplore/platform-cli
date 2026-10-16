@@ -25,6 +25,12 @@ def verify(client):
         'name': 'ci', 'display_name': 'CI alias', 'platform_origin': 'https://platform.example.com',
         'enabled': 'true', 'default_grant': 'true'})
     assert saved.status_code == 200 and '默认开通' in saved.text
+    batch = client.post('/api/v1/access/environments', json={'username': 'ci-user',
+        'environments': [{'username': 'ci-user', 'environment': 'ci',
+            'platform_origin': 'https://platform.example.com', 'business_id': 'ci-business'}]},
+        headers={'businessid': 'ci-business'})
+    assert batch.status_code == 200 and batch.json()['has_access'] is True
+    assert batch.json()['environments'][0]['result']['allowed'] is True
     apply = client.get('/apply')
     apply_csrf = re.search(r'name="csrf" value="([^"]+)"', apply.text)[1]
     username = 'ci-apply-' + uuid.uuid4().hex[:12]

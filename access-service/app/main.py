@@ -9,7 +9,7 @@ from fastapi.templating import Jinja2Templates
 from sqlalchemy import select, func
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from . import access, admin, admin_auth, call_logs, analytics, administrators, deletions, grant_selection, applications
-from . import version_admin, bulk_grants
+from . import version_admin, bulk_grants, access_batch
 from .models import SchemaVersion, AccessApplication, database
 from .migrations import SCHEMA_VERSION
 from .pagination import PAGE_SIZE
@@ -41,6 +41,7 @@ def create_app(settings=None):
     app.include_router(admin.router, prefix="/cli-permission")
     app.include_router(version_admin.router, prefix="/cli-permission")
     app.include_router(access.router, prefix="/cli-permission")
+    app.include_router(access_batch.router, prefix="/cli-permission")
     app.include_router(call_logs.router, prefix="/cli-permission")
     app.include_router(analytics.router, prefix="/cli-permission")
     app.include_router(administrators.router, prefix="/cli-permission")
