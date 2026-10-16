@@ -37,6 +37,7 @@ class Profile:
     api_endpoint: str
     output_format: str = "table"
     verify_ssl: Optional[bool] = None
+    alias: str = ""
 
     @property
     def base_url(self) -> str:

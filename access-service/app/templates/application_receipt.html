@@ -19,7 +19,7 @@
   <section class="receipt-section" aria-labelledby="receipt-grants-title">
     <div class="receipt-section-heading"><h2 id="receipt-grants-title">授权环境</h2><span>{{ result.environments|length }} 个环境</span></div>
     <ul class="receipt-environments">
-      {% for env in result.environments %}<li><strong>{{ env.environment }}</strong><span>{{ env.expires_at|application_expiry ~ ' 到期' if env.expires_at else '长期有效' }}</span></li>{% endfor %}
+      {% for env in result.environments %}<li><strong>{{ env.alias or env.environment }}</strong><span>{{ env.expires_at|application_expiry ~ ' 到期' if env.expires_at else '长期有效' }}</span></li>{% endfor %}
     </ul>
     <p class="receipt-caption">以上为本次审批记录，实际访问权限以当前配置为准。</p>
   </section>

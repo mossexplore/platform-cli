@@ -7,7 +7,7 @@ from fastapi.responses import RedirectResponse
 from sqlalchemy import delete, func, or_, select
 from sqlalchemy.exc import IntegrityError
 from .admin_auth import admin_session, authorize_form
-from .application_review import approve, fingerprint, identity, reject, review_state
+from .application_review import approve, fingerprint, identity, reject, review_state, application_result
 from .models import AccessApplication, ApplicationAttempt, now
 from .pagination import PAGE_SIZE
 from .security import digest
@@ -73,7 +73,7 @@ def receipt(request: Request, token: str):
         item = db.scalar(select(AccessApplication).where(AccessApplication.token_hash == digest(token)))
         if not item:
             raise HTTPException(404, '查询链接无效')
-        return render(request, 'apply.html', item=item, result=json.loads(item.result))
+        return render(request, 'apply.html', item=item, result=application_result(db, item))
 
 
 @router.get('/admin/applications')
@@ -117,7 +117,7 @@ def detail(request: Request, application_id: int):
         context = admin_context(request, db)
         item = get_application(db, application_id)
         return render(request, 'application_detail.html', **context, item=item,
-                      result=json.loads(item.result))
+                      result=application_result(db, item))
 
 
 @router.post('/admin/applications/{application_id}/preview')

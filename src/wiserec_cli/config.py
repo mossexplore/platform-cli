@@ -186,6 +186,8 @@ class ConfigManager:
             if not isinstance(item, dict):
                 raise ConfigError("profiles 中的每一项都必须是对象")
             name = item.get("name")
+            if "alias" in item and (not isinstance(item["alias"], str) or not item["alias"].strip()):
+                raise ConfigError("profile.alias 必须是非空字符串")
             endpoint = item.get("api_endpoint")
             parsed = urlsplit(endpoint) if isinstance(endpoint, str) else None
             if not isinstance(name, str) or not name:
@@ -302,6 +304,7 @@ class ConfigManager:
                 api_endpoint=item["api_endpoint"],
                 output_format=item.get("output_format", "table"),
                 verify_ssl=item.get("verify_ssl"),
+                alias=item.get("alias", item["name"]),
             )
             for item in self._data["profiles"]
         ]

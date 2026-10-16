@@ -91,3 +91,22 @@ def test_tampered_selected_business_id_never_reaches_service(tmp_path):
     rows, check = capture_rows(runtime)
     assert rows[0]["状态"] == "业务信息异常"
     check.assert_not_called()
+
+
+def test_environment_list_displays_alias_but_matches_original_identifier(tmp_path):
+    runtime = make_runtime(tmp_path)
+    data = json.loads(runtime.config.path.read_text())
+    data['profiles'][0]['alias'] = '开发环境'
+    runtime.config.path.write_text(json.dumps(data))
+    runtime = make_runtime_with_existing_config(runtime)
+    rows, _ = capture_rows(runtime)
+    assert rows[0]['环境标识'] == '开发环境'
+    assert rows[0]['当前在用环境'] == '*'
+    assert rows[1]['环境标识'] == 'test'
+    runtime.config.use_profile('dev')
+    assert runtime.config.current_name == 'dev'
+
+
+def make_runtime_with_existing_config(runtime):
+    return Runtime(config_path=runtime.config.path, credential_path=runtime.credentials.path,
+                   business_path=runtime.business.path)

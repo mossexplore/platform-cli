@@ -25,12 +25,14 @@
     {
       "name": "test",
       "api_endpoint": "https://console-test.cloudtest.cn/dashboard",
-      "output_format": "table"
+      "output_format": "table",
+      "alias": "测试环境"
     },
     {
       "name": "dev",
       "api_endpoint": "https://console-dev.cloudtest.cn/dashboard",
-      "output_format": "table"
+      "output_format": "table",
+      "alias": "开发环境"
     }
   ]
 }

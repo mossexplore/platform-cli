@@ -38,7 +38,7 @@
   <section class="record-panel" aria-labelledby="environments-title">
     <div class="record-section-heading"><h2 id="environments-title">授权环境 <span class="record-count">{{ result.environments|length }}</span></h2><span>本次审批记录</span></div>
     <div class="record-table-wrap"><table class="record-table"><thead><tr><th scope="col">环境</th><th scope="col">处理结果</th><th scope="col">有效期至（北京时间）</th></tr></thead><tbody>
-    {% for env in result.environments %}<tr><th scope="row">{{ env.environment }}</th><td><span class="record-grant {{ 'preserved' if env.action == 'preserved' else '' }}">{{ '保留已有授权' if env.action == 'preserved' else '已开通' }}</span></td><td>{{ env.expires_at|application_expiry if env.expires_at else '长期有效' }}</td></tr>{% endfor %}
+    {% for env in result.environments %}<tr><th scope="row">{{ env.alias or env.environment }}</th><td><span class="record-grant {{ 'preserved' if env.action == 'preserved' else '' }}">{{ '保留已有授权' if env.action == 'preserved' else '已开通' }}</span></td><td>{{ env.expires_at|application_expiry if env.expires_at else '长期有效' }}</td></tr>{% endfor %}
     </tbody></table></div>
     <p class="record-footnote">以上为审批时的授权结果，实际访问权限以当前配置为准。</p>
   </section>

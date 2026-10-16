@@ -235,6 +235,18 @@ class ConfigManagerTest(unittest.TestCase):
         self.assertEqual(self.path.read_bytes(), original)
         self.assertFalse(self.path.with_name(".config.json.installed").exists())
 
+    def test_profile_alias_is_optional_and_validated(self):
+        data = json.loads(self.path.read_text())
+        self.assertEqual(ConfigManager(self.path).current_profile().alias, 'dev')
+        data['profiles'][0]['alias'] = '开发环境'
+        self.path.write_text(json.dumps(data))
+        self.assertEqual(ConfigManager(self.path).current_profile().alias, '开发环境')
+        for invalid in ('', '   ', None, 123):
+            data['profiles'][0]['alias'] = invalid
+            self.path.write_text(json.dumps(data))
+            with self.assertRaisesRegex(ConfigError, 'profile.alias'):
+                ConfigManager(self.path)
+
 
 if __name__ == "__main__":
     unittest.main()

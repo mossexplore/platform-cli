@@ -95,7 +95,7 @@ def approve(db, actor, application_id, username, display_name, selected, expires
             db.add(grant)
         elif not active:
             grant.enabled, grant.expires_at = True, expires
-        result.append({'environment': env['name'], 'environment_id': env['id'],
+        result.append({'environment': env['name'], 'alias': env['display_name'] or env['name'], 'environment_id': env['id'],
                        'expires_at': grant.expires_at.isoformat() if grant.expires_at else None,
                        'action': 'preserved' if active else 'granted'})
     user.updated_at, user.updated_by = now(), actor.username
@@ -122,3 +122,20 @@ def reject(db, actor, application_id, reason):
         'application_id': item.id, 'username': item.username, 'name': item.display_name,
         'reason': item.reason}, ensure_ascii=False)))
     db.commit()
+
+
+def application_result(db, item):
+    """补全旧申请的环境别名，保留新申请审批时保存的显示名。"""
+    result = json.loads(item.result)
+    entries = result.get('environments', [])
+    if not entries or all(entry.get('alias') for entry in entries):
+        return result
+    environments = db.scalars(select(Environment)).all()
+    by_id = {env.id: env for env in environments}
+    by_name = {env.name: env for env in environments}
+    for entry in entries:
+        if entry.get('alias'):
+            continue
+        env = by_id.get(entry.get('environment_id')) or by_name.get(entry.get('environment'))
+        entry['alias'] = (env.display_name or env.name) if env else entry.get('environment', '')
+    return result

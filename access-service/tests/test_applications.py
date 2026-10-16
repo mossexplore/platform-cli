@@ -271,3 +271,37 @@ def test_disabled_person_duplicate_target_and_menu_label(system):
     assert '其他待审批申请' in preview(client, csrf, item_id, 'l00222222').text
     html = client.get('/cli-permission/admin/applications').text
     assert '>调用日志</a>' in html and '>CLI 调用日志</a>' not in html
+
+
+def test_environment_alias_in_receipt_detail_and_legacy_results(system):
+    app, client, _ = system
+    with app.state.sessions() as db:
+        db.scalar(select(Environment).where(Environment.name == 'prod')).display_name = '生产环境别名'
+        db.commit()
+    receipt = submit(client).headers['location']
+    csrf = login(client)
+    item_id = application_id(app)
+    response = client.post(f'/cli-permission/admin/applications/{item_id}/approve',
+                           data=approval(client, csrf, item_id))
+    assert response.status_code == 200
+    for url in (receipt, f'/cli-permission/admin/applications/{item_id}'):
+        assert '生产环境别名' in client.get(url).text
+    with app.state.sessions() as db:
+        item = db.get(AccessApplication, item_id)
+        result = json.loads(item.result)
+        assert result['environments'][0]['environment'] == 'prod'
+        assert result['environments'][0]['alias'] == '生产环境别名'
+        db.scalar(select(Environment)).display_name = '新别名'
+        db.commit()
+    assert '生产环境别名' in client.get(receipt).text
+    with app.state.sessions() as db:
+        item = db.get(AccessApplication, item_id)
+        result = json.loads(item.result)
+        for env in result['environments']:
+            env.pop('alias')
+        item.result = json.dumps(result)
+        db.commit()
+    for url in (receipt, f'/cli-permission/admin/applications/{item_id}'):
+        assert '新别名' in client.get(url).text
+    with app.state.sessions() as db:
+        assert 'alias' not in json.loads(db.get(AccessApplication, item_id).result)['environments'][0]
