@@ -31,7 +31,7 @@ def test_environment_create_edit_and_audit(system):
         audit = db.scalar(select(Audit).where(Audit.action == 'environments.save').order_by(Audit.id.desc()))
         assert json.loads(audit.detail)['after']['default_grant'] == 'True'
     page = client.get('/cli-permission/admin?tab=environments').text
-    assert '<th>默认开通环境</th>' in page
+    assert '<th>默认开通</th>' in page
     assert 'name="default_grant" value="true" checked' in page
     data.pop('default_grant')
     assert client.post('/cli-permission/admin/environments', data=data).status_code == 200

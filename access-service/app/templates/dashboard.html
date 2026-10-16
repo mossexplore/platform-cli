@@ -17,7 +17,7 @@
 {% if tab == 'grants' %}{% include 'grant_accounts.html' %}{% else %}
 <div class="table-scroll"><table {% if tab == 'environments' %}class="environment-table"{% elif tab == 'audit' %}class="audit-table"{% endif %}><thead><tr>
 {% if tab == 'users' %}<th>人员</th><th>平台账号</th><th>账号状态</th><th>授权配置</th><th class="actions">操作</th>
-{% elif tab == 'environments' %}<th>环境名称</th><th>环境标识</th><th>平台地址</th><th>默认开通环境</th><th>状态</th><th>创建时间</th><th>修改时间</th><th>最新操作人</th><th class="actions">操作</th>
+{% elif tab == 'environments' %}<th>环境名称</th><th>环境标识</th><th>平台地址</th><th>默认开通</th><th>状态</th><th>创建时间</th><th>修改时间</th><th>最新操作人</th><th class="actions">操作</th>
 {% else %}<th>操作人</th><th>姓名</th><th>操作类型</th><th>变更摘要</th><th>操作时间</th><th class="actions">详情</th>{% endif %}
 </tr></thead><tbody>
 {% for item in items %}<tr>
