@@ -199,6 +199,14 @@ gh release view "v$RELEASE_VERSION" --json isDraft,isPrerelease,publishedAt,url,
   - 当前发现
   - 下一步计划
 
+## Cursor Cloud specific instructions
+
+- 开发用 Python 3.12 虚拟环境位于 `/opt/wiserec-venv`。`python`、`ml` 和 `pytest` 已在 PATH 上。`/usr/local/bin/python` 必须保持为包装脚本；改成指向虚拟环境解释器的符号链接后，Python 会退回系统前缀，已安装的包会无法导入。
+- 环境启动后本机 MySQL 8 监听 `127.0.0.1:3306`。连接串和 `COOKIE_SECURE=false` 在 `/opt/cli-access-dev/service.env`。不要提交该文件。
+- 在 `access-service` 目录用 `SERVICE_ENV_FILE=/opt/cli-access-dev/service.env python -m app.serve` 启动权限服务。健康检查地址是 `http://127.0.0.1:8008/cli-permission/healthz`。本地超级管理员账号是 `cloud-admin`，密码在 `/opt/cli-access-dev/admin.password`。
+- 测试与 CI 相同：先设置 `_TYPER_FORCE_DISABLE_TERMINAL=1`，再执行 `python -m pytest tests -q`、`PYTHONPATH=access-service python -m pytest access-service/tests -q`，以及 `node --test access-service/tests/test_time_presets.cjs access-service/tests/test_environment_pills.cjs`。
+- 未预装 Playwright 浏览器。对真实平台执行 `ml login` 之前，先运行 `python -m playwright install chromium`。
+
 ## 模块大小与可维护性
 
 - 单个模块原则上必须小于 `500 LoC`，测试代码不计入。
