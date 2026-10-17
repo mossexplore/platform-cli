@@ -192,7 +192,7 @@ def test_dry_run_table(invoke, backend):
     assert result.exit_code == 0, result.output
     assert all(s in result.stdout for s in ['1、基本信息', '2、部署区域', '3、扩展参数', '4、服务文档',
                                           '2.1、area-a-cluster', '2.2、area-b-cluster', '停用'])
-    assert '[提示] 预览完成，未提交部署' in result.stderr
+    assert '预览完成，未提交部署' in result.stderr
     assert not backend.publishes
 
 

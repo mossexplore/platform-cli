@@ -217,6 +217,6 @@ def test_category_and_file_tables_are_not_duplicated(invoke):
         result = invoke(['logs', 'service'], handler)
     assert result.exit_code == 0, result.output
     assert events == [
-        ('table', ['编号', '日志类别']), ('prompt', '[提示] 请选择日志类别'),
-        ('table', ['编号', '文件名称', '大小', '修改时间']), ('prompt', '[提示] 请选择日志文件')]
+        ('table', ['编号', '日志类别']), ('prompt', '请选择日志类别'),
+        ('table', ['编号', '文件名称', '大小', '修改时间']), ('prompt', '请选择日志文件')]
     assert result.stdout == '[INFO] line\nsecond'

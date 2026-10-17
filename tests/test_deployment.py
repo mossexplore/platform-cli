@@ -245,10 +245,10 @@ def test_partial_failure_continues_and_preserves_json(invoke, case):
 
 def test_empty_list_and_no_associations(invoke):
     result = invoke(['list'], lambda r: httpx.Response(200, json={'result': {'code': 0, 'count': 0, 'deployTemplates': []}}))
-    assert result.exit_code == 0 and '暂无部署模板' in result.stderr
+    assert result.exit_code == 0 and '暂无部署模板' in result.stdout
     handler = Mock(return_value=httpx.Response(200, json={'result': {'code': 0, 'template': {}}}))
     result = invoke(['detail', ID], handler)
-    assert result.exit_code == 0 and '暂无关联容器资源模板' in result.stderr
+    assert result.exit_code == 0 and '暂无关联容器资源模板' in result.stdout
     assert handler.call_count == 1
 
 

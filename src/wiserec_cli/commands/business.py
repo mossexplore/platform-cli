@@ -56,7 +56,7 @@ def _choose(
 ) -> T:
     if not values:
         raise BusinessError(f"没有可选择的{title}")
-    msg.info(f"请选择{title}：")
+    msg.detail(f"请选择{title}：")
     for index, (label, value) in enumerate(values, start=1):
         style = style_for(value) if style_for else None
         console.print(
@@ -249,16 +249,16 @@ def use_business(
                             raise _Back()
                         if confirmation == "q":
                             raise _Cancel()
-                        msg.info("请输入 y、b 或 q")
+                        msg.detail("请输入 y、b 或 q")
                         continue
                     stage += 1
                 except _Back:
                     if stage == 0:
-                        msg.info("已经是第一级，请选择部门或输入 q 取消")
+                        msg.detail("已经是第一级，请选择部门或输入 q 取消")
                     else:
                         stage -= 1
                 except _Cancel:
-                    msg.info("已取消业务切换")
+                    msg.detail("已取消业务切换")
                     return
             selected_department = department_value.id
             selected_tenant = tenant_value.id

@@ -14,7 +14,7 @@ from .. import messages as msg
 from ..history_recording import config_location, safe_text
 from ..history_store import HistoryStore
 from ..models import BEIJING_TIMEZONE
-from ..output import console, print_result
+from ..output import print_text, console, print_result
 from .common import fail
 
 history_app = typer.Typer(invoke_without_command=True, help='查看和管理本地命令历史')
@@ -60,7 +60,7 @@ def render_rows(rows):
             Text(safe_text(row['command'])))
     console.print(table)
     if not rows:
-        msg.info('暂无匹配的历史记录')
+        print_text('暂无匹配的历史记录')
 
 
 def browse(rows):
@@ -72,7 +72,7 @@ def browse(rows):
     pages = (len(rows) + size - 1) // size
     while True:
         render_rows(rows[page * size:(page + 1) * size])
-        msg.info(f'第 {page + 1} / {pages} 页 · 共 {len(rows)} 条记录')
+        print_text(f'第 {page + 1} / {pages} 页 · 共 {len(rows)} 条记录')
         while True:
             try:
                 with redirect_stdout(sys.stderr):
@@ -86,14 +86,14 @@ def browse(rows):
                 if page + 1 < pages:
                     page += 1
                     break
-                msg.info('已经是最后一页')
+                msg.detail('已经是最后一页')
             elif answer == 'p':
                 if page > 0:
                     page -= 1
                     break
-                msg.info('已经是第一页')
+                msg.detail('已经是第一页')
             else:
-                msg.info('请输入 n、p 或 q 后按回车')
+                msg.detail('请输入 n、p 或 q 后按回车')
 
 
 @history_app.callback()

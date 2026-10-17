@@ -10,7 +10,7 @@ from rich.text import Text
 from .. import messages as msg
 from .common import fail, runtime_from_context
 from .jupyter import display_time
-from ..output import console
+from ..output import print_text, console
 from ..webstudio.resolve import platform, resolve, show
 from ..webstudio.cache import ConnectionCache
 
@@ -61,7 +61,7 @@ def list_studios(context: typer.Context,
             table.add_row(*[Text(display_time(item.get(key)) if key == 'accessTime'
                                 else str(item.get(key) if item.get(key) is not None else '-')) for _, key in COLUMNS])
         console.print(table)
-        msg.info(f"第 {page} 页 · 本页 {len(result['envs'])} 条 · 总计 {result['count']} 条")
+        print_text(f"第 {page} 页 · 本页 {len(result['envs'])} 条 · 总计 {result['count']} 条")
     except Exception as exc:
         fail(exc)
 
@@ -72,7 +72,7 @@ def login_studio(context: typer.Context, env_id: str = typer.Argument(...),
     """重新建立并验证 Jupyter 连接，保存默认实例与短期会话缓存。"""
     try:
         connection = resolve(runtime_from_context(context), env_id, login=True, refresh=refresh,
-                             report=msg.info)
+                             report=msg.detail)
         msg.success(f'Web Studio 登录成功，默认实例：{connection.studio_id}')
     except Exception as exc:
         fail(exc)

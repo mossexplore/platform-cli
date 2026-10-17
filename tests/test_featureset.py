@@ -242,8 +242,8 @@ class FeatureSetCommandTest(unittest.TestCase):
         self.assertEqual(json.loads(result.stdout)["items"], [])
         result = self.invoke(FakeClient(), ["wide", "list"])
         self.assertEqual(result.exit_code, 0, result.output)
-        self.assertIn("暂无特征集", result.stderr)
-        self.assertIn("第 1 页 · 每页 10 条 · 共 0 条", result.stderr)
+        self.assertIn("暂无特征集", result.stdout)
+        self.assertIn("第 1 页 · 每页 10 条 · 共 0 条", result.stdout)
 
     def test_invalid_options_do_not_call_api(self):
         for option in (["--page", "0"], ["--page-size", "-1"], ["--page", "1.5"],

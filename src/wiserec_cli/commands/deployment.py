@@ -10,7 +10,7 @@ from rich.text import Text
 
 from .. import messages as msg
 from ..errors import BusinessError
-from ..output import console
+from ..output import print_text, console
 from ..services.deployment import DeploymentTemplateService
 from .common import fail, runtime_from_context
 from .model import selected_output
@@ -103,8 +103,8 @@ def render_list(payload, page, page_size, output):
     first.no_wrap, first.overflow = True, 'ignore'
     console.print(table)
     if not items:
-        msg.info('暂无部署模板')
-    msg.info(f"第 {page} 页 · 每页 {page_size} 条 · 本页 {len(items)} 条 · 共 {result['count']} 条")
+        print_text('暂无部署模板')
+    print_text(f"第 {page} 页 · 每页 {page_size} 条 · 本页 {len(items)} 条 · 共 {result['count']} 条")
 
 
 def render_detail(payload, output):
@@ -122,9 +122,9 @@ def render_detail(payload, output):
         console.print(table_for([title for title, _ in RESOURCE_COLUMNS],
                                [[value(field, item) for _, field in RESOURCE_COLUMNS] for item in rows]))
     elif not resources:
-        msg.info('暂无关联容器资源模板')
+        print_text('暂无关联容器资源模板')
     else:
-        msg.info('暂无匹配的容器资源模板')
+        print_text('暂无匹配的容器资源模板')
     for entry in resources:
         if entry['error']:
             msg.warning(f"{entry['requestedName']}：{entry['error']}")

@@ -97,7 +97,7 @@ def test_root_parser_errors_are_prefixed_and_chinese(args, expected):
     assert result.stdout == ''
     assert result.stderr.startswith('[错误] ')
     assert expected in result.stderr
-    assert '[提示] 请执行 ml --help 查看用法' in result.stderr
+    assert '请执行 ml --help 查看用法' in result.stderr
     assert '\x1b[' not in result.stderr
 
 
@@ -115,7 +115,7 @@ def test_nested_parser_errors(tmp_path, args, expected):
     assert result.stdout == ''
     assert result.stderr.startswith('[错误] ')
     assert expected in result.stderr
-    assert '[提示] 请执行 ml ' in result.stderr
+    assert '请执行 ml ' in result.stderr
 
 
 def test_help_version_and_command_tree_remain_data():
@@ -127,7 +127,7 @@ def test_help_version_and_command_tree_remain_data():
 
 
 @pytest.mark.parametrize('answer,expected', [('y\n', True), ('n\n', False), ('\n', False), ('bad\ny\n', True)])
-def test_confirmation_and_invalid_answer_are_prefixed(answer, expected):
+def test_confirmation_is_plain_and_invalid_answer_is_error(answer, expected):
     application = typer.Typer()
 
     @application.command()
@@ -137,7 +137,7 @@ def test_confirmation_and_invalid_answer_are_prefixed(answer, expected):
     result = runner().invoke(application, [], input=answer)
     assert result.exit_code == 0
     assert json.loads(result.stdout) == {'confirmed': expected}
-    assert '[提示] 确认执行？ [y/N]' in result.stderr
+    assert '确认执行？ [y/N]' in result.stderr
     assert ('[错误] 请输入 y 或 n' in result.stderr) is answer.startswith('bad')
     assert 'Error:' not in result.stderr
 
@@ -145,14 +145,50 @@ def test_confirmation_and_invalid_answer_are_prefixed(answer, expected):
 def test_progress_uses_shared_message_rendering():
     progress = Progress()
     progress.add_task('下载日志', total=1)
-    assert msg.MessageColumn().render(progress.tasks[0]).plain == '[提示] 下载日志'
+    assert msg.MessageColumn().render(progress.tasks[0]).plain == '下载日志'
+
+
+def test_result_text_is_plain_stdout_and_context_is_plain_stderr(capsys):
+    from wiserec_cli.output import print_text
+    print_text('第 1 页 · 每页 10 条 · 共 0 条')
+    print_text('暂无数据集记录')
+    msg.detail('Pod：example · 文件：app.log')
+    output = capsys.readouterr()
+    assert output.out == '第 1 页 · 每页 10 条 · 共 0 条\n暂无数据集记录\n'
+    assert output.err == 'Pod：example · 文件：app.log\n'
+
+
+def test_broken_framework_error_formatter_falls_back_without_traceback(capsys):
+    import click
+    from wiserec_cli.command_errors import show_usage_error
+    exc = click.UsageError("No such command 'invalid'.")
+    with patch.object(exc, 'format_message', side_effect=TypeError('formatter failed')):
+        show_usage_error(exc)
+    output = capsys.readouterr()
+    assert not output.out
+    assert output.err == "[错误] 未知命令 'invalid'.\n请执行 ml --help 查看用法\n"
+
+
+@pytest.mark.parametrize('exception,code', [
+    (RuntimeError('运行时初始化失败'), 1),
+    (ValueError('参数不正确'), 1),
+])
+def test_cli_entrypoint_contains_unexpected_exceptions(exception, code, capsys):
+    from wiserec_cli.cli import run
+    with patch('wiserec_cli.cli.app', side_effect=exception), pytest.raises(SystemExit) as exited:
+        run()
+    assert exited.value.code == code
+    output = capsys.readouterr()
+    assert not output.out
+    assert output.err.startswith('[错误] 命令执行失败：')
+    assert 'Traceback' not in output.err
 
 
 @pytest.mark.parametrize('message,prefix', [
     ('自动保活已启动（环境 dev）', '[成功]'),
     ('警告：自动保活启动失败', '[警告]'),
     ('无法识别当前终端窗口，未启动自动保活', '[警告]'),
-    ('尚未选择业务，选择后将启动自动保活', '[提示]'),
+    ('尚未选择业务，选择后将启动自动保活', '尚未选择业务'),
 ])
 def test_ping_status_severity(message, prefix, capsys):
     msg.ping_status(message)

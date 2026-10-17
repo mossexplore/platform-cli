@@ -410,11 +410,11 @@ class AuthManager:
         credentials = self.store.load(profile.name)
 
         if force_refresh:
-            msg.info(f"正在刷新环境 {profile.name!r} 的认证信息...")
+            msg.detail(f"正在刷新环境 {profile.name!r} 的认证信息...")
         elif credentials is None:
             msg.info(f"环境 {profile.name!r} 尚未登录，将打开 Edge 获取认证信息。")
         elif credentials.is_expired():
-            msg.info(f"环境 {profile.name!r} 的本地认证空闲时间已到，正在校验平台会话...")
+            msg.detail(f"环境 {profile.name!r} 的本地认证空闲时间已到，正在校验平台会话...")
             try:
                 if self._probe_cached_credentials(profile, credentials):
                     return self.store.extend_if_current(

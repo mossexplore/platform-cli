@@ -82,10 +82,10 @@ def deploy(context: typer.Context,
         with redirect_stdout(sys.stderr) if selected == 'json' else redirect_stdout(sys.stdout):
             preview(payload, template, identity, template_id, request_file, response_file, framework_names)
         if dry_run:
-            msg.info('预览完成，未提交部署')
+            msg.detail('预览完成，未提交部署')
             return
         if not yes and not msg.confirm('确认提交以上部署配置？', err=True):
-            msg.info('已取消部署')
+            msg.detail('已取消部署')
             return
         def publish(client):
             if context_identity(runtime, client) != identity:

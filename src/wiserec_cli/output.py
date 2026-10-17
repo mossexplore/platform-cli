@@ -7,10 +7,16 @@ from typing import Any
 
 from rich.console import Console
 from rich.table import Table
+from rich.text import Text
 
 
 console = Console()
 error_console = Console(stderr=True)
+
+
+def print_text(value: object) -> None:
+    """列表统计、空结果、字段等结果正文，不添加消息级别。"""
+    console.print(Text(str(value)), highlight=False, soft_wrap=True)
 
 
 def print_result(value: Any, output_format: str = "table", *, wrap_columns=(), row_style=None) -> None:

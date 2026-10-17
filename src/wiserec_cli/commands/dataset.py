@@ -14,7 +14,7 @@ from rich.text import Text
 
 from .. import messages as msg
 from ..errors import BusinessError
-from ..output import console, print_result
+from ..output import print_text, console, print_result
 from ..services.dataset import DatasetService
 from .common import fail, runtime_from_context
 
@@ -100,8 +100,8 @@ def render_list(result: dict[str, Any], output: str) -> None:
                         for _, field in LIST_COLUMNS))
     console.print(table)
     if not result["items"]:
-        msg.info("暂无数据集记录")
-    msg.info(f"第 {result['pageIndex']} 页 · 每页 {result['pageSize']} 条 · 共 {result['total']} 条")
+        print_text("暂无数据集记录")
+    print_text(f"第 {result['pageIndex']} 页 · 每页 {result['pageSize']} 条 · 共 {result['total']} 条")
 
 
 def render_detail(data: dict[str, Any], output: str) -> None:

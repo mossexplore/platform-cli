@@ -267,7 +267,7 @@ def clone_experiment(
 
         result = runtime.authenticated_call(clone)
         if result is None:
-            msg.info("已取消克隆")
+            msg.detail("已取消克隆")
             return
         selected = output or runtime.config.current_profile().output_format
         print_result(result, selected)

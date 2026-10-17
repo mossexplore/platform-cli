@@ -15,18 +15,18 @@ class LoginProgress:
         self.status = None
 
     def __enter__(self):
-        msg.info(f"正在登录【{self.alias}】")
+        msg.detail(f"正在登录【{self.alias}】")
         message = "正在打开登录页面…"
         if msg.error_console.is_terminal and not msg.error_console.is_dumb_terminal:
-            self.status = msg.error_console.status(msg.render(message), spinner="dots")
+            self.status = msg.error_console.status(message, spinner="dots")
             self.status.start()
         else:
-            msg.info(message)
+            msg.detail(message)
         return self
 
     def update(self, message):
         if self.status is not None:
-            self.status.update(msg.render(message))
+            self.status.update(message)
 
     def stop(self):
         if self.status is not None:

@@ -14,7 +14,7 @@ from rich.text import Text
 from .. import messages as msg
 from ..errors import BusinessError
 from ..models import BEIJING_TIMEZONE
-from ..output import console
+from ..output import print_text, console
 from ..services.model import ModelService
 from .common import fail, runtime_from_context
 
@@ -94,8 +94,8 @@ def render_list(payload, page, page_size, output):
         table.add_row(*(Text(display_value(field, item.get(field))) for _, field in LIST_COLUMNS))
     console.print(table)
     if not result['models']:
-        msg.info('暂无模型')
-    msg.info(f"第 {page} 页 · 每页 {page_size} 条 · 本页 {len(result['models'])} 条 · 共 {result['count']} 条")
+        print_text('暂无模型')
+    print_text(f"第 {page} 页 · 每页 {page_size} 条 · 本页 {len(result['models'])} 条 · 共 {result['count']} 条")
 
 
 def render_detail(payload, output):

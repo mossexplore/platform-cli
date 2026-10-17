@@ -83,7 +83,7 @@ def select_host(query, interactive):
             return items[0]
         if not interactive:
             raise ValueError('主机无法唯一确定，请同时指定 --pod 和 --cluster-name')
-        msg.info(f"主机列表 · 第 {page} 页 · 共 {result['total']} 条")
+        msg.detail(f"主机列表 · 第 {page} 页 · 共 {result['total']} 条")
         error_console.print(host_table(items))
         with redirect_stdout(sys.stderr):
             answer = str(click.prompt(msg.prompt_text('输入编号选择，n 下一页，p 上一页，q 退出'), err=True)).strip().lower()
@@ -93,16 +93,16 @@ def select_host(query, interactive):
             if page * result['pageSize'] < result['total']:
                 page += 1
             else:
-                msg.info('已经是最后一页')
+                msg.detail('已经是最后一页')
         elif answer == 'p':
             if page > 1:
                 page -= 1
             else:
-                msg.info('已经是第一页')
+                msg.detail('已经是第一页')
         elif answer.isdecimal() and 1 <= int(answer) <= len(items):
             return items[int(answer) - 1]
         else:
-            msg.info('请输入当前页有效编号或 n、p、q')
+            msg.detail('请输入当前页有效编号或 n、p、q')
 
 
 def file_table(files):
@@ -187,10 +187,10 @@ def service_logs(
         if list_only:
             console.print(file_table(files))
             if not files:
-                msg.info('暂无日志文件')
+                msg.detail('暂无日志文件')
             return
         if not files and file_name is None:
-            msg.info('暂无日志文件')
+            msg.detail('暂无日志文件')
             return
         if file_name is not None:
             files = [item for item in files if item.get('fileName') == file_name]
@@ -199,13 +199,13 @@ def service_logs(
         name = selected.get('fileName')
         if not isinstance(name, str) or not name.strip():
             raise ApiError('日志文件缺少有效的 fileName')
-        msg.info(f"Pod：{host['nodeName']} · 文件：{name} · {search_order} {lines} 行")
+        msg.detail(f"Pod：{host['nodeName']} · 文件：{name} · {search_order} {lines} 行")
         content = call(lambda service: service.search_pod_log(
             host['nodeName'], host['clusterName'], log_type, name, keywords or [],
             lines, search_order, grep_scope, grep_line, infra_type=infra))
         typer.echo(content, nl=False)
     except (KeyboardInterrupt, EOFError, click.Abort):
-        msg.info('已取消')
+        msg.detail('已取消')
         raise typer.Exit(130)
     except Exception as exc:
         fail(exc)

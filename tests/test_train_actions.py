@@ -194,7 +194,7 @@ class TrainActionsTest(unittest.TestCase):
         }}])
         self.assertEqual(detail["name"], "old")
         self.assertEqual(detail["taskInfo"]["createUser"], "source-user")
-        self.assertIn("新任务 ID：new-id", result.stderr)
+        self.assertIn("新任务 ID：new-id", result.stdout)
 
 
 if __name__ == "__main__":

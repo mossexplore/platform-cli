@@ -81,8 +81,8 @@ class InvocationGroup(TyperGroup):
             code = 130 if isinstance(exc, KeyboardInterrupt) else 1
             if not standalone:
                 raise
-            from .messages import info
-            info('已取消操作')
+            from .messages import detail
+            detail('已取消操作')
             raise SystemExit(code) from None
         finally:
             try:

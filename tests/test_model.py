@@ -147,7 +147,7 @@ def test_list_preserves_id_and_wraps_long_fields_in_narrow_console():
     payload['result']['models'][0]['name'] = 'very-long-model-name-' * 8
     stream = StringIO()
     console = Console(file=stream, color_system=None, width=80)
-    with patch('wiserec_cli.commands.model.console', console), patch('wiserec_cli.messages.error_console', console):
+    with patch('wiserec_cli.commands.model.console', console), patch('wiserec_cli.output.console', console):
         render_list(payload, 1, 10, 'table')
     text = stream.getvalue()
     assert MODEL_ID in text
@@ -169,7 +169,7 @@ def test_list_table_missing_fields_and_empty_page(invoke):
     assert '-' in result.stdout
     result = invoke(['list', '--page', '3'], lambda request: httpx.Response(200, json={'result': {'count': 0, 'models': []}}))
     assert result.exit_code == 0
-    assert '暂无模型' in result.stderr and '第 3 页' in result.stderr
+    assert '暂无模型' in result.stdout and '第 3 页' in result.stdout
 
 
 @pytest.mark.parametrize('payload', [

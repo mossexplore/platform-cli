@@ -83,7 +83,7 @@ def test_spinner_updates_and_stops_on_failure():
                 progress.update('等待浏览器完成登录…')
                 raise RuntimeError('failed')
     status.start.assert_called_once()
-    assert status.update.call_args.args[0].plain == '[提示] 等待浏览器完成登录…'
+    status.update.assert_called_once_with('等待浏览器完成登录…')
     status.stop.assert_called_once()
 
 

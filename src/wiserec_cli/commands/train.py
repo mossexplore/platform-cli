@@ -15,7 +15,7 @@ from rich.text import Text
 from rich.progress import Progress, BarColumn, DownloadColumn
 
 from .. import messages as msg
-from ..output import console, error_console, print_result
+from ..output import print_text, console, error_console, print_result
 from ..downloads import download_file
 from ..services.train import TrainService
 from ..services.train_export import export_config
@@ -107,11 +107,11 @@ def render_page(
     console.print(table)
     if not result["items"]:
         empty_message = "暂无执行实例" if task is not None else "暂无训练任务"
-        msg.info("暂无执行记录" if history_task_id is not None else empty_message)
-    msg.info(f"第 {result['pageIndex']} 页 · 每页 {result['pageSize']} 条 · 共 {result['count']} 条")
+        print_text("暂无执行记录" if history_task_id is not None else empty_message)
+    print_text(f"第 {result['pageIndex']} 页 · 每页 {result['pageSize']} 条 · 共 {result['count']} 条")
     if (task is not None or history_task_id is not None) and result["count"] > 10:
         order = "倒序" if history_task_id is not None else "升序"
-        msg.info(f"当前仅展示第 1 页 10 条，暂不支持翻页；按开始时间{order}排列。")
+        print_text(f"当前仅展示第 1 页 10 条，暂不支持翻页；按开始时间{order}排列。")
 
 
 def selected_output(runtime: Any, output: Optional[str]) -> str:
@@ -175,9 +175,9 @@ def cancel_task(
         if not instances:
             msg.error("没有正在执行的任务，无法取消任务执行！")
             raise typer.Exit(code=1)
-        msg.info(f"训练任务 {task_id} 有 {len(instances)} 个执行实例待取消。")
+        msg.detail(f"训练任务 {task_id} 有 {len(instances)} 个执行实例待取消。")
         if not yes and not msg.confirm("确认逐个取消全部执行实例？", default=False):
-            msg.info("已取消操作")
+            msg.detail("已取消操作")
             return
         for instance in instances:
             job_id = instance["jobId"]
@@ -222,9 +222,9 @@ def delete_task(
             )
         if not isinstance(task.get("teamId"), str) or not isinstance(task.get("taskName"), str):
             raise ValueError("训练任务缺少 teamId 或 taskName，无法删除")
-        msg.info(f"待删除训练任务：{task['taskName']} · {task_id}（团队 {task['teamId'] or '-'}）")
+        msg.detail(f"待删除训练任务：{task['taskName']} · {task_id}（团队 {task['teamId'] or '-'}）")
         if not yes and not msg.confirm("确认软删除此任务？", default=False):
-            msg.info("已取消操作")
+            msg.detail("已取消操作")
             return
         with redirect_stdout(sys.stderr):
             runtime.authenticated_call(lambda client: TrainService(client).delete_task(task))
@@ -257,10 +257,10 @@ def clone_task(
 
         with redirect_stdout(sys.stderr):
             task, detail = runtime.authenticated_call(query)
-        msg.success(f"获取训练任务{task_id}详情成功")
-        msg.info(f"克隆为：{name}（源任务：{task.get('taskName') or task_id}）")
+        msg.detail(f"获取训练任务{task_id}详情成功")
+        msg.detail(f"克隆为：{name}（源任务：{task.get('taskName') or task_id}）")
         if not yes and not msg.confirm("确认克隆？", default=False):
-            msg.info("已取消克隆")
+            msg.detail("已取消克隆")
             return
         with redirect_stdout(sys.stderr):
             created_id = runtime.authenticated_call(
@@ -270,7 +270,7 @@ def clone_task(
             )
         msg.success(f"克隆训练任务{task_id}成功")
         if created_id:
-            msg.info(f"新任务 ID：{created_id}")
+            print_text(f"新任务 ID：{created_id}")
     except Exception as exc:
         fail(exc)
 
@@ -339,7 +339,7 @@ def download_logs(
             url = runtime.authenticated_call(
                 lambda client: TrainService(client).get_log_url(task_id, job_id)
             )
-        msg.info(f"下载地址：{url}")
+        msg.detail(f"下载地址：{url}")
         with Progress(msg.MessageColumn(), BarColumn(), DownloadColumn(),
                       console=error_console) as progress:
             progress_id = progress.add_task("下载日志", total=None)

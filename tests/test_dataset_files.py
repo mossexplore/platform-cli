@@ -35,7 +35,7 @@ def test_directory_navigation_and_beijing_display(fixture):
                        'size': 4096, 'lastModifyDate': 1725354614096}], 'hasMore': False}}})
     result = fixture.invoke(['files', 'list', 'dataset-id', '--dir', '/event'], handler)
     assert result.exit_code == 0, result.output
-    assert '当前位置：/event' in result.stderr
+    assert '当前位置：/event' in result.stdout
     assert '/event/20240815' in result.output
     assert '2024-09-03 17:10:14' in result.output
     assert child_path('/event', '/20240815') == '/event/20240815'
@@ -142,8 +142,8 @@ def test_empty_directory_still_displays_root(fixture):
     result = fixture.invoke(['files', 'list', 'id'], lambda request: httpx.Response(
         200, json={'result': {'code': 0, 'fileInfos': {'files': [], 'hasMore': False}}}))
     assert result.exit_code == 0, result.output
-    assert '当前位置：/' in result.stderr
-    assert '当前目录为空' in result.stderr
+    assert '当前位置：/' in result.stdout
+    assert '当前目录为空' in result.stdout
 
 
 def test_progress_stream_reads_in_bounded_chunks(tmp_path):

@@ -10,7 +10,7 @@ from rich.table import Table
 from rich.text import Text
 
 from .. import messages as msg
-from ..output import console, error_console, print_result
+from ..output import print_text, console, error_console, print_result
 from ..services.dataset_files import DatasetFilesService, child_path, normalize_dir, validate_file
 from .common import fail, runtime_from_context
 from .dataset import _selected_business, _selected_output, _size, _time
@@ -23,7 +23,7 @@ def render_files(payload, directory, output):
     if output == 'json':
         print_result({'currentDir': directory, 'response': payload}, output)
     else:
-        msg.info(f'当前位置：{directory}')
+        print_text(f'当前位置：{directory}')
         table = Table('类别', '文件名', '更新时间', '文件大小', '完整路径')
         for item in info['files']:
             table.add_row(Text('文件夹' if item['dir'] else '文件'), Text(item['name']),
@@ -33,7 +33,7 @@ def render_files(payload, directory, output):
                 style='yellow' if item['dir'] else None)
         console.print(table)
         if not info['files']:
-            msg.info('当前目录为空')
+            print_text('当前目录为空')
     if info['hasMore']:
         msg.warning('当前结果不完整，接口分页规则尚未提供')
 
@@ -80,7 +80,7 @@ def upload(context: typer.Context,
             print_result(payload, selected)
         else:
             msg.success(f'追加文件请求成功：{local_file.name}')
-            msg.info(f'当前位置：{directory}')
+            print_text(f'当前位置：{directory}')
             msg.info('可使用 files list 查询目录确认文件处理结果')
     except Exception as exc:
         fail(exc)

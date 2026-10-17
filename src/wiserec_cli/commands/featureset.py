@@ -13,7 +13,7 @@ import typer
 from rich.table import Table
 from rich.text import Text
 
-from ..output import console, error_console, print_result
+from ..output import print_text, console, error_console, print_result
 from ..services.featureset import FeatureSetService
 from .common import fail, runtime_from_context
 
@@ -59,8 +59,8 @@ def render_page(result: Dict[str, Any], output: str) -> None:
         table.add_row(*(Text(display_value(field, item.get(field))) for _, field in COLUMNS))
     console.print(table)
     if not result["items"]:
-        msg.info("暂无特征集")
-    msg.info(f"第 {result['pageIndex']} 页 · 每页 {result['pageSize']} 条 · 共 {result['count']} 条")
+        print_text("暂无特征集")
+    print_text(f"第 {result['pageIndex']} 页 · 每页 {result['pageSize']} 条 · 共 {result['count']} 条")
 
 
 @wide_app.command("list")

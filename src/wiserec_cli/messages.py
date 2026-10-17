@@ -53,6 +53,11 @@ def info(message: object) -> None:
     emit(message)
 
 
+def detail(message: object) -> None:
+    """辅助上下文、进度和操作引导，不额外标记消息级别。"""
+    error_console.print(Text(_CONTROL.sub("", str(message))), highlight=False, soft_wrap=True)
+
+
 def success(message: object) -> None:
     emit(message, "success")
 
@@ -66,9 +71,9 @@ def error(message: object) -> None:
 
 
 class MessageColumn(ProgressColumn):
-    """进度条沿用普通提示的前缀和颜色。"""
+    """进度名称保持原样，不添加消息级别。"""
     def render(self, task) -> Text:
-        return render(task.description)
+        return Text(task.description)
 
 
 def ping_status(message: str) -> None:
@@ -78,14 +83,11 @@ def ping_status(message: str) -> None:
     elif message.startswith("自动保活已启动"):
         success(message)
     else:
-        info(message)
+        detail(message)
 
 
 def prompt_text(message: str) -> str:
-    prefix = "[提示]"
-    if sys.stderr.isatty() and "NO_COLOR" not in os.environ:
-        prefix = typer.style(prefix, fg=typer.colors.CYAN)
-    return prefix + " " + message
+    return _CONTROL.sub("", message)
 
 
 def prompt(message: str, **kwargs):

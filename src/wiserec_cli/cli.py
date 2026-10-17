@@ -121,8 +121,24 @@ def configure_windows_output() -> None:
 
 
 def run() -> None:
-    configure_windows_output()
-    app()
+    import click
+    from . import messages as msg
+    from .command_errors import show_usage_error
+
+    try:
+        configure_windows_output()
+        app()
+    except click.ClickException as exc:
+        show_usage_error(exc)
+        raise SystemExit(exc.exit_code) from None
+    except KeyboardInterrupt:
+        msg.detail("已取消操作")
+        raise SystemExit(130) from None
+    except Exception as exc:
+        # 最外层边界也覆盖参数解析/运行时/历史记录等非业务路径。
+        # 禁止 Typer 将内部异常及局部变量直接打印到用户终端。
+        msg.error(f"命令执行失败：{exc}")
+        raise SystemExit(1) from None
 
 
 if __name__ == "__main__":

@@ -16,7 +16,7 @@ from rich.text import Text
 from .. import messages as msg
 from ..algorithm_download import download_algorithm
 from ..errors import BusinessError
-from ..output import console, error_console, print_result
+from ..output import print_text, console, error_console, print_result
 from ..services.algorithm import AlgorithmService
 from .common import fail, runtime_from_context
 
@@ -76,8 +76,8 @@ def _render_list(result: dict[str, Any], output: str) -> None:
         table.add_row(*(Text(_display(field, item.get(field))) for _, field in COLUMNS))
     console.print(table)
     if not result["items"]:
-        msg.info("暂无算法仓记录")
-    msg.info(f"第 {result['pageIndex']} 页 · 每页 {result['pageSize']} 条 · 共 {result['total']} 条")
+        print_text("暂无算法仓记录")
+    print_text(f"第 {result['pageIndex']} 页 · 每页 {result['pageSize']} 条 · 共 {result['total']} 条")
 
 
 @algorithm_app.command("list")
@@ -128,7 +128,7 @@ def download(
 
         with redirect_stdout(sys.stderr):
             url = runtime.authenticated_call(query)
-        msg.info(f"算法仓下载链接：{url}")
+        msg.detail(f"算法仓下载链接：{url}")
         with Progress(msg.MessageColumn(), BarColumn(), DownloadColumn(),
                       console=error_console) as progress:
             task = progress.add_task("下载算法仓", total=None)
@@ -155,9 +155,9 @@ def clone(
         if not source_id or not name.strip() or not version.strip():
             raise ValueError("源算法仓 ID、新名称和版本均不能为空")
         runtime = runtime_from_context(context)
-        msg.info(f"源算法仓：{source_id}；新名称：{name}；新版本：{version}")
+        msg.detail(f"源算法仓：{source_id}；新名称：{name}；新版本：{version}")
         if not yes and not msg.confirm("确认克隆算法仓？", default=False):
-            msg.info("已取消克隆")
+            msg.detail("已取消克隆")
             return
 
         def create(client):
@@ -168,6 +168,6 @@ def clone(
             created_id = runtime.authenticated_call(create)
         msg.success(f"克隆算法仓{source_id}成功，新名称：{name}，版本：{version}")
         if created_id:
-            msg.info(f"新算法仓 ID：{created_id}")
+            print_text(f"新算法仓 ID：{created_id}")
     except Exception as exc:
         fail(exc)

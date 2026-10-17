@@ -12,7 +12,7 @@ from rich.text import Text
 
 from .. import messages as msg
 from ..errors import AuthenticationError, BusinessError
-from ..output import console
+from ..output import print_text, console
 from ..services.resource import ResourceTemplateService
 from .common import fail, runtime_from_context
 from .model import display_value, selected_output
@@ -66,8 +66,8 @@ def render_list(payload, page, page_size, output):
     first.no_wrap, first.overflow = True, 'ignore'
     console.print(table)
     if not items:
-        msg.info('暂无容器资源模板')
-    msg.info(f"第 {page} 页 · 每页 {page_size} 条 · 本页 {len(items)} 条 · 共 {result['count']} 条")
+        print_text('暂无容器资源模板')
+    print_text(f"第 {page} 页 · 每页 {page_size} 条 · 本页 {len(items)} 条 · 共 {result['count']} 条")
 
 
 def resource_spec(data):
@@ -125,7 +125,7 @@ def render_detail(payload, framework, output):
                 (key, json.dumps(val, ensure_ascii=False) if isinstance(val, (dict, list)) else val)
                 for key, val in rows]))
     elif not parse_error:
-        msg.info('暂无参数配置')
+        print_text('暂无参数配置')
     console.print('3、扩展信息', style='bold cyan')
     for index, (title, field, headers, keys) in enumerate((
         ('环境变量', 'envs', ['变量名', '变量值'], ['envKey', 'envValue']),

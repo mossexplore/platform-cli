@@ -69,13 +69,13 @@ def install_resources(target: Path, source: Path = RESOURCE_ROOT) -> None:
 
 def main() -> int:
     target = Path(os.environ.get("OPENCODE_CONFIG_DIR") or Path.home() / ".config/opencode")
-    msg.info(f"OpenCode resource directory: {target}")
-    msg.info("WiseRec skill and /ml command are replaced on every installation; do not edit these files.")
+    msg.detail(f"OpenCode resource directory: {target}")
+    msg.detail("WiseRec skill and /ml command are replaced on every installation; do not edit these files.")
     try:
         install_resources(target)
     except Exception as error:
         msg.warning(f"OpenCode resource installation failed: {error}")
-        msg.info("CLI remains usable. Rerun the official installer to retry.")
+        msg.detail("CLI remains usable. Rerun the official installer to retry.")
         return 1
     msg.success("OpenCode skill and /ml command installed. Reopen your OpenCode session.")
     return 0

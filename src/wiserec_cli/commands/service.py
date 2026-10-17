@@ -14,7 +14,7 @@ from rich.text import Text
 
 from .. import messages as msg
 from ..errors import BusinessError
-from ..output import console, error_console, print_result
+from ..output import print_text, console, error_console, print_result
 from ..services.service import ServiceCatalog
 from .common import fail, runtime_from_context
 
@@ -145,15 +145,15 @@ def render_page(view: str, result: dict[str, Any], output: str) -> None:
         table.add_row(*(Text(display_value(field, item)) for _, field in columns))
     console.print(table)
     if not result["items"]:
-        msg.info({"list": "暂无服务记录", "host": "暂无服务主机记录",
+        print_text({"list": "暂无服务记录", "host": "暂无服务主机记录",
                        "deployment": "暂无服务部署记录"}[view])
     total = result.get("total")
     if total is None:
-        msg.info(f"第 {result['pageIndex']} 页 · 本页 {len(result['items'])} 条")
+        print_text(f"第 {result['pageIndex']} 页 · 本页 {len(result['items'])} 条")
     else:
-        msg.info(f"第 {result['pageIndex']} 页 · 每页 {result['pageSize']} 条 · 共 {total} 条")
+        print_text(f"第 {result['pageIndex']} 页 · 每页 {result['pageSize']} 条 · 共 {total} 条")
     if view != "list":
-        msg.info("详情视图仅显示第 1 页 10 条")
+        print_text("详情视图仅显示第 1 页 10 条")
 
 
 def _selected_output(runtime: Any, output: Optional[str]) -> str:
@@ -290,7 +290,7 @@ def list_log_files(
                             ("fileSize", "updateTime", "fileName")))
         console.print(table)
         if not files:
-            msg.info("暂无日志文件")
+            print_text("暂无日志文件")
     except Exception as exc:
         fail(exc)
 
