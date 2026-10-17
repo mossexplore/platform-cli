@@ -65,7 +65,7 @@ def test_no_authorization_prints_error_without_table(tmp_path, capsys):
         list_environments(None)
     table.assert_not_called()
     actual = ''.join(capsys.readouterr().err.splitlines())
-    assert actual == ('错误：请打开https://access.example.com/apply进行CLI权限申请'
+    assert actual == ('[错误] 请打开https://access.example.com/apply进行CLI权限申请'
                       '（若地址无法打开，将*.hwcloudtest.cn加入代理排除），权限通过后方可执行CLI命令')
 
 

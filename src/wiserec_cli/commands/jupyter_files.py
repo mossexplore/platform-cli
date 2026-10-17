@@ -1,4 +1,5 @@
 """面向人工及 Agent 的 Contents CLI。"""
+
 import json
 import sys
 from contextlib import contextmanager
@@ -7,6 +8,7 @@ from typing import Optional
 
 import typer
 
+from .. import messages as msg
 from ..jupyter import files
 from ..jupyter.connection import JupyterError
 
@@ -40,7 +42,7 @@ def operation(context, studio_id, output):
         if output == 'json':
             typer.echo(json.dumps({'status': 'FAILED', 'error': str(exc)}, ensure_ascii=False))
         else:
-            typer.echo('错误：' + str(exc), err=True)
+            msg.error(exc)
         raise typer.Exit(1)
 
 

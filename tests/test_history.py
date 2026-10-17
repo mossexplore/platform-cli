@@ -232,7 +232,7 @@ def test_interactive_pages_and_snapshot(config):
     assert [len(page) for page in pages] == [20, 20, 20, 20, 5]
     assert pages[0] == pages[2] and pages[1] == pages[3]
     assert all(100 not in page for page in pages)
-    assert '第 3 / 3 页' in result.stdout and '共 45 条记录' in result.stdout
+    assert '第 3 / 3 页' in result.stderr and '共 45 条记录' in result.stderr
 
 
 def test_interactive_boundaries_invalid_and_case_insensitive(config):
@@ -242,9 +242,9 @@ def test_interactive_boundaries_invalid_and_case_insensitive(config):
         command.click, 'prompt', side_effect=['p', 'n', 'bad', '', ' Q ']):
         result = invoke(config, ['history'])
     assert result.exit_code == 0, result.output
-    assert '已经是第一页' in result.stdout
-    assert '已经是最后一页' in result.stdout
-    assert '请输入 n、p 或 q' in result.stdout
+    assert '已经是第一页' in result.stderr
+    assert '已经是最后一页' in result.stderr
+    assert '请输入 n、p 或 q' in result.stderr
 
 
 @pytest.mark.parametrize('error', [KeyboardInterrupt, EOFError])
@@ -263,7 +263,7 @@ def test_empty_interactive_history_does_not_prompt(config):
     with patch.object(command, 'can_browse', return_value=True), patch.object(command.click, 'prompt') as prompt:
         result = invoke(config, ['history'])
     assert result.exit_code == 0, result.output
-    assert '暂无匹配' in result.stdout
+    assert '暂无匹配' in result.stderr
     prompt.assert_not_called()
 
 
@@ -296,7 +296,7 @@ def test_interactive_filter_and_explicit_limit(config):
         result = invoke(config, ['history', 'list', '--env', 'dev', '--limit', '10'])
     assert result.exit_code == 0, result.output
     assert len(pages[0]) == 10 and all(row['env'] == 'dev' for row in pages[0])
-    assert '共 10 条记录' in result.stdout
+    assert '共 10 条记录' in result.stderr
 
 
 def test_redirected_stdout_disables_browsing():

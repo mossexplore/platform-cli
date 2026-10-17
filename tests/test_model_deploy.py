@@ -191,7 +191,8 @@ def test_dry_run_table(invoke, backend):
     result = invoke(['--dry-run'], backend)
     assert result.exit_code == 0, result.output
     assert all(s in result.stdout for s in ['1、基本信息', '2、部署区域', '3、扩展参数', '4、服务文档',
-                                          '未提交部署', '2.1、area-a-cluster', '2.2、area-b-cluster', '停用'])
+                                          '2.1、area-a-cluster', '2.2、area-b-cluster', '停用'])
+    assert '[提示] 预览完成，未提交部署' in result.stderr
     assert not backend.publishes
 
 
@@ -206,7 +207,7 @@ def test_interactive_confirm(invoke, backend, answer, expected):
     result = invoke([], backend, interactive=True, input=answer)
     assert result.exit_code == 0, result.output
     assert len(backend.publishes) == expected
-    assert ('部署成功' in result.stdout) if expected else ('已取消部署' in result.stderr)
+    assert ('部署成功' in result.stderr) if expected else ('已取消部署' in result.stderr)
 
 
 @pytest.mark.parametrize('args', [['--update-mode', 'bad'], ['--health-check-mode', 'bad'],
@@ -311,7 +312,7 @@ def test_context_change_after_confirmation_blocks_publish(invoke, backend, rt):
     def confirm(*args, **kwargs):
         rt.config._data['profiles'][0]['api_endpoint'] = 'https://changed.example'
         return True
-    with patch('wiserec_cli.commands.model_deploy.typer.confirm', side_effect=confirm):
+    with patch('wiserec_cli.commands.model_deploy.msg.confirm', side_effect=confirm):
         result = invoke([], backend, interactive=True)
     assert result.exit_code == 1 and '上下文已变化' in result.stderr
     assert not backend.publishes

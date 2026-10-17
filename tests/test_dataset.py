@@ -76,8 +76,8 @@ class DatasetCommandTest(unittest.TestCase):
             "--dataset-name", "dog", "--create-user", "alice",
             "--update-user", "bob", "--bucket-name", "bucket"], handler)
         self.assertEqual(result.exit_code, 0, result.output)
-        self.assertIn("暂无数据集记录", result.output)
-        self.assertIn("共 0 条", result.output)
+        self.assertIn("暂无数据集记录", result.stderr)
+        self.assertIn("共 0 条", result.stderr)
 
     def test_detail_uses_selected_business_and_preserves_extra_fields(self):
         data = {"dataSetId": "source", "bucketFileId": "file-id",

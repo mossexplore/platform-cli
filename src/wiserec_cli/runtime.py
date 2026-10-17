@@ -5,6 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any, Callable, Optional
 
+from . import messages as msg
 from .auth import AuthManager
 from .access import check_access
 from .business import BusinessStore
@@ -55,7 +56,7 @@ class Runtime:
                     return operation(client)
             except AuthenticationError:
                 if attempt == 0 and retry_auth:
-                    print("服务端认证已失效，将重新打开 Edge 刷新本地认证信息。")
+                    msg.info("服务端认证已失效，将重新打开 Edge 刷新本地认证信息。")
                     continue
                 raise
         raise AuthenticationError("重新登录后认证仍然失败")

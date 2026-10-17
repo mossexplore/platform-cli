@@ -103,6 +103,17 @@ def test_interactive_choices(invoke):
     assert result.stdout == '[INFO] line\nsecond'
 
 
+def test_invalid_interactive_number_uses_shared_error_and_retries(invoke):
+    handler, _ = handler_for(files=[{'fileName': 'other.log'}, {'fileName': 'app.log'}])
+    with patch('wiserec_cli.commands.service_logs.can_prompt', return_value=True), \
+         patch('wiserec_cli.commands.service_logs.click.prompt', side_effect=['bad', '99', '2', '2']):
+        result = invoke(['logs', 'service'], handler)
+    assert result.exit_code == 0
+    assert result.stderr.count('[错误] 请输入') == 2
+    assert 'Error:' not in result.stderr
+    assert result.stdout == '[INFO] line\nsecond'
+
+
 def test_cancel_has_no_log_request(invoke):
     handler, calls = handler_for()
     with patch('wiserec_cli.commands.service_logs.can_prompt', return_value=True), \
@@ -190,7 +201,7 @@ def test_category_and_file_tables_are_not_duplicated(invoke):
     from rich.table import Table
     handler, _ = handler_for(files=[{'fileName': 'other.log'}, {'fileName': 'app.log'}])
     events = []
-    def printed(value):
+    def printed(value, **kwargs):
         if isinstance(value, Table):
             events.append(('table', [column.header for column in value.columns]))
             if value.columns[1].header == '日志类别':
@@ -206,6 +217,6 @@ def test_category_and_file_tables_are_not_duplicated(invoke):
         result = invoke(['logs', 'service'], handler)
     assert result.exit_code == 0, result.output
     assert events == [
-        ('table', ['编号', '日志类别']), ('prompt', '请选择日志类别'),
-        ('table', ['编号', '文件名称', '大小', '修改时间']), ('prompt', '请选择日志文件')]
+        ('table', ['编号', '日志类别']), ('prompt', '[提示] 请选择日志类别'),
+        ('table', ['编号', '文件名称', '大小', '修改时间']), ('prompt', '[提示] 请选择日志文件')]
     assert result.stdout == '[INFO] line\nsecond'

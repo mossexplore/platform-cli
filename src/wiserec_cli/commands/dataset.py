@@ -12,6 +12,7 @@ import typer
 from rich.table import Table
 from rich.text import Text
 
+from .. import messages as msg
 from ..errors import BusinessError
 from ..output import console, print_result
 from ..services.dataset import DatasetService
@@ -99,8 +100,8 @@ def render_list(result: dict[str, Any], output: str) -> None:
                         for _, field in LIST_COLUMNS))
     console.print(table)
     if not result["items"]:
-        console.print("暂无数据集记录")
-    console.print(f"第 {result['pageIndex']} 页 · 每页 {result['pageSize']} 条 · 共 {result['total']} 条")
+        msg.info("暂无数据集记录")
+    msg.info(f"第 {result['pageIndex']} 页 · 每页 {result['pageSize']} 条 · 共 {result['total']} 条")
 
 
 def render_detail(data: dict[str, Any], output: str) -> None:

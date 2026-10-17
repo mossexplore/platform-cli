@@ -68,9 +68,9 @@ def handle_version_result(result):
         raise VersionPolicyError(detail)
     info = result.get('version_policy', result)
     if isinstance(info, dict) and info.get('warning') and not _warned.get():
-        import sys
-        print(f"升级提醒：当前 CLI {__version__}；推荐版本 {info.get('recommended_version') or info.get('minimum_version') or '请联系管理员'}。"
-              f" {info.get('upgrade_url') or ''}", file=sys.stderr)
+        from .messages import warning
+        warning(f"当前 CLI {__version__}；推荐版本 {info.get('recommended_version') or info.get('minimum_version') or '请联系管理员'}。"
+                f" {info.get('upgrade_url') or ''}")
         _warned.set(True)
 
 

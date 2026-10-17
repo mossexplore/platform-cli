@@ -6,9 +6,8 @@ from typing import NoReturn
 
 import typer
 
+from .. import messages as msg
 from ..access import command_name
-from ..errors import MlError
-from ..output import error_console
 from ..runtime import Runtime
 
 
@@ -24,9 +23,5 @@ def runtime_from_context(context: typer.Context) -> Runtime:
 
 
 def fail(error: object) -> NoReturn:
-    message = str(error)
-    if isinstance(error, MlError):
-        error_console.print(f"[red]错误:[/red] {message}")
-    else:
-        error_console.print(f"[red]错误:[/red] {message}")
+    msg.error(error)
     raise typer.Exit(code=1)

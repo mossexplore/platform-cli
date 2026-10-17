@@ -1,4 +1,5 @@
 """部署模板列表和关联资源详情展示。"""
+
 import json
 import sys
 from contextlib import redirect_stdout
@@ -7,6 +8,7 @@ from typing import Optional
 import typer
 from rich.text import Text
 
+from .. import messages as msg
 from ..errors import BusinessError
 from ..output import console
 from ..services.deployment import DeploymentTemplateService
@@ -101,8 +103,8 @@ def render_list(payload, page, page_size, output):
     first.no_wrap, first.overflow = True, 'ignore'
     console.print(table)
     if not items:
-        console.print('暂无部署模板')
-    console.print(f"第 {page} 页 · 每页 {page_size} 条 · 本页 {len(items)} 条 · 共 {result['count']} 条")
+        msg.info('暂无部署模板')
+    msg.info(f"第 {page} 页 · 每页 {page_size} 条 · 本页 {len(items)} 条 · 共 {result['count']} 条")
 
 
 def render_detail(payload, output):
@@ -120,12 +122,12 @@ def render_detail(payload, output):
         console.print(table_for([title for title, _ in RESOURCE_COLUMNS],
                                [[value(field, item) for _, field in RESOURCE_COLUMNS] for item in rows]))
     elif not resources:
-        console.print('暂无关联容器资源模板')
+        msg.info('暂无关联容器资源模板')
     else:
-        console.print('暂无匹配的容器资源模板')
+        msg.info('暂无匹配的容器资源模板')
     for entry in resources:
         if entry['error']:
-            console.print(Text(f"{entry['requestedName']}：{entry['error']}"))
+            msg.warning(f"{entry['requestedName']}：{entry['error']}")
 
 
 @template_app.command('list')

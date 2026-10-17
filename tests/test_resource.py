@@ -172,14 +172,14 @@ def test_empty_page(invoke):
     result = invoke(['list', '--page', '3'], lambda r: httpx.Response(200,
         json={'result': {'code': 0, 'count': 0, 'resourceTemplateInfoList': []}}))
     assert result.exit_code == 0
-    assert '暂无容器资源模板' in result.stdout and '第 3 页' in result.stdout
+    assert '暂无容器资源模板' in result.stderr and '第 3 页' in result.stderr
 
 
 def test_no_framework_and_missing_fields(invoke):
     handler = Mock(return_value=httpx.Response(200, json={'result': {'code': 0}}))
     result = invoke(['detail', ID], handler)
     assert result.exit_code == 0 and '未关联推理框架' in result.stdout
-    assert '暂无参数配置' in result.stdout
+    assert '暂无参数配置' in result.stderr
     assert handler.call_count == 1
 
 
@@ -200,7 +200,7 @@ def test_malformed_config_preserves_other_detail_and_raw_json(invoke):
     def handler(request):
         return httpx.Response(200, json=FRAMEWORK if 'frameworkPkg' in request.url.path else payload)
     result = invoke(['detail', ID], handler)
-    assert result.exit_code == 1 and '参数配置解析失败' in result.stdout
+    assert result.exit_code == 1 and '参数配置解析失败' in result.stderr
     assert 'sleep 30;' in result.stdout
     result = invoke(['detail', ID, '-o', 'json'], handler)
     assert result.exit_code == 0

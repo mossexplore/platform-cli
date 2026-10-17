@@ -12,6 +12,7 @@ import typer
 from rich.table import Table
 from rich.text import Text
 
+from .. import messages as msg
 from ..errors import BusinessError
 from ..output import console, error_console, print_result
 from ..services.service import ServiceCatalog
@@ -67,7 +68,7 @@ def _time(value: Any) -> str:
                 raise ValueError("时间缺少时区")
             instant = instant.astimezone(BEIJING)
         except (ValueError, OverflowError):
-            error_console.print(f"提示：时间无法解析，保留原值：{value}", markup=False)
+            msg.warning(f"时间无法解析，保留原值：{value}")
             return str(value)
     return instant.strftime("%Y-%m-%d %H:%M:%S")
 
@@ -144,15 +145,15 @@ def render_page(view: str, result: dict[str, Any], output: str) -> None:
         table.add_row(*(Text(display_value(field, item)) for _, field in columns))
     console.print(table)
     if not result["items"]:
-        console.print({"list": "暂无服务记录", "host": "暂无服务主机记录",
+        msg.info({"list": "暂无服务记录", "host": "暂无服务主机记录",
                        "deployment": "暂无服务部署记录"}[view])
     total = result.get("total")
     if total is None:
-        console.print(f"第 {result['pageIndex']} 页 · 本页 {len(result['items'])} 条")
+        msg.info(f"第 {result['pageIndex']} 页 · 本页 {len(result['items'])} 条")
     else:
-        console.print(f"第 {result['pageIndex']} 页 · 每页 {result['pageSize']} 条 · 共 {total} 条")
+        msg.info(f"第 {result['pageIndex']} 页 · 每页 {result['pageSize']} 条 · 共 {total} 条")
     if view != "list":
-        console.print("详情视图仅显示第 1 页 10 条")
+        msg.info("详情视图仅显示第 1 页 10 条")
 
 
 def _selected_output(runtime: Any, output: Optional[str]) -> str:
@@ -289,7 +290,7 @@ def list_log_files(
                             ("fileSize", "updateTime", "fileName")))
         console.print(table)
         if not files:
-            console.print("暂无日志文件")
+            msg.info("暂无日志文件")
     except Exception as exc:
         fail(exc)
 

@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import httpx
 
+from . import messages as msg
 from .access import access_enabled
 from .access_transport import permission_url, tls_verify
 from .client_metadata import client_headers
@@ -43,7 +44,7 @@ def show_access_guidance(runtime, credentials=None):
         return True
     credentials = credentials or runtime.credentials.load(runtime.config.current_name)
     if credentials is None or not credentials.username:
-        console.print('当前环境尚无登录账号，请先执行 ml login 查询 CLI 权限')
+        msg.info('当前环境尚无登录账号，请先执行 ml login 查询 CLI 权限')
         return False
     if not settings.get('url'):
         raise MlError('请先在 config.json 中配置 access_control.url 后查询 CLI 权限')
@@ -63,7 +64,6 @@ def show_access_guidance(runtime, credentials=None):
     if check_user_access(settings, credentials.username, business_id):
         return True
     url = settings['url'].rstrip('/') + '/apply'
-    console.print(
-        f'请打开{url}进行CLI权限申请（若地址无法打开，将*.hwcloudtest.cn加入代理排除），'
-        '权限通过后方可执行CLI命令', markup=False)
+    msg.info(f'请打开{url}进行CLI权限申请（若地址无法打开，将*.hwcloudtest.cn加入代理排除），'
+        '权限通过后方可执行CLI命令')
     return False

@@ -191,7 +191,8 @@ class TrainOutputTest(unittest.TestCase):
                 "checkTime": 1785466890000, "createTime": 1785466890000,
                 "statusTime": 1785466890000, "actionType": "manual",
                 "bucketName": "history-bucket"}
-        with patch("wiserec_cli.commands.train.console") as output:
+        with patch("wiserec_cli.commands.train.console") as output, \
+             patch("wiserec_cli.commands.train.msg.info") as messages:
             render_page({"count": 11, "pageIndex": 1, "pageSize": 10,
                          "items": [item, {"gpuSize": 0, "fileSize": 0,
                                           "algorithmId": None, "algorithmName": ""}]},
@@ -212,7 +213,7 @@ class TrainOutputTest(unittest.TestCase):
         self.assertEqual([column._cells[1].plain for column in table.columns],
                          ["-", "-", "-", "0", "-", "-", "-", "-", "-", "0B", "-", "-", "-", "-", "-"])
         output.print.assert_any_call("任务 ID：task-id", markup=False)
-        output.print.assert_any_call("当前仅展示第 1 页 10 条，暂不支持翻页；按开始时间倒序排列。")
+        messages.assert_any_call("当前仅展示第 1 页 10 条，暂不支持翻页；按开始时间倒序排列。")
 
     def test_history_cli_json_and_empty_results(self):
         job = {"jobId": "j", "fileSize": 97726898, "checkTime": None}
@@ -229,8 +230,8 @@ class TrainOutputTest(unittest.TestCase):
             result = self.invoke(client, ["train", "history", "list", "t"], output_format)
             self.assertEqual(result.exit_code, 0, result.output)
             if output_format == "table":
-                self.assertIn("暂无执行记录", result.stdout)
-                self.assertNotIn("暂不支持翻页", result.stdout)
+                self.assertIn("暂无执行记录", result.stderr)
+                self.assertNotIn("暂不支持翻页", result.stderr)
             else:
                 self.assertEqual(json.loads(result.stdout)["items"], [])
 
@@ -264,7 +265,8 @@ class TrainOutputTest(unittest.TestCase):
 
     def test_empty_and_fixed_page_messages(self):
         stream = io.StringIO()
-        with patch("wiserec_cli.commands.train.console", Console(file=stream, width=240)):
+        with patch("wiserec_cli.commands.train.console", Console(file=stream, width=240)), \
+             patch("wiserec_cli.messages.error_console", Console(file=stream, width=240)):
             render_page({"count": 0, "pageIndex": 1, "pageSize": 10, "items": []}, "table")
             render_page({"count": 11, "pageIndex": 1, "pageSize": 10, "items": []},
                         "table", {"taskId": "t", "taskName": "[bold]literal"})
@@ -279,7 +281,8 @@ class TrainOutputTest(unittest.TestCase):
                 "gpuSize": 0, "fileSize": 145755572, "createTime": 1785466890000,
                 "hostIp": "10.0.0.1", "actionType": "manual", "bucketName": "train-bucket"}
         stream = io.StringIO()
-        with patch("wiserec_cli.commands.train.console", Console(file=stream, width=240)):
+        with patch("wiserec_cli.commands.train.console", Console(file=stream, width=240)), \
+             patch("wiserec_cli.messages.error_console", Console(file=stream, width=240)):
             render_page({"count": 1, "pageIndex": 1, "pageSize": 10, "items": [item]},
                         "table", task)
         self.assertNotIn("139.00M", stream.getvalue())

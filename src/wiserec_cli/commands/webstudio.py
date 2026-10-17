@@ -1,4 +1,5 @@
 """Web Studio 列表、动态登录和默认实例。"""
+
 import json
 from typing import Optional
 
@@ -6,6 +7,7 @@ import typer
 from rich.table import Table
 from rich.text import Text
 
+from .. import messages as msg
 from .common import fail, runtime_from_context
 from .jupyter import display_time
 from ..output import console
@@ -59,7 +61,7 @@ def list_studios(context: typer.Context,
             table.add_row(*[Text(display_time(item.get(key)) if key == 'accessTime'
                                 else str(item.get(key) if item.get(key) is not None else '-')) for _, key in COLUMNS])
         console.print(table)
-        typer.echo(f"第 {page} 页 · 本页 {len(result['envs'])} 条 · 总计 {result['count']} 条")
+        msg.info(f"第 {page} 页 · 本页 {len(result['envs'])} 条 · 总计 {result['count']} 条")
     except Exception as exc:
         fail(exc)
 
@@ -70,8 +72,8 @@ def login_studio(context: typer.Context, env_id: str = typer.Argument(...),
     """重新建立并验证 Jupyter 连接，保存默认实例与短期会话缓存。"""
     try:
         connection = resolve(runtime_from_context(context), env_id, login=True, refresh=refresh,
-                             report=lambda value: typer.echo(value, err=True))
-        typer.echo(f'Web Studio 登录成功，默认实例：{connection.studio_id}')
+                             report=msg.info)
+        msg.success(f'Web Studio 登录成功，默认实例：{connection.studio_id}')
     except Exception as exc:
         fail(exc)
 
@@ -84,7 +86,7 @@ def start_studio(context: typer.Context, env_id: str = typer.Argument(...)):
         with platform(runtime, timeout_ms=max(runtime.config.timeout_ms, 60_000)) as (service, _, __):
             ConnectionCache.clear(runtime.credentials.path, runtime.config.current_name)
             service.start(env_id)
-        typer.echo(f'Web Studio 启动成功：{env_id}')
+        msg.success(f'Web Studio 启动成功：{env_id}')
     except Exception as exc:
         fail(exc)
 
@@ -97,7 +99,7 @@ def stop_studio(context: typer.Context, env_id: str = typer.Argument(...)):
         with platform(runtime) as (service, _, __):
             ConnectionCache.clear(runtime.credentials.path, runtime.config.current_name)
             service.stop(env_id)
-        typer.echo(f'Web Studio 停止成功：{env_id}')
+        msg.success(f'Web Studio 停止成功：{env_id}')
     except Exception as exc:
         fail(exc)
 

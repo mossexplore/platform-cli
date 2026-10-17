@@ -53,9 +53,12 @@ class InvocationGroup(TyperGroup):
             warning('无法准备命令历史，原命令继续执行')
         token = ACTIVE_RECORD.set(record)
         code = 1
+        standalone = kwargs.pop('standalone_mode', True)
         try:
-            result = super().main(arguments, *positional, **kwargs)
+            result = super().main(arguments, *positional, standalone_mode=False, **kwargs)
             code = result if type(result) is int else 0
+            if standalone:
+                raise SystemExit(code)
             return result
         except SystemExit as exc:
             code = exc.code if isinstance(exc.code, int) else 0 if exc.code is None else 1
@@ -65,10 +68,22 @@ class InvocationGroup(TyperGroup):
             raise
         except click.ClickException as exc:
             code = exc.exit_code
-            raise
-        except (KeyboardInterrupt, click.Abort):
-            code = 130
-            raise
+            if not standalone:
+                raise
+            from .command_errors import show_usage_error
+            if type(exc).__name__ == 'NoArgsIsHelpError':
+                # 帮助是文档输出，不加消息前缀。
+                click.echo(exc.format_message())
+            else:
+                show_usage_error(exc)
+            raise SystemExit(code) from None
+        except (KeyboardInterrupt, click.Abort) as exc:
+            code = 130 if isinstance(exc, KeyboardInterrupt) else 1
+            if not standalone:
+                raise
+            from .messages import info
+            info('已取消操作')
+            raise SystemExit(code) from None
         finally:
             try:
                 if record is not None:

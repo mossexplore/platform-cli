@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import typer
+from .. import messages as msg
 from .. import ping
 
 from ..env_access import environment_statuses
@@ -36,7 +37,7 @@ def list_environments(context: typer.Context) -> None:
             row_style=lambda row: "bold green" if row["当前在用环境"] == "*" else None,
         )
     except Exception as exc:
-        error_console.print(f"错误：{exc}", markup=False)
+        msg.error(exc)
         raise typer.Exit(code=1) from None
 
 
@@ -69,9 +70,9 @@ def use_environment(context: typer.Context, name: str = typer.Argument(...)) -> 
         profile = runtime.config.use_profile(name)
         if previous != name:
             ping.detach(runtime, previous)
-        console.print(f"当前环境已切换为: {profile.name}")
+        msg.success(f"当前环境已切换为: {profile.name}")
         has_access = show_access_guidance(runtime)
         if has_access and runtime.config.auto_ping:
-            console.print(ping.auto_start(runtime))
+            msg.ping_status(ping.auto_start(runtime))
     except Exception as exc:
         fail(exc)

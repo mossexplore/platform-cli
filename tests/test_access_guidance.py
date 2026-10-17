@@ -50,12 +50,12 @@ def test_guidance_uses_current_business_and_exact_application_message(tmp_path):
     runtime.business.refresh('dev', 'alice', [Department('d', 'D', (
         Tenant('dev-business', 'B', (), ()),))], browser_business_id='dev-business')
     with patch('wiserec_cli.access_guidance.check_user_access', return_value=False) as query, \
-         patch('wiserec_cli.access_guidance.console.print') as output:
+         patch('wiserec_cli.access_guidance.msg.info') as output:
         assert show_access_guidance(runtime) is False
     assert query.call_args.args == (runtime.config.access_control, 'alice', 'dev-business')
     output.assert_called_once_with(
         '请打开https://access.example.com/apply进行CLI权限申请（若地址无法打开，将*.hwcloudtest.cn加入代理排除），权限通过后方可执行CLI命令',
-        markup=False)
+        )
 
 
 def test_guidance_does_not_use_another_environments_account(tmp_path):

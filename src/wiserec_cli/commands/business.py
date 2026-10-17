@@ -8,6 +8,7 @@ from unicodedata import normalize
 
 import typer
 
+from .. import messages as msg
 from ..business import BusinessSelection, Team
 from ..errors import BusinessError
 from ..output import console, print_result
@@ -55,7 +56,7 @@ def _choose(
 ) -> T:
     if not values:
         raise BusinessError(f"没有可选择的{title}")
-    console.print(f"请选择{title}：")
+    msg.info(f"请选择{title}：")
     for index, (label, value) in enumerate(values, start=1):
         style = style_for(value) if style_for else None
         console.print(
@@ -64,7 +65,7 @@ def _choose(
             markup=False,
             highlight=False,
         )
-    selected_text = typer.prompt("请输入序号（b 返回，q 取消）").strip().lower()
+    selected_text = msg.prompt("请输入序号（b 返回，q 取消）").strip().lower()
     if selected_text == "b":
         raise _Back()
     if selected_text == "q":
@@ -239,7 +240,7 @@ def use_business(
                             f"{team_value.name if team_value else '租户级'}",
                             markup=False,
                         )
-                        confirmation = typer.prompt(
+                        confirmation = msg.prompt(
                             "确认切换？（y 确认，b 返回，q 取消）"
                         ).strip().lower()
                         if confirmation == "y":
@@ -248,16 +249,16 @@ def use_business(
                             raise _Back()
                         if confirmation == "q":
                             raise _Cancel()
-                        console.print("请输入 y、b 或 q")
+                        msg.info("请输入 y、b 或 q")
                         continue
                     stage += 1
                 except _Back:
                     if stage == 0:
-                        console.print("已经是第一级，请选择部门或输入 q 取消")
+                        msg.info("已经是第一级，请选择部门或输入 q 取消")
                     else:
                         stage -= 1
                 except _Cancel:
-                    console.print("已取消业务切换")
+                    msg.info("已取消业务切换")
                     return
             selected_department = department_value.id
             selected_tenant = tenant_value.id
@@ -276,10 +277,10 @@ def use_business(
                 business_id=selection.business_id,
             )
         )
-        console.print("当前业务上下文已切换：")
+        msg.success("当前业务上下文已切换：")
         _print_selection(selection)
         if runtime.config.auto_ping:
-            console.print(ping.auto_start(runtime))
+            msg.ping_status(ping.auto_start(runtime))
     except Exception as exc:
         fail(exc)
 
@@ -302,6 +303,6 @@ def refresh_business(context: typer.Context) -> None:
             raise BusinessError(
                 "未能从 Edge 刷新 ai-businessList，请检查登录页面缓存"
             )
-        console.print("业务目录已刷新")
+        msg.success("业务目录已刷新")
     except Exception as exc:
         fail(exc)

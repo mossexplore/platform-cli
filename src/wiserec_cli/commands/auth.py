@@ -8,6 +8,7 @@ import time
 
 import typer
 
+from .. import messages as msg
 from ..output import console, print_result
 from ..models import BEIJING_TIMEZONE
 from ..errors import BusinessError
@@ -37,7 +38,7 @@ def login(
         if has_access and runtime.config.auto_ping:
             message = ping.auto_start(runtime, after_login=True)
             if isinstance(message, str) and message.startswith(("警告", "无法", "尚未", "当前环境的自动保活已手动停止")):
-                console.print(message, markup=False)
+                msg.ping_status(message)
     except Exception as exc:
         fail(exc)
 
@@ -64,9 +65,9 @@ def logout(
             forget_browser=forget_browser,
         )
         target = "所有环境" if all_profiles else runtime.config.current_name
-        console.print(f"已清除 {target} 的本地认证信息")
+        msg.success(f"已清除 {target} 的本地认证信息")
         if forget_browser:
-            console.print(f"已清除 {target} 的专用 Edge Profile")
+            msg.success(f"已清除 {target} 的专用 Edge Profile")
     except Exception as exc:
         fail(exc)
 
@@ -75,7 +76,7 @@ def logout(
 def ping_start(context: typer.Context) -> None:
     """为当前终端启动自动保活。"""
     try:
-        console.print(ping.start(runtime_from_context(context)))
+        msg.ping_status(ping.start(runtime_from_context(context)))
     except Exception as exc:
         fail(exc)
 
@@ -85,7 +86,7 @@ def ping_stop(context: typer.Context) -> None:
     """停止当前环境的自动保活。"""
     try:
         ping.stop(runtime_from_context(context))
-        console.print("当前环境的自动保活已停止")
+        msg.success("当前环境的自动保活已停止")
     except Exception as exc:
         fail(exc)
 

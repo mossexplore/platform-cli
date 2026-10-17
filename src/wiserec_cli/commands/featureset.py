@@ -6,6 +6,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, Optional
 from pathlib import Path
 
+from .. import messages as msg
 from ..featureset_export import export_features, readable_size
 
 import typer
@@ -43,7 +44,7 @@ def display_value(field: str, value: Any) -> str:
                 raise ValueError("时间缺少时区")
             return parsed.astimezone(DISPLAY_TIMEZONE).strftime("%Y-%m-%d %H:%M:%S")
         except (ValueError, OverflowError):
-            error_console.print(f"提示：{field} 无法解析，保留原值：{value}", markup=False)
+            msg.warning(f"{field} 无法解析，保留原值：{value}")
     return str(value)
 
 
@@ -58,8 +59,8 @@ def render_page(result: Dict[str, Any], output: str) -> None:
         table.add_row(*(Text(display_value(field, item.get(field))) for _, field in COLUMNS))
     console.print(table)
     if not result["items"]:
-        console.print("暂无特征集")
-    console.print(f"第 {result['pageIndex']} 页 · 每页 {result['pageSize']} 条 · 共 {result['count']} 条")
+        msg.info("暂无特征集")
+    msg.info(f"第 {result['pageIndex']} 页 · 每页 {result['pageSize']} 条 · 共 {result['count']} 条")
 
 
 @wide_app.command("list")
@@ -133,7 +134,7 @@ def export_set(
         if output == "json":
             print_result(result, "json")
         else:
-            console.print("导出成功")
+            msg.success("导出成功")
             console.print(f"文件：{result['file']}", markup=False, soft_wrap=True)
             console.print(f"大小：{readable_size(result['bytes'])}")
     except Exception as exc:

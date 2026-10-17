@@ -1,4 +1,5 @@
 """模型发布命令、部署摘要和交互确认。"""
+
 import json
 import sys
 from contextlib import redirect_stdout
@@ -8,6 +9,7 @@ from typing import Optional
 import typer
 from rich.text import Text
 
+from .. import messages as msg
 from ..errors import BusinessError
 from ..output import console
 from ..services.deploy_payload import HEALTH_MODES, UPDATE_MODES, MissingDeployOptions
@@ -80,10 +82,10 @@ def deploy(context: typer.Context,
         with redirect_stdout(sys.stderr) if selected == 'json' else redirect_stdout(sys.stdout):
             preview(payload, template, identity, template_id, request_file, response_file, framework_names)
         if dry_run:
-            console.print('预览完成，未提交部署')
+            msg.info('预览完成，未提交部署')
             return
-        if not yes and not typer.confirm('确认提交以上部署配置？', err=True):
-            typer.echo('已取消部署', err=True)
+        if not yes and not msg.confirm('确认提交以上部署配置？', err=True):
+            msg.info('已取消部署')
             return
         def publish(client):
             if context_identity(runtime, client) != identity:
@@ -95,13 +97,13 @@ def deploy(context: typer.Context,
         if selected == 'json':
             typer.echo(json.dumps(response, ensure_ascii=False))
         elif result['code'] == 0:
-            console.print('部署成功', style='bold green')
+            msg.success('部署成功')
             console.print(Text(f"服务 ID：{result.get('serviceId', '-')}"))
             console.print(Text(f"结果：{result.get('des', '')}"))
         if result['code'] != 0:
             raise ValueError(f"部署失败：code={result['code']}，des={result.get('des', '')}")
     except MissingDeployOptions as exc:
-        typer.echo(f'错误: {exc}', err=True)
+        msg.error(exc)
         raise typer.Exit(code=1)
     except Exception as exc:
         fail(exc)

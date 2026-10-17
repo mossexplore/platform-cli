@@ -1,5 +1,7 @@
 """权限服务接入状态。"""
+
 import typer
+from .. import messages as msg
 from ..output import console
 from ..access_diagnostics import AccessDiagnostics
 from ..access import access_enabled
@@ -15,15 +17,15 @@ def status(context: typer.Context, diagnose: bool = typer.Option(False, "--diagn
     try:
         runtime = runtime_from_context(context)
         if diagnose:
-            runtime.access_diagnostics = AccessDiagnostics(lambda text: console.print(text, markup=False, highlight=False))
+            runtime.access_diagnostics = AccessDiagnostics(msg.info)
             runtime.access_diagnostics.line('CLI 版本', __version__)
             runtime.access_diagnostics.line('配置文件', runtime.config.path)
         settings = runtime.config.access_control
         if not access_enabled(settings):
-            console.print('已关闭在线权限检查。')
+            msg.info('已关闭在线权限检查。')
             return
         runtime.authenticated_call(lambda client: None)
-        console.print('当前账号已获当前环境访问授权。')
+        msg.success('当前账号已获当前环境访问授权。')
     except Exception as exc:
         fail(exc)
     finally:

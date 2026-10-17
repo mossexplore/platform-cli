@@ -43,7 +43,7 @@ def test_version_warning_is_once_per_invocation_and_stderr(capsys):
     handle_version_result(result)
     handle_version_result(result)
     output = capsys.readouterr()
-    assert not output.out and output.err.count('升级提醒') == 1
+    assert not output.out and output.err.count('[警告]') == 1
 
 
 def test_jupyter_http_and_websocket_send_same_metadata(tmp_path, monkeypatch):

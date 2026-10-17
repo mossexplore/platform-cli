@@ -108,12 +108,12 @@ class AlgorithmCommandTest(unittest.TestCase):
             with patch("wiserec_cli.commands.algorithm.download_algorithm", side_effect=downloader):
                 result = self.invoke(["download", "abc", "--file", str(destination)], platform)
             self.assertEqual(result.exit_code, 0, result.output)
-            self.assertIn("算法仓下载链接：https://files.example.com/signed?key=secret", result.output)
+            self.assertIn("算法仓下载链接：https://files.example.com/signed?key=secret", result.stderr)
             self.assertEqual(existing.read_bytes(), b"old")
             self.assertFalse(destination.exists())
             saved = Path(directory) / "artifact.bin (1).zip"
             self.assertEqual(saved.read_bytes(), b"new-content")
-            self.assertIn(str(saved), result.output)
+            self.assertIn(str(saved), result.stderr)
             self.assertEqual(len(requests), 1)
 
     def test_download_keeps_existing_zip_suffix(self):
@@ -165,7 +165,7 @@ class AlgorithmCommandTest(unittest.TestCase):
         result = self.invoke(["clone", "source", "--name", "new",
                               "--version", "latest", "--yes"], handler)
         self.assertEqual(result.exit_code, 0, result.output)
-        self.assertIn("克隆算法仓source成功", result.output)
+        self.assertIn("克隆算法仓source成功", result.stderr)
         self.assertEqual(len(calls), 1)
 
     def test_clone_auth_rejection_is_not_replayed(self):

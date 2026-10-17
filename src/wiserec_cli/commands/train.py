@@ -12,8 +12,9 @@ from typing import Any, Dict, Optional
 import typer
 from rich.table import Table
 from rich.text import Text
-from rich.progress import Progress, BarColumn, DownloadColumn, TextColumn
+from rich.progress import Progress, BarColumn, DownloadColumn
 
+from .. import messages as msg
 from ..output import console, error_console, print_result
 from ..downloads import download_file
 from ..services.train import TrainService
@@ -106,11 +107,11 @@ def render_page(
     console.print(table)
     if not result["items"]:
         empty_message = "暂无执行实例" if task is not None else "暂无训练任务"
-        console.print("暂无执行记录" if history_task_id is not None else empty_message)
-    console.print(f"第 {result['pageIndex']} 页 · 每页 {result['pageSize']} 条 · 共 {result['count']} 条")
+        msg.info("暂无执行记录" if history_task_id is not None else empty_message)
+    msg.info(f"第 {result['pageIndex']} 页 · 每页 {result['pageSize']} 条 · 共 {result['count']} 条")
     if (task is not None or history_task_id is not None) and result["count"] > 10:
         order = "倒序" if history_task_id is not None else "升序"
-        console.print(f"当前仅展示第 1 页 10 条，暂不支持翻页；按开始时间{order}排列。")
+        msg.info(f"当前仅展示第 1 页 10 条，暂不支持翻页；按开始时间{order}排列。")
 
 
 def selected_output(runtime: Any, output: Optional[str]) -> str:
@@ -133,9 +134,9 @@ def export_train_config(
         if file is not None and not file.expanduser().absolute().parent.is_dir():
             raise ValueError(f"目标目录不存在：{file.expanduser().absolute().parent}")
         runtime = runtime_from_context(context)
-        with Progress(TextColumn("下载训练任务配置"), BarColumn(), DownloadColumn(),
+        with Progress(msg.MessageColumn(), BarColumn(), DownloadColumn(),
                       console=error_console) as progress:
-            progress_id = progress.add_task("export", total=None)
+            progress_id = progress.add_task("下载训练任务配置", total=None)
             with redirect_stdout(sys.stderr):
                 path, size = runtime.authenticated_call(
                     lambda client: export_config(
@@ -145,7 +146,7 @@ def export_train_config(
                         ),
                     )
                 )
-        typer.echo(f"训练任务配置已下载：{path}（{size} 字节）")
+        msg.success(f"训练任务配置已下载：{path}（{size} 字节）")
     except Exception as exc:
         fail(exc)
 
@@ -172,11 +173,11 @@ def cancel_task(
         with redirect_stdout(sys.stderr):
             instances = runtime.authenticated_call(query)
         if not instances:
-            typer.echo("没有正在执行的任务，无法取消任务执行！")
+            msg.error("没有正在执行的任务，无法取消任务执行！")
             raise typer.Exit(code=1)
-        typer.echo(f"训练任务 {task_id} 有 {len(instances)} 个执行实例待取消。")
-        if not yes and not typer.confirm("确认逐个取消全部执行实例？", default=False):
-            typer.echo("已取消操作")
+        msg.info(f"训练任务 {task_id} 有 {len(instances)} 个执行实例待取消。")
+        if not yes and not msg.confirm("确认逐个取消全部执行实例？", default=False):
+            msg.info("已取消操作")
             return
         for instance in instances:
             job_id = instance["jobId"]
@@ -187,11 +188,12 @@ def cancel_task(
                             task_id, job_id, instance["taskName"],
                         )
                     )
-                typer.echo(f"取消训练任务{task_id}的执行实例{job_id}成功，响应描述是{description}")
+                msg.success(f"取消训练任务{task_id}的执行实例{job_id}成功，响应描述是{description}")
             except Exception as exc:
                 failed += 1
-                print(f"取消训练任务{task_id}的执行实例{job_id}失败：{exc}", file=sys.stderr)
-        typer.echo(f"取消完成：成功 {len(instances) - failed} 个，失败 {failed} 个。")
+                msg.error(f"取消训练任务{task_id}的执行实例{job_id}失败：{exc}")
+        summary = f"取消完成：成功 {len(instances) - failed} 个，失败 {failed} 个。"
+        (msg.error if failed else msg.success)(summary)
     except typer.Exit:
         raise
     except Exception as exc:
@@ -220,13 +222,13 @@ def delete_task(
             )
         if not isinstance(task.get("teamId"), str) or not isinstance(task.get("taskName"), str):
             raise ValueError("训练任务缺少 teamId 或 taskName，无法删除")
-        typer.echo(f"待删除训练任务：{task['taskName']} · {task_id}（团队 {task['teamId'] or '-'}）")
-        if not yes and not typer.confirm("确认软删除此任务？", default=False):
-            typer.echo("已取消操作")
+        msg.info(f"待删除训练任务：{task['taskName']} · {task_id}（团队 {task['teamId'] or '-'}）")
+        if not yes and not msg.confirm("确认软删除此任务？", default=False):
+            msg.info("已取消操作")
             return
         with redirect_stdout(sys.stderr):
             runtime.authenticated_call(lambda client: TrainService(client).delete_task(task))
-        typer.echo(f"删除训练任务{task_id}成功")
+        msg.success(f"删除训练任务{task_id}成功")
     except Exception as exc:
         fail(exc)
 
@@ -255,10 +257,10 @@ def clone_task(
 
         with redirect_stdout(sys.stderr):
             task, detail = runtime.authenticated_call(query)
-        typer.echo(f"获取训练任务{task_id}详情成功")
-        typer.echo(f"克隆为：{name}（源任务：{task.get('taskName') or task_id}）")
-        if not yes and not typer.confirm("确认克隆？", default=False):
-            typer.echo("已取消克隆")
+        msg.success(f"获取训练任务{task_id}详情成功")
+        msg.info(f"克隆为：{name}（源任务：{task.get('taskName') or task_id}）")
+        if not yes and not msg.confirm("确认克隆？", default=False):
+            msg.info("已取消克隆")
             return
         with redirect_stdout(sys.stderr):
             created_id = runtime.authenticated_call(
@@ -266,9 +268,9 @@ def clone_task(
                     detail, name, customize_config, client.username,
                 )
             )
-        typer.echo(f"克隆训练任务{task_id}成功")
+        msg.success(f"克隆训练任务{task_id}成功")
         if created_id:
-            typer.echo(f"新任务 ID：{created_id}")
+            msg.info(f"新任务 ID：{created_id}")
     except Exception as exc:
         fail(exc)
 
@@ -286,9 +288,9 @@ def start_task(
         with redirect_stdout(sys.stderr):
             job_id = runtime.authenticated_call(lambda client: TrainService(client).start(task_id))
         if job_id is None:
-            typer.echo("训练任务执行成功，但接口未返回有效 jobId，请查询执行记录确认。")
+            msg.warning("训练任务执行成功，但接口未返回有效 jobId，请查询执行记录确认。")
         else:
-            typer.echo(f"训练任务执行成功，jobId：{job_id}")
+            msg.success(f"训练任务执行成功，jobId：{job_id}")
     except Exception as exc:
         fail(exc)
 
@@ -312,7 +314,7 @@ def update_config(
 
         with redirect_stdout(sys.stderr):
             runtime.authenticated_call(update)
-        typer.echo("更新训练任务自定义参数成功！")
+        msg.success("更新训练任务自定义参数成功！")
     except Exception as exc:
         fail(exc)
 
@@ -337,10 +339,10 @@ def download_logs(
             url = runtime.authenticated_call(
                 lambda client: TrainService(client).get_log_url(task_id, job_id)
             )
-        print(f"下载地址：{url}", file=sys.stderr, flush=True)
-        with Progress(TextColumn("下载日志"), BarColumn(), DownloadColumn(),
+        msg.info(f"下载地址：{url}")
+        with Progress(msg.MessageColumn(), BarColumn(), DownloadColumn(),
                       console=error_console) as progress:
-            progress_id = progress.add_task("logs", total=None)
+            progress_id = progress.add_task("下载日志", total=None)
             path, size = download_file(
                 url, job_id, file,
                 progress=lambda done, total: progress.update(progress_id, completed=done, total=total),

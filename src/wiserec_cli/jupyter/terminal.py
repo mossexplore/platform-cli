@@ -135,6 +135,7 @@ def attach(client, name):
         if receiver.ident is not None:
             receiver.join(timeout=1)
         socket.shutdown()
-        sys.stdout.write("\r\n已结束本地连接；远程终端是否存续请用 terminal list 查看。\n")
+        from ..messages import info
+        info("已结束本地连接；远程终端是否存续请用 ml jupyter terminal list 查看")
     if errors:
         raise JupyterError(errors[0])

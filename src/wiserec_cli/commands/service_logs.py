@@ -10,6 +10,7 @@ import typer
 from rich.table import Table
 from rich.text import Text
 
+from .. import messages as msg
 from ..errors import ApiError
 from ..output import console, error_console
 from ..services.service import ServiceCatalog
@@ -34,7 +35,14 @@ def choose(items, label, option, interactive, render_table):
     if not interactive:
         raise ValueError(f'{label}无法唯一确定，请指定 {option}；同名候选需在交互终端选择')
     error_console.print(render_table(items))
-    index = click.prompt(f'请选择{label}', type=click.IntRange(1, len(items)), err=True)
+    while True:
+        with redirect_stdout(sys.stderr):
+            answer = click.prompt(msg.prompt_text(f'请选择{label}'), err=True)
+        try:
+            index = click.IntRange(1, len(items)).convert(answer, None, None)
+            break
+        except click.BadParameter:
+            msg.error(f'请输入 1 到 {len(items)} 之间的整数编号')
     return items[index - 1]
 
 
@@ -75,25 +83,26 @@ def select_host(query, interactive):
             return items[0]
         if not interactive:
             raise ValueError('主机无法唯一确定，请同时指定 --pod 和 --cluster-name')
-        error_console.print(f"主机列表 · 第 {page} 页 · 共 {result['total']} 条")
+        msg.info(f"主机列表 · 第 {page} 页 · 共 {result['total']} 条")
         error_console.print(host_table(items))
-        answer = str(click.prompt('输入编号选择，n 下一页，p 上一页，q 退出', err=True)).strip().lower()
+        with redirect_stdout(sys.stderr):
+            answer = str(click.prompt(msg.prompt_text('输入编号选择，n 下一页，p 上一页，q 退出'), err=True)).strip().lower()
         if answer == 'q':
             raise click.Abort()
         if answer == 'n':
             if page * result['pageSize'] < result['total']:
                 page += 1
             else:
-                error_console.print('已经是最后一页')
+                msg.info('已经是最后一页')
         elif answer == 'p':
             if page > 1:
                 page -= 1
             else:
-                error_console.print('已经是第一页')
+                msg.info('已经是第一页')
         elif answer.isdecimal() and 1 <= int(answer) <= len(items):
             return items[int(answer) - 1]
         else:
-            error_console.print('请输入当前页有效编号或 n、p、q')
+            msg.info('请输入当前页有效编号或 n、p、q')
 
 
 def file_table(files):
@@ -178,10 +187,10 @@ def service_logs(
         if list_only:
             console.print(file_table(files))
             if not files:
-                console.print('暂无日志文件')
+                msg.info('暂无日志文件')
             return
         if not files and file_name is None:
-            error_console.print('暂无日志文件')
+            msg.info('暂无日志文件')
             return
         if file_name is not None:
             files = [item for item in files if item.get('fileName') == file_name]
@@ -190,13 +199,13 @@ def service_logs(
         name = selected.get('fileName')
         if not isinstance(name, str) or not name.strip():
             raise ApiError('日志文件缺少有效的 fileName')
-        error_console.print(Text(f"Pod：{host['nodeName']} · 文件：{name} · {search_order} {lines} 行"))
+        msg.info(f"Pod：{host['nodeName']} · 文件：{name} · {search_order} {lines} 行")
         content = call(lambda service: service.search_pod_log(
             host['nodeName'], host['clusterName'], log_type, name, keywords or [],
             lines, search_order, grep_scope, grep_line, infra_type=infra))
         typer.echo(content, nl=False)
     except (KeyboardInterrupt, EOFError, click.Abort):
-        typer.echo('已取消', err=True)
+        msg.info('已取消')
         raise typer.Exit(130)
     except Exception as exc:
         fail(exc)

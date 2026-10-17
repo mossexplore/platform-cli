@@ -11,6 +11,7 @@ from dataclasses import replace
 from pathlib import Path
 from typing import Any, Deque, Dict, Optional
 
+from . import messages as msg
 from .business import BusinessStore, parse_business_list
 from .config import ConfigManager
 from .client import PlatformClient
@@ -35,7 +36,7 @@ def _parse_user_info(response_body: Any) -> Optional[Dict[str, str]]:
 
 
 def _wait_for_edge(page: Any, message: str) -> None:
-    print(message)
+    msg.info(message)
     try:
         page.wait_for_event("close", timeout=0)
     except Exception:
@@ -160,7 +161,7 @@ class BrowserAuthenticator:
                         pass
                 context.close()
                 progress.stop()
-                console.print("登录成功，用户信息如下：")
+                msg.success("登录成功，用户信息如下：")
                 print_result(
                     {
                         "环境": progress.alias,
@@ -171,9 +172,9 @@ class BrowserAuthenticator:
                     }
                 )
                 if business_id == "未获取" and not business_warning:
-                    print("尚未选择业务，请执行 ml business list 查看并使用 ml business use 选择业务")
+                    msg.info("尚未选择业务，请执行 ml business list 查看并使用 ml business use 选择业务")
                 if business_warning:
-                    print(f"警告: {business_warning}")
+                    msg.warning(business_warning)
                 if show_secrets:
                     print(f"cookie: {credentials.cookie}")
                     print(f"csrftoken: {credentials.csrftoken}")
@@ -182,7 +183,7 @@ class BrowserAuthenticator:
                 progress.stop()
                 if page.is_closed():
                     raise
-                print(f"登录失败: {exc}")
+                msg.error(f"登录失败: {exc}")
                 _wait_for_edge(
                     page,
                     "Edge 将保持打开；请检查页面，完成后手动关闭 Edge。",
@@ -402,18 +403,18 @@ class AuthManager:
                 from .ping import mark_platform_activity
                 mark_platform_activity(self.store, credentials.profile)
         except (OSError, CredentialError, ValueError) as exc:
-            print(f"警告：无法保存本地认证续期信息：{exc}", file=sys.stderr)
+            msg.warning(f"无法保存本地认证续期信息：{exc}")
 
     def ensure_credentials(self, force_refresh: bool = False) -> Credentials:
         profile = self.config.current_profile()
         credentials = self.store.load(profile.name)
 
         if force_refresh:
-            print(f"正在刷新环境 {profile.name!r} 的认证信息...")
+            msg.info(f"正在刷新环境 {profile.name!r} 的认证信息...")
         elif credentials is None:
-            print(f"环境 {profile.name!r} 尚未登录，将打开 Edge 获取认证信息。")
+            msg.info(f"环境 {profile.name!r} 尚未登录，将打开 Edge 获取认证信息。")
         elif credentials.is_expired():
-            print(f"环境 {profile.name!r} 的本地认证空闲时间已到，正在校验平台会话...")
+            msg.info(f"环境 {profile.name!r} 的本地认证空闲时间已到，正在校验平台会话...")
             try:
                 if self._probe_cached_credentials(profile, credentials):
                     return self.store.extend_if_current(
@@ -421,7 +422,7 @@ class AuthManager:
                     )
             except AuthenticationError:
                 pass
-            print("平台会话已失效，将打开 Edge 重新获取认证信息。")
+            msg.info("平台会话已失效，将打开 Edge 重新获取认证信息。")
         else:
             return credentials
 

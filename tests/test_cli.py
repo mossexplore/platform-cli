@@ -48,7 +48,7 @@ class CliEnvironmentCommandTest(unittest.TestCase):
         )
 
         self.assertNotEqual(result.exit_code, 0)
-        self.assertIn("No such command", result.output)
+        self.assertIn("未知命令", result.output)
 
     def test_version_is_1_0_7_1(self):
         result = self.runner.invoke(app, ["--version"])

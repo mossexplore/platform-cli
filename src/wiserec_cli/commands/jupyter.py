@@ -12,6 +12,7 @@ import typer
 from rich.table import Table
 from rich.text import Text
 
+from .. import messages as msg
 from ..jupyter.connection import JupyterClient, from_runtime
 from ..jupyter.notebook import run_notebook
 from ..jupyter.terminal import attach, require_tty
@@ -37,11 +38,11 @@ def text_output(value):
 
 
 def client_for(context, studio_id=None, report=None):
-    report = report or (lambda value: typer.echo(value, err=True))
+    report = report or msg.info
     connection = from_runtime(runtime_from_context(context), studio_id, report=report)
     if connection.studio_id:
         name = ' '.join(_CONTROL.sub('', connection.studio_name).splitlines()) or '未提供名称'
-        typer.echo(f"目标Web Studio名称：{name}，envId：{connection.studio_id}", err=True)
+        msg.info(f"目标Web Studio名称：{name}，envId：{connection.studio_id}")
     return JupyterClient(connection)
 
 
@@ -61,14 +62,14 @@ def display_time(value):
 def doctor(context: typer.Context, studio_id: Optional[str] = typer.Option(None, "--studio-id")):
     """验证 Token、业务上下文、Kernel 与终端管理接口（不创建资源）。"""
     try:
-        with client_for(context, studio_id, report=lambda value: typer.echo(value, err=True)) as client:
+        with client_for(context, studio_id, report=msg.info) as client:
             specs = client.request("GET", "api/kernelspecs")
-            typer.echo("Kernel 接口：通过")
+            msg.success("Kernel 接口：通过")
             terminals = client.request("GET", "api/terminals")
-            typer.echo("Jupyter HTTP 认证成功；businessid 已携带")
-            typer.echo("可用 Kernel：" + ", ".join(specs.get("kernelspecs", {})))
-            typer.echo(f"Terminal 接口可用，现有终端 {len(terminals)} 个")
-            typer.echo("WebSocket 通道将在实际执行或 attach 时验证。")
+            msg.success("Jupyter HTTP 认证成功；businessid 已携带")
+            msg.info("可用 Kernel：" + ", ".join(specs.get("kernelspecs", {})))
+            msg.success(f"Terminal 接口可用，现有终端 {len(terminals)} 个")
+            msg.info("WebSocket 通道将在实际执行或 attach 时验证。")
     except Exception as exc:
         fail(exc)
 
@@ -100,9 +101,9 @@ def run(context: typer.Context,
         typer.echo(f"执行 ID：{result['id']}\n状态：{result['status']}")
         typer.echo(f"完成时间：{display_time(result['finished_at'])}\n结果：{result['notebook']}")
         if result.get("error"):
-            typer.echo(result["error"], err=True)
+            msg.error(result["error"])
         for warning in result["cleanup_errors"]:
-            typer.echo(warning, err=True)
+            msg.warning(warning)
     code = {"SUCCEEDED": 0, "TIMED_OUT": 124, "INTERRUPTED": 130, "LOST": 2}.get(result["status"], 1)
     raise typer.Exit(code=code)
 
@@ -130,7 +131,7 @@ def open_terminal(context: typer.Context, studio_id: Optional[str] = typer.Optio
         require_tty()
         with client_for(context, studio_id) as client:
             terminal = client.request("POST", "api/terminals", {})
-            typer.echo(f"终端名称：{terminal['name']}；按 Ctrl+] 断开，exit 关闭远程 Shell。")
+            msg.info(f"终端名称：{terminal['name']}；按 Ctrl+] 断开，exit 关闭远程 Shell。")
             attach(client, terminal["name"])
     except Exception as exc:
         fail(exc)
@@ -143,7 +144,7 @@ def attach_terminal(context: typer.Context, name: str = typer.Argument(...),
     try:
         require_tty()
         with client_for(context, studio_id) as client:
-            typer.echo(f"连接终端 {name}；按 Ctrl+] 断开。")
+            msg.info(f"连接终端 {name}；按 Ctrl+] 断开。")
             attach(client, name)
     except Exception as exc:
         fail(exc)
@@ -156,6 +157,6 @@ def close_terminal(context: typer.Context, name: str = typer.Argument(...),
     try:
         with client_for(context, studio_id) as client:
             client.request("DELETE", "api/terminals/" + quote(name, safe=""))
-        typer.echo("已关闭远程终端：" + name)
+        msg.success("已关闭远程终端：" + name)
     except Exception as exc:
         fail(exc)

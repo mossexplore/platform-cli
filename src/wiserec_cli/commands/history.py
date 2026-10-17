@@ -1,6 +1,7 @@
 """无需登录或有效平台配置的本地文本历史管理。"""
 
 import sys
+from contextlib import redirect_stdout
 from datetime import datetime
 from typing import Optional
 
@@ -9,6 +10,7 @@ import typer
 from rich.table import Table
 from rich.text import Text
 
+from .. import messages as msg
 from ..history_recording import config_location, safe_text
 from ..history_store import HistoryStore
 from ..models import BEIJING_TIMEZONE
@@ -58,7 +60,7 @@ def render_rows(rows):
             Text(safe_text(row['command'])))
     console.print(table)
     if not rows:
-        console.print('暂无匹配的历史记录')
+        msg.info('暂无匹配的历史记录')
 
 
 def browse(rows):
@@ -70,11 +72,12 @@ def browse(rows):
     pages = (len(rows) + size - 1) // size
     while True:
         render_rows(rows[page * size:(page + 1) * size])
-        console.print(f'第 {page + 1} / {pages} 页 · 共 {len(rows)} 条记录')
+        msg.info(f'第 {page + 1} / {pages} 页 · 共 {len(rows)} 条记录')
         while True:
             try:
-                answer = click.prompt('[n] 下一页  [p] 上一页  [q] 退出，请输入',
-                                      default='', show_default=False).strip().lower()
+                with redirect_stdout(sys.stderr):
+                    answer = click.prompt(msg.prompt_text('[n] 下一页  [p] 上一页  [q] 退出，请输入'),
+                                          default='', show_default=False, err=True).strip().lower()
             except (KeyboardInterrupt, click.Abort, EOFError):
                 return
             if answer == 'q':
@@ -83,14 +86,14 @@ def browse(rows):
                 if page + 1 < pages:
                     page += 1
                     break
-                console.print('已经是最后一页')
+                msg.info('已经是最后一页')
             elif answer == 'p':
                 if page > 0:
                     page -= 1
                     break
-                console.print('已经是第一页')
+                msg.info('已经是第一页')
             else:
-                console.print('请输入 n、p 或 q 后按回车')
+                msg.info('请输入 n、p 或 q 后按回车')
 
 
 @history_app.callback()
@@ -136,8 +139,8 @@ def clear_history(context: typer.Context,
                 return True
             if not sys.stdin.isatty():
                 raise ValueError(f'匹配 {count} 条记录，非交互清理必须传入 --yes')
-            return typer.confirm(f'将删除 {count} 条历史记录，是否继续？')
+            return msg.confirm(f'将删除 {count} 条历史记录，是否继续？')
         count = store_for(context).remove(predicate, confirm)
-        console.print(f'已清理 {count} 条历史记录')
+        msg.success(f'已清理 {count} 条历史记录')
     except Exception as exc:
         fail(exc)

@@ -106,7 +106,7 @@ class TrainActionsTest(unittest.TestCase):
         self.assertEqual(result.exit_code, 0, result.output)
         self.assertEqual(pages, [1, 2])
         self.assertEqual(cancelled, [f"j{i}" for i in range(11)])
-        self.assertEqual(result.output.count("响应描述是cancel job success"), 11)
+        self.assertEqual(result.stderr.count("响应描述是cancel job success"), 11)
 
     def test_cancel_empty_never_posts(self):
         task = {"taskId": "t", "businessId": "mep", "taskType": "train"}
@@ -120,7 +120,7 @@ class TrainActionsTest(unittest.TestCase):
 
         result = self.invoke(["cancel", "t", "--yes"], handler)
         self.assertNotEqual(result.exit_code, 0)
-        self.assertIn("没有正在执行的任务，无法取消任务执行！", result.output)
+        self.assertIn("没有正在执行的任务，无法取消任务执行！", result.stderr)
         self.assertEqual(len(paths), 2)
 
     def test_cancel_reports_partial_failure_and_continues(self):
@@ -143,8 +143,8 @@ class TrainActionsTest(unittest.TestCase):
         result = self.invoke(["cancel", "t", "--yes"], handler)
         self.assertNotEqual(result.exit_code, 0)
         self.assertEqual(cancelled, ["j1", "j2"])
-        self.assertIn("取消完成：成功 1 个，失败 1 个", result.output)
-        self.assertIn("取消训练任务t的执行实例j2成功", result.output)
+        self.assertIn("取消完成：成功 1 个，失败 1 个", result.stderr)
+        self.assertIn("取消训练任务t的执行实例j2成功", result.stderr)
 
     def test_delete_uses_list_fields_and_soft_delete(self):
         task = {"taskId": "t", "teamId": "team", "taskName": "actual-name"}
@@ -161,7 +161,7 @@ class TrainActionsTest(unittest.TestCase):
         self.assertEqual(result.exit_code, 0, result.output)
         self.assertEqual(writes, [{"taskId": "t", "teamId": "team",
                                    "target": "actual-name", "softDeleteFlag": True}])
-        self.assertIn("删除训练任务t成功", result.output)
+        self.assertIn("删除训练任务t成功", result.stderr)
 
     def test_clone_preserves_detail_and_changes_only_requested_fields(self):
         task = {"taskId": "t", "teamId": "", "taskName": "old"}
@@ -194,7 +194,7 @@ class TrainActionsTest(unittest.TestCase):
         }}])
         self.assertEqual(detail["name"], "old")
         self.assertEqual(detail["taskInfo"]["createUser"], "source-user")
-        self.assertIn("新任务 ID：new-id", result.output)
+        self.assertIn("新任务 ID：new-id", result.stderr)
 
 
 if __name__ == "__main__":

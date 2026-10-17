@@ -7,6 +7,7 @@ from uuid import uuid4
 
 import typer
 
+from .. import messages as msg
 from ..output import console, print_result
 from ..services.experiment import ExperimentService
 from .common import fail, runtime_from_context
@@ -252,7 +253,7 @@ def clone_experiment(
                 console.print(f"运行配置模板：{detail.get('configName') or '-'}")
                 console.print(f"businessId：{detail.get('businessId') or '-'}")
                 console.print(f"团队 ID：{detail.get('teamId') or '-'}")
-                if not typer.confirm("确认克隆？", default=False):
+                if not msg.confirm("确认克隆？", default=False):
                     return None
                 confirmed = True
 
@@ -266,7 +267,7 @@ def clone_experiment(
 
         result = runtime.authenticated_call(clone)
         if result is None:
-            console.print("已取消克隆")
+            msg.info("已取消克隆")
             return
         selected = output or runtime.config.current_profile().output_format
         print_result(result, selected)

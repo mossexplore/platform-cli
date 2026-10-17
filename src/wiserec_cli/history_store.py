@@ -12,8 +12,8 @@ LIMIT = 1000
 
 
 def warning(message):
-    import click
-    click.echo(f'警告：{message}', err=True)
+    from .messages import warning as emit_warning
+    emit_warning(message)
 
 
 @contextmanager

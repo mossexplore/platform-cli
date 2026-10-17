@@ -242,8 +242,8 @@ class FeatureSetCommandTest(unittest.TestCase):
         self.assertEqual(json.loads(result.stdout)["items"], [])
         result = self.invoke(FakeClient(), ["wide", "list"])
         self.assertEqual(result.exit_code, 0, result.output)
-        self.assertIn("暂无特征集", result.stdout)
-        self.assertIn("第 1 页 · 每页 10 条 · 共 0 条", result.stdout)
+        self.assertIn("暂无特征集", result.stderr)
+        self.assertIn("第 1 页 · 每页 10 条 · 共 0 条", result.stderr)
 
     def test_invalid_options_do_not_call_api(self):
         for option in (["--page", "0"], ["--page-size", "-1"], ["--page", "1.5"],
@@ -266,7 +266,7 @@ class FeatureSetCommandTest(unittest.TestCase):
         for value in ("2026-09-08T03:30:58.000+00:00", "2026-09-08T03:30:58Z",
                       "2026-09-07T23:30:58-04:00"):
             self.assertEqual(display_value("createTime", value), "2026-09-08 11:30:58")
-        with patch("wiserec_cli.commands.featureset.error_console") as errors:
+        with patch("wiserec_cli.messages.error_console") as errors:
             for value in ("bad", "2026-09-08T03:30:58"):
                 self.assertEqual(display_value("updateTime", value), value)
             self.assertEqual(errors.print.call_count, 2)

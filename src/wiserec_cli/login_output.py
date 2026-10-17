@@ -3,9 +3,9 @@
 import os
 from contextlib import contextmanager
 
+from . import messages as msg
 from .errors import AuthenticationError
 from .output import console
-
 
 class LoginProgress:
     def __init__(self, alias):
@@ -15,18 +15,18 @@ class LoginProgress:
         self.status = None
 
     def __enter__(self):
-        console.print(f"正在登录【{self.alias}】", markup=False)
+        msg.info(f"正在登录【{self.alias}】")
         message = "正在打开登录页面…"
-        if console.is_terminal and not console.is_dumb_terminal:
-            self.status = console.status(message, spinner="dots")
+        if msg.error_console.is_terminal and not msg.error_console.is_dumb_terminal:
+            self.status = msg.error_console.status(msg.render(message), spinner="dots")
             self.status.start()
         else:
-            console.print(message)
+            msg.info(message)
         return self
 
     def update(self, message):
         if self.status is not None:
-            self.status.update(message)
+            self.status.update(msg.render(message))
 
     def stop(self):
         if self.status is not None:

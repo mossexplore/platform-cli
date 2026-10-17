@@ -31,6 +31,7 @@ def run_login(tmp_path, *, alias='镜像环境', show_secrets=False, failure=Fal
          patch('wiserec_cli.login_output.console', console), \
          patch('wiserec_cli.auth.console', console), \
          patch('wiserec_cli.output.console', console), \
+         patch('wiserec_cli.messages.error_console', console), \
          patch('wiserec_cli.auth._wait_for_edge') as wait, \
          patch('builtins.print', side_effect=lambda *args: output.write(' '.join(map(str,args))+'\n')):
         try:
@@ -76,13 +77,13 @@ def test_login_timeout_never_prints_success_table(tmp_path):
 def test_spinner_updates_and_stops_on_failure():
     console = Mock(is_terminal=True, is_dumb_terminal=False)
     status = console.status.return_value
-    with patch('wiserec_cli.login_output.console', console):
+    with patch('wiserec_cli.messages.error_console', console):
         with pytest.raises(RuntimeError):
             with LoginProgress('镜像环境') as progress:
                 progress.update('等待浏览器完成登录…')
                 raise RuntimeError('failed')
     status.start.assert_called_once()
-    status.update.assert_called_once_with('等待浏览器完成登录…')
+    assert status.update.call_args.args[0].plain == '[提示] 等待浏览器完成登录…'
     status.stop.assert_called_once()
 
 
@@ -100,7 +101,7 @@ def test_login_only_keeps_actionable_ping_messages(message, visible):
     with patch('wiserec_cli.commands.auth.runtime_from_context', return_value=runtime), \
          patch('wiserec_cli.commands.auth.show_access_guidance', return_value=True), \
          patch('wiserec_cli.commands.auth.ping.auto_start', return_value=message), \
-         patch('wiserec_cli.commands.auth.console', console):
+         patch('wiserec_cli.messages.error_console', console):
         login(None, False)
     assert console.print.called is visible
 

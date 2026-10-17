@@ -1,7 +1,9 @@
 """恢复 HTTP Cookie 的完整作用域，并在同一代连接内更新会话。"""
+
 from http.cookiejar import Cookie
 import sys
 
+from .. import messages as msg
 from ..errors import ConfigError
 
 
@@ -42,7 +44,7 @@ class CachedSession:
                 self.cache.save_session(self.key, self.entry['generation'], cookie_records(client.http.cookies.jar))
         except (OSError, ConfigError):
             # 缓存更新失败不能把已完成的远端写操作报告为失败。
-            print('警告：无法更新 Web Studio 会话缓存；本次请求已完成', file=sys.stderr)
+            msg.warning('无法更新 Web Studio 会话缓存；本次请求已完成')
 
     def invalidate(self):
         self.cache.invalidate(self.key, self.entry['generation'])
