@@ -36,9 +36,11 @@ def test_authorization_headers_and_environment(inputs):
     args, kwargs = manager.__enter__().post.call_args
     assert args[0] == 'https://access.example.com/cli-permission/api/v1/access/check'
     assert kwargs['headers']['businessid'] == 'current-business'
-    assert kwargs['headers']['X-CLI-Version'] == '1.0.7.1'
+    assert kwargs['headers']['X-CLI-Version'] == '1.0.7.2'
     assert kwargs['json'] == {'username': 'alice', 'environment': 'dev', 'platform_origin': 'https://platform.example.com', 'command': 'unknown', 'full_command': ''}
-    assert ctor.call_args.kwargs['verify'] is True
+    import ssl
+    verify = ctor.call_args.kwargs['verify']
+    assert verify is True or (isinstance(verify, ssl.SSLContext) and verify.verify_mode == ssl.CERT_REQUIRED and verify.check_hostname)
     assert ctor.call_args.kwargs['follow_redirects'] is False
 
 

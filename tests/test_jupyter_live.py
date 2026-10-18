@@ -160,11 +160,12 @@ def test_real_server_with_url_prefix(tmp_path, mode):
                 from wiserec_cli.webstudio.resolve import resolve
                 from wiserec_cli.webstudio.store import SelectionStore
                 config_path = tmp_path / "cli-config.json"
-                config_path.write_text(json.dumps({"current": "mock-platform", "profiles": [{
+                config_path.write_text(json.dumps({"current": "mock-platform", "access_control": {"enable": False}, "profiles": [{
                     "name": "mock-platform", "api_endpoint": "https://platform.invalid/dashboard",
                     "jupyter": {"mode": "webstudio", "server_urls_by_region": {
                         "local": f"http://127.0.0.1:{port}"}}}]}))
-                runtime = Runtime(config_path=config_path, business_path=tmp_path / "business.json")
+                runtime = Runtime(config_path=config_path, credential_path=tmp_path / "credentials.json",
+                                  business_path=tmp_path / "business.json")
                 runtime.auth = Mock()
                 runtime.auth.ensure_credentials.return_value = Credentials.create("mock-platform", "c", "x", "viewer", 3600)
                 runtime.business.refresh("mock-platform", "viewer", [Department("d", "d", (Tenant("b", "b", (), ()),))], browser_business_id="b")

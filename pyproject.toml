@@ -4,14 +4,14 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "wiserec-cli"
-version = "1.0.7.1"
+version = "1.0.7.2"
 description = "WiseRec platform command line client"
 requires-python = ">=3.9"
 dependencies = [
   "httpx>=0.27,<1",
   "playwright>=1.40,<2",
   "rich>=13,<15",
-  "typer>=0.12,<1",
+  "typer>=0.12,<0.26",
   "click>=8,<9",
   "websocket-client>=1.8,<2",
   "nbformat>=5.10,<6"
@@ -25,6 +25,7 @@ ml = "wiserec_cli.cli:run"
 
 [tool.setuptools.packages.find]
 where = ["src"]
+include = ["wiserec_cli", "wiserec_cli.*"]
 
 [tool.pytest.ini_options]
 pythonpath = ["src"]

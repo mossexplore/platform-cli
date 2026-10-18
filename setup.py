@@ -11,6 +11,9 @@ from setuptools.command.build_py import build_py as BaseBuildPy
 
 class BuildPy(BaseBuildPy):
     def run(self) -> None:
+        package = Path(self.build_lib) / "wiserec_cli"
+        if package.exists():
+            rmtree(package)
         super().run()
         source = Path("config.json")
         destination = Path(self.build_lib) / "wiserec_cli" / "config.json"

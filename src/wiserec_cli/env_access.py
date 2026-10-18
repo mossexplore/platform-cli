@@ -1,4 +1,5 @@
 """收集本地环境状态，并用一次请求查询全部待检查环境及当前账号授权。"""
+from .execution import create_client
 import httpx
 
 from .access import access_enabled
@@ -40,7 +41,7 @@ def query_environment_access(settings, username, checks, business_id=None):
         headers['businessid'] = business_id
     url = permission_url(settings['url']).rsplit('/', 1)[0] + '/environments'
     try:
-        with httpx.Client(timeout=settings.get('timeout_seconds', 15), verify=tls_verify(),
+        with create_client(timeout=settings.get('timeout_seconds', 15), verify=tls_verify(),
                           follow_redirects=False, trust_env=settings.get('use_env_proxy', False)) as client:
             response = client.post(url, headers=headers, json={'username': username, 'environments': checks})
         if response.status_code == 404:

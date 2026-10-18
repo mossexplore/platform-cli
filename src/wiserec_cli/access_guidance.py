@@ -1,6 +1,7 @@
 """登录与环境命令的用户授权提示，不替代业务请求的逐次鉴权。"""
 from __future__ import annotations
 
+from .execution import create_client
 import httpx
 
 from . import messages as msg
@@ -18,7 +19,7 @@ def check_user_access(settings, username, business_id=None):
         headers['businessid'] = business_id
     url = permission_url(settings['url']).rsplit('/', 1)[0] + '/summary'
     try:
-        with httpx.Client(timeout=settings.get('timeout_seconds', 15),
+        with create_client(timeout=settings.get('timeout_seconds', 15),
                           verify=tls_verify(), follow_redirects=False,
                           trust_env=settings.get('use_env_proxy', False)) as client:
             response = client.post(url, headers=headers, json={'username': username})

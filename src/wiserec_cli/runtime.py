@@ -26,7 +26,9 @@ class Runtime:
         self.config = ConfigManager(config_path)
         self.credentials = CredentialStore(credential_path)
         self.business = BusinessStore(business_path)
-        self.auth = AuthManager(self.config, self.credentials, self.business)
+        from .execution import current
+        factory = current().auth_factory or AuthManager
+        self.auth = factory(self.config, self.credentials, self.business)
 
     def authenticated_call(
         self,

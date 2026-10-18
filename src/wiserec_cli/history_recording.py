@@ -52,6 +52,9 @@ def root_arguments(args):
 
 
 def config_location(config=None):
+    from .execution import current
+    if current().config_path is not None:
+        return current().config_path
     if config:
         return Path(config).expanduser().resolve()
     local = Path.cwd() / 'config.json'

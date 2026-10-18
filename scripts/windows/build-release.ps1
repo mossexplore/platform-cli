@@ -164,6 +164,9 @@ try {
     if ($Wheels.Count -ne 1) {
         throw "Expected exactly one Wheel, but found $($Wheels.Count)."
     }
+    Invoke-CheckedPython -Arguments @(
+        (Join-Path $RepositoryRoot "scripts\releasing\check-cli-package.py"), $Wheels[0].FullName
+    )
     $WheelPath = Join-Path $BundleDirectory $Wheels[0].Name
     Copy-Item -LiteralPath $Wheels[0].FullName -Destination $WheelPath
 
@@ -224,6 +227,9 @@ try {
     Compress-Archive -Path $BundleDirectory -DestinationPath $ArchivePath -CompressionLevel Optimal
 
     Write-Host ""
+    Invoke-CheckedPython -Arguments @(
+        (Join-Path $RepositoryRoot "scripts\releasing\check-cli-package.py"), $ArchivePath
+    )
     Write-Host "Release package created:" -ForegroundColor Green
     Write-Host "  Directory: $BundleDirectory"
     Write-Host "  ZIP:       $ArchivePath"

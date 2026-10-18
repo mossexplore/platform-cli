@@ -4,3 +4,8 @@ include examples/jupyter/hello.ipynb
 include docs/Jupyter本地开发指南.md
 
 recursive-include skill *.md
+
+prune devtools
+prune scripts/demo
+exclude docs/CLI演示环境使用指南.md
+prune tests

@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from typing import Any, Dict
 from urllib.parse import urlsplit
+from .execution import create_client
 import httpx
 from .errors import ConfigError, MlError
 from .client_metadata import client_headers, handle_version_result
@@ -74,7 +75,7 @@ def check_access(settings, profile, credentials, selection, *, command="unknown"
         diagnostics.begin(url, profile, credentials, selection, command, settings.get('timeout_seconds', 15))
         diagnostics.line('网络设置', '沿用环境代理配置' if settings.get('use_env_proxy', False) else '权限服务直连，已忽略环境代理')
     try:
-        with httpx.Client(timeout=settings.get('timeout_seconds', 15),
+        with create_client(timeout=settings.get('timeout_seconds', 15),
                           verify=tls_verify(), follow_redirects=False,
                           trust_env=settings.get('use_env_proxy', False)) as client:
             response = client.post(url,

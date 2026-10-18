@@ -17,6 +17,10 @@ from .models import Profile
 
 
 def default_config_path() -> Path:
+    from .execution import current
+    if current().config_path is not None:
+        return current().config_path
+
     configured = os.environ.get("ML_CONFIG")
     if configured:
         return Path(configured).expanduser().resolve()
@@ -129,7 +133,8 @@ def _sync_packaged_config(destination: Path, *, force: bool = False) -> None:
 
 
 def user_config_dir() -> Path:
-    return _user_config_dir("ml")
+    from .execution import current
+    return current().state_dir or _user_config_dir("ml")
 
 
 def _user_config_dir(application_name: str) -> Path:
@@ -147,6 +152,9 @@ class ConfigManager:
         self.path = (path or default_config_path()).expanduser().resolve()
         self._data = self._read()
         self._validate()
+        from .execution import current
+        if current().validate_config:
+            current().validate_config(self)
 
     def _read(self) -> Dict[str, Any]:
         try:

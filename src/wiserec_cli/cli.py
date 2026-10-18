@@ -10,6 +10,7 @@ import typer
 
 from . import __version__
 from .commands.history import history_app
+from .commands.context import show_context
 from .commands.access import access_app
 from .commands.algorithm import algorithm_app
 from .commands.dataset import dataset_app
@@ -43,6 +44,7 @@ app = typer.Typer(
     no_args_is_help=True,
     help="WiseRec平台命令行客户端",
 )
+app.command("context")(show_context)
 app.command("login")(login)
 app.command("logout")(logout)
 app.command("tree")(show_tree)
@@ -99,7 +101,7 @@ def initialize(
 ) -> None:
     """初始化 CLI 运行时。"""
     del version, no_history
-    if context.invoked_subcommand in {"tree", "history"}:
+    if context.invoked_subcommand in {"tree", "history", "context"}:
         return
     try:
         context.obj = Runtime(config_path=config)

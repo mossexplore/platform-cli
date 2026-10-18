@@ -15,6 +15,7 @@ from pathlib import Path
 from typing import Any, Dict, Optional
 from uuid import uuid4
 
+from .execution import create_client, current as execution_context
 import httpx
 
 from . import __version__
@@ -180,7 +181,7 @@ def start(runtime: Any, *, automatic: bool = False) -> str:
                 except OSError:
                     pass
                 process = subprocess.Popen(
-                    [sys.executable, "-m", "wiserec_cli.ping_worker",
+                    [sys.executable, "-m", execution_context().worker_module,
                      str(runtime.config.path), profile, str(runtime.credentials.path),
                      str(runtime.business.path), str(store.path), worker_token],
                     stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
@@ -334,7 +335,7 @@ def _probe(config: ConfigManager, profile_name: str, credentials: Credentials,
     transport = httpx.HTTPTransport(
         retries=config.retry_times, verify=config.verify_ssl_for(profile),
     )
-    with httpx.Client(base_url=profile.base_url,
+    with create_client(base_url=profile.base_url,
                       headers={
                           "cookie": credentials.cookie,
                           "csrftoken": credentials.csrftoken,

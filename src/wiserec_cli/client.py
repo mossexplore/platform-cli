@@ -25,7 +25,8 @@ class PlatformClient:
         business_selection: Optional[BusinessSelection] = None,
         on_platform_success: Optional[Callable[[], None]] = None,
     ):
-        selected_transport = transport or httpx.HTTPTransport(
+        from .execution import transport as execution_transport
+        selected_transport = execution_transport(transport) or httpx.HTTPTransport(
             retries=retry_times,
             verify=verify_ssl,
         )

@@ -8,6 +8,7 @@
 
 ```text
 ml                                              WiseRec 命令行工具
+├── context                                     查看运行上下文
 ├── login                                       登录平台
 ├── logout                                      退出登录
 ├── tree                                        查看完整命令树
@@ -1140,4 +1141,31 @@ ml model deploy MODEL_ID --template DEPLOY_TEMPLATE_ID --qps 100 --update-mode i
 ml model deploy MODEL_ID --template DEPLOY_TEMPLATE_ID --health-check-mode response-code --health-port 18090
 ml model deploy MODEL_ID --template DEPLOY_TEMPLATE_ID --description SERVICE_DESCRIPTION --request-file REQUEST_FILE --response-file RESPONSE_FILE
 ml model deploy MODEL_ID --template DEPLOY_TEMPLATE_ID --yes -o json
+```
+
+## 运行上下文
+
+### 命令格式
+
+```text
+ml [--config PATH] context [--json]
+```
+
+### 参数与选项
+
+| 参数 | 说明 |
+| --- | --- |
+| `--config PATH` | 全局选项，指定配置文件；也可使用 ML_CONFIG |
+| `--json` | 输出结构化 JSON；默认输出表格 |
+
+### 说明
+
+无需登录，不请求平台接口。显示实际运行模式、当前环境、平台地址、CLI 路径、配置路径和状态目录；不显示凭据或地址中的认证参数。“真实平台”表示连接真实服务，不代表当前环境一定是生产环境。独立演示环境还显示工作区和场景。配置无效时返回错误，不推测运行状态。
+
+### 示例
+
+```bash
+ml context
+ml context --json
+ml --config /path/to/config.json context
 ```

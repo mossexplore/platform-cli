@@ -99,6 +99,9 @@ def remote_path(value: str) -> str:
 
 class JupyterClient:
     def __init__(self, connection: Connection, transport=None):
+        from ..execution import current
+        if current().validate_connection:
+            current().validate_connection(connection)
         self.connection = connection
         self._transport = transport
         self._mutation_started = False

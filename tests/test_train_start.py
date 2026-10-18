@@ -36,7 +36,8 @@ def test_exact_request_and_output(runtime):
     first = invoke(runtime, handler)
     second = invoke(runtime, handler)
     assert first.exit_code == second.exit_code == 0
-    assert first.stdout.strip() == '[成功] 训练任务执行成功，jobId：job-123'
+    assert first.stdout == ''
+    assert first.stderr.strip() == '[成功] 训练任务执行成功，jobId：job-123'
     assert len(requests) == 2
     uuids = []
     for request in requests:

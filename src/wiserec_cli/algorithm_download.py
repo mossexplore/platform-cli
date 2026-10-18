@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Callable, Optional
 from urllib.parse import unquote
 
+from .execution import create_client
 import httpx
 
 from .downloads import https_url
@@ -40,7 +41,7 @@ def download_algorithm(
     current = https_url(url)
     temporary: Optional[Path] = None
     try:
-        with httpx.Client(
+        with create_client(
             verify=verify_ssl, timeout=60, follow_redirects=False,
             transport=transport, headers={"Accept-Encoding": "identity"},
         ) as client:

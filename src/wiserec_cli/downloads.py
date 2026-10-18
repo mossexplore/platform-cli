@@ -9,6 +9,7 @@ from email.message import Message
 from pathlib import Path
 from typing import Callable, Optional, Tuple
 
+from .execution import create_client
 import httpx
 
 from .errors import ApiError
@@ -67,7 +68,7 @@ def download_file(
     current = https_url(url)
     temporary = None
     try:
-        with httpx.Client(verify=False, timeout=60, follow_redirects=False,
+        with create_client(verify=False, timeout=60, follow_redirects=False,
                           transport=transport, headers={"Accept-Encoding": "identity"}) as client:
             for redirect in range(6):
                 client.cookies.clear()
