@@ -11,9 +11,11 @@ from setuptools.command.build_py import build_py as BaseBuildPy
 
 class BuildPy(BaseBuildPy):
     def run(self) -> None:
-        package = Path(self.build_lib) / "wiserec_cli"
-        if package.exists():
-            rmtree(package)
+        # Wheel assembly copies all of build_lib, including obsolete packages
+        # left by older builds. Package discovery does not filter those files.
+        build_lib = Path(self.build_lib)
+        if build_lib.exists():
+            rmtree(build_lib)
         super().run()
         source = Path("config.json")
         destination = Path(self.build_lib) / "wiserec_cli" / "config.json"
