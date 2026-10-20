@@ -320,9 +320,10 @@ if ($OpenCodeExit -eq 0) {
     Write-Host "  ml login"
     Write-Host "  Reopen OpenCode and run /ml"
 } else {
-    Write-Host "Result: CLI installed; OpenCode skill and /ml command were not left installed." -ForegroundColor Red
+    Write-Host "Result: CLI installed. Nothing new was installed." -ForegroundColor Red
     Write-Host ("Reason: python -m wiserec_cli.opencode_install exited with code " + $OpenCodeExit + ". The error is printed above.")
-    Write-Host "If this run wrote permission rules, opencode.json was restored from the backup and wiserec-managed.json was removed."
+    Write-Host "An existing skill and /ml command were left in place or restored from the backup taken before replacement."
+    Write-Host "If this run wrote permission rules and the skill copy then failed, opencode.json was restored from the backup and wiserec-managed.json was removed."
     Write-Host "The WiseRec CLI is installed and ml remains usable."
     Write-Host "Next steps:"
     Write-Host "  1. Fix the error printed above."

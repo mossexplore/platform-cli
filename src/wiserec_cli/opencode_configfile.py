@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 import re
 import time
 from pathlib import Path
@@ -78,6 +79,33 @@ def normalize_newlines(text: str) -> str:
 
 def dump(config: dict) -> str:
     return json.dumps(config, ensure_ascii=False, indent=2) + "\n"
+
+
+def write_private(path: Path, data: bytes, *, before_write=None) -> None:
+    """Create ``path`` as mode 0600, then optionally restrict it, then write.
+
+    ``before_write`` runs while the file is still empty so a Windows ACL can
+    be applied before secret bytes exist.
+    """
+    flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL
+    if hasattr(os, "O_NOFOLLOW"):
+        flags |= os.O_NOFOLLOW
+    previous = os.umask(0o077)
+    try:
+        descriptor = os.open(str(path), flags, 0o600)
+    finally:
+        os.umask(previous)
+    try:
+        if before_write is not None:
+            before_write(path)
+        view = memoryview(data)
+        while view:
+            written = os.write(descriptor, view)
+            if written <= 0:
+                raise OSError(f"failed to write {path}")
+            view = view[written:]
+    finally:
+        os.close(descriptor)
 
 
 def backup_path(path: Path) -> Path:

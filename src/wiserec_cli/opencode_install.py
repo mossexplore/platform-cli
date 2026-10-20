@@ -32,8 +32,9 @@ def _remove(path: Path) -> None:
         shutil.rmtree(path)
 
 
-def install_resources(target: Path, source: Path = RESOURCE_ROOT) -> None:
+def install_resources(target: Path, source: Path | None = None) -> None:
     """Validate before deletion, then replace only the two owned resources."""
+    source = RESOURCE_ROOT if source is None else source
     manifest = json.loads((source / "manifest.json").read_text(encoding="utf-8"))
     required = {"commands/ml.md", "skills/wiserec-platform/SKILL.md"}
     if not isinstance(manifest, dict) or not required.issubset(manifest):
@@ -57,50 +58,58 @@ def install_resources(target: Path, source: Path = RESOURCE_ROOT) -> None:
         for parent in (target, target / "skills", target / "commands"):
             if parent.is_symlink():
                 raise ValueError(f"OpenCode directory must not be a symlink: {parent}")
-        replacement_started = False
+        backup = Path(tempfile.mkdtemp(prefix="wiserec-opencode-backup-"))
         try:
-            for destination in owned:
-                _remove(destination)
-            replacement_started = True
-            for destination in owned:
-                destination.parent.mkdir(parents=True, exist_ok=True)
-                origin = staged / destination.relative_to(target)
-                if origin.is_dir():
-                    shutil.copytree(origin, destination)
-                else:
-                    shutil.copyfile(origin, destination)
-            for relative, digest in manifest.items():
-                if hashlib.sha256((target / relative).read_bytes()).hexdigest() != digest:
-                    raise ValueError(f"Installed resource checksum failed: {relative}")
-        except Exception:
-            if replacement_started:
+            _preserve_previous(target, owned, backup)
+            try:
                 for destination in owned:
                     _remove(destination)
-            raise
+                for destination in owned:
+                    destination.parent.mkdir(parents=True, exist_ok=True)
+                    origin = staged / destination.relative_to(target)
+                    if origin.is_dir():
+                        shutil.copytree(origin, destination)
+                    else:
+                        shutil.copyfile(origin, destination)
+                for relative, digest in manifest.items():
+                    if hashlib.sha256((target / relative).read_bytes()).hexdigest() != digest:
+                        raise ValueError(f"Installed resource checksum failed: {relative}")
+            except Exception:
+                _restore_previous(target, owned, backup)
+                raise
+        finally:
+            shutil.rmtree(backup, ignore_errors=True)
 
 
-def remove_owned_resources(target: Path) -> None:
-    """Delete the skill and /ml command. Leave every other file in place."""
-    if not target.exists() and not target.is_symlink():
-        return
-    for parent in (target, target / "skills", target / "commands"):
-        if parent.is_symlink():
-            return
-    for destination in (target / "skills/wiserec-platform", target / "commands/ml.md"):
+def _preserve_previous(target: Path, owned: list, backup: Path) -> None:
+    for destination in owned:
+        if not destination.exists() and not destination.is_symlink():
+            continue
+        saved = backup / destination.relative_to(target)
+        saved.parent.mkdir(parents=True, exist_ok=True)
+        if destination.is_dir() and not destination.is_symlink():
+            shutil.copytree(destination, saved)
+        else:
+            shutil.copyfile(destination, saved)
+
+
+def _restore_previous(target: Path, owned: list, backup: Path) -> None:
+    for destination in owned:
         _remove(destination)
+        saved = backup / destination.relative_to(target)
+        if not saved.exists() and not saved.is_symlink():
+            continue
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        if saved.is_dir() and not saved.is_symlink():
+            shutil.copytree(saved, destination)
+        else:
+            shutil.copyfile(saved, destination)
 
 
 _PERMISSION_NEXT = (
-    "The OpenCode skill and /ml command were not left installed. "
+    "Nothing new was installed. An existing skill and /ml command were left unchanged. "
     "The WiseRec CLI remains usable. Fix the error above, then rerun the official installer."
 )
-
-
-def _abandon_resources(target: Path) -> None:
-    try:
-        remove_owned_resources(target)
-    except Exception as cleanup_error:
-        msg.warning(f"OpenCode skill removal failed: {cleanup_error}")
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -128,7 +137,6 @@ def main(argv: list[str] | None = None) -> int:
     try:
         rule_format = detect_permission_format()
     except OpenCodeVersionError as error:
-        _abandon_resources(target)
         msg.error(str(error))
         msg.detail("opencode.json was left unchanged.")
         msg.detail(_PERMISSION_NEXT)
@@ -138,7 +146,6 @@ def main(argv: list[str] | None = None) -> int:
         preflight_opencode_permissions(target, rule_format=rule_format)
         install_opencode_permissions(target, rule_format=rule_format)
     except Exception as error:
-        _abandon_resources(target)
         msg.error(f"OpenCode permission installation failed: {error}")
         msg.detail("opencode.json was left unchanged or restored from the backup.")
         msg.detail(_PERMISSION_NEXT)
@@ -150,13 +157,18 @@ def main(argv: list[str] | None = None) -> int:
             rollback_opencode_permissions(target)
             rollback_note = (
                 "Permission changes from this run were restored from the backup, "
-                "and wiserec-managed.json was removed."
+                "and wiserec-managed.json was removed. "
+                "The previous skill and /ml command were restored when a previous copy existed."
             )
         except Exception as rollback_error:
             rollback_note = f"OpenCode permission rollback failed: {rollback_error}"
         msg.error(f"OpenCode skill and /ml command installation failed: {error}")
         msg.detail(rollback_note)
-        msg.detail(_PERMISSION_NEXT)
+        msg.detail(
+            "Nothing new was left installed. An existing skill and /ml command were restored "
+            "from the backup taken before replacement. "
+            "The WiseRec CLI remains usable. Fix the error above, then rerun the official installer."
+        )
         return 1
     msg.success("OpenCode skill, /ml command, and permission rules installed. Reopen your OpenCode session.")
     return 0

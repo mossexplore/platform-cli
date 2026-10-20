@@ -17,6 +17,7 @@ from pathlib import Path
 
 from .opencode_managed import SIDECAR_NAME, shell_family
 from .opencode_rulematch import (
+    BROAD_RESOURCES,
     EFFECTS,
     OTHER_RULES,
     PROTECTED_COMMANDS,
@@ -28,6 +29,27 @@ from .opencode_rulematch import (
 _PROBES = tuple(PROTECTED_COMMANDS) + tuple(
     resource for resource, _effect in SHELL_RULES if "*" not in resource and "?" not in resource
 ) + ("echo hello",)
+
+
+def global_agent_broad_allows(config: dict) -> list:
+    """Broad shell allows nested under global ``agent.<name>.permission``."""
+    found = []
+    if not isinstance(config, dict):
+        return found
+    for key in ("agent", "agents"):
+        agents = config.get(key)
+        if not isinstance(agents, dict):
+            continue
+        for name, agent in agents.items():
+            if not isinstance(agent, dict):
+                continue
+            for label, action, resource, effect in _permission_object_rules(agent.get("permission"), f"{key}.{name}"):
+                if effect != "allow" or resource.lower() not in BROAD_RESOURCES:
+                    continue
+                if shell_family(action) != "shell" and action not in SHELL_ACTIONS:
+                    continue
+                found.append(f"{label}.permission.bash {resource}={effect}")
+    return found
 
 
 def could_override(action: str, resource: str) -> bool:
@@ -130,7 +152,7 @@ def _consider_agent_markdown(path: Path, install_target: Path, seen: set, found:
     except (OSError, UnicodeError):
         return
     front = _frontmatter(text)
-    if not front or "permission" not in front.lower():
+    if not front or not _frontmatter_may_have_rules(front):
         return
     for action, resource, effect in _frontmatter_rules(front):
         if could_override(action, resource):
@@ -181,6 +203,15 @@ def _array_rules(rules, label: str):
             yield (label, rule["action"], rule["resource"], rule["effect"])
 
 
+def _frontmatter_may_have_rules(front: str) -> bool:
+    if "permission" in front.lower():
+        return True
+    return bool(re.search(
+        r"(?im)^\s*[\"']?(?:bash|shell|read|skill)[\"']?\s*:\s*[\"']?(?:allow|ask|deny)[\"']?\s*$",
+        front,
+    ))
+
+
 def _frontmatter(text: str) -> str:
     if not text.startswith("---"):
         return ""
@@ -203,7 +234,14 @@ def _frontmatter_rules(front: str):
             re.IGNORECASE,
         )
         if match:
-            yield (action, match.group(1), match.group(2).lower())
+            key = match.group(1)
+            effect = match.group(2).lower()
+            if key.lower() in {"bash", "shell", "*", "permission", "permissions"}:
+                yield ("shell", "*", effect)
+            elif key.lower() in {"read", "skill"}:
+                yield (key.lower(), "*", effect)
+            else:
+                yield (action, key, effect)
 
 
 def _load_loose(path: Path):

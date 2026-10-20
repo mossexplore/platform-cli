@@ -23,10 +23,11 @@ import subprocess
 from pathlib import Path
 
 from . import messages as msg
-from .opencode_bash_rules import drop_legacy_bash_patterns, merge_bash_rules
+from .opencode_bash_rules import drop_legacy_bash_patterns, merge_bash_rules, remove_known_rules, warn_manifest_for_install
 from .opencode_configfile import (
     SCHEMA,
     backup_path as _backup_path,
+    write_private as _write_private,
     config_path as _config_path,
     decode as _decode,
     dump as _dump,
@@ -35,16 +36,16 @@ from .opencode_configfile import (
     read_existing as _read_existing,
     restore as _restore,
 )
+from .opencode_debug import run_debug_config
 from .opencode_managed import (
     MergeReport,
-    assert_loaded_rules,
+    manifest_problem,
     clear_record,
     content_hash,
     owned_bash_patterns,
     owned_permission_keys,
     prior_bash_entries,
     prior_permission_entries,
-    public_debug_failure,
     record_for,
     remembered_permission_entries,
     restore_originals,
@@ -54,7 +55,7 @@ from .opencode_managed import (
     shell_family,
     take_legacy_marker,
 )
-from .opencode_scan import scan_overriding_configs
+from .opencode_scan import global_agent_broad_allows, scan_overriding_configs
 from .opencode_warnings import broad_allow_rules, conflicting_allow_rules, warn_user_allows as _warn_user_allows
 from .opencode_rulematch import (
     MARKER,
@@ -226,6 +227,8 @@ def install_opencode_permissions(
     if path.is_symlink():
         raise ValueError(f"OpenCode config must not be a symlink: {path}")
     managed = record_for(path)
+    warn_manifest_for_install(path, config)
+    _warn_global_agents(config)
     report = MergeReport()
     merged, report = plan_opencode_config(
         config,
@@ -257,10 +260,14 @@ def uninstall_opencode_permissions(target: Path) -> None:
     if not path.exists() and not path.is_symlink():
         return
     original, config = _read_existing(path)
-    managed = record_for(path)
+    problem = manifest_problem(path)
     legacy = take_legacy_marker(config)
-    restore_originals(config, managed)
-    drop_legacy_bash_patterns(config, legacy, restored_bash_keys(managed))
+    if problem:
+        remove_known_rules(config, reason=problem)
+    else:
+        managed = record_for(path)
+        restore_originals(config, managed)
+        drop_legacy_bash_patterns(config, legacy, restored_bash_keys(managed))
     rendered = _dump(config)
     if original is not None and _normalize_newlines(_decode(original)) == rendered:
         clear_record(path)
@@ -361,6 +368,15 @@ def _announce(report: MergeReport) -> None:
         msg.detail("Migrated OpenCode rules: " + ", ".join(report.migrated))
 
 
+def _warn_global_agents(config: dict) -> None:
+    notes = global_agent_broad_allows(config)
+    if not notes:
+        return
+    msg.warning(
+        "Global agent permission.bash broad allow can override the managed rules: " + "; ".join(notes)
+    )
+
+
 def _warn_project_and_agent(target: Path) -> None:
     found = scan_overriding_configs(target)
     if not found:
@@ -399,55 +415,15 @@ def _store_manifest(path: Path, rendered: str, rule_format: str, report: MergeRe
 
 
 def _opencode_debug_config(target: Path, expected: dict | None = None) -> None:
-    """Ask the installed opencode binary to load this config directory.
-
-    ``OPENCODE_CONFIG_DIR`` points at the directory just written.
-    ``OPENCODE_DISABLE_PROJECT_CONFIG`` keeps a project file from being appended
-    during the check. v1.19.3 ``packages/opencode/src/cli/cmd/debug/config.ts``
-    and v2.1.0 ``packages/cli/src/commands/handlers/debug/config.ts`` both expose
-    ``opencode debug config``. A non-zero exit, a missing command, or output
-    that is not a JSON config object rejects the write.
-    """
-    resolved = shutil.which("opencode")
-    if not resolved:
-        raise ValueError(public_debug_failure(127, "", "opencode was not found"))
-    env = os.environ.copy()
-    env["OPENCODE_CONFIG_DIR"] = str(target)
-    env["OPENCODE_DISABLE_PROJECT_CONFIG"] = "1"
-    try:
-        completed = subprocess.run(
-            [resolved, "debug", "config"],
-            cwd=str(target),
-            env=env,
-            capture_output=True,
-            text=True,
-            timeout=120,
-            check=False,
-        )
-    except (OSError, subprocess.TimeoutExpired) as error:
-        raise ValueError(public_debug_failure(None, "", str(error))) from error
-    if completed.returncode != 0:
-        raise ValueError(public_debug_failure(completed.returncode, completed.stdout or "", completed.stderr or ""))
-    text = (completed.stdout or "").strip()
-    try:
-        loaded = json.loads(text) if text else None
-    except json.JSONDecodeError:
-        loaded = None
-    if not isinstance(loaded, dict):
-        raise ValueError(public_debug_failure(completed.returncode, "", "output was not a JSON config object"))
-    if expected:
-        try:
-            assert_loaded_rules(loaded, expected)
-        except ValueError as error:
-            raise ValueError(public_debug_failure(completed.returncode, "", str(error))) from error
+    """Load the written directory with ``opencode debug config`` and verify rules."""
+    run_debug_config(target, expected, resolver=shutil.which, run=subprocess.run)
 
 
 def _replace_with_rollback(path: Path, rendered: str, original: bytes | None, expected: dict | None) -> None:
     backup = _backup_path(path) if original is not None else None
     temporary = path.with_name(path.name + ".wiserec-tmp")
     if original is not None and backup is not None:
-        backup.write_bytes(original)
-        restrict_backup(backup)
+        _write_private(backup, original, before_write=restrict_backup)
     try:
         temporary.write_bytes(rendered.encode("utf-8"))
         loaded = json.loads(temporary.read_text(encoding="utf-8"))
