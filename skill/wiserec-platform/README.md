@@ -8,7 +8,8 @@
 
 - 默认目标为当前用户的 `~/.config/opencode`，设置 `OPENCODE_CONFIG_DIR` 时使用该目录。
 - 每次安装都会删除旧的 `skills/wiserec-platform` 目录和 `commands/ml.md`，再完整写入随包资源。这两处由安装程序管理，请勿直接修改；其他 skill 和 command 不受影响。
-- 同一目录下的 `opencode.json` 会被合并写入权限规则。若目录里只有 `opencode.jsonc` 且内容是严格 JSON，则改写该文件，因为 OpenCode 会在 `opencode.json` 之后加载它。两个文件同时存在时安装停止，原文件保持不变。安装程序只新增或更新自己管理的规则，保留模型、插件和其他字段，以及用户自己的权限规则。写入前把原文件备份为同名加 `.wiserec-backup`，任何失败都会恢复原文件。重复安装不会追加重复规则。以往示例里的尾部通配放行（如 `ml tree*`、`ml * --help*`）会在合并时去掉。
+- 同一目录下的 `opencode.json` 会被合并写入权限规则。若目录里只有 `opencode.jsonc` 且内容是严格 JSON，则改写该文件，因为 OpenCode 会在 `opencode.json` 之后加载它。两个文件同时存在时安装停止，原文件保持不变。配置不是合法 JSON 时，整个安装步骤停止，不改原文件，也不替换 skill。写入前把原文件备份为 `opencode.json.bak` 或 `opencode.jsonc.bak`，任何失败都会恢复原文件。
+- 安装程序只增删带 `"wiserec": "managed"` 标记的规则，保留模型、插件和其他字段，以及用户自己的权限规则。用户已有的通配放行（例如 `ml*`、`ml tree*`）会保留。若这些放行会匹配需要确认或拒绝的命令，安装程序打印警告并列出这些规则，但不删除它们。规则顺序是兜底 `shell` `"*": "ask"`，然后是用户规则，最后是受管理规则，因此用户的放行不能压过后面的确认和拒绝。重复安装不会追加重复的受管理规则。移除这些规则可执行 `python -m wiserec_cli.opencode_install --uninstall`，该命令只删除带标记的规则。
 - 项目目录或兼容目录中的同名副本需自行移除，以免 OpenCode 加载旧副本。
 - 安装后完全退出并重新打开 OpenCode，使其获得新的 PATH，然后输入 `/ml 查询当前业务下的模型`；只输入 `/ml` 会检查使用上下文并显示用法。
 
@@ -33,7 +34,7 @@
 
 `[IO.File]::ReadAllText` 和 `${路径}` 不是 OpenCode 能拆出来的命令。扫描结果为空时，OpenCode 不做权限检查，所以上述规则拦不住这两种读法。不要用它们读取凭据。凭据改为 Windows DPAPI 加密存储由单独事项处理，本安装程序不实现 DPAPI。
 
-下面是全新安装时写入的 `opencode.json`。已有文件会在保留其他字段的前提下得到同样的受管理规则。
+下面是全新安装时写入的 `opencode.json`。每条规则都带 `"wiserec": "managed"`。已有文件会在用户规则之后得到同样的受管理规则。
 
 ```json
 {
@@ -42,392 +43,470 @@
     {
       "action": "shell",
       "resource": "*",
-      "effect": "ask"
+      "effect": "ask",
+      "wiserec": "managed"
     },
     {
       "action": "shell",
       "resource": "ml *",
-      "effect": "ask"
+      "effect": "ask",
+      "wiserec": "managed"
     },
     {
       "action": "shell",
       "resource": "ml --version",
-      "effect": "allow"
+      "effect": "allow",
+      "wiserec": "managed"
     },
     {
       "action": "shell",
       "resource": "ml tree",
-      "effect": "allow"
+      "effect": "allow",
+      "wiserec": "managed"
     },
     {
       "action": "shell",
       "resource": "ml env list",
-      "effect": "allow"
+      "effect": "allow",
+      "wiserec": "managed"
     },
     {
       "action": "shell",
       "resource": "ml env show",
-      "effect": "allow"
+      "effect": "allow",
+      "wiserec": "managed"
     },
     {
       "action": "shell",
       "resource": "ml auth status",
-      "effect": "allow"
+      "effect": "allow",
+      "wiserec": "managed"
     },
     {
       "action": "shell",
       "resource": "ml auth ping status",
-      "effect": "allow"
+      "effect": "allow",
+      "wiserec": "managed"
     },
     {
       "action": "shell",
       "resource": "ml access status",
-      "effect": "allow"
+      "effect": "allow",
+      "wiserec": "managed"
     },
     {
       "action": "shell",
       "resource": "ml business list",
-      "effect": "allow"
+      "effect": "allow",
+      "wiserec": "managed"
     },
     {
       "action": "shell",
       "resource": "ml business show",
-      "effect": "allow"
+      "effect": "allow",
+      "wiserec": "managed"
     },
     {
       "action": "shell",
       "resource": "ml user info",
-      "effect": "allow"
+      "effect": "allow",
+      "wiserec": "managed"
     },
     {
       "action": "shell",
       "resource": "ml mep config get",
-      "effect": "allow"
+      "effect": "allow",
+      "wiserec": "managed"
     },
     {
       "action": "shell",
       "resource": "ml history list",
-      "effect": "allow"
+      "effect": "allow",
+      "wiserec": "managed"
     },
     {
       "action": "shell",
       "resource": "ml mtp swanboard project list",
-      "effect": "allow"
+      "effect": "allow",
+      "wiserec": "managed"
     },
     {
       "action": "shell",
       "resource": "ml offline experiment list",
-      "effect": "allow"
+      "effect": "allow",
+      "wiserec": "managed"
     },
     {
       "action": "shell",
       "resource": "ml train list",
-      "effect": "allow"
+      "effect": "allow",
+      "wiserec": "managed"
     },
     {
       "action": "shell",
       "resource": "ml algorithm list",
-      "effect": "allow"
+      "effect": "allow",
+      "wiserec": "managed"
     },
     {
       "action": "shell",
       "resource": "ml model list",
-      "effect": "allow"
+      "effect": "allow",
+      "wiserec": "managed"
     },
     {
       "action": "shell",
       "resource": "ml resource template list",
-      "effect": "allow"
+      "effect": "allow",
+      "wiserec": "managed"
     },
     {
       "action": "shell",
       "resource": "ml deployment template list",
-      "effect": "allow"
+      "effect": "allow",
+      "wiserec": "managed"
     },
     {
       "action": "shell",
       "resource": "ml service list",
-      "effect": "allow"
+      "effect": "allow",
+      "wiserec": "managed"
     },
     {
       "action": "shell",
       "resource": "ml dataset list",
-      "effect": "allow"
+      "effect": "allow",
+      "wiserec": "managed"
     },
     {
       "action": "shell",
       "resource": "ml featureset wide list",
-      "effect": "allow"
+      "effect": "allow",
+      "wiserec": "managed"
     },
     {
       "action": "shell",
       "resource": "ml featureset model list",
-      "effect": "allow"
+      "effect": "allow",
+      "wiserec": "managed"
     },
     {
       "action": "shell",
       "resource": "ml webstudio list",
-      "effect": "allow"
+      "effect": "allow",
+      "wiserec": "managed"
     },
     {
       "action": "shell",
       "resource": "ml webstudio show",
-      "effect": "allow"
+      "effect": "allow",
+      "wiserec": "managed"
     },
     {
       "action": "shell",
       "resource": "ml jupyter doctor",
-      "effect": "allow"
+      "effect": "allow",
+      "wiserec": "managed"
     },
     {
       "action": "shell",
       "resource": "ml jupyter files list",
-      "effect": "allow"
+      "effect": "allow",
+      "wiserec": "managed"
     },
     {
       "action": "shell",
       "resource": "ml jupyter terminal list",
-      "effect": "allow"
+      "effect": "allow",
+      "wiserec": "managed"
     },
     {
       "action": "shell",
       "resource": "ml jupyter exec*",
-      "effect": "ask"
+      "effect": "ask",
+      "wiserec": "managed"
     },
     {
       "action": "shell",
       "resource": "ml * --yes*",
-      "effect": "ask"
+      "effect": "ask",
+      "wiserec": "managed"
     },
     {
       "action": "shell",
       "resource": "ml * -y*",
-      "effect": "ask"
+      "effect": "ask",
+      "wiserec": "managed"
     },
     {
       "action": "shell",
       "resource": "ml env use product*",
-      "effect": "ask"
+      "effect": "ask",
+      "wiserec": "managed"
     },
     {
       "action": "shell",
       "resource": "ml model deploy*",
-      "effect": "ask"
+      "effect": "ask",
+      "wiserec": "managed"
     },
     {
       "action": "shell",
       "resource": "ml train start*",
-      "effect": "ask"
+      "effect": "ask",
+      "wiserec": "managed"
     },
     {
       "action": "shell",
       "resource": "* > *",
-      "effect": "ask"
+      "effect": "ask",
+      "wiserec": "managed"
     },
     {
       "action": "shell",
       "resource": "* >> *",
-      "effect": "ask"
+      "effect": "ask",
+      "wiserec": "managed"
     },
     {
       "action": "shell",
       "resource": "ml tree --help",
-      "effect": "allow"
+      "effect": "allow",
+      "wiserec": "managed"
     },
     {
       "action": "shell",
       "resource": "ml env list --help",
-      "effect": "allow"
+      "effect": "allow",
+      "wiserec": "managed"
     },
     {
       "action": "shell",
       "resource": "ml service logs --help",
-      "effect": "allow"
+      "effect": "allow",
+      "wiserec": "managed"
     },
     {
       "action": "shell",
       "resource": "ml train list --help",
-      "effect": "allow"
+      "effect": "allow",
+      "wiserec": "managed"
     },
     {
       "action": "shell",
       "resource": "ml model list --help",
-      "effect": "allow"
+      "effect": "allow",
+      "wiserec": "managed"
     },
     {
       "action": "shell",
       "resource": "ml jupyter exec --help",
-      "effect": "allow"
+      "effect": "allow",
+      "wiserec": "managed"
     },
     {
       "action": "shell",
       "resource": "ml jupyter terminal open*",
-      "effect": "deny"
+      "effect": "deny",
+      "wiserec": "managed"
     },
     {
       "action": "shell",
       "resource": "ml jupyter terminal attach*",
-      "effect": "deny"
+      "effect": "deny",
+      "wiserec": "managed"
     },
     {
       "action": "shell",
       "resource": "ml login --show-secrets*",
-      "effect": "deny"
+      "effect": "deny",
+      "wiserec": "managed"
     },
     {
       "action": "shell",
       "resource": "ml * --show-secrets*",
-      "effect": "deny"
+      "effect": "deny",
+      "wiserec": "managed"
     },
     {
       "action": "shell",
       "resource": "cat *credentials*",
-      "effect": "deny"
+      "effect": "deny",
+      "wiserec": "managed"
     },
     {
       "action": "shell",
       "resource": "type *credentials*",
-      "effect": "deny"
+      "effect": "deny",
+      "wiserec": "managed"
     },
     {
       "action": "shell",
       "resource": "gc *credentials*",
-      "effect": "deny"
+      "effect": "deny",
+      "wiserec": "managed"
     },
     {
       "action": "shell",
       "resource": "get-content *credentials*",
-      "effect": "deny"
+      "effect": "deny",
+      "wiserec": "managed"
     },
     {
       "action": "shell",
       "resource": "more *credentials*",
-      "effect": "deny"
+      "effect": "deny",
+      "wiserec": "managed"
     },
     {
       "action": "shell",
       "resource": "less *credentials*",
-      "effect": "deny"
+      "effect": "deny",
+      "wiserec": "managed"
     },
     {
       "action": "shell",
       "resource": "head *credentials*",
-      "effect": "deny"
+      "effect": "deny",
+      "wiserec": "managed"
     },
     {
       "action": "shell",
       "resource": "tail *credentials*",
-      "effect": "deny"
+      "effect": "deny",
+      "wiserec": "managed"
     },
     {
       "action": "shell",
       "resource": "select-string *credentials*",
-      "effect": "deny"
+      "effect": "deny",
+      "wiserec": "managed"
     },
     {
       "action": "shell",
       "resource": "sls *credentials*",
-      "effect": "deny"
+      "effect": "deny",
+      "wiserec": "managed"
     },
     {
       "action": "shell",
       "resource": "findstr *credentials*",
-      "effect": "deny"
+      "effect": "deny",
+      "wiserec": "managed"
     },
     {
       "action": "shell",
       "resource": "copy *credentials*",
-      "effect": "deny"
+      "effect": "deny",
+      "wiserec": "managed"
     },
     {
       "action": "shell",
       "resource": "cp *credentials*",
-      "effect": "deny"
+      "effect": "deny",
+      "wiserec": "managed"
     },
     {
       "action": "shell",
       "resource": "copy-item *credentials*",
-      "effect": "deny"
+      "effect": "deny",
+      "wiserec": "managed"
     },
     {
       "action": "shell",
       "resource": "import-csv *credentials*",
-      "effect": "deny"
+      "effect": "deny",
+      "wiserec": "managed"
     },
     {
       "action": "shell",
       "resource": "get-item *credentials*",
-      "effect": "deny"
+      "effect": "deny",
+      "wiserec": "managed"
     },
     {
       "action": "shell",
       "resource": "gi *credentials*",
-      "effect": "deny"
+      "effect": "deny",
+      "wiserec": "managed"
     },
     {
       "action": "shell",
       "resource": "notepad *credentials*",
-      "effect": "deny"
+      "effect": "deny",
+      "wiserec": "managed"
     },
     {
       "action": "shell",
       "resource": "base64 *credentials*",
-      "effect": "deny"
+      "effect": "deny",
+      "wiserec": "managed"
     },
     {
       "action": "shell",
       "resource": "certutil *credentials*",
-      "effect": "deny"
+      "effect": "deny",
+      "wiserec": "managed"
     },
     {
       "action": "shell",
       "resource": "xxd *credentials*",
-      "effect": "deny"
+      "effect": "deny",
+      "wiserec": "managed"
     },
     {
       "action": "shell",
       "resource": "od *credentials*",
-      "effect": "deny"
+      "effect": "deny",
+      "wiserec": "managed"
     },
     {
       "action": "shell",
       "resource": "strings *credentials*",
-      "effect": "deny"
+      "effect": "deny",
+      "wiserec": "managed"
     },
     {
       "action": "shell",
       "resource": "sed *credentials*",
-      "effect": "deny"
+      "effect": "deny",
+      "wiserec": "managed"
     },
     {
       "action": "shell",
       "resource": "awk *credentials*",
-      "effect": "deny"
+      "effect": "deny",
+      "wiserec": "managed"
     },
     {
       "action": "shell",
       "resource": "grep *credentials*",
-      "effect": "deny"
+      "effect": "deny",
+      "wiserec": "managed"
     },
     {
       "action": "shell",
       "resource": "rg *credentials*",
-      "effect": "deny"
+      "effect": "deny",
+      "wiserec": "managed"
     },
     {
       "action": "shell",
       "resource": "*credentials.json*",
-      "effect": "deny"
+      "effect": "deny",
+      "wiserec": "managed"
     },
     {
       "action": "skill",
       "resource": "wiserec-platform",
-      "effect": "allow"
+      "effect": "allow",
+      "wiserec": "managed"
     },
     {
       "action": "read",
       "resource": "*credentials.json*",
-      "effect": "deny"
+      "effect": "deny",
+      "wiserec": "managed"
     }
   ]
 }

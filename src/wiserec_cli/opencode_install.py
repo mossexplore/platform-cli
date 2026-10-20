@@ -1,14 +1,21 @@
 """Internal installer for bundled agent resources; no CLI command registration."""
 
+from __future__ import annotations
+
 import hashlib
 import json
 import os
+import sys
 from pathlib import Path, PurePosixPath
 import shutil
 import tempfile
 
 from . import messages as msg
-from .opencode_permissions import install_opencode_permissions
+from .opencode_permissions import (
+    install_opencode_permissions,
+    uninstall_opencode_permissions,
+    validate_opencode_config,
+)
 
 
 RESOURCE_ROOT = Path(__file__).with_name("opencode_resources")
@@ -69,11 +76,31 @@ def install_resources(target: Path, source: Path = RESOURCE_ROOT) -> None:
             raise
 
 
-def main() -> int:
+def main(argv: list[str] | None = None) -> int:
+    args = [] if argv is None else list(argv)
     target = Path(os.environ.get("OPENCODE_CONFIG_DIR") or Path.home() / ".config/opencode")
-    cac_target = Path.home() / ".cac"
+    if args == ["--uninstall"]:
+        msg.detail(f"OpenCode resource directory: {target}")
+        try:
+            uninstall_opencode_permissions(target)
+        except Exception as error:
+            msg.warning(f"OpenCode permission removal failed: {error}")
+            msg.detail("opencode.json was left unchanged. CLI remains usable.")
+            return 1
+        msg.success("WiseRec OpenCode permission rules removed.")
+        return 0
+    if args:
+        msg.warning("Usage: python -m wiserec_cli.opencode_install [--uninstall]")
+        return 2
+    msg.detail(f"OpenCode resource directory: {target}")
     msg.detail("WiseRec skill and /ml command are replaced on every installation; do not edit these files.")
     msg.detail("OpenCode permission rules are merged into opencode.json. Other settings are kept.")
+    try:
+        validate_opencode_config(target)
+    except Exception as error:
+        msg.warning(f"OpenCode permission installation failed: {error}")
+        msg.detail("opencode.json was left unchanged. CLI remains usable. Rerun the official installer to retry.")
+        return 1
     try:
         install_resources(target)
     except Exception as error:
@@ -91,4 +118,4 @@ def main() -> int:
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    raise SystemExit(main(sys.argv[1:]))
