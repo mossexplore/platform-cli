@@ -1,14 +1,15 @@
 """Append managed patterns to OpenCode 1 permission.bash without moving user keys.
 
-v1.19.3 ``packages/opencode/src/permission/index.ts`` ``evaluate`` (lines 28-37)
-keeps the last match via ``findLast``. ``fromConfig`` (lines 186-196) walks
-``Object.entries``, so the JSON key order is the rule order. ``"*"`` ask is
-therefore inserted first only when the user has no ``"*"`` key, and managed
-ask/deny patterns are appended after every existing key.
+v1.19.3 ``packages/opencode/src/permission/index.ts`` lines 28-38 keep the last
+match by key insertion order. The built-in bash default is ``"*": "allow"``,
+so ``"*": "ask"`` is inserted first when the user has no ``"*"`` key. An
+existing ``"*"`` stays where it is. Any denied subcommand denies the whole
+command. Managed ask/deny patterns are appended after every existing key.
 """
 
 from __future__ import annotations
 
+from . import messages as msg
 from .opencode_rulematch import EFFECTS, MARKER, OTHER_RULES, SHELL_RULES
 
 _BASH_ACTIONS = ("bash", "read", "skill")
@@ -52,6 +53,47 @@ def drop_recorded_bash_patterns(config: dict) -> None:
         if not permission:
             config.pop("permission", None)
     config.pop(MARKER, None)
+
+
+def warn_v1_bash(original: dict) -> None:
+    """Warn about limits that stay in force after a v1 bash merge."""
+    msg.warning(
+        "Project-level OpenCode config is merged after these permission.bash rules and can override them."
+    )
+    effect = user_bash_star(original)
+    if effect is None:
+        return
+    message = (
+        'permission.bash already has a "*" key. Its position was kept and the key was not replaced. '
+        "OpenCode 1.19.3 matches permission.bash by key order (permission/index.ts lines 28-38). "
+        'The built-in default is "*": "allow".'
+    )
+    if effect == "allow":
+        message += (
+            ' This "*": "allow" stays in effect for commands that match it last. '
+            "Unlisted commands chained with ml will run, for example `ml tree && echo x`, "
+            "because a command is denied only when one of its subcommands is denied."
+        )
+    msg.warning(message)
+
+
+def user_bash_star(config: dict):
+    """Return the user's own bash ``*`` effect, ignoring a star this installer recorded."""
+    if not isinstance(config, dict):
+        return None
+    record = bash_record(config)
+    recorded = set(_pattern_list(record, "bash"))
+    permission = config.get("permission")
+    if not isinstance(permission, dict):
+        return None
+    bash = permission.get("bash")
+    if isinstance(bash, str):
+        return bash if bash in EFFECTS else None
+    if isinstance(bash, dict) and "*" in bash and "*" not in recorded:
+        effect = bash["*"]
+        if isinstance(effect, str) and effect in EFFECTS:
+            return effect
+    return None
 
 
 def bash_record(config: dict) -> dict:

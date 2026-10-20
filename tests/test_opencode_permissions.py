@@ -780,3 +780,126 @@ def test_debug_config_asks_opencode_to_load_the_directory(tmp_path, monkeypatch)
     monkeypatch.setattr(permission_module.shutil, "which", lambda name: None)
     with pytest.raises(ValueError, match="not found"):
         _DEBUG_CONFIG(tmp_path)
+
+    def empty(argv, **kwargs):
+        return Completed(0, "", "")
+
+    monkeypatch.setattr(permission_module.shutil, "which", lambda name: "/usr/bin/opencode")
+    monkeypatch.setattr(permission_module.subprocess, "run", empty)
+    with pytest.raises(ValueError, match="JSON config object"):
+        _DEBUG_CONFIG(tmp_path)
+
+    def usage(argv, **kwargs):
+        return Completed(0, "unknown command: debug\n", "")
+
+    monkeypatch.setattr(permission_module.subprocess, "run", usage)
+    with pytest.raises(ValueError, match="restored"):
+        _DEBUG_CONFIG(tmp_path)
+
+
+def test_unclear_debug_config_rolls_back_and_reports(tmp_path, monkeypatch):
+    path = tmp_path / "opencode.json"
+    original = '{"model": "keep"}\n'
+    path.write_text(original, encoding="utf-8")
+
+    class Completed:
+        def __init__(self, code, stdout, stderr):
+            self.returncode = code
+            self.stdout = stdout
+            self.stderr = stderr
+
+    monkeypatch.setattr(permission_module.shutil, "which", lambda name: "/usr/bin/opencode")
+    monkeypatch.setattr(
+        permission_module.subprocess,
+        "run",
+        lambda argv, **kwargs: Completed(0, "", ""),
+    )
+    monkeypatch.setattr(permission_module, "_opencode_debug_config", _DEBUG_CONFIG)
+    with pytest.raises(ValueError, match="restored"):
+        install_opencode_permissions(tmp_path, rule_format="bash")
+    assert path.read_text(encoding="utf-8") == original
+    assert (tmp_path / "opencode.json.bak").read_text(encoding="utf-8") == original
+    assert not (tmp_path / "opencode.json.wiserec-tmp").exists()
+
+
+def test_v1_bash_scenarios_none_ml_star_and_star_allow(tmp_path, capsys):
+    # No user rules: built-in "*": allow is replaced by our "*": ask first.
+    none_dir = tmp_path / "none"
+    install_opencode_permissions(none_dir, rule_format="bash")
+    none = json.loads((none_dir / "opencode.json").read_text(encoding="utf-8"))["permission"]["bash"]
+    assert list(none)[0] == "*" and none["*"] == "ask"
+    none_rules = _bash_rules(none)
+    assert combined_shell_effect(["echo x"], none_rules) == "ask"
+    assert combined_shell_effect(["ml tree"], none_rules) == "allow"
+    assert combined_shell_effect(["ml tree", "echo x"], none_rules) == "ask"
+    assert combined_shell_effect(["ml tree", "ml login --show-secrets"], none_rules) == "deny"
+    assert combined_shell_effect(["ml tree", "cat ./credentials.json"], none_rules) == "deny"
+    none_err = capsys.readouterr().err
+    assert "Project-level" in none_err
+    assert "already has" not in none_err
+
+    # User ml* allow stays, and later ask/deny still govern the chain.
+    ml_dir = tmp_path / "ml"
+    ml_dir.mkdir()
+    (ml_dir / "opencode.json").write_text(
+        json.dumps({"permission": {"bash": {"ml*": "allow"}}}),
+        encoding="utf-8",
+    )
+    install_opencode_permissions(ml_dir, rule_format="bash")
+    ml_bash = json.loads((ml_dir / "opencode.json").read_text(encoding="utf-8"))["permission"]["bash"]
+    assert list(ml_bash)[:2] == ["*", "ml*"]
+    assert ml_bash["*"] == "ask" and ml_bash["ml*"] == "allow"
+    assert list(ml_bash).index("ml login --show-secrets*") > list(ml_bash).index("ml*")
+    ml_rules = _bash_rules(ml_bash)
+    assert combined_shell_effect(["ml tree"], ml_rules) == "allow"
+    assert combined_shell_effect(["ml tree", "echo x"], ml_rules) == "ask"
+    assert combined_shell_effect(["ml login --show-secrets"], ml_rules) == "deny"
+    assert combined_shell_effect(["ml tree", "cat ./credentials.json"], ml_rules) == "deny"
+    ml_err = capsys.readouterr().err
+    assert "ml*" in ml_err
+    assert "will run" not in ml_err
+
+    # User "*" allow keeps its position. Unlisted commands in the chain run.
+    star_dir = tmp_path / "star"
+    star_dir.mkdir()
+    (star_dir / "opencode.json").write_text(
+        json.dumps({"permission": {"bash": {"git status *": "allow", "*": "allow", "ml*": "allow"}}}),
+        encoding="utf-8",
+    )
+    install_opencode_permissions(star_dir, rule_format="bash")
+    star = json.loads((star_dir / "opencode.json").read_text(encoding="utf-8"))["permission"]["bash"]
+    assert list(star)[:3] == ["git status *", "*", "ml*"]
+    assert star["*"] == "allow" and star["ml*"] == "allow"
+    star_rules = _bash_rules(star)
+    assert combined_shell_effect(["echo x"], star_rules) == "allow"
+    assert combined_shell_effect(["ml tree", "echo x"], star_rules) == "allow"
+    assert combined_shell_effect(["ml tree", "ml login --show-secrets"], star_rules) == "deny"
+    assert combined_shell_effect(["ml jupyter exec --cwd x -- sh -c 'echo pwned' --help"], star_rules) == "ask"
+    star_err = capsys.readouterr().err
+    assert "already has" in star_err
+    assert "ml tree && echo x" in star_err
+    assert "Project-level" in star_err
+
+
+def test_v1_star_ask_is_kept_without_saying_the_chain_will_run(tmp_path, capsys):
+    path = tmp_path / "opencode.json"
+    path.write_text(
+        json.dumps({"permission": {"bash": {"*": "ask", "npm test *": "allow"}}}),
+        encoding="utf-8",
+    )
+    install_opencode_permissions(tmp_path, rule_format="bash")
+    bash = json.loads(path.read_text(encoding="utf-8"))["permission"]["bash"]
+    assert list(bash)[:2] == ["*", "npm test *"]
+    assert bash["*"] == "ask"
+    warning = capsys.readouterr().err
+    assert "already has" in warning
+    assert "will run" not in warning
+
+
+def test_recorded_star_is_not_reported_as_a_user_key(tmp_path, capsys):
+    install_opencode_permissions(tmp_path, rule_format="bash")
+    capsys.readouterr()
+    install_opencode_permissions(tmp_path, rule_format="bash")
+    warning = capsys.readouterr().err
+    assert "already has" not in warning
+    assert "Project-level" in warning
