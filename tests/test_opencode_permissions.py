@@ -1350,7 +1350,7 @@ def test_debug_nonzero_exit_keeps_prior_skill(tmp_path, monkeypatch, capsys):
         "exit 1",
     )
     assert "super-secret-token" not in error
-    assert "Bearer [redacted]" in error
+    assert "Authorization: [redacted]" in error
 
 
 def test_debug_missing_rules_keeps_prior_skill(tmp_path, monkeypatch, capsys):
@@ -1418,15 +1418,95 @@ def test_skill_copy_failure_restores_the_previous_skill(tmp_path, monkeypatch, c
 
 
 def test_debug_failure_redacts_bearer_and_basic_headers():
-    bearer = public_debug_failure(1, "", "Authorization: Bearer super-secret-token")
-    assert "Bearer [redacted]" in bearer
+    bearer = public_debug_failure(1, "", "Authorization: Bearer super-secret-token leftover")
+    assert "Authorization: [redacted]" in bearer
     assert "super-secret-token" not in bearer
-    basic = public_debug_failure(1, "", "Authorization: Basic dXNlcjpwYXNz")
-    assert "Basic [redacted]" in basic
+    assert "leftover" not in bearer
+    basic = public_debug_failure(1, "", "Authorization: Basic dXNlcjpwYXNz second-part")
+    assert "Authorization: [redacted]" in basic
     assert "dXNlcjpwYXNz" not in basic
+    assert "second-part" not in basic
     generic = public_debug_failure(1, "", "bearer abc.def.ghi")
-    assert "[redacted]" in generic
+    assert "bearer [redacted]" in generic
     assert "abc.def.ghi" not in generic
+
+
+def test_debug_failure_redacts_proxy_authorization_through_end_of_line():
+    basic = public_debug_failure(1, "", "Proxy-Authorization: Basic dXNlcjpwYXNz more-data")
+    assert "Proxy-Authorization: [redacted]" in basic
+    assert "dXNlcjpwYXNz" not in basic
+    assert "more-data" not in basic
+    bearer = public_debug_failure(1, "", "proxy-authorization: Bearer aaa.bbb extra")
+    assert "proxy-authorization: [redacted]" in bearer
+    assert "aaa.bbb" not in bearer
+    assert "extra" not in bearer
+
+
+def test_debug_failure_redacts_cookie_header():
+    text = public_debug_failure(1, "", "Cookie: sessionid=cookie-header-secret; theme=light")
+    assert "Cookie: [redacted]" in text
+    assert "cookie-header-secret" not in text
+
+
+def test_debug_failure_redacts_set_cookie_header():
+    text = public_debug_failure(1, "", "Set-Cookie: sessionid=set-cookie-header-secret; HttpOnly")
+    assert "Set-Cookie: [redacted]" in text
+    assert "set-cookie-header-secret" not in text
+
+
+def test_debug_failure_redacts_cookie_key_and_json():
+    pair = public_debug_failure(1, "", "cookie=cookie-pair-secret extra")
+    assert "cookie=[redacted]" in pair
+    assert "cookie-pair-secret" not in pair
+    assert "extra" not in pair
+    body = public_debug_failure(1, "", '{"cookie": "cookie-json-secret"}')
+    assert "cookie-json-secret" not in body
+    assert "[redacted]" in body
+
+
+def test_debug_failure_redacts_set_cookie_key_and_json():
+    pair = public_debug_failure(1, "", "set-cookie=set-cookie-pair-secret extra")
+    assert "set-cookie=[redacted]" in pair
+    assert "set-cookie-pair-secret" not in pair
+    assert "extra" not in pair
+    body = public_debug_failure(1, "", '{"set-cookie": "set-cookie-json-secret"}')
+    assert "set-cookie-json-secret" not in body
+    assert "[redacted]" in body
+
+
+def test_debug_failure_redacts_csrftoken_header_key_and_json():
+    header = public_debug_failure(1, "", "csrftoken: csrf-header-secret extra")
+    assert "csrftoken: [redacted]" in header
+    assert "csrf-header-secret" not in header
+    assert "extra" not in header
+    pair = public_debug_failure(1, "", "CsrfToken=csrf-pair-secret")
+    assert "csrf-pair-secret" not in pair
+    assert "[redacted]" in pair
+    body = public_debug_failure(1, "", '{"csrftoken": "csrf-json-secret"}')
+    assert "csrf-json-secret" not in body
+    assert "[redacted]" in body
+
+
+def test_debug_failure_redacts_sessionid_header_key_and_json():
+    header = public_debug_failure(1, "", "sessionid: session-header-secret extra")
+    assert "sessionid: [redacted]" in header
+    assert "session-header-secret" not in header
+    assert "extra" not in header
+    pair = public_debug_failure(1, "", "SessionId=session-pair-secret")
+    assert "session-pair-secret" not in pair
+    assert "[redacted]" in pair
+    body = public_debug_failure(1, "", '{"sessionid": "session-json-secret"}')
+    assert "session-json-secret" not in body
+    assert "[redacted]" in body
+
+
+def test_debug_failure_does_not_redact_business_id():
+    pair = public_debug_failure(1, "", "businessId=biz-pair-value")
+    assert "biz-pair-value" in pair
+    header = public_debug_failure(1, "", "businessId: biz-header-value")
+    assert "biz-header-value" in header
+    body = public_debug_failure(1, "", '{"businessId": "biz-json-value"}')
+    assert "biz-json-value" in body
 
 
 def test_global_agent_bash_broad_allow_is_warned(tmp_path, capsys, monkeypatch):

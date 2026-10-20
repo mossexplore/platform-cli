@@ -8,17 +8,22 @@ from pathlib import Path
 
 from .opencode_rulematch import MARKER
 
-_HEADER = re.compile(r"(?i)((?:authorization\s*[:=]\s*)?(?:bearer|basic)\s+)\S+")
+# Names whose value runs to the end of the line, so a bearer token after a space
+# cannot survive. businessId is intentionally absent.
+_EOL_NAME = (
+    r"proxy-authorization|authorization|set-cookie|cookie|csrftoken|sessionid"
+)
+_EOL_SECRET = re.compile(
+    rf"(?i)((?<![A-Za-z0-9_-])[\"']?(?:{_EOL_NAME})[\"']?\s*[:=]\s*)[^\n]*"
+)
+_SCHEME = re.compile(r"(?i)((?<![A-Za-z0-9_-])(?:bearer|basic)\s+)[^\n]*")
 _SECRET = re.compile(
-    r"(?i)([\"']?(?:api[_-]?key|access[_-]?key|key|token|secret|password|authorization)[\"']?"
+    r"(?i)((?<![A-Za-z0-9_-])[\"']?(?:api[_-]?key|access[_-]?key|key|token|secret|password)[\"']?"
     r"\s*[:=]\s*[\"']?)([^\"'\s,}&]+)"
 )
 
 
-def _redact_secret(match: re.Match) -> str:
-    value = match.group(2)
-    if value.lower() in {"bearer", "basic"}:
-        return match.group(0)
+def _keep_label(match: re.Match) -> str:
     return f"{match.group(1)}[redacted]"
 
 
@@ -26,8 +31,9 @@ def public_debug_failure(returncode, stdout: str, stderr: str) -> str:
     """Exit code and one redacted line. Never the raw config dump."""
     source = stderr if (stderr or "").strip() else (stdout or "")
     line = next((part.strip() for part in source.splitlines() if part.strip()), "")
-    line = _HEADER.sub(r"\1[redacted]", line)
-    line = _SECRET.sub(_redact_secret, line)
+    line = _EOL_SECRET.sub(_keep_label, line)
+    line = _SCHEME.sub(_keep_label, line)
+    line = _SECRET.sub(_keep_label, line)
     if len(line) > 180:
         line = line[:180] + "..."
     shown = line or "no error line"
