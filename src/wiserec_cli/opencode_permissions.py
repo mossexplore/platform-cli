@@ -23,7 +23,7 @@ import subprocess
 from pathlib import Path
 
 from . import messages as msg
-from .opencode_bash_rules import drop_recorded_bash_patterns, merge_bash_rules, warn_v1_bash
+from .opencode_bash_rules import drop_legacy_bash_patterns, merge_bash_rules
 from .opencode_configfile import (
     SCHEMA,
     backup_path as _backup_path,
@@ -37,21 +37,22 @@ from .opencode_configfile import (
 )
 from .opencode_managed import (
     MergeReport,
-    OpenCodeConflictError,
     assert_loaded_rules,
     clear_record,
     content_hash,
-    describe_conflict,
     owned_bash_patterns,
     owned_permission_keys,
+    prior_bash_entries,
+    prior_permission_entries,
     public_debug_failure,
-    raise_if_conflicts,
     record_for,
+    remembered_permission_entries,
+    restore_originals,
+    restored_bash_keys,
     restrict_backup,
     save_record,
     shell_family,
     take_legacy_marker,
-    weaker,
 )
 from .opencode_scan import scan_overriding_configs
 from .opencode_warnings import broad_allow_rules, conflicting_allow_rules, warn_user_allows as _warn_user_allows
@@ -90,7 +91,7 @@ def merge_opencode_config(
     *,
     rule_format: str = "permissions",
     managed: dict | None = None,
-    override_conflicts: bool = False,
+    announce: bool = True,
     report: MergeReport | None = None,
 ) -> dict:
     """Return a new document. Schema-only keys are written."""
@@ -98,7 +99,7 @@ def merge_opencode_config(
         config,
         rule_format=rule_format,
         managed=managed,
-        override_conflicts=override_conflicts,
+        announce=announce,
         report=report,
     )
     return document
@@ -109,10 +110,10 @@ def plan_opencode_config(
     *,
     rule_format: str = "permissions",
     managed: dict | None = None,
-    override_conflicts: bool = False,
+    announce: bool = True,
     report: MergeReport | None = None,
 ) -> tuple:
-    """Merge in memory. Weaker exact collisions raise before any file is written."""
+    """Merge in memory. Exact keys we manage take our value."""
     if not isinstance(config, dict):
         raise ValueError("OpenCode config must be a JSON object")
     if rule_format not in {"permissions", "bash"}:
@@ -131,20 +132,27 @@ def plan_opencode_config(
         result["permissions"] = _merge_rules(
             existing,
             owned=owned_permission_keys(managed, legacy),
-            override_conflicts=override_conflicts,
+            prior=prior_permission_entries(managed),
+            announce=announce,
             report=report,
         )
-        remembered = owned_bash_patterns(managed, legacy)
-        for action, patterns in remembered.items():
-            if patterns:
-                report.written_bash[action] = list(patterns)
+        report.bash_entries = prior_bash_entries(managed)
+        for action, patterns in legacy.get("bash", {}).items():
+            bucket = report.bash_entries.setdefault(action, {})
+            if not isinstance(patterns, list):
+                continue
+            for pattern in patterns:
+                if isinstance(pattern, str):
+                    bucket.setdefault(pattern, {"original": None, "index": None})
         return result, report
     merge_bash_rules(
         result,
         owned=owned_bash_patterns(managed, legacy),
-        override_conflicts=override_conflicts,
+        prior=prior_bash_entries(managed),
+        announce=announce,
         report=report,
     )
+    report.permission_entries = remembered_permission_entries(managed)
     return result, report
 
 
@@ -164,36 +172,30 @@ def preflight_opencode_permissions(
     target: Path,
     *,
     rule_format: str = "permissions",
-    override_conflicts: bool = False,
 ) -> None:
-    """Plan the merge and abort on a weaker exact key before any file is written."""
+    """Plan the merge before any file is written. Collisions do not abort."""
     if target.is_symlink():
         raise ValueError(f"OpenCode directory must not be a symlink: {target}")
     if not target.exists():
-        plan_opencode_config({"$schema": SCHEMA}, rule_format=rule_format)
+        plan_opencode_config({"$schema": SCHEMA}, rule_format=rule_format, announce=False)
         return
     path = _config_path(target)
     if not path.exists() and not path.is_symlink():
-        plan_opencode_config({"$schema": SCHEMA}, rule_format=rule_format)
+        plan_opencode_config({"$schema": SCHEMA}, rule_format=rule_format, announce=False)
         return
     _original, config = _read_existing(path)
-    try:
-        plan_opencode_config(
-            config,
-            rule_format=rule_format,
-            managed=record_for(path),
-            override_conflicts=False,
-        )
-    except OpenCodeConflictError:
-        if not override_conflicts:
-            raise
+    plan_opencode_config(
+        config,
+        rule_format=rule_format,
+        managed=record_for(path),
+        announce=False,
+    )
 
 
 def install_opencode_permissions(
     target: Path,
     *,
     rule_format: str = "permissions",
-    override_conflicts: bool = False,
 ) -> None:
     """Merge managed rules, backing up the original without overwriting ``.bak``."""
     if target.is_symlink():
@@ -208,13 +210,9 @@ def install_opencode_permissions(
         config,
         rule_format=rule_format,
         managed=managed,
-        override_conflicts=override_conflicts,
         report=report,
     )
     _warn_user_allows(config, merged, rule_format=rule_format)
-    owned = owned_bash_patterns(managed, {"bash": {"bash": [], "read": [], "skill": []}})
-    if rule_format == "bash":
-        warn_v1_bash(config, owned)
     _warn_project_and_agent(target)
     _announce(report)
     rendered = _dump(merged)
@@ -227,7 +225,7 @@ def install_opencode_permissions(
 
 
 def uninstall_opencode_permissions(target: Path) -> None:
-    """Remove rules tagged as WiseRec managed. User rules stay."""
+    """Remove keys we added and restore values we overwrote."""
     if not target.exists() and not target.is_symlink():
         return
     if target.is_symlink():
@@ -238,9 +236,8 @@ def uninstall_opencode_permissions(target: Path) -> None:
     original, config = _read_existing(path)
     managed = record_for(path)
     legacy = take_legacy_marker(config)
-    owned = owned_bash_patterns(managed, legacy)
-    drop_recorded_bash_patterns(config, owned)
-    _drop_owned_array_rules(config, owned_permission_keys(managed, legacy))
+    restore_originals(config, managed)
+    drop_legacy_bash_patterns(config, legacy, restored_bash_keys(managed))
     rendered = _dump(config)
     if original is not None and _normalize_newlines(_decode(original)) == rendered:
         clear_record(path)
@@ -249,63 +246,67 @@ def uninstall_opencode_permissions(target: Path) -> None:
     clear_record(path)
 
 
-def _merge_rules(items: list, *, owned: set, override_conflicts: bool, report: MergeReport) -> list:
+def _merge_rules(items: list, *, owned: set, prior: dict, announce: bool, report: MergeReport) -> list:
     """User non-shell rules, shell ``*`` ask, user shell rules, then ours.
 
     OpenCode keeps the last match. This order is the one the array must keep.
-    A weaker exact action/resource collision aborts unless override is set.
+    An exact action/resource we manage is removed from the user section and
+    rewritten with our effect in that managed suffix.
     """
     opaque = []
     user_other = []
     user_shell = []
-    conflicts = []
-    skipped = set()
-    wanted = [("shell", "*", "ask"), *[( "shell", resource, effect) for resource, effect in SHELL_RULES]]
+    collisions = {}
+    wanted = [("shell", "*", "ask"), *[("shell", resource, effect) for resource, effect in SHELL_RULES]]
     wanted.extend(OTHER_RULES)
     by_key = {(shell_family(action), resource): (action, resource, effect) for action, resource, effect in wanted}
-    for item in items:
+    for index, item in enumerate(items):
         if not is_rule(item):
             opaque.append(item)
             continue
         if _is_ours(item):
             continue
         key = (shell_family(item["action"]), item["resource"])
-        if key in owned:
+        if key in owned or key in prior:
             continue
-        managed = by_key.get(key)
         copied = {field: item[field] for field in ("action", "resource", "effect")}
         for extra, value in item.items():
             if extra not in copied and extra != MARKER:
                 copied[extra] = value
+        managed = by_key.get(key)
         if managed is None:
             _bucket(copied, user_shell, user_other)
             continue
+        if key in collisions:
+            continue
         _action, _resource, effect = managed
-        if not weaker(item["effect"], effect):
-            skipped.add(key)
-            _bucket(copied, user_shell, user_other)
-            continue
-        conflict = describe_conflict(
-            f"permissions {item['action']}",
-            item["resource"],
-            item["effect"],
-            effect,
-        )
-        conflicts.append(conflict)
-        if override_conflicts:
-            report.overrides.append(conflict)
-            msg.warning(
-                f"Replacing permissions {item['action']} {item['resource']!r} from {item['effect']!r} "
-                f"to {effect!r} and moving it into the managed rules."
-            )
-            continue
-        _bucket(copied, user_shell, user_other)
-    raise_if_conflicts(conflicts, override_conflicts)
-    managed_rules = [
-        _rule(action, resource, effect)
-        for action, resource, effect in wanted
-        if (shell_family(action), resource) not in skipped
-    ]
+        collisions[key] = {"original": copied, "index": index}
+        if announce:
+            text = f'permissions {item["action"]} "{item["resource"]}": {item["effect"]} -> {effect}'
+            msg.warning(text)
+            report.overrides.append(text)
+    entries = []
+    managed_rules = []
+    for action, resource, effect in wanted:
+        key = (shell_family(action), resource)
+        if key in prior:
+            original = prior[key]["original"]
+            index = prior[key]["index"]
+        elif key in collisions:
+            original = collisions[key]["original"]
+            index = collisions[key]["index"]
+        else:
+            original = None
+            index = None
+        entries.append({
+            "action": action,
+            "resource": resource,
+            "effect": effect,
+            "original": original,
+            "index": index,
+        })
+        managed_rules.append(_rule(action, resource, effect))
+    report.permission_entries = entries
     report.written_permissions = list(managed_rules)
     report.added.extend(
         f"{rule['action']} {rule['resource']}={rule['effect']}" for rule in managed_rules
@@ -328,23 +329,6 @@ def _bucket(rule: dict, user_shell: list, user_other: list) -> None:
         user_shell.append(rule)
     else:
         user_other.append(rule)
-
-
-def _drop_owned_array_rules(config: dict, owned: set) -> None:
-    rules = config.get("permissions")
-    if not isinstance(rules, list):
-        return
-    kept = []
-    for rule in rules:
-        if is_rule(rule) and (shell_family(rule["action"]), rule["resource"]) in owned:
-            continue
-        if _is_ours(rule):
-            continue
-        kept.append(rule)
-    if kept:
-        config["permissions"] = kept
-    else:
-        config.pop("permissions", None)
 
 
 def _announce(report: MergeReport) -> None:
@@ -380,11 +364,14 @@ def _expected_rules(rule_format: str, report: MergeReport) -> dict:
 
 
 def _store_manifest(path: Path, rendered: str, rule_format: str, report: MergeReport) -> None:
+    from wiserec_cli import __version__
+
     save_record(path, {
+        "installer_version": __version__,
         "format": rule_format,
         "config_sha256": content_hash(rendered),
-        "bash": report.written_bash,
-        "permissions": report.written_permissions,
+        "bash": report.bash_entries,
+        "permissions": report.permission_entries,
     })
 
 
@@ -465,7 +452,6 @@ __all__ = [
     "MINIMUM_BASH",
     "MINIMUM_PERMISSIONS",
     "SHELL_RULES",
-    "OpenCodeConflictError",
     "OpenCodeVersionError",
     "broad_allow_rules",
     "combined_shell_effect",

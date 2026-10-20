@@ -15,7 +15,7 @@ import json
 import re
 from pathlib import Path
 
-from .opencode_managed import shell_family
+from .opencode_managed import SIDECAR_NAME, shell_family
 from .opencode_rulematch import (
     EFFECTS,
     OTHER_RULES,
@@ -104,6 +104,8 @@ def _scan_install_agents(install_target: Path, seen: set, found: list) -> None:
 
 
 def _consider_config_file(path: Path, install_target: Path, seen: set, found: list, kind: str) -> None:
+    if path.name == SIDECAR_NAME:
+        return
     resolved = _safe_resolve(path)
     if resolved is None or resolved in seen or _inside(resolved, install_target):
         return
