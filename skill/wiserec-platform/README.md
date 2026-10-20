@@ -8,8 +8,8 @@
 
 - 默认目标为当前用户的 `~/.config/opencode`，设置 `OPENCODE_CONFIG_DIR` 时使用该目录。
 - 每次安装都会删除旧的 `skills/wiserec-platform` 目录和 `commands/ml.md`，再完整写入随包资源。这两处由安装程序管理，请勿直接修改；其他 skill 和 command 不受影响。
-- 同一目录下的 `opencode.json` 会被合并写入权限规则。若目录里只有 `opencode.jsonc` 且内容是严格 JSON，则改写该文件，因为 OpenCode 会在 `opencode.json` 之后加载它。两个文件同时存在时安装停止，原文件保持不变。配置不是合法 JSON 时，整个安装步骤停止，不改原文件，也不替换 skill。写入前把原文件备份为 `opencode.json.bak` 或 `opencode.jsonc.bak`，任何失败都会恢复原文件。
-- 安装程序只增删带 `"wiserec": "managed"` 标记的规则，保留模型、插件和其他字段，以及用户自己的权限规则。用户已有的通配放行（例如 `ml*`、`ml tree*`）会保留。若这些放行会匹配需要确认或拒绝的命令，安装程序打印警告并列出这些规则，但不删除它们。规则顺序是兜底 `shell` `"*": "ask"`，然后是用户规则，最后是受管理规则，因此用户的放行不能压过后面的确认和拒绝。重复安装不会追加重复的受管理规则。移除这些规则可执行 `python -m wiserec_cli.opencode_install --uninstall`，该命令只删除带标记的规则。
+- 同一目录下的 `opencode.json` 会被合并写入权限规则。若目录里只有 `opencode.jsonc` 且内容是严格 JSON，则改写该文件，因为 OpenCode 会在 `opencode.json` 之后加载它。两个文件同时存在时安装停止，原文件保持不变。配置含注释、不是严格 JSON，或 OpenCode 版本无法识别时，安装以错误结束，不改原文件，也不替换 skill。首次写入前把原文件备份为 `opencode.json.bak` 或 `opencode.jsonc.bak`；该备份已存在时不再覆盖，另写带时间戳的备份。
+- 安装程序只增删带 `"wiserec": "managed"` 标记的数组规则，以及 `wiserec.format` 为 `bash` 时记录过的模式。模型、插件、用户自己的权限规则、`permission.bash` 和 `permission.shell` 都保留。用户已有的 `ml*` 放行会保留并列出警告，不删除。`"*": "allow"` 这类宽泛放行也会大声警告。v2 数组顺序是用户的非 shell 规则、`shell` `"*": "ask"`、用户的 shell 规则，然后才是受管理规则。重复安装不会追加重复的受管理规则。移除这些规则可执行 `python -m wiserec_cli.opencode_install --uninstall`。
 - 项目目录或兼容目录中的同名副本需自行移除，以免 OpenCode 加载旧副本。
 - 安装后完全退出并重新打开 OpenCode，使其获得新的 PATH，然后输入 `/ml 查询当前业务下的模型`；只输入 `/ml` 会检查使用上下文并显示用法。
 
@@ -19,7 +19,11 @@
 
 规则面向 Windows 上的 OpenCode。OpenCode 在这里默认使用 PowerShell 执行 shell 工具。规则按最后一条命中生效，匹配不区分大小写，并把反斜杠当作 `/`。
 
-第一条 `shell` 规则是 `"*": "ask"`，作为兜底。只有完整、无额外参数的已知只读 `ml` 命令被精确 `allow`。放行规则不含 `*`。`--help` 只放行下表中的几条完整命令。带 ID、`-o json` 或其他额外参数的命令，以及以后新增的命令，都回到审批。
+安装程序执行 `opencode --version`（找不到 `opencode` 时再试 `opencode2 --version`）。OpenCode 1.1.1 至 1.x 只支持 `permission.bash`，当前 GitHub Release v1.19.3 遇到顶层 `permissions` 数组会报错，因此这一范围把规则追加到 `permission.bash` 末尾。OpenCode 2.0.0 及以上支持 `{action, resource, effect}` 的 `permissions` 数组，规则写入该数组。版本低于 1.1.1 或无法识别时，安装停止，不改任何配置。已有的 `permission.bash` 和 `permission.shell` 保留，不搬移、不删除。
+
+`shell` 的 `"*": "ask"` 作用于所有 shell 命令，不只是 `ml`。只有完整、无额外参数的已知只读 `ml` 命令被精确 `allow`。放行规则不含 `*`。`--help` 只放行下表中的几条完整命令。带 ID、`-o json` 或其他额外参数的命令，以及以后新增的命令，都回到审批。
+
+OpenCode 2 先加载全局配置，再加载项目配置，最后追加 Agent 的 `permissions`。项目目录或 Agent 中的规则可以覆盖这里写入的全局规则。同一文件里的 `permission.bash` 会排在 `permissions` 数组之前。
 
 放在精确放行之后、仍然要求审批的模式：
 
@@ -34,7 +38,7 @@
 
 `[IO.File]::ReadAllText` 和 `${路径}` 不是 OpenCode 能拆出来的命令。扫描结果为空时，OpenCode 不做权限检查，所以上述规则拦不住这两种读法。不要用它们读取凭据。凭据改为 Windows DPAPI 加密存储由单独事项处理，本安装程序不实现 DPAPI。
 
-下面是全新安装时写入的 `opencode.json`。每条规则都带 `"wiserec": "managed"`。已有文件会在用户规则之后得到同样的受管理规则。
+下面是 OpenCode 2 全新安装时写入的 `opencode.json`。每条规则都带 `"wiserec": "managed"`。`"*": "ask"` 作用于所有 shell 命令。OpenCode 1.1.1 至 1.x 改为把同样的模式追加到 `permission.bash`。
 
 ```json
 {

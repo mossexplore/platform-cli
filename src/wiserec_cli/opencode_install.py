@@ -12,6 +12,8 @@ import tempfile
 
 from . import messages as msg
 from .opencode_permissions import (
+    OpenCodeVersionError,
+    detect_permission_format,
     install_opencode_permissions,
     uninstall_opencode_permissions,
     validate_opencode_config,
@@ -83,7 +85,7 @@ def main(argv: list[str] | None = None) -> int:
         try:
             uninstall_opencode_permissions(target)
         except Exception as error:
-            msg.warning(f"OpenCode permission removal failed: {error}")
+            msg.error(f"OpenCode permission removal failed: {error}")
             msg.detail("opencode.json was left unchanged. CLI remains usable.")
             return 1
         msg.success("WiseRec OpenCode permission rules removed.")
@@ -93,11 +95,19 @@ def main(argv: list[str] | None = None) -> int:
         return 2
     msg.detail(f"OpenCode resource directory: {target}")
     msg.detail("WiseRec skill and /ml command are replaced on every installation; do not edit these files.")
-    msg.detail("OpenCode permission rules are merged into opencode.json. Other settings are kept.")
+    msg.detail(
+        "OpenCode permission rules are merged into opencode.json. Other settings are kept. "
+        "The shell * ask rule applies to every shell command, not only ml."
+    )
+    try:
+        rule_format = detect_permission_format()
+    except OpenCodeVersionError as error:
+        msg.error(str(error))
+        return 1
     try:
         validate_opencode_config(target)
     except Exception as error:
-        msg.warning(f"OpenCode permission installation failed: {error}")
+        msg.error(f"OpenCode permission installation failed: {error}")
         msg.detail("opencode.json was left unchanged. CLI remains usable. Rerun the official installer to retry.")
         return 1
     try:
@@ -107,7 +117,7 @@ def main(argv: list[str] | None = None) -> int:
         msg.detail("CLI remains usable. Rerun the official installer to retry.")
         return 1
     try:
-        install_opencode_permissions(target)
+        install_opencode_permissions(target, rule_format=rule_format)
     except Exception as error:
         msg.warning(f"OpenCode permission installation failed: {error}")
         msg.detail("opencode.json was left unchanged. CLI remains usable. Rerun the official installer to retry.")

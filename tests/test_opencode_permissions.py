@@ -13,12 +13,16 @@ from wiserec_cli.opencode_permissions import (
     SHELL_RULES,
     combined_shell_effect,
     conflicting_allow_rules,
+    detect_permission_format,
     fresh_opencode_config,
     install_opencode_permissions,
+    layered_rules,
     merge_opencode_config,
     permission_effect,
+    permission_format_for_version,
     uninstall_opencode_permissions,
     wildcard_match,
+    OpenCodeVersionError,
 )
 
 
@@ -178,23 +182,20 @@ def test_merge_preserves_user_fields_and_rules(tmp_path):
     document = json.loads(path.read_text(encoding="utf-8"))
     assert document["model"] == "anthropic/claude"
     assert document["mcp"] == original["mcp"]
-    assert document["permission"] == {"edit": "ask"}
-    resources = [rule["resource"] for rule in document["permissions"] if isinstance(rule, dict)]
-    assert "ml tree*" in resources
-    assert "ml * --help*" in resources
-    assert resources.count("*") == 2  # user allow, plus our ask fallback
-    assert resources[0] == "*"
+    assert document["permission"]["edit"] == "ask"
+    assert document["permission"]["bash"] == original["permission"]["bash"]
+    assert "shell" not in document["permission"]
     rules = document["permissions"]
-    assert rules[0][MARKER] == MARKER_VALUE
-    lifted = next(rule for rule in rules if rule["resource"] == "ml tree*")
-    assert MARKER not in lifted
+    assert rules[0] == "opaque-entry"
+    assert rules[1]["resource"] == "*.md" and MARKER not in rules[1]
+    assert rules[2]["resource"] == "*" and rules[2][MARKER] == MARKER_VALUE
+    assert rules[3]["resource"] == "npm test *" and MARKER not in rules[3]
+    resources = [rule["resource"] for rule in rules if isinstance(rule, dict)]
+    assert "ml tree*" not in resources
     assert resources.count("ml env list") == 1
     assert "opaque-entry" in rules
-    assert permission_effect("shell", "git status", rules) == "allow"
-    assert permission_effect("shell", "git status --short", rules) == "allow"
     assert permission_effect("shell", "npm test --watch", rules) == "allow"
-    assert permission_effect("shell", "rm -rf /tmp/demo", rules) == "deny"
-    assert permission_effect("shell", "echo hello", rules) == "allow"
+    assert permission_effect("shell", "echo hello", rules) == "ask"
     assert permission_effect("read", "docs/guide.md", rules) == "allow"
     assert permission_effect("read", r"C:\Users\me\.wiserec\credentials.json", rules) == "deny"
     assert combined_shell_effect(["ml tree"], rules) == "allow"
@@ -204,6 +205,16 @@ def test_merge_preserves_user_fields_and_rules(tmp_path):
     ) == "ask"
     kept = next(rule for rule in rules if isinstance(rule, dict) and rule["resource"] == "npm test *")
     assert kept["note"] == "keep"
+    bash_rules = [
+        {"action": "shell", "resource": resource, "effect": effect}
+        for resource, effect in document["permission"]["bash"].items()
+    ]
+    effective = layered_rules(bash_rules, rules)
+    assert combined_shell_effect(["echo hello"], effective) == "ask"
+    assert combined_shell_effect(["ml login --show-secrets"], effective) == "deny"
+    assert combined_shell_effect(
+        ["ml jupyter exec --cwd x -- sh -c 'echo pwned' --help"], effective
+    ) == "ask"
 
 
 def test_reinstall_is_idempotent_and_does_not_refresh_backup(tmp_path):
@@ -267,7 +278,7 @@ def test_commented_jsonc_is_left_unchanged(tmp_path):
     path = tmp_path / "opencode.jsonc"
     original = '{\n  // keep\n  "model": "keep"\n}\n'
     path.write_text(original, encoding="utf-8")
-    with pytest.raises(ValueError, match="JSON"):
+    with pytest.raises(ValueError, match="comments"):
         install_opencode_permissions(tmp_path)
     assert path.read_text(encoding="utf-8") == original
     assert not (tmp_path / "opencode.jsonc.bak").exists()
@@ -317,7 +328,7 @@ def test_merge_does_not_mutate_input():
     merged = merge_opencode_config(config)
     assert config == {"permission": {"bash": {"git status *": "allow"}}}
     assert merged["permissions"]
-    assert "permission" not in merged
+    assert merged["permission"]["bash"] == {"git status *": "allow"}
 
 
 def test_skill_readme_example_matches_installer():
@@ -408,10 +419,15 @@ def test_uninstall_invalid_json_leaves_the_file(tmp_path):
     assert not (tmp_path / "opencode.json.bak").exists()
 
 
+def _v2(monkeypatch, kind="permissions"):
+    monkeypatch.setattr("wiserec_cli.opencode_install.detect_permission_format", lambda: kind)
+
+
 def test_invalid_json_aborts_the_install_step(tmp_path, monkeypatch, capsys):
     path = tmp_path / "opencode.json"
     path.write_text("{", encoding="utf-8")
     monkeypatch.setenv("OPENCODE_CONFIG_DIR", str(tmp_path))
+    _v2(monkeypatch)
     with patch("wiserec_cli.opencode_install.install_resources") as install_resources:
         assert main() == 1
     install_resources.assert_not_called()
@@ -423,6 +439,7 @@ def test_invalid_json_aborts_the_install_step(tmp_path, monkeypatch, capsys):
 
 def test_uninstall_flag_removes_marked_rules(tmp_path, monkeypatch, capsys):
     monkeypatch.setenv("OPENCODE_CONFIG_DIR", str(tmp_path))
+    _v2(monkeypatch)
     with patch("wiserec_cli.opencode_install.install_resources"):
         assert main([]) == 0
     assert main(["--uninstall"]) == 0
@@ -433,16 +450,20 @@ def test_uninstall_flag_removes_marked_rules(tmp_path, monkeypatch, capsys):
 
 def test_main_merges_permissions_after_resources(tmp_path, monkeypatch, capsys):
     monkeypatch.setenv("OPENCODE_CONFIG_DIR", str(tmp_path))
+    _v2(monkeypatch)
     with patch("wiserec_cli.opencode_install.install_resources") as install_resources:
         assert main() == 0
     install_resources.assert_called_once_with(tmp_path)
     document = json.loads((tmp_path / "opencode.json").read_text(encoding="utf-8"))
     assert document["permissions"][0]["resource"] == "*"
-    assert "permission rules installed" in capsys.readouterr().err
+    output = capsys.readouterr().err
+    assert "permission rules installed" in output
+    assert "every shell command, not only ml" in output
 
 
 def test_main_reports_permission_failure_without_claiming_success(tmp_path, monkeypatch, capsys):
     monkeypatch.setenv("OPENCODE_CONFIG_DIR", str(tmp_path))
+    _v2(monkeypatch)
     with patch("wiserec_cli.opencode_install.install_resources"), patch(
         "wiserec_cli.opencode_install.install_opencode_permissions",
         side_effect=OSError("disk full"),
@@ -451,3 +472,121 @@ def test_main_reports_permission_failure_without_claiming_success(tmp_path, monk
     error = capsys.readouterr().err
     assert "CLI remains usable" in error
     assert "permission rules installed" not in error
+
+
+def test_version_selects_bash_or_permissions_and_aborts_when_unknown():
+    assert permission_format_for_version("1.19.3") == "bash"
+    assert permission_format_for_version("opencode 1.1.1") == "bash"
+    assert permission_format_for_version("2.0.0") == "permissions"
+    assert permission_format_for_version("2.0.32\n") == "permissions"
+    with pytest.raises(OpenCodeVersionError):
+        permission_format_for_version("1.1.0")
+    with pytest.raises(OpenCodeVersionError):
+        permission_format_for_version("not a version")
+    with pytest.raises(OpenCodeVersionError):
+        detect_permission_format(lambda name: None)
+    assert detect_permission_format(lambda name: "1.19.3" if name == "opencode" else None) == "bash"
+    assert detect_permission_format(lambda name: None if name == "opencode" else "2.0.32") == "permissions"
+
+
+def test_undetectable_version_aborts_before_any_config_write(tmp_path, monkeypatch, capsys):
+    path = tmp_path / "opencode.json"
+    path.write_text('{"model": "keep"}\n', encoding="utf-8")
+    monkeypatch.setenv("OPENCODE_CONFIG_DIR", str(tmp_path))
+    monkeypatch.setattr(
+        "wiserec_cli.opencode_install.detect_permission_format",
+        lambda: (_ for _ in ()).throw(OpenCodeVersionError("undetectable")),
+    )
+    with patch("wiserec_cli.opencode_install.install_resources") as install_resources:
+        assert main() == 1
+    install_resources.assert_not_called()
+    assert path.read_text(encoding="utf-8") == '{"model": "keep"}\n'
+    assert not (tmp_path / "opencode.json.bak").exists()
+    assert "[错误]" in capsys.readouterr().err
+
+
+def test_commented_jsonc_fails_the_install_step(tmp_path, monkeypatch, capsys):
+    path = tmp_path / "opencode.jsonc"
+    path.write_text('{\n  // keep\n  "model": "keep"\n}\n', encoding="utf-8")
+    monkeypatch.setenv("OPENCODE_CONFIG_DIR", str(tmp_path))
+    _v2(monkeypatch)
+    with patch("wiserec_cli.opencode_install.install_resources") as install_resources:
+        assert main() == 1
+    install_resources.assert_not_called()
+    assert "// keep" in path.read_text(encoding="utf-8")
+    assert not (tmp_path / "opencode.jsonc.bak").exists()
+    assert "[错误]" in capsys.readouterr().err
+
+
+def test_bash_release_appends_without_moving_user_rules(tmp_path, capsys):
+    path = tmp_path / "opencode.json"
+    original = {
+        "model": "keep",
+        "permission": {
+            "edit": "ask",
+            "shell": {"npm test *": "allow"},
+            "bash": {"*": "allow", "ml*": "allow", "git status *": "allow"},
+        },
+    }
+    path.write_text(json.dumps(original), encoding="utf-8")
+    install_opencode_permissions(tmp_path, rule_format="bash")
+    document = json.loads(path.read_text(encoding="utf-8"))
+    assert document["model"] == "keep"
+    assert document["permission"]["edit"] == "ask"
+    assert document["permission"]["shell"] == {"npm test *": "allow"}
+    bash = document["permission"]["bash"]
+    assert list(bash)[:3] == ["*", "ml*", "git status *"]
+    assert bash["*"] == "allow"
+    assert bash["ml*"] == "allow"
+    assert bash["ml login --show-secrets*"] == "deny"
+    assert list(bash).index("ml login --show-secrets*") > list(bash).index("ml*")
+    assert "permissions" not in document
+    warning = capsys.readouterr().err
+    assert "ml*" in warning
+    assert "broad shell allow" in warning
+    install_opencode_permissions(tmp_path, rule_format="bash")
+    assert json.loads(path.read_text(encoding="utf-8"))["permission"]["bash"] == bash
+    uninstall_opencode_permissions(tmp_path)
+    removed = json.loads(path.read_text(encoding="utf-8"))
+    assert removed["permission"]["bash"] == {"*": "allow", "ml*": "allow", "git status *": "allow"}
+    assert removed["permission"]["shell"] == {"npm test *": "allow"}
+    assert MARKER not in removed
+
+
+def test_existing_backup_is_not_overwritten(tmp_path):
+    path = tmp_path / "opencode.json"
+    path.write_text('{"model": "first"}\n', encoding="utf-8")
+    install_opencode_permissions(tmp_path)
+    original_backup = (tmp_path / "opencode.json.bak").read_bytes()
+    path.write_text('{"model": "second"}\n', encoding="utf-8")
+    install_opencode_permissions(tmp_path)
+    assert (tmp_path / "opencode.json.bak").read_bytes() == original_backup
+    stamped = list(tmp_path.glob("opencode.json.bak.*"))
+    assert len(stamped) == 1
+    assert stamped[0].read_text(encoding="utf-8") == '{"model": "second"}\n'
+
+
+def test_project_and_agent_rules_override_global():
+    # OpenCode 2 loads global rules, then project rules, then appends agent rules.
+    # v2.0.0 also places permission.bash rules before the permissions array.
+    global_rules = fresh_opencode_config()["permissions"]
+    project = [{"action": "shell", "resource": "*", "effect": "allow"}]
+    agent = [{"action": "shell", "resource": "ml login --show-secrets*", "effect": "deny"}]
+    assert combined_shell_effect(["ml login --show-secrets"], global_rules) == "deny"
+    assert combined_shell_effect(["echo hello"], global_rules) == "ask"
+    assert combined_shell_effect(
+        ["ml login --show-secrets"], layered_rules(global_rules, project)
+    ) == "allow"
+    assert combined_shell_effect(
+        ["echo hello"], layered_rules(global_rules, project)
+    ) == "allow"
+    assert combined_shell_effect(
+        ["ml login --show-secrets"], layered_rules(global_rules, project, agent)
+    ) == "deny"
+    bash = [
+        {"action": "shell", "resource": "*", "effect": "allow"},
+        {"action": "shell", "resource": "rm *", "effect": "deny"},
+    ]
+    layered = layered_rules(bash, global_rules)
+    assert combined_shell_effect(["echo hello"], layered) == "ask"
+    assert combined_shell_effect(["rm -rf /tmp/demo"], layered) == "ask"
