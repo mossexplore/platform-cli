@@ -5,7 +5,7 @@ as a pattern object and marks the top-level config ``.strict()``. From v1.16.0
 through v1.18.15, ``packages/opencode/src/config/parse.ts`` rejects unknown
 top-level keys (``Unrecognized key``). v1.18.16 switches that parser to
 ``onExcessProperty: "ignore"``. The installer therefore writes only schema
-fields and records what it owns in ``~/.wiserec/opencode-managed.json``.
+fields and records what it owns in ``wiserec-managed.json`` beside that file.
 """
 
 from __future__ import annotations
@@ -18,28 +18,12 @@ from pathlib import Path
 
 from .opencode_rulematch import EFFECTS, MARKER, MARKER_VALUE, SHELL_ACTIONS
 
-_STRENGTH = {"allow": 0, "ask": 1, "deny": 2}
+SIDECAR_NAME = "wiserec-managed.json"
 _SECRET = re.compile(
     r"(?i)([\"']?(?:api[_-]?key|access[_-]?key|key|token|secret|password|authorization)[\"']?"
     r"\s*[:=]\s*[\"']?)([^\"'\s,}&]+)"
 )
-
-
-class OpenCodeConflictError(ValueError):
-    """A user rule is more permissive than the managed rule for the same key."""
-
-    def __init__(self, conflicts: list):
-        self.conflicts = conflicts
-        listed = "; ".join(
-            f"{item['where']} {item['key']} is {item['user']}, managed rule is {item['ours']}"
-            for item in conflicts
-        )
-        super().__init__(
-            "OpenCode config has weaker rules that would bypass the managed ask/deny rules: "
-            f"{listed}. opencode.json was left unchanged. "
-            "Rerun with --override-conflicts to set the managed effect and move those keys "
-            "into the managed block. The original file is preserved in the backup when that flag is used."
-        )
+_BASH_ACTIONS = ("bash", "read", "skill")
 
 
 class MergeReport:
@@ -49,61 +33,51 @@ class MergeReport:
         self.overrides = []
         self.written_bash = {"bash": [], "read": [], "skill": []}
         self.written_permissions = []
+        self.bash_entries = {"bash": {}, "read": {}, "skill": {}}
+        self.permission_entries = []
 
 
-def manifest_path() -> Path:
-    root = Path(os.environ.get("WISEREC_HOME") or Path.home() / ".wiserec")
-    return root / "opencode-managed.json"
+def manifest_path(config_file: Path) -> Path:
+    """Sidecar beside ``opencode.json``, not a key inside it."""
+    return config_file.parent / SIDECAR_NAME
 
 
-def load_manifest() -> dict:
-    path = manifest_path()
+def load_manifest(config_file: Path) -> dict:
+    path = manifest_path(config_file)
     if not path.is_file() or path.is_symlink():
-        return {"targets": {}}
+        return {}
     try:
         loaded = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError):
-        return {"targets": {}}
-    if not isinstance(loaded, dict) or not isinstance(loaded.get("targets"), dict):
-        return {"targets": {}}
-    return loaded
+        return {}
+    return loaded if isinstance(loaded, dict) else {}
 
 
 def record_for(config_file: Path) -> dict:
-    entry = load_manifest()["targets"].get(str(config_file.resolve()), {})
-    return entry if isinstance(entry, dict) else {}
+    return load_manifest(config_file)
 
 
 def save_record(config_file: Path, record: dict) -> None:
-    path = manifest_path()
+    path = manifest_path(config_file)
+    if path.is_symlink():
+        raise ValueError(f"OpenCode managed manifest must not be a symlink: {path}")
     path.parent.mkdir(parents=True, exist_ok=True)
-    document = load_manifest()
-    document["targets"][str(config_file.resolve())] = record
     temporary = path.with_name(path.name + ".tmp")
-    temporary.write_text(json.dumps(document, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    temporary.write_text(json.dumps(record, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     os.replace(temporary, path)
     _chmod_user_only(path)
 
 
 def clear_record(config_file: Path) -> None:
-    document = load_manifest()
-    document["targets"].pop(str(config_file.resolve()), None)
-    path = manifest_path()
-    if not document["targets"]:
-        if path.is_file() and not path.is_symlink():
-            path.unlink()
-        return
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(document, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-    _chmod_user_only(path)
+    path = manifest_path(config_file)
+    if path.is_symlink():
+        raise ValueError(f"OpenCode managed manifest must not be a symlink: {path}")
+    if path.is_file():
+        path.unlink()
 
 
 def content_hash(text: str) -> str:
     return hashlib.sha256(text.encode("utf-8")).hexdigest()
-
-
-def weaker(user_effect: str, managed_effect: str) -> bool:
-    return _STRENGTH.get(user_effect, -1) < _STRENGTH.get(managed_effect, -1)
 
 
 def shell_family(action: str) -> str:
@@ -145,6 +119,14 @@ def take_legacy_marker(config: dict) -> dict:
     return legacy
 
 
+def _pattern_names(value) -> list:
+    if isinstance(value, dict):
+        return [key for key in value if isinstance(key, str)]
+    if isinstance(value, list):
+        return [item for item in value if isinstance(item, str)]
+    return []
+
+
 def owned_bash_patterns(manifest_entry: dict, legacy: dict) -> dict:
     owned = {"bash": [], "read": [], "skill": []}
     sources = []
@@ -153,11 +135,87 @@ def owned_bash_patterns(manifest_entry: dict, legacy: dict) -> dict:
         sources.append(recorded)
     sources.append(legacy.get("bash", {}))
     for source in sources:
+        if not isinstance(source, dict):
+            continue
         for action in owned:
-            for pattern in source.get(action, []) if isinstance(source, dict) else []:
-                if isinstance(pattern, str) and pattern not in owned[action]:
+            for pattern in _pattern_names(source.get(action)):
+                if pattern not in owned[action]:
                     owned[action].append(pattern)
     return owned
+
+
+def prior_bash_entries(record: dict) -> dict:
+    """Original effects recorded for keys this installer already owns."""
+    result = {"bash": {}, "read": {}, "skill": {}}
+    source = record.get("bash")
+    if not isinstance(source, dict):
+        return result
+    for action in result:
+        value = source.get(action)
+        if isinstance(value, dict):
+            for pattern, info in value.items():
+                if isinstance(pattern, str):
+                    result[action][pattern] = _bash_memory(info)
+        elif isinstance(value, list):
+            for pattern in value:
+                if isinstance(pattern, str):
+                    result[action][pattern] = {"original": None, "index": None}
+    return result
+
+
+def restored_bash_keys(record: dict) -> set:
+    """Bash keys whose user value was put back and must not be dropped again."""
+    found = set()
+    source = record.get("bash") if isinstance(record, dict) else None
+    if not isinstance(source, dict):
+        return found
+    for action, entries in source.items():
+        if not isinstance(entries, dict):
+            continue
+        for pattern, info in entries.items():
+            original = _entry_memory(info)["original"]
+            if isinstance(pattern, str) and isinstance(original, str):
+                found.add((action, pattern))
+    return found
+
+
+def remembered_permission_entries(record: dict) -> list:
+    rules = record.get("permissions")
+    if not isinstance(rules, list):
+        return []
+    return [rule for rule in rules if isinstance(rule, dict)]
+
+
+def prior_permission_entries(record: dict) -> dict:
+    found = {}
+    rules = record.get("permissions")
+    if not isinstance(rules, list):
+        return found
+    for rule in rules:
+        if not isinstance(rule, dict):
+            continue
+        action = rule.get("action")
+        resource = rule.get("resource")
+        if isinstance(action, str) and isinstance(resource, str):
+            found[(shell_family(action), resource)] = _entry_memory(rule)
+    return found
+
+
+def _bash_memory(info) -> dict:
+    memory = _entry_memory(info)
+    if isinstance(info, dict) and info.get("effect") in EFFECTS:
+        memory["effect"] = info["effect"]
+    return memory
+
+
+def _entry_memory(info) -> dict:
+    if not isinstance(info, dict):
+        return {"original": None, "index": None}
+    original = info.get("original")
+    if original is not None and not isinstance(original, dict) and original not in EFFECTS:
+        original = None
+    index = info.get("index")
+    return {"original": original, "index": index if isinstance(index, int) else None}
 
 
 def owned_permission_keys(manifest_entry: dict, legacy: dict) -> set:
@@ -171,13 +229,104 @@ def owned_permission_keys(manifest_entry: dict, legacy: dict) -> set:
     return owned
 
 
-def describe_conflict(where: str, key: str, user_effect: str, managed_effect: str) -> dict:
-    return {"where": where, "key": key, "user": user_effect, "ours": managed_effect}
+def restore_originals(config: dict, record: dict) -> None:
+    """Remove keys we added and put back the values we overwrote."""
+    _restore_bash(config, record.get("bash"))
+    _restore_permissions(config, record.get("permissions"))
 
 
-def raise_if_conflicts(conflicts: list, override_conflicts: bool) -> None:
-    if conflicts and not override_conflicts:
-        raise OpenCodeConflictError(conflicts)
+def _restore_bash(config: dict, recorded) -> None:
+    if not isinstance(recorded, dict):
+        return
+    permission = config.get("permission")
+    if permission is None:
+        permission = {}
+    elif not isinstance(permission, dict):
+        return
+    touched = False
+    for action in _BASH_ACTIONS:
+        entries = recorded.get(action)
+        if isinstance(entries, list):
+            entries = {pattern: {"original": None, "index": None} for pattern in entries if isinstance(pattern, str)}
+        if not isinstance(entries, dict) or not entries:
+            continue
+        touched = True
+        bucket = permission.get(action)
+        if not isinstance(bucket, dict):
+            bucket = {}
+        restores = []
+        for pattern, info in entries.items():
+            if not isinstance(pattern, str):
+                continue
+            bucket.pop(pattern, None)
+            memory = _entry_memory(info)
+            original = memory["original"]
+            if isinstance(original, str) and original in EFFECTS:
+                restores.append((memory["index"], pattern, original))
+        items = _reinsert(list(bucket.items()), restores)
+        if items:
+            permission[action] = dict(items)
+        else:
+            permission.pop(action, None)
+    if not touched:
+        return
+    if permission:
+        config["permission"] = permission
+    else:
+        config.pop("permission", None)
+
+
+def _restore_permissions(config: dict, recorded) -> None:
+    if not isinstance(recorded, list) or not recorded:
+        return
+    rules = config.get("permissions")
+    if not isinstance(rules, list):
+        rules = []
+    owned = set()
+    restores = []
+    for rule in recorded:
+        if not isinstance(rule, dict) or not isinstance(rule.get("action"), str):
+            continue
+        if not isinstance(rule.get("resource"), str):
+            continue
+        owned.add((shell_family(rule["action"]), rule["resource"]))
+        memory = _entry_memory(rule)
+        if isinstance(memory["original"], dict):
+            restores.append((memory["index"], memory["original"]))
+    kept = []
+    for rule in rules:
+        if (
+            isinstance(rule, dict)
+            and isinstance(rule.get("action"), str)
+            and isinstance(rule.get("resource"), str)
+            and (shell_family(rule["action"]), rule["resource"]) in owned
+        ):
+            continue
+        if isinstance(rule, dict) and rule.get(MARKER) == MARKER_VALUE:
+            continue
+        kept.append(rule)
+    items = _reinsert([(None, rule) for rule in kept], [(index, None, original) for index, original in restores])
+    restored = [value for _key, value in items]
+    if restored:
+        config["permissions"] = restored
+    elif "permissions" in config:
+        config.pop("permissions", None)
+
+
+def _reinsert(items: list, restores: list) -> list:
+    numbered = []
+    tail = []
+    for index, key, value in restores:
+        if isinstance(index, int):
+            numbered.append((index, key, value))
+        else:
+            tail.append((key, value))
+    numbered.sort(key=lambda item: item[0])
+    for index, key, value in numbered:
+        index = max(0, min(index, len(items)))
+        items.insert(index, (key, value))
+    items.extend(tail)
+    return items
 
 
 def public_debug_failure(returncode, stdout: str, stderr: str) -> str:

@@ -8,6 +8,7 @@ from unittest.mock import patch
 
 import pytest
 
+from wiserec_cli import __version__
 from wiserec_cli import opencode_permissions as permission_module
 from wiserec_cli.opencode_install import main
 from wiserec_cli.opencode_managed import manifest_path, public_debug_failure, restrict_backup
@@ -15,7 +16,6 @@ from wiserec_cli.opencode_permissions import (
     MARKER,
     MARKER_VALUE,
     SHELL_RULES,
-    OpenCodeConflictError,
     combined_shell_effect,
     conflicting_allow_rules,
     detect_permission_format,
@@ -172,11 +172,15 @@ def test_fresh_install_writes_fallback_and_managed_rules(tmp_path):
     assert MARKER not in document
     assert all(MARKER not in rule for rule in document["permissions"] if isinstance(rule, dict))
     assert not (tmp_path / "opencode.json.bak").exists()
-    record = json.loads(manifest_path().read_text(encoding="utf-8"))
-    entry = record["targets"][str((tmp_path / "opencode.json").resolve())]
+    sidecar = manifest_path(tmp_path / "opencode.json")
+    record = json.loads(sidecar.read_text(encoding="utf-8"))
     rendered = (tmp_path / "opencode.json").read_text(encoding="utf-8")
-    assert entry["config_sha256"] == hashlib.sha256(rendered.encode("utf-8")).hexdigest()
-    assert stat.S_IMODE(manifest_path().stat().st_mode) == 0o600
+    assert record["installer_version"] == __version__
+    assert record["format"] == "permissions"
+    assert record["config_sha256"] == hashlib.sha256(rendered.encode("utf-8")).hexdigest()
+    assert record["permissions"][0]["original"] is None
+    assert "targets" not in record
+    assert stat.S_IMODE(sidecar.stat().st_mode) == 0o600
 
 
 def test_merge_preserves_user_fields_and_rules(tmp_path):
@@ -684,23 +688,28 @@ def test_bash_inserts_star_ask_first_without_moving_user_keys(tmp_path):
     assert list(again) == list(bash)
 
 
-def test_bash_does_not_move_an_existing_star_key():
+def test_existing_star_key_is_overwritten_and_moved_first():
     merged = merge_opencode_config(
         {"permission": {"bash": {"git status *": "allow", "*": "deny", "npm test *": "ask"}}},
         rule_format="bash",
     )
     bash = merged["permission"]["bash"]
-    assert list(bash)[:3] == ["git status *", "*", "npm test *"]
-    assert bash["*"] == "deny"
+    assert list(bash)[:3] == ["*", "git status *", "npm test *"]
+    assert bash["*"] == "ask"
     assert list(bash)[3] == "ml *"
-    assert combined_shell_effect(["echo hello"], _bash_rules(bash)) == "deny"
+    assert combined_shell_effect(["echo hello"], _bash_rules(bash)) == "ask"
 
 
-def test_bash_string_shorthand_and_weaker_read_abort():
+def test_bash_string_shorthand_overwrites_star_and_keeps_other_read_keys():
     original = {"permission": {"bash": "allow", "read": {"*.md": "allow", "*credentials.json*": "allow"}}}
-    with pytest.raises(OpenCodeConflictError, match="override-conflicts"):
-        merge_opencode_config(original, rule_format="bash")
+    merged = merge_opencode_config(original, rule_format="bash")
     assert original["permission"]["bash"] == "allow"
+    bash = merged["permission"]["bash"]
+    assert list(bash)[0] == "*" and bash["*"] == "ask"
+    read = merged["permission"]["read"]
+    assert list(read) == ["*.md", "*credentials.json*"]
+    assert read["*.md"] == "allow"
+    assert read["*credentials.json*"] == "deny"
 
 
 def test_permissions_mode_does_not_change_permission_bash():
@@ -872,15 +881,27 @@ def test_v1_bash_scenarios_none_ml_star_and_star_allow(tmp_path, capsys):
     assert "ml*" in ml_err
     assert "will run" not in ml_err
 
-    # User "*" allow is a weaker exact key. Install aborts and leaves the file.
+    # User "*" allow is an exact key we manage. Our ask wins and stays first.
     star_dir = tmp_path / "star"
     star_dir.mkdir()
-    star_original = json.dumps({"permission": {"bash": {"git status *": "allow", "*": "allow", "ml*": "allow"}}})
-    (star_dir / "opencode.json").write_text(star_original, encoding="utf-8")
-    with pytest.raises(OpenCodeConflictError, match="override-conflicts"):
-        install_opencode_permissions(star_dir, rule_format="bash")
-    assert (star_dir / "opencode.json").read_text(encoding="utf-8") == star_original
-    assert not (star_dir / "opencode.json.bak").exists()
+    (star_dir / "opencode.json").write_text(
+        json.dumps({"permission": {"bash": {"git status *": "allow", "*": "allow", "ml*": "allow"}}}),
+        encoding="utf-8",
+    )
+    install_opencode_permissions(star_dir, rule_format="bash")
+    star = json.loads((star_dir / "opencode.json").read_text(encoding="utf-8"))["permission"]["bash"]
+    assert list(star)[:3] == ["*", "git status *", "ml*"]
+    assert star["*"] == "ask" and star["ml*"] == "allow"
+    star_rules = _bash_rules(star)
+    assert combined_shell_effect(["echo x"], star_rules) == "ask"
+    assert combined_shell_effect(["ml tree", "echo x"], star_rules) == "ask"
+    assert combined_shell_effect(["git status"], star_rules) == "allow"
+    star_err = capsys.readouterr().err
+    assert 'permission.bash "*": allow -> ask' in star_err
+    assert "will run" not in star_err
+    record = json.loads(manifest_path(star_dir / "opencode.json").read_text(encoding="utf-8"))
+    assert record["bash"]["bash"]["*"]["original"] == "allow"
+    assert record["installer_version"] == __version__
 
 
 def test_v1_star_ask_is_kept_without_saying_the_chain_will_run(tmp_path, capsys):
@@ -894,7 +915,8 @@ def test_v1_star_ask_is_kept_without_saying_the_chain_will_run(tmp_path, capsys)
     assert list(bash)[:2] == ["*", "npm test *"]
     assert bash["*"] == "ask"
     warning = capsys.readouterr().err
-    assert "already has" in warning
+    assert 'permission.bash "*": ask -> ask' in warning
+    assert "already has" not in warning
     assert "will run" not in warning
 
 
@@ -908,24 +930,11 @@ def test_recorded_star_is_not_reported_as_a_user_key(tmp_path, capsys):
     assert "Project or agent config" not in warning
 
 
-def test_weaker_exact_bash_key_aborts_without_a_backup(tmp_path):
-    path = tmp_path / "opencode.json"
-    original = json.dumps({"permission": {"bash": {"git status *": "allow", "ml *": "allow"}}})
-    path.write_text(original, encoding="utf-8")
-    with pytest.raises(OpenCodeConflictError, match="override-conflicts") as caught:
-        install_opencode_permissions(tmp_path, rule_format="bash")
-    assert "ml *" in str(caught.value)
-    assert "allow" in str(caught.value)
-    assert path.read_text(encoding="utf-8") == original
-    assert not (tmp_path / "opencode.json.bak").exists()
-    assert not manifest_path().exists()
-
-
-def test_override_conflicts_moves_weaker_bash_key_and_keeps_star_first(tmp_path, capsys):
+def test_exact_bash_collision_overwrites_and_restores_on_uninstall(tmp_path, capsys):
     path = tmp_path / "opencode.json"
     original = {"permission": {"bash": {"git status *": "allow", "ml *": "allow", "*": "allow"}}}
     path.write_text(json.dumps(original), encoding="utf-8")
-    install_opencode_permissions(tmp_path, rule_format="bash", override_conflicts=True)
+    install_opencode_permissions(tmp_path, rule_format="bash")
     bash = json.loads(path.read_text(encoding="utf-8"))["permission"]["bash"]
     assert list(bash)[0] == "*" and bash["*"] == "ask"
     assert list(bash)[1] == "git status *"
@@ -936,25 +945,47 @@ def test_override_conflicts_moves_weaker_bash_key_and_keeps_star_first(tmp_path,
     assert backup["permission"]["bash"]["ml *"] == "allow"
     assert backup["permission"]["bash"]["*"] == "allow"
     warning = capsys.readouterr().err
-    assert "from 'allow' to 'ask'" in warning
+    assert 'permission.bash "ml *": allow -> ask' in warning
+    assert 'permission.bash "*": allow -> ask' in warning
     rules = _bash_rules(bash)
     assert combined_shell_effect(["echo x"], rules) == "ask"
     assert combined_shell_effect(["ml tree", "echo x"], rules) == "ask"
     assert combined_shell_effect(["ml tree"], rules) == "allow"
+    record = json.loads(manifest_path(path).read_text(encoding="utf-8"))
+    assert record["bash"]["bash"]["ml *"]["original"] == "allow"
+    assert record["bash"]["bash"]["ml *"]["index"] == 1
+    assert "git status *" not in record["bash"]["bash"]
+    capsys.readouterr()
+    install_opencode_permissions(tmp_path, rule_format="bash")
+    assert "->" not in capsys.readouterr().err
+    again = json.loads(manifest_path(path).read_text(encoding="utf-8"))
+    assert again["bash"]["bash"]["ml *"]["original"] == "allow"
+    uninstall_opencode_permissions(tmp_path)
+    restored = json.loads(path.read_text(encoding="utf-8"))["permission"]["bash"]
+    assert restored == {"git status *": "allow", "ml *": "allow", "*": "allow"}
+    assert not manifest_path(path).exists()
 
 
-def test_stronger_exact_bash_key_is_kept(tmp_path):
-    merged = merge_opencode_config(
-        {"permission": {"bash": {"ml *": "deny", "git status *": "allow"}}},
-        rule_format="bash",
+def test_stronger_exact_bash_key_is_overwritten(tmp_path, capsys):
+    path = tmp_path / "opencode.json"
+    path.write_text(
+        json.dumps({"permission": {"bash": {"ml *": "deny", "git status *": "allow"}}}),
+        encoding="utf-8",
     )
-    bash = merged["permission"]["bash"]
-    assert list(bash)[:3] == ["*", "ml *", "git status *"]
-    assert bash["ml *"] == "deny"
+    install_opencode_permissions(tmp_path, rule_format="bash")
+    bash = json.loads(path.read_text(encoding="utf-8"))["permission"]["bash"]
+    assert list(bash)[:3] == ["*", "git status *", "ml *"]
+    assert bash["ml *"] == "ask"
     assert list(bash).count("ml *") == 1
+    assert bash["git status *"] == "allow"
+    assert 'permission.bash "ml *": deny -> ask' in capsys.readouterr().err
+    uninstall_opencode_permissions(tmp_path)
+    restored = json.loads(path.read_text(encoding="utf-8"))["permission"]["bash"]
+    assert list(restored) == ["ml *", "git status *"]
+    assert restored["ml *"] == "deny"
 
 
-def test_weaker_exact_array_rule_aborts_and_override_rewrites_it(tmp_path, capsys):
+def test_exact_array_collision_overwrites_and_restores_the_original_rule(tmp_path, capsys):
     path = tmp_path / "opencode.json"
     original = {
         "permissions": [
@@ -963,11 +994,7 @@ def test_weaker_exact_array_rule_aborts_and_override_rewrites_it(tmp_path, capsy
         ]
     }
     path.write_text(json.dumps(original), encoding="utf-8")
-    with pytest.raises(OpenCodeConflictError, match="override-conflicts"):
-        install_opencode_permissions(tmp_path)
-    assert json.loads(path.read_text(encoding="utf-8")) == original
-    assert not (tmp_path / "opencode.json.bak").exists()
-    install_opencode_permissions(tmp_path, override_conflicts=True)
+    install_opencode_permissions(tmp_path)
     rules = json.loads(path.read_text(encoding="utf-8"))["permissions"]
     assert rules[0]["resource"] == "*" and rules[0]["effect"] == "ask"
     ml_rules = [rule for rule in rules if rule["resource"] == "ml *"]
@@ -977,15 +1004,29 @@ def test_weaker_exact_array_rule_aborts_and_override_rewrites_it(tmp_path, capsy
     assert MARKER not in secret
     backup = json.loads((tmp_path / "opencode.json.bak").read_text(encoding="utf-8"))
     assert backup["permissions"][0]["effect"] == "allow"
-    assert "from 'allow' to 'ask'" in capsys.readouterr().err
+    warning = capsys.readouterr().err
+    assert 'permissions shell "ml *": allow -> ask' in warning
+    assert 'permissions bash "ml login --show-secrets*": allow -> deny' in warning
+    record = json.loads(manifest_path(path).read_text(encoding="utf-8"))
+    stored = {rule["resource"]: rule for rule in record["permissions"]}
+    assert stored["ml *"]["original"]["note"] == "user"
+    assert stored["ml *"]["original"]["effect"] == "allow"
+    assert record["installer_version"] == __version__
+    capsys.readouterr()
+    install_opencode_permissions(tmp_path)
+    assert "->" not in capsys.readouterr().err
+    uninstall_opencode_permissions(tmp_path)
+    assert json.loads(path.read_text(encoding="utf-8"))["permissions"] == original["permissions"]
+    assert not manifest_path(path).exists()
 
 
-def test_stronger_array_rule_is_kept_and_not_duplicated():
+def test_stronger_array_rule_is_overwritten_with_our_effect():
     merged = merge_opencode_config(
         {"permissions": [{"action": "shell", "resource": "ml *", "effect": "deny"}]},
     )
     matches = [rule for rule in merged["permissions"] if rule["resource"] == "ml *"]
-    assert matches == [{"action": "shell", "resource": "ml *", "effect": "deny"}]
+    assert matches == [{"action": "shell", "resource": "ml *", "effect": "ask"}]
+    assert merged["permissions"][0]["resource"] == "*"
 
 
 def test_legacy_marker_is_removed_and_reinstall_uses_the_manifest(tmp_path, capsys):
@@ -1014,7 +1055,7 @@ def test_legacy_marker_is_removed_and_reinstall_uses_the_manifest(tmp_path, caps
     uninstall_opencode_permissions(tmp_path)
     removed = json.loads(path.read_text(encoding="utf-8"))
     assert removed["permissions"] == [{"action": "shell", "resource": "git status *", "effect": "allow"}]
-    assert not manifest_path().exists()
+    assert not manifest_path(path).exists()
 
 
 def test_permissions_install_leaves_recorded_bash_until_uninstall(tmp_path):
@@ -1146,24 +1187,18 @@ def test_restrict_backup_uses_icacls_for_the_current_user(tmp_path, monkeypatch)
     assert calls == [["icacls", str(path), "/inheritance:r", "/grant:r", "alice:(F)"]]
 
 
-def test_conflict_aborts_before_skill_install_unless_override_is_set(tmp_path, monkeypatch, capsys):
+def test_collision_still_installs_the_skill_and_overwrites_the_key(tmp_path, monkeypatch, capsys):
     path = tmp_path / "opencode.json"
     path.write_text(json.dumps({"permission": {"bash": {"ml *": "allow"}}}), encoding="utf-8")
     monkeypatch.setenv("OPENCODE_CONFIG_DIR", str(tmp_path))
     _v2(monkeypatch, "bash")
     with patch("wiserec_cli.opencode_install.install_resources") as install_resources:
-        assert main([]) == 1
-    install_resources.assert_not_called()
-    assert not (tmp_path / "skills").exists()
-    assert not (tmp_path / "opencode.json.bak").exists()
-    error = capsys.readouterr().err
-    assert "[错误]" in error
-    assert "ml *" in error
-    assert "--override-conflicts" in error
-
-    with patch("wiserec_cli.opencode_install.install_resources") as install_resources:
-        assert main(["--override-conflicts"]) == 0
+        assert main([]) == 0
     install_resources.assert_called_once()
+    warning = capsys.readouterr().err
+    assert 'permission.bash "ml *": allow -> ask' in warning
+    assert "[错误]" not in warning
     bash = json.loads(path.read_text(encoding="utf-8"))["permission"]["bash"]
     assert bash["ml *"] == "ask"
     assert list(bash)[0] == "*"
+    assert main(["--override-conflicts"]) == 2
