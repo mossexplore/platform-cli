@@ -16,6 +16,7 @@ from .opencode_permissions import (
     detect_permission_format,
     install_opencode_permissions,
     preflight_opencode_permissions,
+    rollback_opencode_permissions,
     uninstall_opencode_permissions,
     validate_opencode_config,
 )
@@ -79,6 +80,30 @@ def install_resources(target: Path, source: Path = RESOURCE_ROOT) -> None:
             raise
 
 
+def remove_owned_resources(target: Path) -> None:
+    """Delete the skill and /ml command. Leave every other file in place."""
+    if not target.exists() and not target.is_symlink():
+        return
+    for parent in (target, target / "skills", target / "commands"):
+        if parent.is_symlink():
+            return
+    for destination in (target / "skills/wiserec-platform", target / "commands/ml.md"):
+        _remove(destination)
+
+
+_PERMISSION_NEXT = (
+    "The OpenCode skill and /ml command were not left installed. "
+    "The WiseRec CLI remains usable. Fix the error above, then rerun the official installer."
+)
+
+
+def _abandon_resources(target: Path) -> None:
+    try:
+        remove_owned_resources(target)
+    except Exception as cleanup_error:
+        msg.warning(f"OpenCode skill removal failed: {cleanup_error}")
+
+
 def main(argv: list[str] | None = None) -> int:
     args = [] if argv is None else list(argv)
     target = Path(os.environ.get("OPENCODE_CONFIG_DIR") or Path.home() / ".config/opencode")
@@ -104,26 +129,35 @@ def main(argv: list[str] | None = None) -> int:
     try:
         rule_format = detect_permission_format()
     except OpenCodeVersionError as error:
+        _abandon_resources(target)
         msg.error(str(error))
+        msg.detail("opencode.json was left unchanged.")
+        msg.detail(_PERMISSION_NEXT)
         return 1
     try:
         validate_opencode_config(target)
         preflight_opencode_permissions(target, rule_format=rule_format)
+        install_opencode_permissions(target, rule_format=rule_format)
     except Exception as error:
+        _abandon_resources(target)
         msg.error(f"OpenCode permission installation failed: {error}")
-        msg.detail("opencode.json was left unchanged. CLI remains usable. Rerun the official installer to retry.")
+        msg.detail("opencode.json was left unchanged or restored from the backup.")
+        msg.detail(_PERMISSION_NEXT)
         return 1
     try:
         install_resources(target)
     except Exception as error:
-        msg.warning(f"OpenCode resource installation failed: {error}")
-        msg.detail("CLI remains usable. Rerun the official installer to retry.")
-        return 1
-    try:
-        install_opencode_permissions(target, rule_format=rule_format)
-    except Exception as error:
-        msg.warning(f"OpenCode permission installation failed: {error}")
-        msg.detail("opencode.json was left unchanged. CLI remains usable. Rerun the official installer to retry.")
+        try:
+            rollback_opencode_permissions(target)
+            rollback_note = (
+                "Permission changes from this run were restored from the backup, "
+                "and wiserec-managed.json was removed."
+            )
+        except Exception as rollback_error:
+            rollback_note = f"OpenCode permission rollback failed: {rollback_error}"
+        msg.error(f"OpenCode skill and /ml command installation failed: {error}")
+        msg.detail(rollback_note)
+        msg.detail(_PERMISSION_NEXT)
         return 1
     msg.success("OpenCode skill, /ml command, and permission rules installed. Reopen your OpenCode session.")
     return 0

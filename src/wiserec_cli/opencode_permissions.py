@@ -192,6 +192,27 @@ def preflight_opencode_permissions(
     )
 
 
+_rollback_snapshot = None
+
+
+def rollback_opencode_permissions(target: Path) -> None:
+    """Undo this run's permission write and remove the sidecar manifest."""
+    global _rollback_snapshot
+    if _rollback_snapshot is None:
+        raise RuntimeError("OpenCode permission changes cannot be rolled back because this run has no backup")
+    path, original = _rollback_snapshot
+    if path.parent.resolve() != target.resolve():
+        raise RuntimeError(f"OpenCode permission rollback does not match {target}")
+    _restore(path, original)
+    clear_record(path)
+    _rollback_snapshot = None
+
+
+def _remember_rollback(path: Path, original: bytes | None) -> None:
+    global _rollback_snapshot
+    _rollback_snapshot = (path, original)
+
+
 def install_opencode_permissions(
     target: Path,
     *,
@@ -218,10 +239,12 @@ def install_opencode_permissions(
     rendered = _dump(merged)
     if original is not None and _normalize_newlines(_decode(original)) == rendered:
         _store_manifest(path, rendered, rule_format, report)
+        _remember_rollback(path, original)
         return
     target.mkdir(parents=True, exist_ok=True)
     _replace_with_rollback(path, rendered, original, _expected_rules(rule_format, report))
     _store_manifest(path, rendered, rule_format, report)
+    _remember_rollback(path, original)
 
 
 def uninstall_opencode_permissions(target: Path) -> None:

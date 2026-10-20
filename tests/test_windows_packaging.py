@@ -114,6 +114,18 @@ class WindowsPackagingScriptTest(unittest.TestCase):
         self.assertNotIn("--force-reinstall", script)
         self.assertIn("if ($Force -and (Test-Path -LiteralPath $VirtualEnvironment))", script)
 
+    def test_opencode_stage_prints_the_failure_reason_and_next_steps(self):
+        script = (self.windows_scripts / "install.ps1").read_text(encoding="utf-8")
+        stage = script.split("[Stage 2/2]", 1)[1]
+        self.assertIn("wiserec_cli.opencode_install", stage)
+        self.assertIn("exited with code", stage)
+        self.assertIn("The error is printed above", stage)
+        self.assertIn("were not left installed", stage)
+        self.assertIn("wiserec-managed.json was removed", stage)
+        self.assertIn("Rerun install.cmd", stage)
+        self.assertIn("Next steps:", stage)
+        self.assertLess(stage.index("opencode_install"), stage.index("exited with code"))
+
 
 if __name__ == "__main__":
     unittest.main()

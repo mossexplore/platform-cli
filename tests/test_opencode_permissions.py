@@ -360,6 +360,31 @@ def test_merge_does_not_mutate_input():
     assert merged["permission"]["bash"] == {"git status *": "allow"}
 
 
+def test_readme_minimum_matches_the_version_check():
+    from wiserec_cli.opencode_version import MINIMUM_BASH
+
+    assert MINIMUM_BASH == (1, 1, 1)
+    for relative in ("README.md", "scripts/windows/INSTALL.md", "skill/wiserec-platform/README.md"):
+        text = (ROOT / relative).read_text(encoding="utf-8")
+        assert "1.1.1" in text
+        assert "packages/opencode/src/config/config.ts" in text
+        assert "388" in text and "405" in text and "947" in text
+
+
+def test_docs_say_a_tab_skips_the_whole_command():
+    for relative in (
+        "README.md",
+        "scripts/windows/INSTALL.md",
+        "skill/wiserec-platform/README.md",
+        "skill/wiserec-platform/SKILL.md",
+        "docs/WiseRec CLI 使用手册.md",
+    ):
+        text = (ROOT / relative).read_text(encoding="utf-8")
+        assert "TAB" in text
+        assert "整条命令" in text
+        assert "只有一条命令" in text
+
+
 def test_skill_readme_example_matches_installer():
     text = SKILL_README.read_text(encoding="utf-8")
     fenced = text.split("```json\n", 1)[1].split("\n```", 1)[0]
@@ -454,9 +479,26 @@ def _v2(monkeypatch, kind="permissions"):
     monkeypatch.setattr("wiserec_cli.opencode_install.detect_permission_format", lambda: kind)
 
 
+def _plant_skill(directory: Path) -> None:
+    skill = directory / "skills" / "wiserec-platform"
+    skill.mkdir(parents=True)
+    (skill / "SKILL.md").write_text("old", encoding="utf-8")
+    commands = directory / "commands"
+    commands.mkdir()
+    (commands / "ml.md").write_text("old", encoding="utf-8")
+    (commands / "custom.md").write_text("keep", encoding="utf-8")
+
+
+def _assert_skill_removed(directory: Path) -> None:
+    assert not (directory / "skills" / "wiserec-platform").exists()
+    assert not (directory / "commands" / "ml.md").exists()
+    assert (directory / "commands" / "custom.md").read_text(encoding="utf-8") == "keep"
+
+
 def test_invalid_json_aborts_the_install_step(tmp_path, monkeypatch, capsys):
     path = tmp_path / "opencode.json"
     path.write_text("{", encoding="utf-8")
+    _plant_skill(tmp_path)
     monkeypatch.setenv("OPENCODE_CONFIG_DIR", str(tmp_path))
     _v2(monkeypatch)
     with patch("wiserec_cli.opencode_install.install_resources") as install_resources:
@@ -464,8 +506,10 @@ def test_invalid_json_aborts_the_install_step(tmp_path, monkeypatch, capsys):
     install_resources.assert_not_called()
     assert path.read_text(encoding="utf-8") == "{"
     assert not (tmp_path / "opencode.json.bak").exists()
-    assert not (tmp_path / "skills").exists()
-    assert "left unchanged" in capsys.readouterr().err
+    _assert_skill_removed(tmp_path)
+    error = capsys.readouterr().err
+    assert "left unchanged" in error
+    assert "not left installed" in error
 
 
 def test_uninstall_flag_removes_marked_rules(tmp_path, monkeypatch, capsys):
@@ -479,14 +523,19 @@ def test_uninstall_flag_removes_marked_rules(tmp_path, monkeypatch, capsys):
     assert "removed" in capsys.readouterr().err
 
 
-def test_main_merges_permissions_after_resources(tmp_path, monkeypatch, capsys):
+def test_main_writes_permissions_before_the_skill(tmp_path, monkeypatch, capsys):
     monkeypatch.setenv("OPENCODE_CONFIG_DIR", str(tmp_path))
     _v2(monkeypatch)
-    with patch("wiserec_cli.opencode_install.install_resources") as install_resources:
+    seen = {}
+
+    def resources(target):
+        seen["ready"] = json.loads((target / "opencode.json").read_text(encoding="utf-8"))
+        seen["manifest"] = (target / "wiserec-managed.json").is_file()
+
+    with patch("wiserec_cli.opencode_install.install_resources", side_effect=resources):
         assert main() == 0
-    install_resources.assert_called_once_with(tmp_path)
-    document = json.loads((tmp_path / "opencode.json").read_text(encoding="utf-8"))
-    assert document["permissions"][0]["resource"] == "*"
+    assert seen["ready"]["permissions"][0]["resource"] == "*"
+    assert seen["manifest"] is True
     output = capsys.readouterr().err
     assert "permission rules installed" in output
     assert "every shell command, not only ml" in output
@@ -494,14 +543,18 @@ def test_main_merges_permissions_after_resources(tmp_path, monkeypatch, capsys):
 
 def test_main_reports_permission_failure_without_claiming_success(tmp_path, monkeypatch, capsys):
     monkeypatch.setenv("OPENCODE_CONFIG_DIR", str(tmp_path))
+    _plant_skill(tmp_path)
     _v2(monkeypatch)
-    with patch("wiserec_cli.opencode_install.install_resources"), patch(
+    with patch("wiserec_cli.opencode_install.install_resources") as install_resources, patch(
         "wiserec_cli.opencode_install.install_opencode_permissions",
         side_effect=OSError("disk full"),
     ):
         assert main() == 1
+    install_resources.assert_not_called()
+    _assert_skill_removed(tmp_path)
     error = capsys.readouterr().err
     assert "CLI remains usable" in error
+    assert "not left installed" in error
     assert "permission rules installed" not in error
 
 
@@ -525,6 +578,7 @@ def test_version_selects_bash_or_permissions_and_aborts_when_unknown():
 def test_undetectable_version_aborts_before_any_config_write(tmp_path, monkeypatch, capsys):
     path = tmp_path / "opencode.json"
     path.write_text('{"model": "keep"}\n', encoding="utf-8")
+    _plant_skill(tmp_path)
     monkeypatch.setenv("OPENCODE_CONFIG_DIR", str(tmp_path))
     monkeypatch.setattr(
         "wiserec_cli.opencode_install.detect_permission_format",
@@ -535,12 +589,16 @@ def test_undetectable_version_aborts_before_any_config_write(tmp_path, monkeypat
     install_resources.assert_not_called()
     assert path.read_text(encoding="utf-8") == '{"model": "keep"}\n'
     assert not (tmp_path / "opencode.json.bak").exists()
-    assert "[错误]" in capsys.readouterr().err
+    _assert_skill_removed(tmp_path)
+    error = capsys.readouterr().err
+    assert "[错误]" in error
+    assert "not left installed" in error
 
 
 def test_commented_jsonc_fails_the_install_step(tmp_path, monkeypatch, capsys):
     path = tmp_path / "opencode.jsonc"
     path.write_text('{\n  // keep\n  "model": "keep"\n}\n', encoding="utf-8")
+    _plant_skill(tmp_path)
     monkeypatch.setenv("OPENCODE_CONFIG_DIR", str(tmp_path))
     _v2(monkeypatch)
     with patch("wiserec_cli.opencode_install.install_resources") as install_resources:
@@ -548,6 +606,7 @@ def test_commented_jsonc_fails_the_install_step(tmp_path, monkeypatch, capsys):
     install_resources.assert_not_called()
     assert "// keep" in path.read_text(encoding="utf-8")
     assert not (tmp_path / "opencode.jsonc.bak").exists()
+    _assert_skill_removed(tmp_path)
     assert "[错误]" in capsys.readouterr().err
 
 
@@ -755,6 +814,47 @@ def test_debug_config_rejection_restores_the_original(tmp_path, monkeypatch):
     assert path.read_text(encoding="utf-8") == original
     assert (tmp_path / "opencode.json.bak").read_text(encoding="utf-8") == original
     assert not (tmp_path / "opencode.json.wiserec-tmp").exists()
+
+
+def test_debug_config_failure_in_main_removes_skill_and_restores_config(tmp_path, monkeypatch, capsys):
+    path = tmp_path / "opencode.json"
+    original = '{"model": "keep"}\n'
+    path.write_text(original, encoding="utf-8")
+    _plant_skill(tmp_path)
+    monkeypatch.setenv("OPENCODE_CONFIG_DIR", str(tmp_path))
+    _v2(monkeypatch)
+
+    def reject(target, expected=None):
+        raise ValueError("opencode debug config failed (exit 1): missing managed bash rule")
+
+    monkeypatch.setattr(permission_module, "_opencode_debug_config", reject)
+    with patch("wiserec_cli.opencode_install.install_resources") as install_resources:
+        assert main() == 1
+    install_resources.assert_not_called()
+    assert path.read_text(encoding="utf-8") == original
+    assert not (tmp_path / "wiserec-managed.json").exists()
+    _assert_skill_removed(tmp_path)
+    error = capsys.readouterr().err
+    assert "missing managed bash rule" in error
+    assert "super-secret" not in error
+    assert "not left installed" in error
+
+
+def test_skill_install_failure_restores_permissions_and_removes_manifest(tmp_path, monkeypatch, capsys):
+    path = tmp_path / "opencode.json"
+    original = '{"model": "keep"}\n'
+    path.write_text(original, encoding="utf-8")
+    monkeypatch.setenv("OPENCODE_CONFIG_DIR", str(tmp_path))
+    _v2(monkeypatch)
+    with patch("wiserec_cli.opencode_install.install_resources", side_effect=OSError("disk full")):
+        assert main() == 1
+    assert path.read_text(encoding="utf-8") == original
+    assert not (tmp_path / "wiserec-managed.json").exists()
+    error = capsys.readouterr().err
+    assert "disk full" in error
+    assert "wiserec-managed.json was removed" in error
+    assert "restored from the backup" in error
+    assert "permission rules installed" not in error
 
 
 def test_debug_config_rejection_removes_a_new_file(tmp_path, monkeypatch):
