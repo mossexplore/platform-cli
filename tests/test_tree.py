@@ -4,6 +4,7 @@ from io import StringIO
 from unittest.mock import patch
 
 import click
+import typer
 from rich.console import Console
 from rich.tree import Tree
 from typer.testing import CliRunner
@@ -22,7 +23,11 @@ def test_tree_works_without_runtime_or_login():
     assert "── download" in result.output
     assert "── service" in result.output
     assert "── dataset" in result.output
-    assert "── search" not in result.output
+    commands = typer.main.get_command(app).commands
+    assert "search" not in commands["service"].commands
+    execution = commands["feature-task"].commands["execution"]
+    assert "search" in execution.commands["logs"].commands
+    assert "── execution" in result.output
     assert "选择服务主机和文件并查看日志" in result.output
     assert "── tree" in result.output
 

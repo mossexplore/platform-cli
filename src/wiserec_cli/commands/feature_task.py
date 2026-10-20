@@ -11,8 +11,10 @@ from rich.text import Text
 from ..output import console, print_result, print_text
 from ..services.feature_task import FeatureTaskService, TASK_TYPES
 from .common import fail, runtime_from_context
+from .feature_execution import execution_app
 
 feature_task_app = typer.Typer(no_args_is_help=True, help="特征任务")
+feature_task_app.add_typer(execution_app, name="execution")
 COLUMNS = (
     ("任务 ID", "taskId"), ("任务名称", "taskName"), ("任务类型", "taskType"),
     ("业务场景", "scene"), ("状态", "jobStatus"), ("创建者", "createUser"),

@@ -106,7 +106,11 @@ ml                                              WiseRec 命令行工具
 │       ├── list                                查看指定目录内容
 │       └── upload                              向指定目录追加文件
 ├── feature-task                                特征任务
-│   └── list                                    分页查询当前业务下的特征任务
+│   ├── list                                    分页查询当前业务下的特征任务
+│   └── execution                               特征任务执行记录
+│       ├── list                                分页查询特征任务的执行记录
+│       └── logs                                执行记录日志
+│           └── search                          查询和搜索训练日志
 ├── featureset                                  特征集
 │   ├── wide                                    宽表特征集
 │   │   ├── list                                查看列表
@@ -1227,4 +1231,69 @@ ml feature-task list
 ml feature-task list --name TASK_NAME --category train_fi
 ml feature-task list --create-user USER --page 2 --page-size 20
 ml feature-task list --category feature_generate -o json
+```
+
+
+## 特征任务执行记录
+
+### 命令格式
+
+```text
+ml feature-task execution list TASK_ID [--page INTEGER] [--page-size INTEGER] [--include-history] [--output table|json]
+```
+
+### 参数与选项
+
+| 参数 | 默认值 | 说明 |
+| --- | --- | --- |
+| `TASK_ID` | 必填 | 特征任务 ID |
+| `--page` | `1` | 正整数页码 |
+| `--page-size` | `10` | 每页条数，正整数 |
+| `--include-history` | 不开启 | 包含历史执行实例 |
+| `--output`、`-o` | 当前环境配置 | `table` 或 `json` |
+
+### 说明
+
+先选择环境、登录并选择业务。一次查询指定页，保留服务端排序，默认不包含历史执行实例。
+
+表格展示 job ID、算法名称、CPU、GPU、内存、状态、集群、节点数、大小、执行时长、最新实例、检查时间、开始时间、结束时间。首列 ID 完整展示，其余长内容可换行。时间按北京时间显示；大小按 1024 进制转换为 B、K、M、G；执行时长按分钟换算为小时和分钟；最新实例显示“是”或“否”，缺失字段显示 `-`。JSON 输出包含 `items`、`count`、`pageIndex`、`pageSize`，保留完整记录及原始值。
+
+### 示例
+
+```bash
+ml feature-task execution list TASK_ID
+ml feature-task execution list TASK_ID --page 2 --page-size 20 --include-history
+ml feature-task execution list TASK_ID -o json
+```
+
+## 特征任务执行日志
+
+### 命令格式
+
+```text
+ml feature-task execution logs search JOB_ID [--start-line INTEGER] [--end-line INTEGER] [--keyword TEXT] [--scope A|B|C] [--scope-lines INTEGER] [--output text|json]
+```
+
+### 参数与选项
+
+| 参数 | 默认值 | 说明 |
+| --- | --- | --- |
+| `JOB_ID` | 必填 | 执行记录 job ID |
+| `--start-line` | `1` | 起始行，正整数 |
+| `--end-line` | `2000` | 结束行，正整数，不得小于起始行 |
+| `--keyword` | 不指定 | 关键词，可重复传入，不允许空白字符串 |
+| `--scope` | 不指定 | A 为关键词后，B 为关键词前，C 为关键词前后 |
+| `--scope-lines` | 不指定 | 搜索范围行数，正整数 |
+| `--output`、`-o` | `text` | `text` 原样展示日志正文，`json` 输出完整响应 |
+
+### 说明
+
+先选择环境、登录并选择业务。业务来源于当前环境的选择，不支持参数覆盖。未指定关键词或范围选项时不发送对应条件；多个关键词的匹配关系由服务端决定。不自动轮询日志。默认原样显示第一个日志条目的正文，保留空格、制表符和换行，不添加标题、表格或额外换行；无日志时不输出正文。`-o json` 保留完整接口响应，包括所有日志条目及总行数。认证提示和错误写入标准错误，不混入日志正文或 JSON 输出。
+
+### 示例
+
+```bash
+ml feature-task execution logs search JOB_ID
+ml feature-task execution logs search JOB_ID --start-line 2001 --end-line 4000
+ml feature-task execution logs search JOB_ID --keyword ERROR --keyword Exception --scope C --scope-lines 20
 ```
