@@ -8,6 +8,7 @@ import shutil
 import tempfile
 
 from . import messages as msg
+from .opencode_permissions import install_opencode_permissions
 
 
 RESOURCE_ROOT = Path(__file__).with_name("opencode_resources")
@@ -72,24 +73,20 @@ def main() -> int:
     target = Path(os.environ.get("OPENCODE_CONFIG_DIR") or Path.home() / ".config/opencode")
     cac_target = Path.home() / ".cac"
     msg.detail("WiseRec skill and /ml command are replaced on every installation; do not edit these files.")
-    failed = False
-    for label, directory in (
-        ("OpenCode", target), ("codeagent", cac_target),
-    ):
-        msg.detail(f"{label} resource directory: {directory}")
-        msg.detail(f"{label} skill directory: {directory / 'skills/wiserec-platform'}")
-        msg.detail(f"{label} /ml command file: {directory / 'commands/ml.md'}")
-        try:
-            install_resources(directory)
-        except Exception as error:
-            failed = True
-            msg.warning(f"{label} resource installation failed: {error}")
-        else:
-            msg.success(f"{label} resources installed.")
-    if failed:
+    msg.detail("OpenCode permission rules are merged into opencode.json. Other settings are kept.")
+    try:
+        install_resources(target)
+    except Exception as error:
+        msg.warning(f"OpenCode resource installation failed: {error}")
         msg.detail("CLI remains usable. Rerun the official installer to retry.")
         return 1
-    msg.success("WiseRec skill and /ml command installed in both directories. Reopen your agent session.")
+    try:
+        install_opencode_permissions(target)
+    except Exception as error:
+        msg.warning(f"OpenCode permission installation failed: {error}")
+        msg.detail("opencode.json was left unchanged. CLI remains usable. Rerun the official installer to retry.")
+        return 1
+    msg.success("OpenCode skill, /ml command, and permission rules installed. Reopen your OpenCode session.")
     return 0
 
 

@@ -96,9 +96,11 @@ docker load -i cli-access-1.0.7.10-linux-amd64.tar.gz
 
 OpenCode 集成分两个可见阶段执行：先安装并验证 CLI，再安装 `wiserec-platform` skill 和唯一的 `/ml` command。第二阶段失败会显示原因，CLI 仍可正常使用；排除文件占用或目录权限问题后，重新运行安装程序即可重试。
 
-skill 同时安装到当前用户的 `~/.config/opencode/skills/wiserec-platform` 和 `~/.cac/skills/wiserec-platform`；`/ml` command 同时安装到 `~/.config/opencode/commands/ml.md` 和 `~/.cac/commands/ml.md`。设置 `OPENCODE_CONFIG_DIR` 时仅替换 OpenCode 根目录，CAC 路径保持不变。每次安装都会完整替换两份 skill 和两份 `/ml` command，同版本重装也会更新。WiseRec skill 与 `/ml` command 由安装程序管理，请勿直接修改这些文件。其他 skill、command 和 OpenCode 配置不受影响。项目目录或兼容目录中的同名副本需自行移除，以免加载旧副本。
+默认目标为当前用户的 `~/.config/opencode`，设置 `OPENCODE_CONFIG_DIR` 时使用该目录。每次安装都会删除旧 `skills/wiserec-platform` 目录和 `commands/ml.md`，完整写入随包的新资源，同版本重装也会更新。WiseRec skill 与 `/ml` command 由安装程序管理，请勿直接修改这些文件。其他 skill 和 command 不受影响。项目目录或兼容目录中的同名副本需自行移除，以免加载旧副本。
 
-完成后重新打开 OpenCode 会话，输入 `/ml 查询当前业务下的模型`；输入 `/ml` 可检查使用上下文并查看用法。需要允许 OpenCode 加载 skill 和调用终端工具，安装程序不会修改权限。直接通过 pip 安装 Wheel 不自动执行这一阶段，自动安装入口为官方 Windows 安装包。
+安装程序会把 WiseRec 权限规则合并进同一目录的 `opencode.json`（仅有严格 JSON 的 `opencode.jsonc` 时写入该文件；两个配置文件同时存在时不改写）。模型、插件和其他字段，以及用户自己的权限规则会保留；安装程序只新增或更新自己管理的规则，并在写入前备份原文件，失败时恢复。重复安装不会产生重复规则。高风险 `ml` 命令、`--yes`、切换到 `product`、部署、训练启动、`ml jupyter exec` 和输出重定向需要在 OpenCode 中确认。只有完整写出的只读命令会被放行。`ml login --show-secrets`，以及用 `cat`、`type`、`gc`、`Get-Content`、`sls`、`findstr`、`Copy-Item` 读取 `credentials.json`，会被拒绝。`[IO.File]::ReadAllText` 和 `${路径}` 不是 shell 命令，规则无法拦截；凭据的 Windows DPAPI 加密存储另行处理，本次不实现。规则全文见 [skill/wiserec-platform/README.md](skill/wiserec-platform/README.md)。
+
+完成后重新打开 OpenCode 会话，输入 `/ml 查询当前业务下的模型`；输入 `/ml` 可检查使用上下文并查看用法。直接通过 pip 安装 Wheel 不自动执行这一阶段，自动安装入口为官方 Windows 安装包。
 
 
 ## Windows 本地代码打包并安装
