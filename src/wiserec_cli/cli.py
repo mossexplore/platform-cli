@@ -23,6 +23,7 @@ from .commands.business import business_app
 from .commands.common import fail
 from .commands.env import env_app
 from .commands.featureset import featureset_app
+from .commands.feature_task import feature_task_app
 from .commands.mep import mep_app
 from .commands.mtp import mtp_app
 from .commands.offline import offline_app
@@ -67,6 +68,7 @@ app.add_typer(dataset_app, name="dataset")
 dataset_app.add_typer(dataset_files_app, name="files")
 app.add_typer(service_app, name="service")
 app.add_typer(featureset_app, name="featureset")
+app.add_typer(feature_task_app, name="feature-task")
 app.add_typer(jupyter_app, name="jupyter")
 app.add_typer(webstudio_app, name="webstudio")
 

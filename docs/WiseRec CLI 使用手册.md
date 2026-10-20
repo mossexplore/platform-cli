@@ -1,6 +1,6 @@
 # WiseRec CLI 使用手册
 
-`ml` 用于管理 WiseRec 平台的环境、业务、训练任务、算法仓、服务、数据集、特征集和开发工作空间。本手册面向命令使用者。示例中的 `TASK_ID`、`JOB_ID`、`PROJECT_ID`、`EXPERIMENT_ID`、`SET_ID`、`SERVICE_ID`、`DATASET_ID` 等占位符，需要替换成列表查询得到的实际 ID。
+`ml` 用于管理 WiseRec 平台的环境、业务、训练任务、特征任务、算法仓、服务、数据集、特征集和开发工作空间。本手册面向命令使用者。示例中的 `TASK_ID`、`JOB_ID`、`PROJECT_ID`、`EXPERIMENT_ID`、`SET_ID`、`SERVICE_ID`、`DATASET_ID` 等占位符，需要替换成列表查询得到的实际 ID。
 
 ## 1. 命令树
 
@@ -105,6 +105,8 @@ ml                                              WiseRec 命令行工具
 │   └── files                                   管理数据集目录和文件
 │       ├── list                                查看指定目录内容
 │       └── upload                              向指定目录追加文件
+├── feature-task                                特征任务
+│   └── list                                    分页查询当前业务下的特征任务
 ├── featureset                                  特征集
 │   ├── wide                                    宽表特征集
 │   │   ├── list                                查看列表
@@ -1168,4 +1170,61 @@ ml [--config PATH] context [--json]
 ml context
 ml context --json
 ml --config /path/to/config.json context
+```
+
+
+## 特征任务列表
+
+### 命令格式
+
+```text
+ml feature-task list [--name TEXT] [--category TYPE] [--create-user USER] [--page INTEGER] [--page-size INTEGER] [--output table|json]
+```
+
+### 参数与选项
+
+| 参数 | 默认值 | 说明 |
+| --- | --- | --- |
+| `--name TEXT` | 空 | 按任务名称查询，匹配规则由平台决定 |
+| `--category TYPE` | `dpp-all` | 按任务类型查询，使用下表中的原始值 |
+| `--create-user USER` | 空 | 按创建者查询 |
+| `--page INTEGER` | `1` | 查询页码，必须为正整数 |
+| `--page-size INTEGER` | `10` | 每页条数，必须为正整数 |
+| `--output`、`-o` | 当前环境配置 | `table` 或 `json` |
+
+### 说明
+
+先选择环境、登录并使用 `ml business use` 选择业务。查询当前环境下已选业务的特征任务，不支持通过本命令指定其他业务。三个筛选条件可组合使用，一次只查询指定的一页。
+
+表格依次展示任务 ID、任务名称、任务类型、业务场景、状态、创建者、修改者、更新时间、大小、描述。任务 ID 完整展示，其他长文本可换行。更新时间按北京时间显示为 `YYYY-MM-DD HH:mm:ss`；大小按 1024 进制换算，零显示 `0B`，非零且不足 1 GiB 显示两位小数的 `M`，其余显示两位小数的 `G`。缺失值显示 `-`，未知任务类型保留原值。列表下方显示页码、每页条数和总条数。
+
+JSON 输出包含 `items`、`count`、`pageIndex`、`pageSize`；记录保留原始字段、任务类型、毫秒时间戳和字节数，适用于脚本处理。
+
+| 任务类型原始值 | 展示名称 |
+| --- | --- |
+| `dpp-all` | 全部 |
+| `feature_preprocess_realtime` | 特征预处理(实时) |
+| `train_fi` | FI直连任务 |
+| `data_sync` | 数据同步任务 |
+| `data-preproc` | 数据预处理任务 |
+| `feature_generate` | 特征生成任务 |
+| `feature_evaluation` | 特征评估任务 |
+| `feature_improve` | 特征加工任务 |
+| `work_flow` | 特征工作流任务 |
+| `feature-push` | 特征同步任务 |
+| `train_spark` | Spark训练任务 |
+| `train_fi_sync_hdfs` | FI直连同步HDFS任务 |
+| `train_fi_data_monitor` | FI直连数据监控任务 |
+| `generate_samples` | 样本生成任务 |
+| `sample-monitor` | 样本监控任务 |
+| `online_storage` | 在线存储任务 |
+| `streaming_feature` | 流特征任务 |
+
+### 示例
+
+```bash
+ml feature-task list
+ml feature-task list --name TASK_NAME --category train_fi
+ml feature-task list --create-user USER --page 2 --page-size 20
+ml feature-task list --category feature_generate -o json
 ```
