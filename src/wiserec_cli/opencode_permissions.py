@@ -25,7 +25,7 @@ import time
 from pathlib import Path
 
 from . import messages as msg
-from .opencode_bash_rules import drop_recorded_bash_patterns, merge_bash_rules
+from .opencode_bash_rules import drop_recorded_bash_patterns, merge_bash_rules, warn_v1_bash
 from .opencode_rulematch import (
     BROAD_RESOURCES,
     MARKER,
@@ -103,6 +103,8 @@ def install_opencode_permissions(target: Path, *, rule_format: str = "permission
     original, config = _read_existing(path)
     merged = merge_opencode_config(config, rule_format=rule_format)
     _warn_user_allows(config, merged)
+    if rule_format == "bash":
+        warn_v1_bash(config)
     rendered = _dump(merged)
     if original is not None and _normalize_newlines(_decode(original)) == rendered:
         return
@@ -289,11 +291,15 @@ def _opencode_debug_config(target: Path) -> None:
     ``OPENCODE_DISABLE_PROJECT_CONFIG`` keeps a project file from being appended
     during the check. v1.19.3 ``packages/opencode/src/cli/cmd/debug/config.ts``
     and v2.1.0 ``packages/cli/src/commands/handlers/debug/config.ts`` both expose
-    ``opencode debug config``. A non-zero exit rejects the write.
+    ``opencode debug config``. A non-zero exit, a missing command, or output
+    that is not a JSON config object rejects the write.
     """
     resolved = shutil.which("opencode")
     if not resolved:
-        raise ValueError("opencode was not found, so the updated config could not be loaded")
+        raise ValueError(
+            "opencode was not found, so the updated config could not be loaded. "
+            "The previous file was restored."
+        )
     env = os.environ.copy()
     env["OPENCODE_CONFIG_DIR"] = str(target)
     env["OPENCODE_DISABLE_PROJECT_CONFIG"] = "1"
@@ -308,10 +314,26 @@ def _opencode_debug_config(target: Path) -> None:
             check=False,
         )
     except (OSError, subprocess.TimeoutExpired) as error:
-        raise ValueError(f"opencode debug config failed: {error}") from error
+        raise ValueError(
+            f"opencode debug config failed ({error}). The previous file was restored."
+        ) from error
     if completed.returncode != 0:
-        detail = (completed.stderr or completed.stdout or "opencode debug config failed").strip()
-        raise ValueError(detail or "opencode debug config failed")
+        detail = (completed.stderr or completed.stdout or "").strip()
+        raise ValueError(
+            "opencode debug config failed"
+            + (f" ({detail})" if detail else f" (exit {completed.returncode})")
+            + ". The previous file was restored."
+        )
+    text = (completed.stdout or "").strip()
+    try:
+        loaded = json.loads(text) if text else None
+    except json.JSONDecodeError:
+        loaded = None
+    if not isinstance(loaded, dict):
+        raise ValueError(
+            "opencode debug config did not return a JSON config object. "
+            "The previous file was restored."
+        )
 
 
 def _read_existing(path: Path):
