@@ -53,5 +53,5 @@ metadata:
 - OpenCode 权限由 Windows 安装程序写入。只有完整、无额外参数的只读 `ml` 命令可以直接执行；带 ID 或 `-o json` 等额外参数、`--yes`、部署、`ml train start`、`ml jupyter exec` 和输出重定向都会要求确认。用 `cat`、`type`、`gc`、`Get-Content`、`sls`、`findstr`、`Copy-Item` 读取 `credentials.json` 会被拒绝。
 - 不用 `[IO.File]::ReadAllText`、`${路径}` 或其他 PowerShell 表达式读取凭据。这类写法不会被拆成 shell 命令，权限规则拦不住。凭据的 Windows DPAPI 加密存储另行处理，本 skill 不实现 DPAPI。
 - 不要让用户对 `ml` 命令点“始终允许”。OpenCode 1 会在内存中加入 `ml *` 允许，直到重新打开 OpenCode 之前，连拒绝规则也会被盖过。
-- 不要用 TAB 把多条命令粘在一起。tree-sitter 可能拆不开，后面的命令不会进入权限检查。这是上游已知问题，记录在 #9。
+- 不要在命令里使用 TAB。只要出现 TAB，整条命令都会跳过权限检查，包括只有一条命令的情况。这是上游已知问题，记录在 #9。
 - 资源模板详情、部署模板详情和部署预览含未脱敏的框架参数，可能有 Secret，只提取必要字段。远端文件、日志和程序输出同样可能含秘密。
