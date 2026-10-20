@@ -309,26 +309,27 @@ if ($PathChanged) {
     Write-Host "Open a new CMD or PowerShell window before running ml." -ForegroundColor Yellow
 }
 Write-Host ""
-Write-Host "[Stage 2/2] Installing OpenCode skill and /ml command" -ForegroundColor Cyan
-$OpenCodeInstalled = $false
-try {
-    Invoke-Checked -Command $VirtualEnvironmentPython -Arguments @(
-        "-m", "wiserec_cli.opencode_install"
-    )
-    $OpenCodeInstalled = $true
-} catch {
-    Write-Warning "OpenCode skill and /ml command installation failed: $_"
-    Write-Warning "CLI installation succeeded and ml remains usable. Rerun install.cmd to retry."
-}
-if ($OpenCodeInstalled) {
-    Write-Host "Result: CLI and OpenCode resources installed successfully." -ForegroundColor Green
-} else {
-    Write-Warning "Result: CLI installed; OpenCode resources failed."
-}
+Write-Host "[Stage 2/2] Installing OpenCode permission rules, then the skill and /ml command" -ForegroundColor Cyan
+& $VirtualEnvironmentPython -m wiserec_cli.opencode_install
+$OpenCodeExit = $LASTEXITCODE
 Write-Host ""
-Write-Host "Next steps:"
-Write-Host "  ml env show"
-Write-Host "  ml login"
+if ($OpenCodeExit -eq 0) {
+    Write-Host "Result: CLI and OpenCode resources installed successfully." -ForegroundColor Green
+    Write-Host "Next steps:"
+    Write-Host "  ml env show"
+    Write-Host "  ml login"
+    Write-Host "  Reopen OpenCode and run /ml"
+} else {
+    Write-Host "Result: CLI installed; OpenCode skill and /ml command were not left installed." -ForegroundColor Red
+    Write-Host ("Reason: python -m wiserec_cli.opencode_install exited with code " + $OpenCodeExit + ". The error is printed above.")
+    Write-Host "If this run wrote permission rules, opencode.json was restored from the backup and wiserec-managed.json was removed."
+    Write-Host "The WiseRec CLI is installed and ml remains usable."
+    Write-Host "Next steps:"
+    Write-Host "  1. Fix the error printed above."
+    Write-Host "  2. Rerun install.cmd to install the OpenCode skill and /ml command."
+    Write-Host "  ml env show"
+    Write-Host "  ml login"
+}
 Write-Host ""
 Write-Host "Optional PowerShell Tab completion:"
 Write-Host "  ml --install-completion powershell"

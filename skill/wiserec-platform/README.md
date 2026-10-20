@@ -4,11 +4,11 @@
 
 ## 安装
 
-官方 Windows 安装包分两个阶段执行：先安装并验证 CLI，再安装 `wiserec-platform` skill 和 `/ml` command。第二阶段失败会显示原因，CLI 仍可正常使用；排除文件占用或目录权限问题后重新运行安装程序即可重试。直接通过 pip 安装 Wheel 不会安装 skill。
+官方 Windows 安装包分两个阶段执行：先安装并验证 CLI，再写入并核对权限规则，通过后才安装 `wiserec-platform` skill 和 `/ml` command。权限步骤失败时不留下 skill 和 `/ml` command。skill 复制失败时，这次的权限改动从备份恢复，并删除 `wiserec-managed.json`。安装程序显示失败原因和下一步。CLI 仍可正常使用；按提示处理后再运行安装程序即可重试。直接通过 pip 安装 Wheel 不会安装 skill。
 
 - 默认目标为当前用户的 `~/.config/opencode`，设置 `OPENCODE_CONFIG_DIR` 时使用该目录。
 - 每次安装都会删除旧的 `skills/wiserec-platform` 目录和 `commands/ml.md`，再完整写入随包资源。这两处由安装程序管理，请勿直接修改；其他 skill 和 command 不受影响。
-- 同一目录下的 `opencode.json` 会被合并写入权限规则。若目录里只有 `opencode.jsonc` 且内容是严格 JSON，则改写该文件，因为 OpenCode 会在 `opencode.json` 之后加载它。两个文件同时存在时安装停止，原文件保持不变。配置含注释、不是严格 JSON，或 OpenCode 版本无法识别时，安装以错误结束，不改原文件，也不替换 skill。与要写入的键同名时，安装程序的值直接生效：`"*": "ask"` 仍放在第一项，其他被覆盖的键移入末尾的受管理规则。每个被覆盖的键都会醒目打印原值和新值，原值留在同目录的 `wiserec-managed.json` 和备份中。首次写入前把原文件备份为 `opencode.json.bak` 或 `opencode.jsonc.bak`；该备份已存在时不再覆盖，另写带时间戳的备份。备份可能含有 API 密钥。Windows 上仅当前用户可访问，其他系统权限为 `0600`。
+- 同一目录下的 `opencode.json` 会被合并写入权限规则。若目录里只有 `opencode.jsonc` 且内容是严格 JSON，则改写该文件，因为 OpenCode 会在 `opencode.json` 之后加载它。两个文件同时存在时安装停止，原文件保持不变。配置含注释、不是严格 JSON，或 OpenCode 版本无法识别时，安装以错误结束，不改原文件，并删除已有的 skill 和 `/ml` command。权限规则核对通过后才复制这两处。复制失败时，这次写入的配置从备份恢复，并删除同目录的 `wiserec-managed.json`。与要写入的键同名时，安装程序的值直接生效：`"*": "ask"` 仍放在第一项，其他被覆盖的键移入末尾的受管理规则。每个被覆盖的键都会醒目打印原值和新值，原值留在同目录的 `wiserec-managed.json` 和备份中。首次写入前把原文件备份为 `opencode.json.bak` 或 `opencode.jsonc.bak`；该备份已存在时不再覆盖，另写带时间戳的备份。备份可能含有 API 密钥。Windows 上仅当前用户可访问，其他系统权限为 `0600`。
 - 配置文件里不写 `wiserec` 或其他非 schema 键。受管理的键、原值和安装程序版本记在同目录的 `wiserec-managed.json`，并保存写入内容的 SHA-256。模型、插件、不冲突的用户权限规则、`permission.bash` 和 `permission.shell` 都保留。不是同一条键的 `ml*` 放行会保留并列出警告，不删除。OpenCode 2 里 `permission.bash` 的 `"*": "allow"` 会保留，但受管理的 shell `"*": "ask"` 写在后面，没有被更后规则命中的命令按确认处理。v2 数组顺序是用户的非 shell 规则、`shell` `"*": "ask"`、用户的 shell 规则，然后才是受管理规则。重复安装不会追加重复的受管理规则，也不再打印已经接管的键。安装输出会列出本次写入和从旧标记迁出的规则。`python -m wiserec_cli.opencode_install --uninstall` 删掉新增的键，并按清单恢复被覆盖的原值。
 - 项目目录或兼容目录中的同名副本需自行移除，以免 OpenCode 加载旧副本。
 - 安装后完全退出并重新打开 OpenCode，使其获得新的 PATH，然后输入 `/ml 查询当前业务下的模型`；只输入 `/ml` 会检查使用上下文并显示用法。
