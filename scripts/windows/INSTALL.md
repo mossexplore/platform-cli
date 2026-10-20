@@ -169,6 +169,6 @@ OpenCode 集成分两个可见阶段执行：先安装并验证 CLI，再安装 
 
 默认目标为当前用户的 `~/.config/opencode`，设置 `OPENCODE_CONFIG_DIR` 时使用该目录。每次安装都会删除旧 `skills/wiserec-platform` 目录和 `commands/ml.md`，完整写入随包的新资源，同版本重装也会更新。WiseRec skill 与 `/ml` command 由安装程序管理，请勿直接修改这些文件。其他 skill 和 command 不受影响。项目目录或兼容目录中的同名副本需自行移除，以免加载旧副本。
 
-安装程序会把 WiseRec 权限规则合并进同一目录的 `opencode.json`（仅有严格 JSON 的 `opencode.jsonc` 时写入该文件；两个配置文件同时存在时不改写）。模型、插件和其他字段，以及用户自己的权限规则会保留；安装程序只新增或更新自己管理的规则，并在写入前备份原文件，失败时恢复。重复安装不会产生重复规则。高风险 `ml` 命令、`--yes`、切换到 `product`、部署、训练启动、`ml jupyter exec` 和输出重定向需要在 OpenCode 中确认。只有完整写出的只读命令会被放行。`ml login --show-secrets`，以及用 `cat`、`type`、`gc`、`Get-Content`、`sls`、`findstr`、`Copy-Item` 读取 `credentials.json`，会被拒绝。`[IO.File]::ReadAllText` 和 `${路径}` 不是 shell 命令，规则无法拦截；凭据的 Windows DPAPI 加密存储另行处理，本次不实现。
+安装程序会把 WiseRec 权限规则合并进同一目录的 `opencode.json`（仅有严格 JSON 的 `opencode.jsonc` 时写入该文件；两个配置文件同时存在时不改写）。配置不是合法 JSON 时这一阶段停止，原文件不改。写入前把原文件备份为 `opencode.json.bak` 或 `opencode.jsonc.bak`，失败时恢复。模型、插件和其他字段，以及用户自己的权限规则会保留。受管理规则带有标记，写在用户规则之后；重复安装只更新这些规则。用户已有的 `ml*` 一类通配放行会保留，若与确认或拒绝冲突则打印警告，但不删除。高风险 `ml` 命令、`--yes`、切换到 `product`、部署、训练启动、`ml jupyter exec` 和输出重定向需要在 OpenCode 中确认。只有完整写出的只读命令会被放行。`ml login --show-secrets`，以及用 `cat`、`type`、`gc`、`Get-Content`、`sls`、`findstr`、`Copy-Item` 读取 `credentials.json`，会被拒绝。`[IO.File]::ReadAllText` 和 `${路径}` 不是 shell 命令，规则无法拦截；凭据的 Windows DPAPI 加密存储另行处理，本次不实现。`python -m wiserec_cli.opencode_install --uninstall` 只删除带标记的规则。
 
 完成后重新打开 OpenCode 会话，输入 `/ml 查询当前业务下的模型`；输入 `/ml` 可检查使用上下文并查看用法。直接通过 pip 安装 Wheel 不自动执行这一阶段，自动安装入口为官方 Windows 安装包。

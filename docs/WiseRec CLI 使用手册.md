@@ -183,7 +183,7 @@ ml business use
 
 首次安装采用包内默认环境。重装或升级后保留之前选择的环境及自动保活设置，其他配置仍由安装包更新。若原配置损坏、无效或所选环境已被新包删除、改名，配置更新会停止并保留原文件；按提示修复配置，或通过 `--config CONFIG_PATH` 指定原配置并使用 `ml env use NAME` 选择新包支持的环境后重试。
 
-完整解压管理员提供的安装包，运行 `install.cmd` 后重新打开终端。安装分两个阶段：先安装 CLI，再安装 OpenCode skill 和 `/ml` command。第二阶段失败不影响 CLI 使用，解决提示的问题后重新运行安装程序即可重试。资源默认位于当前用户的 `~/.config/opencode`，设置 `OPENCODE_CONFIG_DIR` 可指定目录。每次安装完整替换 `skills/wiserec-platform` 和 `commands/ml.md`，请勿直接修改这些文件。安装程序还会把权限规则合并进该目录的 `opencode.json`（仅有严格 JSON 的 `opencode.jsonc` 时写入该文件），保留已有的其他配置：精确列出的只读 `ml` 命令可直接执行，高风险命令需要在 OpenCode 中确认，读取凭据会被拒绝。`[IO.File]::ReadAllText` 和 `${路径}` 不在规则覆盖范围内。重新打开 OpenCode 会话后，可输入 `/ml 查询当前业务下的模型`，也可输入 `/ml` 查看用法。直接安装 Wheel 不自动安装 OpenCode 资源。使用前准备好所需 Python 环境和 Microsoft Edge，依次选择环境、登录、选择业务。
+完整解压管理员提供的安装包，运行 `install.cmd` 后重新打开终端。安装分两个阶段：先安装 CLI，再安装 OpenCode skill 和 `/ml` command。第二阶段失败不影响 CLI 使用，解决提示的问题后重新运行安装程序即可重试。资源默认位于当前用户的 `~/.config/opencode`，设置 `OPENCODE_CONFIG_DIR` 可指定目录。每次安装完整替换 `skills/wiserec-platform` 和 `commands/ml.md`，请勿直接修改这些文件。安装程序还会把权限规则合并进该目录的 `opencode.json`（仅有严格 JSON 的 `opencode.jsonc` 时写入该文件）。配置无法解析时这一阶段停止，原文件不改。写入前备份为 `opencode.json.bak` 或 `opencode.jsonc.bak`。用户已有规则保留；与确认或拒绝冲突的通配放行会列出警告，但不会删除。确认和拒绝写在用户规则之后。精确列出的只读 `ml` 命令可直接执行，高风险命令需要在 OpenCode 中确认，读取凭据会被拒绝。移除安装程序写入的规则可执行 `python -m wiserec_cli.opencode_install --uninstall`。`[IO.File]::ReadAllText` 和 `${路径}` 不在规则覆盖范围内。重新打开 OpenCode 会话后，可输入 `/ml 查询当前业务下的模型`，也可输入 `/ml` 查看用法。直接安装 Wheel 不自动安装 OpenCode 资源。使用前准备好所需 Python 环境和 Microsoft Edge，依次选择环境、登录、选择业务。
 
 ### 2.4 示例
 

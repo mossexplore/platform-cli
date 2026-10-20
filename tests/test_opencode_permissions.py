@@ -8,13 +8,16 @@ import pytest
 
 from wiserec_cli.opencode_install import main
 from wiserec_cli.opencode_permissions import (
-    RETIRED_SHELL_ALLOWS,
+    MARKER,
+    MARKER_VALUE,
     SHELL_RULES,
     combined_shell_effect,
+    conflicting_allow_rules,
     fresh_opencode_config,
     install_opencode_permissions,
     merge_opencode_config,
     permission_effect,
+    uninstall_opencode_permissions,
     wildcard_match,
 )
 
@@ -142,8 +145,10 @@ def test_fresh_install_writes_fallback_and_managed_rules(tmp_path):
     install_opencode_permissions(tmp_path)
     document = json.loads((tmp_path / "opencode.json").read_text(encoding="utf-8"))
     assert document == fresh_opencode_config()
-    assert document["permissions"][0] == {"action": "shell", "resource": "*", "effect": "ask"}
-    assert not (tmp_path / "opencode.json.wiserec-backup").exists()
+    assert document["permissions"][0] == {
+        "action": "shell", "resource": "*", "effect": "ask", MARKER: MARKER_VALUE,
+    }
+    assert not (tmp_path / "opencode.json.bak").exists()
 
 
 def test_merge_preserves_user_fields_and_rules(tmp_path):
@@ -175,11 +180,15 @@ def test_merge_preserves_user_fields_and_rules(tmp_path):
     assert document["mcp"] == original["mcp"]
     assert document["permission"] == {"edit": "ask"}
     resources = [rule["resource"] for rule in document["permissions"] if isinstance(rule, dict)]
-    assert "ml tree*" not in resources
-    assert "ml * --help*" not in resources
+    assert "ml tree*" in resources
+    assert "ml * --help*" in resources
     assert resources.count("*") == 2  # user allow, plus our ask fallback
-    assert resources.count("ml env list") == 1
+    assert resources[0] == "*"
     rules = document["permissions"]
+    assert rules[0][MARKER] == MARKER_VALUE
+    lifted = next(rule for rule in rules if rule["resource"] == "ml tree*")
+    assert MARKER not in lifted
+    assert resources.count("ml env list") == 1
     assert "opaque-entry" in rules
     assert permission_effect("shell", "git status", rules) == "allow"
     assert permission_effect("shell", "git status --short", rules) == "allow"
@@ -203,12 +212,12 @@ def test_reinstall_is_idempotent_and_does_not_refresh_backup(tmp_path):
     raw = json.dumps(original, indent=2) + "\n"
     path.write_text(raw, encoding="utf-8")
     install_opencode_permissions(tmp_path)
-    backup = (tmp_path / "opencode.json.wiserec-backup").read_bytes()
+    backup = (tmp_path / "opencode.json.bak").read_bytes()
     assert backup.decode("utf-8") == raw
     merged = path.read_bytes()
     install_opencode_permissions(tmp_path)
     assert path.read_bytes() == merged
-    assert (tmp_path / "opencode.json.wiserec-backup").read_bytes() == backup
+    assert (tmp_path / "opencode.json.bak").read_bytes() == backup
     resources = [rule["resource"] for rule in json.loads(merged)["permissions"] if isinstance(rule, dict)]
     assert resources.count("ml *") == 1
     assert resources.count("*") == 1
@@ -220,7 +229,7 @@ def test_invalid_json_is_not_replaced(tmp_path):
     with pytest.raises(ValueError, match="JSON"):
         install_opencode_permissions(tmp_path)
     assert path.read_text(encoding="utf-8") == "{"
-    assert not (tmp_path / "opencode.json.wiserec-backup").exists()
+    assert not (tmp_path / "opencode.json.bak").exists()
 
 
 def test_replace_failure_restores_original_and_removes_temp(tmp_path):
@@ -232,7 +241,7 @@ def test_replace_failure_restores_original_and_removes_temp(tmp_path):
             install_opencode_permissions(tmp_path)
     assert path.read_text(encoding="utf-8") == original
     assert not (tmp_path / "opencode.json.wiserec-tmp").exists()
-    assert (tmp_path / "opencode.json.wiserec-backup").read_text(encoding="utf-8") == original
+    assert (tmp_path / "opencode.json.bak").read_text(encoding="utf-8") == original
 
 
 def test_failed_create_does_not_leave_a_config(tmp_path):
@@ -250,6 +259,7 @@ def test_jsonc_only_receives_the_merge(tmp_path):
     document = json.loads(path.read_text(encoding="utf-8"))
     assert document["model"] == "keep"
     assert document["permissions"][0]["resource"] == "*"
+    assert (tmp_path / "opencode.jsonc.bak").read_text(encoding="utf-8") == '{"model": "keep"}\n'
     assert not (tmp_path / "opencode.json").exists()
 
 
@@ -260,7 +270,7 @@ def test_commented_jsonc_is_left_unchanged(tmp_path):
     with pytest.raises(ValueError, match="JSON"):
         install_opencode_permissions(tmp_path)
     assert path.read_text(encoding="utf-8") == original
-    assert not (tmp_path / "opencode.jsonc.wiserec-backup").exists()
+    assert not (tmp_path / "opencode.jsonc.bak").exists()
 
 
 def test_both_config_files_stop_before_any_write(tmp_path):
@@ -319,10 +329,106 @@ def test_skill_readme_example_matches_installer():
     assert "DPAPI" in text
 
 
-def test_retired_patterns_are_the_old_trailing_allows():
-    assert "ml tree*" in RETIRED_SHELL_ALLOWS
-    assert "ml * --help*" in RETIRED_SHELL_ALLOWS
-    assert "ml tree" not in RETIRED_SHELL_ALLOWS
+def test_user_ml_star_allow_cannot_override_ask_or_deny(tmp_path, capsys):
+    path = tmp_path / "opencode.json"
+    path.write_text(json.dumps({
+        "model": "keep",
+        "permissions": [
+            {"action": "shell", "resource": "ml*", "effect": "allow"},
+            {"action": "shell", "resource": "ml tree*", "effect": "allow"},
+            {"action": "shell", "resource": "git status *", "effect": "allow"},
+        ],
+    }), encoding="utf-8")
+    install_opencode_permissions(tmp_path)
+    document = json.loads(path.read_text(encoding="utf-8"))
+    rules = document["permissions"]
+    assert document["model"] == "keep"
+    user_rules = [rule for rule in rules if rule.get(MARKER) != MARKER_VALUE]
+    assert [rule["resource"] for rule in user_rules] == ["ml*", "ml tree*", "git status *"]
+    managed = [rule for rule in rules if rule.get(MARKER) == MARKER_VALUE]
+    assert rules[0]["resource"] == "*" and rules[0][MARKER] == MARKER_VALUE
+    assert rules[1:4] == user_rules
+    assert managed[-1]["effect"] == "deny" or managed[-1]["action"] == "read"
+    user_index = 1
+    ask_index = next(i for i, rule in enumerate(rules) if rule["resource"] == "ml jupyter exec*")
+    secret_index = next(i for i, rule in enumerate(rules) if rule["resource"] == "ml login --show-secrets*")
+    credential_index = next(
+        i for i, rule in enumerate(rules)
+        if rule["action"] == "shell" and rule["resource"] == "*credentials.json*"
+    )
+    assert user_index < ask_index < secret_index
+    assert user_index < credential_index
+    assert combined_shell_effect(
+        ["ml jupyter exec --cwd x -- sh -c 'echo pwned' --help"], rules
+    ) == "ask"
+    assert combined_shell_effect(["ml login --show-secrets"], rules) == "deny"
+    assert combined_shell_effect(["cat ./credentials.json"], rules) == "deny"
+    assert combined_shell_effect(["Get-Content credentials.json"], rules) == "deny"
+    assert combined_shell_effect(["git status"], rules) == "allow"
+    assert combined_shell_effect(["ml tree"], rules) == "allow"
+    assert combined_shell_effect(["ml jupyter exec --help"], rules) == "allow"
+    warning = capsys.readouterr().err
+    assert "ml*" in warning
+    assert "ml tree*" in warning
+    assert "git status *" not in warning
+    assert conflicting_allow_rules(rules)[0]["resource"] == "ml*"
+
+
+def test_marked_rules_reinstall_once_and_uninstall_removes_only_them(tmp_path):
+    path = tmp_path / "opencode.json"
+    path.write_text(json.dumps({
+        "model": "keep",
+        "permissions": [{"action": "shell", "resource": "ml*", "effect": "allow", "note": "user"}],
+    }), encoding="utf-8")
+    install_opencode_permissions(tmp_path)
+    installed = json.loads(path.read_text(encoding="utf-8"))
+    marked = [rule for rule in installed["permissions"] if rule.get(MARKER) == MARKER_VALUE]
+    assert marked
+    assert all(rule[MARKER] == MARKER_VALUE for rule in marked)
+    assert len(marked) == len({(rule["action"], rule["resource"]) for rule in marked})
+    install_opencode_permissions(tmp_path)
+    assert json.loads(path.read_text(encoding="utf-8"))["permissions"] == installed["permissions"]
+    uninstall_opencode_permissions(tmp_path)
+    removed = json.loads(path.read_text(encoding="utf-8"))
+    assert removed["model"] == "keep"
+    assert removed["permissions"] == [
+        {"action": "shell", "resource": "ml*", "effect": "allow", "note": "user"},
+    ]
+    assert (tmp_path / "opencode.json.bak").read_text(encoding="utf-8")
+    uninstall_opencode_permissions(tmp_path)
+    assert json.loads(path.read_text(encoding="utf-8")) == removed
+
+
+def test_uninstall_invalid_json_leaves_the_file(tmp_path):
+    path = tmp_path / "opencode.json"
+    path.write_text("{", encoding="utf-8")
+    with pytest.raises(ValueError, match="JSON"):
+        uninstall_opencode_permissions(tmp_path)
+    assert path.read_text(encoding="utf-8") == "{"
+    assert not (tmp_path / "opencode.json.bak").exists()
+
+
+def test_invalid_json_aborts_the_install_step(tmp_path, monkeypatch, capsys):
+    path = tmp_path / "opencode.json"
+    path.write_text("{", encoding="utf-8")
+    monkeypatch.setenv("OPENCODE_CONFIG_DIR", str(tmp_path))
+    with patch("wiserec_cli.opencode_install.install_resources") as install_resources:
+        assert main() == 1
+    install_resources.assert_not_called()
+    assert path.read_text(encoding="utf-8") == "{"
+    assert not (tmp_path / "opencode.json.bak").exists()
+    assert not (tmp_path / "skills").exists()
+    assert "left unchanged" in capsys.readouterr().err
+
+
+def test_uninstall_flag_removes_marked_rules(tmp_path, monkeypatch, capsys):
+    monkeypatch.setenv("OPENCODE_CONFIG_DIR", str(tmp_path))
+    with patch("wiserec_cli.opencode_install.install_resources"):
+        assert main([]) == 0
+    assert main(["--uninstall"]) == 0
+    document = json.loads((tmp_path / "opencode.json").read_text(encoding="utf-8"))
+    assert "permissions" not in document
+    assert "removed" in capsys.readouterr().err
 
 
 def test_main_merges_permissions_after_resources(tmp_path, monkeypatch, capsys):

@@ -18,12 +18,36 @@ import os
 import re
 from pathlib import Path
 
+from . import messages as msg
+
 
 SCHEMA = "https://opencode.ai/config.json"
-BACKUP_SUFFIX = ".wiserec-backup"
+MARKER = "wiserec"
+MARKER_VALUE = "managed"
 _EFFECTS = {"allow", "ask", "deny"}
-_SHELL_ACTIONS = {"shell", "bash"}
+_SHELL_ACTIONS = {"shell", "bash", "*"}
 _SPECIAL = re.compile(r"[.+^${}()|[\]\\]")
+# Commands our ask/deny rules must still govern when a user allow is present.
+_PROTECTED_COMMANDS = (
+    "ml jupyter exec --cwd x -- sh -c 'echo pwned' --help",
+    "ml jupyter exec --cwd x -- powershell -c 'gc c' --help",
+    "ml login --show-secrets",
+    "ml train list --yes",
+    "ml env use product",
+    "ml model deploy m1 --template t1 --dry-run",
+    "ml train start task1",
+    "ml tree > C:/out.txt",
+    "ml tree >> ~/.bashrc",
+    "ml jupyter terminal open",
+    "cat ./credentials.json",
+    "type credentials.json",
+    "gc credentials.json",
+    "Get-Content credentials.json",
+    r"Get-Content $HOME\.x\credentials.json",
+    "Copy-Item .\\credentials.json .\\x",
+    "sls token credentials.json",
+    "findstr /s secret credentials.json",
+)
 
 # Exact read-only commands that take no required positional arguments.
 _EXACT_ALLOW = (
@@ -120,65 +144,6 @@ _OTHER_RULES = (
     ("read", "*credentials.json*", "deny"),
 )
 
-# Previous README example allowed these prefixes. They are removed on merge so
-# an upgraded config cannot keep the trailing-wildcard bypasses.
-RETIRED_SHELL_ALLOWS = frozenset({
-    "ml --version*",
-    "ml * --help*",
-    "ml tree*",
-    "ml env list*",
-    "ml env show*",
-    "ml auth status*",
-    "ml auth ping status*",
-    "ml access status*",
-    "ml business list*",
-    "ml business show*",
-    "ml user info*",
-    "ml mep config get*",
-    "ml history list*",
-    "ml mtp swanboard project list*",
-    "ml mtp swanboard project namespace list*",
-    "ml mtp swanboard project experiment list*",
-    "ml mtp swanboard experiment feature list*",
-    "ml mtp swanboard experiment environment get*",
-    "ml mtp swanboard experiment metrics*",
-    "ml mtp swanboard experiment config list*",
-    "ml mtp swanboard experiment inspect*",
-    "ml offline experiment list*",
-    "ml offline experiment trial list*",
-    "ml offline experiment clone * --dry-run*",
-    "ml train list*",
-    "ml train instance list*",
-    "ml train history list*",
-    "ml algorithm list*",
-    "ml model list*",
-    "ml model detail*",
-    "ml model source*",
-    "ml model deploy * --dry-run*",
-    "ml resource template list*",
-    "ml resource template detail*",
-    "ml deployment template list*",
-    "ml deployment template detail*",
-    "ml service list*",
-    "ml service logs*",
-    "ml service host list*",
-    "ml service deployment list*",
-    "ml dataset list*",
-    "ml dataset detail*",
-    "ml dataset files list*",
-    "ml featureset wide list*",
-    "ml featureset wide config*",
-    "ml featureset model list*",
-    "ml featureset model config*",
-    "ml webstudio list*",
-    "ml webstudio show*",
-    "ml jupyter doctor*",
-    "ml jupyter files list*",
-    "ml jupyter files stat*",
-    "ml jupyter files read*",
-    "ml jupyter terminal list*",
-})
-
 
 def _shell_rules():
     rules = [("ml *", "ask")]
@@ -197,8 +162,6 @@ def _shell_rules():
 
 
 SHELL_RULES = _shell_rules()
-MANAGED_RULES = {("shell", resource) for resource, _effect in SHELL_RULES}
-MANAGED_RULES.update((action, resource) for action, resource, _effect in _OTHER_RULES)
 
 
 def wildcard_match(value: str, pattern: str, *, windows: bool = True) -> bool:
@@ -263,6 +226,18 @@ def fresh_opencode_config() -> dict:
     return merge_opencode_config({"$schema": SCHEMA})
 
 
+def validate_opencode_config(target: Path) -> None:
+    """Parse an existing config or raise. Does not create or modify files."""
+    if not target.exists() and not target.is_symlink():
+        return
+    if target.is_symlink():
+        raise ValueError(f"OpenCode directory must not be a symlink: {target}")
+    path = _config_path(target)
+    if not path.exists() and not path.is_symlink():
+        return
+    _read_config_file(path)
+
+
 def install_opencode_permissions(target: Path) -> None:
     """Merge managed rules into the global OpenCode config, with backup and rollback.
 
@@ -275,20 +250,98 @@ def install_opencode_permissions(target: Path) -> None:
         raise ValueError(f"OpenCode directory must not be a symlink: {target}")
     target.mkdir(parents=True, exist_ok=True)
     path = _config_path(target)
+    original, config = _read_existing(path)
+    rendered = _dump(merge_opencode_config(config))
+    _warn_conflicts(json.loads(rendered).get("permissions") or [])
+    if original is not None and _normalize_newlines(_decode(original)) == rendered:
+        return
+    _replace_with_rollback(path, rendered, original)
+
+
+def uninstall_opencode_permissions(target: Path) -> None:
+    """Remove rules tagged with the WiseRec marker. User rules stay."""
+    if not target.exists() and not target.is_symlink():
+        return
+    if target.is_symlink():
+        raise ValueError(f"OpenCode directory must not be a symlink: {target}")
+    path = _config_path(target)
+    if not path.exists() and not path.is_symlink():
+        return
+    original, config = _read_existing(path)
+    rules = config.get("permissions", [])
+    if rules is None:
+        rules = []
+    if not isinstance(rules, list):
+        raise ValueError("OpenCode permissions must be an array")
+    kept = [rule for rule in rules if not _is_ours(rule)]
+    if kept == rules:
+        return
+    if kept:
+        config["permissions"] = kept
+    else:
+        config.pop("permissions", None)
+    _replace_with_rollback(path, _dump(config), original)
+
+
+def conflicting_allow_rules(rules) -> list:
+    """User wildcard allows that match a command our ask/deny rules govern.
+
+    ``ml*`` is the example. The rules are reported and left in place; they do
+    not win, because managed ask/deny rules are written after every user rule.
+    """
+    found = []
+    seen = set()
+    for rule in rules:
+        if not _is_rule(rule) or _is_ours(rule) or rule["effect"] != "allow":
+            continue
+        if rule["action"] not in _SHELL_ACTIONS:
+            continue
+        resource = rule["resource"]
+        if "*" not in resource and "?" not in resource:
+            continue
+        folded = resource.lower()
+        if not (folded.startswith("ml") or folded.startswith("*")):
+            continue
+        if not any(wildcard_match(command, resource) for command in _PROTECTED_COMMANDS):
+            continue
+        key = (rule["action"], resource, rule["effect"])
+        if key in seen:
+            continue
+        seen.add(key)
+        found.append(rule)
+    return found
+
+
+def _read_existing(path: Path):
     if path.is_symlink():
         raise ValueError(f"OpenCode config must not be a symlink: {path}")
     if path.exists() and not path.is_file():
         raise ValueError(f"OpenCode config must be a file: {path}")
+    if not path.is_file():
+        return None, {"$schema": SCHEMA}
+    original = path.read_bytes()
+    return original, _load_config(original)
 
-    original = path.read_bytes() if path.is_file() else None
-    if original is None:
-        config = {"$schema": SCHEMA}
-    else:
-        config = _load_config(original)
-    rendered = _dump(merge_opencode_config(config))
-    if original is not None and _normalize_newlines(_decode(original)) == rendered:
+
+def _read_config_file(path: Path) -> dict:
+    if path.is_symlink():
+        raise ValueError(f"OpenCode config must not be a symlink: {path}")
+    if not path.is_file():
+        raise ValueError(f"OpenCode config must be a file: {path}")
+    return _load_config(path.read_bytes())
+
+
+def _warn_conflicts(rules) -> None:
+    conflicts = conflicting_allow_rules(rules)
+    if not conflicts:
         return
-    _replace_with_rollback(path, rendered, original)
+    listed = ", ".join(
+        f"{rule['action']} {rule['resource']}={rule['effect']}" for rule in conflicts
+    )
+    msg.warning(
+        "OpenCode allow rules conflict with WiseRec ask/deny rules and were kept: "
+        + listed
+    )
 
 
 def _config_path(target: Path) -> Path:
@@ -334,8 +387,12 @@ def _dump(config: dict) -> str:
     return json.dumps(config, ensure_ascii=False, indent=2) + "\n"
 
 
+def _backup_path(path: Path) -> Path:
+    return path.with_name(path.name + ".bak")
+
+
 def _replace_with_rollback(path: Path, rendered: str, original: bytes | None) -> None:
-    backup = path.with_name(path.name + BACKUP_SUFFIX)
+    backup = _backup_path(path)
     temporary = path.with_name(path.name + ".wiserec-tmp")
     if original is not None:
         backup.write_bytes(original)
@@ -368,12 +425,7 @@ def _restore(path: Path, original: bytes | None) -> None:
 
 
 def _lift_legacy_shell_rules(config: dict) -> list:
-    """Move v1 ``permission.bash`` / ``permission.shell`` rules into v2 order.
-
-    OpenCode evaluates legacy permission rules before the ``permissions`` array.
-    A later shell ``*`` ask would override them, so user shell rules are lifted
-    and reinserted after the fallback.
-    """
+    """Lift v1 bash/shell rules into the user section. They stay unmarked."""
     legacy = config.get("permission", None)
     if legacy is None:
         return []
@@ -397,51 +449,35 @@ def _legacy_shell_rules(value, key: str) -> list:
     if isinstance(value, str):
         if value not in _EFFECTS:
             raise ValueError(f"OpenCode permission.{key} has an unknown effect")
-        return [_rule("shell", "*", value)]
+        return [_rule("shell", "*", value, managed=False)]
     if not isinstance(value, dict):
         raise ValueError(f"OpenCode permission.{key} must be an object or action")
     rules = []
     for resource, effect in value.items():
         if not isinstance(resource, str) or effect not in _EFFECTS:
             raise ValueError(f"OpenCode permission.{key} has an invalid rule")
-        rules.append(_rule("shell", resource, effect))
+        rules.append(_rule("shell", resource, effect, managed=False))
     return rules
 
 
 def _merge_rules(items: list) -> list:
-    opaque = []
-    user_other = []
-    user_shell = []
+    """Fallback first, then every user rule, then managed rules.
+
+    OpenCode keeps the last match. User allows therefore cannot outrank the
+    managed ask/deny rules that follow them.
+    """
+    user = []
     for item in items:
-        if not _is_rule(item):
-            opaque.append(item)
+        if _is_ours(item):
             continue
-        if _is_managed(item):
-            continue
-        if item["action"] in _SHELL_ACTIONS:
-            user_shell.append(dict(item))
-        else:
-            user_other.append(dict(item))
+        user.append(dict(item) if _is_rule(item) else item)
     managed_shell = [_rule("shell", resource, effect) for resource, effect in SHELL_RULES]
     managed_other = [_rule(action, resource, effect) for action, resource, effect in _OTHER_RULES]
-    return [
-        *opaque,
-        *user_other,
-        _rule("shell", "*", "ask"),
-        *user_shell,
-        *managed_shell,
-        *managed_other,
-    ]
+    return [_rule("shell", "*", "ask"), *user, *managed_shell, *managed_other]
 
 
-def _is_managed(rule: dict) -> bool:
-    action = "shell" if rule["action"] == "bash" else rule["action"]
-    resource = rule["resource"]
-    if action == "shell" and resource == "*" and rule["effect"] == "ask":
-        return True
-    if action == "shell" and rule["effect"] == "allow" and resource in RETIRED_SHELL_ALLOWS:
-        return True
-    return (action, resource) in MANAGED_RULES
+def _is_ours(rule) -> bool:
+    return isinstance(rule, dict) and rule.get(MARKER) == MARKER_VALUE
 
 
 def _is_rule(item) -> bool:
@@ -453,5 +489,8 @@ def _is_rule(item) -> bool:
     )
 
 
-def _rule(action: str, resource: str, effect: str) -> dict:
-    return {"action": action, "resource": resource, "effect": effect}
+def _rule(action: str, resource: str, effect: str, *, managed: bool = True) -> dict:
+    rule = {"action": action, "resource": resource, "effect": effect}
+    if managed:
+        rule[MARKER] = MARKER_VALUE
+    return rule
