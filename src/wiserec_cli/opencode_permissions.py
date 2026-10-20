@@ -18,20 +18,47 @@ from __future__ import annotations
 
 import json
 import os
-import re
 import shutil
 import subprocess
-import time
 from pathlib import Path
 
 from . import messages as msg
 from .opencode_bash_rules import drop_recorded_bash_patterns, merge_bash_rules, warn_v1_bash
+from .opencode_configfile import (
+    SCHEMA,
+    backup_path as _backup_path,
+    config_path as _config_path,
+    decode as _decode,
+    dump as _dump,
+    normalize_newlines as _normalize_newlines,
+    read_config_file as _read_config_file,
+    read_existing as _read_existing,
+    restore as _restore,
+)
+from .opencode_managed import (
+    MergeReport,
+    OpenCodeConflictError,
+    assert_loaded_rules,
+    clear_record,
+    content_hash,
+    describe_conflict,
+    owned_bash_patterns,
+    owned_permission_keys,
+    public_debug_failure,
+    raise_if_conflicts,
+    record_for,
+    restrict_backup,
+    save_record,
+    shell_family,
+    take_legacy_marker,
+    weaker,
+)
+from .opencode_scan import scan_overriding_configs
+from .opencode_warnings import broad_allow_rules, conflicting_allow_rules, warn_user_allows as _warn_user_allows
 from .opencode_rulematch import (
-    BROAD_RESOURCES,
     MARKER,
     MARKER_VALUE,
     OTHER_RULES,
-    PROTECTED_COMMANDS,
     SHELL_ACTIONS,
     SHELL_RULES,
     combined_shell_effect,
@@ -48,10 +75,6 @@ from .opencode_version import (
     permission_format_for_version,
 )
 
-SCHEMA = "https://opencode.ai/config.json"
-_COMMENT = re.compile(r"(?<!:)//|/\*")
-
-
 def fresh_opencode_config() -> dict:
     """Config written for OpenCode 2 when the user has no opencode.json yet."""
     return merge_opencode_config({"$schema": SCHEMA}, rule_format="permissions")
@@ -62,24 +85,67 @@ def fresh_bash_config() -> dict:
     return merge_opencode_config({"$schema": SCHEMA}, rule_format="bash")
 
 
-def merge_opencode_config(config: dict, *, rule_format: str = "permissions") -> dict:
-    """Return a new document. User permission.bash and permission.shell stay."""
+def merge_opencode_config(
+    config: dict,
+    *,
+    rule_format: str = "permissions",
+    managed: dict | None = None,
+    override_conflicts: bool = False,
+    report: MergeReport | None = None,
+) -> dict:
+    """Return a new document. Schema-only keys are written."""
+    document, _report = plan_opencode_config(
+        config,
+        rule_format=rule_format,
+        managed=managed,
+        override_conflicts=override_conflicts,
+        report=report,
+    )
+    return document
+
+
+def plan_opencode_config(
+    config: dict,
+    *,
+    rule_format: str = "permissions",
+    managed: dict | None = None,
+    override_conflicts: bool = False,
+    report: MergeReport | None = None,
+) -> tuple:
+    """Merge in memory. Weaker exact collisions raise before any file is written."""
     if not isinstance(config, dict):
         raise ValueError("OpenCode config must be a JSON object")
     if rule_format not in {"permissions", "bash"}:
         raise ValueError(f"Unknown OpenCode rule format: {rule_format}")
     result = json.loads(json.dumps(config))
+    legacy = take_legacy_marker(result)
+    report = report or MergeReport()
+    report.migrated.extend(legacy["migrated"])
+    managed = managed or {}
     if rule_format == "permissions":
         existing = result.get("permissions", [])
         if existing is None:
             existing = []
         if not isinstance(existing, list):
             raise ValueError("OpenCode permissions must be an array")
-        result["permissions"] = _merge_rules(existing)
-        return result
-    _drop_marked_array_rules(result)
-    merge_bash_rules(result)
-    return result
+        result["permissions"] = _merge_rules(
+            existing,
+            owned=owned_permission_keys(managed, legacy),
+            override_conflicts=override_conflicts,
+            report=report,
+        )
+        remembered = owned_bash_patterns(managed, legacy)
+        for action, patterns in remembered.items():
+            if patterns:
+                report.written_bash[action] = list(patterns)
+        return result, report
+    merge_bash_rules(
+        result,
+        owned=owned_bash_patterns(managed, legacy),
+        override_conflicts=override_conflicts,
+        report=report,
+    )
+    return result, report
 
 
 def validate_opencode_config(target: Path) -> None:
@@ -94,21 +160,70 @@ def validate_opencode_config(target: Path) -> None:
     _read_config_file(path)
 
 
-def install_opencode_permissions(target: Path, *, rule_format: str = "permissions") -> None:
+def preflight_opencode_permissions(
+    target: Path,
+    *,
+    rule_format: str = "permissions",
+    override_conflicts: bool = False,
+) -> None:
+    """Plan the merge and abort on a weaker exact key before any file is written."""
+    if target.is_symlink():
+        raise ValueError(f"OpenCode directory must not be a symlink: {target}")
+    if not target.exists():
+        plan_opencode_config({"$schema": SCHEMA}, rule_format=rule_format)
+        return
+    path = _config_path(target)
+    if not path.exists() and not path.is_symlink():
+        plan_opencode_config({"$schema": SCHEMA}, rule_format=rule_format)
+        return
+    _original, config = _read_existing(path)
+    try:
+        plan_opencode_config(
+            config,
+            rule_format=rule_format,
+            managed=record_for(path),
+            override_conflicts=False,
+        )
+    except OpenCodeConflictError:
+        if not override_conflicts:
+            raise
+
+
+def install_opencode_permissions(
+    target: Path,
+    *,
+    rule_format: str = "permissions",
+    override_conflicts: bool = False,
+) -> None:
     """Merge managed rules, backing up the original without overwriting ``.bak``."""
     if target.is_symlink():
         raise ValueError(f"OpenCode directory must not be a symlink: {target}")
-    target.mkdir(parents=True, exist_ok=True)
     path = _config_path(target)
-    original, config = _read_existing(path)
-    merged = merge_opencode_config(config, rule_format=rule_format)
-    _warn_user_allows(config, merged)
+    original, config = _read_existing(path) if path.exists() or path.is_symlink() else (None, {"$schema": SCHEMA})
+    if path.is_symlink():
+        raise ValueError(f"OpenCode config must not be a symlink: {path}")
+    managed = record_for(path)
+    report = MergeReport()
+    merged, report = plan_opencode_config(
+        config,
+        rule_format=rule_format,
+        managed=managed,
+        override_conflicts=override_conflicts,
+        report=report,
+    )
+    _warn_user_allows(config, merged, rule_format=rule_format)
+    owned = owned_bash_patterns(managed, {"bash": {"bash": [], "read": [], "skill": []}})
     if rule_format == "bash":
-        warn_v1_bash(config)
+        warn_v1_bash(config, owned)
+    _warn_project_and_agent(target)
+    _announce(report)
     rendered = _dump(merged)
     if original is not None and _normalize_newlines(_decode(original)) == rendered:
+        _store_manifest(path, rendered, rule_format, report)
         return
-    _replace_with_rollback(path, rendered, original)
+    target.mkdir(parents=True, exist_ok=True)
+    _replace_with_rollback(path, rendered, original, _expected_rules(rule_format, report))
+    _store_manifest(path, rendered, rule_format, report)
 
 
 def uninstall_opencode_permissions(target: Path) -> None:
@@ -121,159 +236,83 @@ def uninstall_opencode_permissions(target: Path) -> None:
     if not path.exists() and not path.is_symlink():
         return
     original, config = _read_existing(path)
-    if not _remove_managed(config):
+    managed = record_for(path)
+    legacy = take_legacy_marker(config)
+    owned = owned_bash_patterns(managed, legacy)
+    drop_recorded_bash_patterns(config, owned)
+    _drop_owned_array_rules(config, owned_permission_keys(managed, legacy))
+    rendered = _dump(config)
+    if original is not None and _normalize_newlines(_decode(original)) == rendered:
+        clear_record(path)
         return
-    _replace_with_rollback(path, _dump(config), original)
+    _replace_with_rollback(path, rendered, original, None)
+    clear_record(path)
 
 
-def conflicting_allow_rules(rules) -> list:
-    """User wildcard allows that match a command our ask/deny rules govern."""
-    found = []
-    seen = set()
-    for rule in rules:
-        if not is_rule(rule) or _is_ours(rule) or rule["effect"] != "allow":
-            continue
-        if rule["action"] not in SHELL_ACTIONS:
-            continue
-        resource = rule["resource"]
-        if "*" not in resource and "?" not in resource:
-            continue
-        folded = resource.lower()
-        if not (folded.startswith("ml") or folded.startswith("*")):
-            continue
-        if not any(wildcard_match(command, resource) for command in PROTECTED_COMMANDS):
-            continue
-        key = (rule["action"], resource, rule["effect"])
-        if key in seen:
-            continue
-        seen.add(key)
-        found.append(rule)
-    return found
-
-
-def broad_allow_rules(rules) -> list:
-    """Catch-all shell allows such as ``*`` that override the ask fallback."""
-    found = []
-    seen = set()
-    for rule in rules:
-        if not is_rule(rule) or _is_ours(rule) or rule["effect"] != "allow":
-            continue
-        if rule["action"] not in SHELL_ACTIONS:
-            continue
-        if rule["resource"].lower() not in BROAD_RESOURCES:
-            continue
-        key = (rule["action"], rule["resource"], rule["effect"])
-        if key in seen:
-            continue
-        seen.add(key)
-        found.append(rule)
-    return found
-
-
-def _merge_rules(items: list) -> list:
+def _merge_rules(items: list, *, owned: set, override_conflicts: bool, report: MergeReport) -> list:
     """User non-shell rules, shell ``*`` ask, user shell rules, then ours.
 
     OpenCode keeps the last match. This order is the one the array must keep.
+    A weaker exact action/resource collision aborts unless override is set.
     """
     opaque = []
     user_other = []
     user_shell = []
+    conflicts = []
+    skipped = set()
+    wanted = [("shell", "*", "ask"), *[( "shell", resource, effect) for resource, effect in SHELL_RULES]]
+    wanted.extend(OTHER_RULES)
+    by_key = {(shell_family(action), resource): (action, resource, effect) for action, resource, effect in wanted}
     for item in items:
         if not is_rule(item):
             opaque.append(item)
             continue
         if _is_ours(item):
             continue
-        copied = dict(item)
-        if item["action"] in SHELL_ACTIONS:
-            user_shell.append(copied)
-        else:
-            user_other.append(copied)
-    managed_shell = [_rule("shell", resource, effect) for resource, effect in SHELL_RULES]
-    managed_other = [_rule(action, resource, effect) for action, resource, effect in OTHER_RULES]
-    return [
-        *opaque,
-        *user_other,
-        _rule("shell", "*", "ask"),
-        *user_shell,
-        *managed_shell,
-        *managed_other,
+        key = (shell_family(item["action"]), item["resource"])
+        if key in owned:
+            continue
+        managed = by_key.get(key)
+        copied = {field: item[field] for field in ("action", "resource", "effect")}
+        for extra, value in item.items():
+            if extra not in copied and extra != MARKER:
+                copied[extra] = value
+        if managed is None:
+            _bucket(copied, user_shell, user_other)
+            continue
+        _action, _resource, effect = managed
+        if not weaker(item["effect"], effect):
+            skipped.add(key)
+            _bucket(copied, user_shell, user_other)
+            continue
+        conflict = describe_conflict(
+            f"permissions {item['action']}",
+            item["resource"],
+            item["effect"],
+            effect,
+        )
+        conflicts.append(conflict)
+        if override_conflicts:
+            report.overrides.append(conflict)
+            msg.warning(
+                f"Replacing permissions {item['action']} {item['resource']!r} from {item['effect']!r} "
+                f"to {effect!r} and moving it into the managed rules."
+            )
+            continue
+        _bucket(copied, user_shell, user_other)
+    raise_if_conflicts(conflicts, override_conflicts)
+    managed_rules = [
+        _rule(action, resource, effect)
+        for action, resource, effect in wanted
+        if (shell_family(action), resource) not in skipped
     ]
-
-
-def _drop_marked_array_rules(config: dict) -> None:
-    rules = config.get("permissions")
-    if not isinstance(rules, list):
-        return
-    kept = [rule for rule in rules if not _is_ours(rule)]
-    if kept:
-        config["permissions"] = kept
-    else:
-        config.pop("permissions", None)
-
-
-def _remove_managed(config: dict) -> bool:
-    before = json.dumps(config, sort_keys=True)
-    _drop_marked_array_rules(config)
-    drop_recorded_bash_patterns(config)
-    rules = config.get("permissions")
-    if isinstance(rules, list):
-        kept = [rule for rule in rules if not _is_ours(rule)]
-        if kept:
-            config["permissions"] = kept
-        elif not kept:
-            config.pop("permissions", None)
-    return json.dumps(config, sort_keys=True) != before
-
-
-def _warn_user_allows(original: dict, merged: dict) -> None:
-    rules = []
-    if isinstance(merged.get("permissions"), list):
-        rules.extend(rule for rule in merged["permissions"] if not _is_ours(rule))
-    rules.extend(_legacy_allow_rules(original.get("permission")))
-    rules.extend(_legacy_allow_rules(merged.get("permission")))
-    broad = broad_allow_rules(rules)
-    if broad:
-        listed = ", ".join(
-            f"{rule['action']} {rule['resource']}={rule['effect']}" for rule in broad
-        )
-        msg.warning(
-            "OpenCode has a broad shell allow. The * ask fallback applies to every shell "
-            "command, but this allow stays in place and wins for commands it matches last: "
-            + listed
-        )
-    conflicts = conflicting_allow_rules(rules)
-    if conflicts:
-        listed = ", ".join(
-            f"{rule['action']} {rule['resource']}={rule['effect']}" for rule in conflicts
-        )
-        msg.warning(
-            "OpenCode allow rules conflict with WiseRec ask/deny rules and were kept: "
-            + listed
-        )
-
-
-def _legacy_allow_rules(permission) -> list:
-    if permission is None:
-        return []
-    if isinstance(permission, str):
-        return [_plain("shell", "*", permission)] if permission == "allow" else []
-    if not isinstance(permission, dict):
-        return []
-    rules = []
-    for action in ("bash", "shell", "*"):
-        value = permission.get(action)
-        if isinstance(value, str) and value == "allow":
-            rules.append(_plain(action if action != "*" else "shell", "*", "allow"))
-        elif isinstance(value, dict):
-            for resource, effect in value.items():
-                if isinstance(resource, str) and effect == "allow":
-                    rules.append(_plain("shell" if action == "bash" else action, resource, effect))
-    return rules
-
-
-def _plain(action: str, resource: str, effect: str) -> dict:
-    return {"action": action, "resource": resource, "effect": effect}
+    report.written_permissions = list(managed_rules)
+    report.added.extend(
+        f"{rule['action']} {rule['resource']}={rule['effect']}" for rule in managed_rules
+    )
+    star = [rule for rule in managed_rules if rule["resource"] == "*" and rule["action"] == "shell"]
+    rest = [rule for rule in managed_rules if rule not in star]
+    return [*opaque, *user_other, *star, *user_shell, *rest]
 
 
 def _is_ours(rule) -> bool:
@@ -281,10 +320,75 @@ def _is_ours(rule) -> bool:
 
 
 def _rule(action: str, resource: str, effect: str) -> dict:
-    return {"action": action, "resource": resource, "effect": effect, MARKER: MARKER_VALUE}
+    return {"action": action, "resource": resource, "effect": effect}
 
 
-def _opencode_debug_config(target: Path) -> None:
+def _bucket(rule: dict, user_shell: list, user_other: list) -> None:
+    if rule["action"] in SHELL_ACTIONS:
+        user_shell.append(rule)
+    else:
+        user_other.append(rule)
+
+
+def _drop_owned_array_rules(config: dict, owned: set) -> None:
+    rules = config.get("permissions")
+    if not isinstance(rules, list):
+        return
+    kept = []
+    for rule in rules:
+        if is_rule(rule) and (shell_family(rule["action"]), rule["resource"]) in owned:
+            continue
+        if _is_ours(rule):
+            continue
+        kept.append(rule)
+    if kept:
+        config["permissions"] = kept
+    else:
+        config.pop("permissions", None)
+
+
+def _announce(report: MergeReport) -> None:
+    if report.added:
+        msg.detail("Added OpenCode rules: " + ", ".join(report.added))
+    if report.migrated:
+        msg.detail("Migrated OpenCode rules: " + ", ".join(report.migrated))
+
+
+def _warn_project_and_agent(target: Path) -> None:
+    found = scan_overriding_configs(target)
+    if not found:
+        return
+    msg.warning(
+        "Project or agent config is loaded after the global rules and can override them: "
+        + "; ".join(found)
+    )
+
+
+def _expected_rules(rule_format: str, report: MergeReport) -> dict:
+    if rule_format != "bash":
+        return {"format": "permissions", "permissions": report.written_permissions}
+    from .opencode_bash_rules import _effects
+
+    known = _effects()
+    known["bash"] = {"*": "ask", **known["bash"]}
+    expected = {"format": "bash"}
+    for action in ("bash", "read", "skill"):
+        order = list(report.written_bash.get(action) or [])
+        expected[f"{action}_order"] = order
+        expected[f"{action}_effects"] = {pattern: known[action][pattern] for pattern in order}
+    return expected
+
+
+def _store_manifest(path: Path, rendered: str, rule_format: str, report: MergeReport) -> None:
+    save_record(path, {
+        "format": rule_format,
+        "config_sha256": content_hash(rendered),
+        "bash": report.written_bash,
+        "permissions": report.written_permissions,
+    })
+
+
+def _opencode_debug_config(target: Path, expected: dict | None = None) -> None:
     """Ask the installed opencode binary to load this config directory.
 
     ``OPENCODE_CONFIG_DIR`` points at the directory just written.
@@ -296,10 +400,7 @@ def _opencode_debug_config(target: Path) -> None:
     """
     resolved = shutil.which("opencode")
     if not resolved:
-        raise ValueError(
-            "opencode was not found, so the updated config could not be loaded. "
-            "The previous file was restored."
-        )
+        raise ValueError(public_debug_failure(127, "", "opencode was not found"))
     env = os.environ.copy()
     env["OPENCODE_CONFIG_DIR"] = str(target)
     env["OPENCODE_DISABLE_PROJECT_CONFIG"] = "1"
@@ -314,115 +415,29 @@ def _opencode_debug_config(target: Path) -> None:
             check=False,
         )
     except (OSError, subprocess.TimeoutExpired) as error:
-        raise ValueError(
-            f"opencode debug config failed ({error}). The previous file was restored."
-        ) from error
+        raise ValueError(public_debug_failure(None, "", str(error))) from error
     if completed.returncode != 0:
-        detail = (completed.stderr or completed.stdout or "").strip()
-        raise ValueError(
-            "opencode debug config failed"
-            + (f" ({detail})" if detail else f" (exit {completed.returncode})")
-            + ". The previous file was restored."
-        )
+        raise ValueError(public_debug_failure(completed.returncode, completed.stdout or "", completed.stderr or ""))
     text = (completed.stdout or "").strip()
     try:
         loaded = json.loads(text) if text else None
     except json.JSONDecodeError:
         loaded = None
     if not isinstance(loaded, dict):
-        raise ValueError(
-            "opencode debug config did not return a JSON config object. "
-            "The previous file was restored."
-        )
+        raise ValueError(public_debug_failure(completed.returncode, "", "output was not a JSON config object"))
+    if expected:
+        try:
+            assert_loaded_rules(loaded, expected)
+        except ValueError as error:
+            raise ValueError(public_debug_failure(completed.returncode, "", str(error))) from error
 
 
-def _read_existing(path: Path):
-    if path.is_symlink():
-        raise ValueError(f"OpenCode config must not be a symlink: {path}")
-    if path.exists() and not path.is_file():
-        raise ValueError(f"OpenCode config must be a file: {path}")
-    if not path.is_file():
-        return None, {"$schema": SCHEMA}
-    original = path.read_bytes()
-    return original, _load_config(original, path.name)
-
-
-def _read_config_file(path: Path) -> dict:
-    if path.is_symlink():
-        raise ValueError(f"OpenCode config must not be a symlink: {path}")
-    if not path.is_file():
-        raise ValueError(f"OpenCode config must be a file: {path}")
-    return _load_config(path.read_bytes(), path.name)
-
-
-def _config_path(target: Path) -> Path:
-    json_path = target / "opencode.json"
-    jsonc_path = target / "opencode.jsonc"
-    json_present = json_path.exists() or json_path.is_symlink()
-    jsonc_present = jsonc_path.exists() or jsonc_path.is_symlink()
-    if json_present and jsonc_present:
-        raise ValueError(
-            "Both opencode.json and opencode.jsonc exist. OpenCode loads jsonc after json. "
-            "Combine them into opencode.json and remove opencode.jsonc, then rerun the installer."
-        )
-    if jsonc_present:
-        return jsonc_path
-    return json_path
-
-
-def _load_config(original: bytes, name: str = "opencode.json") -> dict:
-    try:
-        text = _decode(original)
-    except UnicodeError as error:
-        raise ValueError("OpenCode config must be UTF-8") from error
-    if not text.strip():
-        return {}
-    try:
-        config = json.loads(text)
-    except json.JSONDecodeError as error:
-        if _COMMENT.search(text):
-            raise ValueError(
-                f"{name} contains comments. This installer does not continue with JSONC comments. "
-                "Remove the comments and rerun. The file was left unchanged."
-            ) from error
-        raise ValueError(
-            f"{name} is not strict JSON ({error}). The installer stopped. The file was left unchanged."
-        ) from error
-    if not isinstance(config, dict):
-        raise ValueError("OpenCode config must be a JSON object")
-    return config
-
-
-def _decode(original: bytes) -> str:
-    return original.decode("utf-8-sig")
-
-
-def _normalize_newlines(text: str) -> str:
-    return text.replace("\r\n", "\n").replace("\r", "\n")
-
-
-def _dump(config: dict) -> str:
-    return json.dumps(config, ensure_ascii=False, indent=2) + "\n"
-
-
-def _backup_path(path: Path) -> Path:
-    primary = path.with_name(path.name + ".bak")
-    if not primary.exists() and not primary.is_symlink():
-        return primary
-    stamp = time.strftime("%Y%m%dT%H%M%SZ", time.gmtime())
-    candidate = path.with_name(f"{path.name}.bak.{stamp}")
-    suffix = 2
-    while candidate.exists() or candidate.is_symlink():
-        candidate = path.with_name(f"{path.name}.bak.{stamp}-{suffix}")
-        suffix += 1
-    return candidate
-
-
-def _replace_with_rollback(path: Path, rendered: str, original: bytes | None) -> None:
+def _replace_with_rollback(path: Path, rendered: str, original: bytes | None, expected: dict | None) -> None:
     backup = _backup_path(path) if original is not None else None
     temporary = path.with_name(path.name + ".wiserec-tmp")
     if original is not None and backup is not None:
         backup.write_bytes(original)
+        restrict_backup(backup)
     try:
         temporary.write_bytes(rendered.encode("utf-8"))
         loaded = json.loads(temporary.read_text(encoding="utf-8"))
@@ -432,7 +447,7 @@ def _replace_with_rollback(path: Path, rendered: str, original: bytes | None) ->
         confirmed = json.loads(path.read_text(encoding="utf-8"))
         if confirmed != loaded:
             raise ValueError("OpenCode config verification failed")
-        _opencode_debug_config(path.parent)
+        _opencode_debug_config(path.parent, expected)
     except Exception as error:
         temporary.unlink(missing_ok=True)
         try:
@@ -444,20 +459,13 @@ def _replace_with_rollback(path: Path, rendered: str, original: bytes | None) ->
         raise
 
 
-def _restore(path: Path, original: bytes | None) -> None:
-    if original is None:
-        if path.is_file() and not path.is_symlink():
-            path.unlink()
-        return
-    path.write_bytes(original)
-
-
 __all__ = [
     "MARKER",
     "MARKER_VALUE",
     "MINIMUM_BASH",
     "MINIMUM_PERMISSIONS",
     "SHELL_RULES",
+    "OpenCodeConflictError",
     "OpenCodeVersionError",
     "broad_allow_rules",
     "combined_shell_effect",
@@ -466,6 +474,7 @@ __all__ = [
     "fresh_bash_config",
     "fresh_opencode_config",
     "install_opencode_permissions",
+    "preflight_opencode_permissions",
     "layered_rules",
     "merge_opencode_config",
     "permission_effect",

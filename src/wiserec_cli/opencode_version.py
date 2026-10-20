@@ -7,7 +7,14 @@ import shutil
 import subprocess
 
 
-# v1.1.1 release notes introduced granular permission.bash patterns.
+# Minimum stays 1.1.1 after the non-schema ``wiserec`` key is removed.
+# v1.1.1 ``packages/opencode/src/config/config.ts`` defines ``permission.bash``
+# as ``PermissionRule`` (action or pattern object, lines 388-405) and marks the
+# top-level config ``.strict()`` (line 947), so unknown top-level keys are
+# rejected. ``permission`` uses ``.catchall(PermissionRule)``, which accepts
+# ``skill``. v1.16.0 through v1.18.15 ``packages/opencode/src/config/parse.ts``
+# ``topLevelExtraKeys`` throws ``Unrecognized key``; v1.18.16 switches to
+# ``onExcessProperty: "ignore"``. The bash object itself is accepted from 1.1.1.
 MINIMUM_BASH = (1, 1, 1)
 # Major 2 selects the permissions array. @opencode/cli 2.1.0 is the release
 # known to load it; 2.0.x still takes this path and is rolled back if

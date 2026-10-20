@@ -8,6 +8,11 @@ import pytest
 from wiserec_cli.opencode_install import install_resources, main
 
 
+@pytest.fixture(autouse=True)
+def _wiserec_home(monkeypatch, tmp_path):
+    monkeypatch.setenv("WISEREC_HOME", str(tmp_path / "wiserec-home"))
+
+
 @pytest.fixture
 def resources(tmp_path):
     source = tmp_path / "bundle"
