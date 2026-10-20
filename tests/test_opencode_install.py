@@ -56,6 +56,7 @@ def test_copy_failure_cleans_partial_resources(resources, tmp_path):
 
 def test_failure_reports_cli_still_usable(tmp_path, monkeypatch, capsys):
     monkeypatch.setenv("OPENCODE_CONFIG_DIR", str(tmp_path))
+    monkeypatch.setattr("wiserec_cli.opencode_install.detect_permission_format", lambda: "permissions")
     with patch("wiserec_cli.opencode_install.install_resources", side_effect=PermissionError("denied")):
         assert main() == 1
     assert "CLI remains usable" in capsys.readouterr().err
