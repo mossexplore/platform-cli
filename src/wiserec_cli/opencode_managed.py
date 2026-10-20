@@ -85,6 +85,30 @@ def clear_record(config_file: Path) -> None:
         path.unlink()
 
 
+def manifest_bytes(config_file: Path) -> bytes | None:
+    """Exact sidecar bytes, or ``None`` when this install did not find one."""
+    path = manifest_path(config_file)
+    if not path.exists() and not path.is_symlink():
+        return None
+    if path.is_symlink() or not path.is_file():
+        raise ValueError(f"OpenCode managed manifest must not be a symlink: {path}")
+    return path.read_bytes()
+
+
+def write_manifest_bytes(config_file: Path, original: bytes | None) -> None:
+    """Put the sidecar back, or delete it when ``original`` is ``None``."""
+    path = manifest_path(config_file)
+    if path.is_symlink():
+        raise ValueError(f"OpenCode managed manifest must not be a symlink: {path}")
+    if original is None:
+        if path.is_file():
+            path.unlink()
+        return
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_bytes(original)
+    _chmod_user_only(path)
+
+
 def content_hash(text: str) -> str:
     return hashlib.sha256(text.encode("utf-8")).hexdigest()
 
