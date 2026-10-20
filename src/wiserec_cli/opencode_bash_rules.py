@@ -1,4 +1,11 @@
-"""Append managed patterns to OpenCode 1 permission.bash without moving user keys."""
+"""Append managed patterns to OpenCode 1 permission.bash without moving user keys.
+
+v1.19.3 ``packages/opencode/src/permission/index.ts`` ``evaluate`` (lines 28-37)
+keeps the last match via ``findLast``. ``fromConfig`` (lines 186-196) walks
+``Object.entries``, so the JSON key order is the rule order. ``"*"`` ask is
+therefore inserted first only when the user has no ``"*"`` key, and managed
+ask/deny patterns are appended after every existing key.
+"""
 
 from __future__ import annotations
 
@@ -28,7 +35,7 @@ def merge_bash_rules(config: dict) -> None:
 
 
 def drop_recorded_bash_patterns(config: dict) -> None:
-    """Remove only patterns previously recorded as ours."""
+    """Remove only patterns previously recorded as ours. Used by uninstall."""
     record = bash_record(config)
     if not record:
         return
@@ -62,14 +69,14 @@ def _pattern_list(record: dict, action: str) -> list:
 
 
 def _patterns() -> dict:
-    patterns = {"bash": ["*", *[resource for resource, _effect in SHELL_RULES]]}
+    patterns = {"bash": [resource for resource, _effect in SHELL_RULES]}
     for action, resource, _effect in OTHER_RULES:
         patterns.setdefault(action, []).append(resource)
     return patterns
 
 
 def _effects() -> dict:
-    effects = {"bash": {"*": "ask", **{resource: effect for resource, effect in SHELL_RULES}}}
+    effects = {"bash": {resource: effect for resource, effect in SHELL_RULES}}
     for action, resource, effect in OTHER_RULES:
         effects.setdefault(action, {})[resource] = effect
     return effects
@@ -91,14 +98,22 @@ def _append_patterns(permission: dict, action: str, patterns: list, previous: li
         current = dict(current)
     for pattern in previous:
         current.pop(pattern, None)
-    if shorthand is not None and "*" not in current:
-        current["*"] = shorthand
-    wanted = _effects()[action]
+    rebuilt = {}
     written = []
+    if action == "bash" and "*" not in current:
+        # A string shorthand such as "allow" is the user's own "*" effect.
+        if shorthand is None:
+            rebuilt["*"] = "ask"
+            written.append("*")
+        else:
+            rebuilt["*"] = shorthand
+    for pattern, effect in current.items():
+        rebuilt[pattern] = effect
+    wanted = _effects()[action]
     for pattern in patterns:
-        if pattern in current:
+        if pattern in rebuilt:
             continue
-        current[pattern] = wanted[pattern]
+        rebuilt[pattern] = wanted[pattern]
         written.append(pattern)
-    permission[action] = current
+    permission[action] = rebuilt
     return written

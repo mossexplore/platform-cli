@@ -1,11 +1,13 @@
 """Merge Windows OpenCode permission rules into the user config.
 
-OpenCode 1.1.1 through 1.x stores shell rules on ``permission.bash``. The
-current GitHub release, v1.19.3, rejects a top-level ``permissions`` array.
-OpenCode 2.0.0 and newer accept that array of ``{action, resource, effect}``.
-The installer detects ``opencode --version`` and writes only the shape that
-release understands. User ``permission.bash`` and ``permission.shell`` entries
-stay in place.
+``opencode --version`` selects the shape. Major 2 and newer write the
+``permissions`` array. OpenCode 1.1.1 through 1.x write ``permission.bash``.
+Every 1.x release rejects the array: v1.18.35 and v1.19.3 raise
+"V2 permissions are not supported by OpenCode V1" from
+``packages/opencode/src/config/v2-compat.ts`` lines 94-113, and older 1.x
+releases report an unrecognized key. ``@opencode/cli`` 2.1.0 is the release
+known to load the array. User ``permission.bash`` and ``permission.shell``
+entries stay in place in both modes.
 
 Within the v2 array the order is fixed: user non-shell rules, the shell
 ``*`` ask fallback, user shell rules, then managed rules. The fallback asks
@@ -38,16 +40,16 @@ from .opencode_rulematch import (
     permission_effect,
     wildcard_match,
 )
+from .opencode_version import (
+    MINIMUM_BASH,
+    MINIMUM_PERMISSIONS,
+    OpenCodeVersionError,
+    detect_permission_format,
+    permission_format_for_version,
+)
 
 SCHEMA = "https://opencode.ai/config.json"
-# v1.1.1 release notes introduced granular permission.bash patterns.
-MINIMUM_BASH = (1, 1, 1)
-# Tag v2.0.0 is the first tree whose schema declares the permissions array.
-MINIMUM_PERMISSIONS = (2, 0, 0)
-_VERSION = re.compile(r"(\d+)\.(\d+)\.(\d+)")
 _COMMENT = re.compile(r"(?<!:)//|/\*")
-class OpenCodeVersionError(ValueError):
-    """The installed OpenCode cannot be identified or is too old to update."""
 
 
 def fresh_opencode_config() -> dict:
@@ -68,7 +70,6 @@ def merge_opencode_config(config: dict, *, rule_format: str = "permissions") -> 
         raise ValueError(f"Unknown OpenCode rule format: {rule_format}")
     result = json.loads(json.dumps(config))
     if rule_format == "permissions":
-        drop_recorded_bash_patterns(result)
         existing = result.get("permissions", [])
         if existing is None:
             existing = []
@@ -79,39 +80,6 @@ def merge_opencode_config(config: dict, *, rule_format: str = "permissions") -> 
     _drop_marked_array_rules(result)
     merge_bash_rules(result)
     return result
-
-
-def permission_format_for_version(version: str) -> str:
-    """Return ``permissions`` for OpenCode 2+, ``bash`` for 1.1.1 through 1.x."""
-    parsed = _parse_version(version)
-    if parsed is None:
-        raise OpenCodeVersionError(
-            "OpenCode version could not be read. Install OpenCode 1.1.1 or newer and rerun. "
-            "opencode.json was left unchanged."
-        )
-    if parsed >= MINIMUM_PERMISSIONS:
-        return "permissions"
-    if parsed >= MINIMUM_BASH:
-        return "bash"
-    found = ".".join(str(part) for part in parsed)
-    raise OpenCodeVersionError(
-        f"OpenCode {found} is older than 1.1.1. Permission rules were not written. "
-        "opencode.json was left unchanged."
-    )
-
-
-def detect_permission_format(run_version=None) -> str:
-    """Read ``opencode --version``, or ``opencode2 --version`` when opencode is absent."""
-    run_version = run_version or _command_version
-    text = run_version("opencode")
-    if text is None:
-        text = run_version("opencode2")
-    if text is None:
-        raise OpenCodeVersionError(
-            "OpenCode version could not be detected. Install OpenCode 1.1.1 or newer and rerun. "
-            "opencode.json was left unchanged."
-        )
-    return permission_format_for_version(text)
 
 
 def validate_opencode_config(target: Path) -> None:
@@ -314,32 +282,36 @@ def _rule(action: str, resource: str, effect: str) -> dict:
     return {"action": action, "resource": resource, "effect": effect, MARKER: MARKER_VALUE}
 
 
-def _parse_version(text: str):
-    if not text:
-        return None
-    match = _VERSION.search(text)
-    if not match:
-        return None
-    return tuple(int(part) for part in match.groups())
+def _opencode_debug_config(target: Path) -> None:
+    """Ask the installed opencode binary to load this config directory.
 
-
-def _command_version(name: str):
-    resolved = shutil.which(name)
+    ``OPENCODE_CONFIG_DIR`` points at the directory just written.
+    ``OPENCODE_DISABLE_PROJECT_CONFIG`` keeps a project file from being appended
+    during the check. v1.19.3 ``packages/opencode/src/cli/cmd/debug/config.ts``
+    and v2.1.0 ``packages/cli/src/commands/handlers/debug/config.ts`` both expose
+    ``opencode debug config``. A non-zero exit rejects the write.
+    """
+    resolved = shutil.which("opencode")
     if not resolved:
-        return None
+        raise ValueError("opencode was not found, so the updated config could not be loaded")
+    env = os.environ.copy()
+    env["OPENCODE_CONFIG_DIR"] = str(target)
+    env["OPENCODE_DISABLE_PROJECT_CONFIG"] = "1"
     try:
         completed = subprocess.run(
-            [resolved, "--version"],
+            [resolved, "debug", "config"],
+            cwd=str(target),
+            env=env,
             capture_output=True,
             text=True,
-            timeout=10,
+            timeout=120,
             check=False,
         )
-    except (OSError, subprocess.TimeoutExpired):
-        return None
+    except (OSError, subprocess.TimeoutExpired) as error:
+        raise ValueError(f"opencode debug config failed: {error}") from error
     if completed.returncode != 0:
-        return None
-    return (completed.stdout or completed.stderr or "").strip()
+        detail = (completed.stderr or completed.stdout or "opencode debug config failed").strip()
+        raise ValueError(detail or "opencode debug config failed")
 
 
 def _read_existing(path: Path):
@@ -438,6 +410,7 @@ def _replace_with_rollback(path: Path, rendered: str, original: bytes | None) ->
         confirmed = json.loads(path.read_text(encoding="utf-8"))
         if confirmed != loaded:
             raise ValueError("OpenCode config verification failed")
+        _opencode_debug_config(path.parent)
     except Exception as error:
         temporary.unlink(missing_ok=True)
         try:

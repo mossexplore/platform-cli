@@ -19,11 +19,11 @@
 
 规则面向 Windows 上的 OpenCode。OpenCode 在这里默认使用 PowerShell 执行 shell 工具。规则按最后一条命中生效，匹配不区分大小写，并把反斜杠当作 `/`。
 
-安装程序执行 `opencode --version`（找不到 `opencode` 时再试 `opencode2 --version`）。OpenCode 1.1.1 至 1.x 只支持 `permission.bash`，当前 GitHub Release v1.19.3 遇到顶层 `permissions` 数组会报错，因此这一范围把规则追加到 `permission.bash` 末尾。OpenCode 2.0.0 及以上支持 `{action, resource, effect}` 的 `permissions` 数组，规则写入该数组。版本低于 1.1.1 或无法识别时，安装停止，不改任何配置。已有的 `permission.bash` 和 `permission.shell` 保留，不搬移、不删除。
+安装程序只执行 `opencode --version`。主版本号大于等于 2 时写入 `{action, resource, effect}` 的 `permissions` 数组，受管理规则放在最后。能加载该数组的最低版本是 `@opencode/cli` 2.1.0。OpenCode 1.x 全部拒绝顶层 `permissions`：v1.18.35 与当前 GitHub Release v1.19.3 在 `packages/opencode/src/config/v2-compat.ts` 第 94–113 行报 “V2 permissions are not supported by OpenCode V1. Use V1 permission rules or run opencode2.”，更早的 1.x 报 Unrecognized key。1.1.1 至 1.x 把规则写入 `permission.bash` 对象。v1.19.3 `packages/opencode/src/permission/index.ts` 的 `evaluate`（约第 28–37 行）用 `findLast` 取最后一条命中，`fromConfig`（约第 186–196 行）按 `Object.entries` 的键顺序展开。因此对象里还没有 `"*"` 时，安装程序把 `"*": "ask"` 插在第一项，让后面的用户键覆盖它；用户已有的键不删除、不搬移；精确 allow、随后的 ask、`--help` allow 和 deny 按这个相对顺序追加在最后，使 deny 和需要压过精确 allow 的 ask 胜出。低于 1.1.1，或无法从 `opencode --version` 读出版本时，安装停止，不改任何配置。两种模式都不搬移、不删除用户已有的 `permission.bash` 和 `permission.shell`。写入后用 `opencode debug config` 加载该目录（设置 `OPENCODE_CONFIG_DIR`，并设置 `OPENCODE_DISABLE_PROJECT_CONFIG=1`）；退出码非 0 时从备份恢复原文件。
 
 `shell` 的 `"*": "ask"` 作用于所有 shell 命令，不只是 `ml`。只有完整、无额外参数的已知只读 `ml` 命令被精确 `allow`。放行规则不含 `*`。`--help` 只放行下表中的几条完整命令。带 ID、`-o json` 或其他额外参数的命令，以及以后新增的命令，都回到审批。
 
-OpenCode 2 先加载全局配置，再加载项目配置，最后追加 Agent 的 `permissions`。项目目录或 Agent 中的规则可以覆盖这里写入的全局规则。同一文件里的 `permission.bash` 会排在 `permissions` 数组之前。
+OpenCode 2 先加载全局配置，再加载项目配置，最后追加 Agent 的 `permissions`。项目目录或 Agent 中的规则可以覆盖这里写入的全局规则。同一文件里的 `permission.bash` 会排在 `permissions` 数组之前。`@opencode/cli` 2.1.0 的 `packages/core/src/permission.ts` 在 `evaluateInput` 里先检查已配置规则：结果为 deny 就拒绝，已保存的“始终允许”只追加在后面，所以它可以覆盖 ask，不能覆盖 deny。OpenCode 1.x 的 `ask` 把已保存的允许接在规则集之后再 `findLast`，保存的允许可能覆盖更早的 deny。
 
 放在精确放行之后、仍然要求审批的模式：
 
@@ -38,7 +38,7 @@ OpenCode 2 先加载全局配置，再加载项目配置，最后追加 Agent �
 
 `[IO.File]::ReadAllText` 和 `${路径}` 不是 OpenCode 能拆出来的命令。扫描结果为空时，OpenCode 不做权限检查，所以上述规则拦不住这两种读法。不要用它们读取凭据。凭据改为 Windows DPAPI 加密存储由单独事项处理，本安装程序不实现 DPAPI。
 
-下面是 OpenCode 2 全新安装时写入的 `opencode.json`。每条规则都带 `"wiserec": "managed"`。`"*": "ask"` 作用于所有 shell 命令。OpenCode 1.1.1 至 1.x 改为把同样的模式追加到 `permission.bash`。
+下面是 OpenCode 2 全新安装时写入的 `opencode.json`。每条规则都带 `"wiserec": "managed"`。`"*": "ask"` 作用于所有 shell 命令。OpenCode 1.1.1 至 1.x 改为写入 `permission.bash`：没有 `"*"` 时第一项是 `"*": "ask"`，ask 与 deny 在用户键之后。
 
 ```json
 {

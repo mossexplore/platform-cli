@@ -6,6 +6,7 @@ from unittest.mock import patch
 
 import pytest
 
+from wiserec_cli import opencode_permissions as permission_module
 from wiserec_cli.opencode_install import main
 from wiserec_cli.opencode_permissions import (
     MARKER,
@@ -14,6 +15,7 @@ from wiserec_cli.opencode_permissions import (
     combined_shell_effect,
     conflicting_allow_rules,
     detect_permission_format,
+    fresh_bash_config,
     fresh_opencode_config,
     install_opencode_permissions,
     layered_rules,
@@ -24,6 +26,13 @@ from wiserec_cli.opencode_permissions import (
     wildcard_match,
     OpenCodeVersionError,
 )
+
+_DEBUG_CONFIG = permission_module._opencode_debug_config
+
+
+@pytest.fixture(autouse=True)
+def _accept_opencode_debug_config(monkeypatch):
+    monkeypatch.setattr(permission_module, "_opencode_debug_config", lambda target: None)
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -478,6 +487,7 @@ def test_version_selects_bash_or_permissions_and_aborts_when_unknown():
     assert permission_format_for_version("1.19.3") == "bash"
     assert permission_format_for_version("opencode 1.1.1") == "bash"
     assert permission_format_for_version("2.0.0") == "permissions"
+    assert permission_format_for_version("2.1.0") == "permissions"
     assert permission_format_for_version("2.0.32\n") == "permissions"
     with pytest.raises(OpenCodeVersionError):
         permission_format_for_version("1.1.0")
@@ -486,7 +496,8 @@ def test_version_selects_bash_or_permissions_and_aborts_when_unknown():
     with pytest.raises(OpenCodeVersionError):
         detect_permission_format(lambda name: None)
     assert detect_permission_format(lambda name: "1.19.3" if name == "opencode" else None) == "bash"
-    assert detect_permission_format(lambda name: None if name == "opencode" else "2.0.32") == "permissions"
+    with pytest.raises(OpenCodeVersionError):
+        detect_permission_format(lambda name: None if name == "opencode" else "2.1.0")
 
 
 def test_undetectable_version_aborts_before_any_config_write(tmp_path, monkeypatch, capsys):
@@ -540,7 +551,17 @@ def test_bash_release_appends_without_moving_user_rules(tmp_path, capsys):
     assert bash["ml*"] == "allow"
     assert bash["ml login --show-secrets*"] == "deny"
     assert list(bash).index("ml login --show-secrets*") > list(bash).index("ml*")
+    assert list(bash).index("ml jupyter exec*") > list(bash).index("ml*")
+    assert list(bash).index("ml jupyter exec --help") > list(bash).index("ml jupyter exec*")
     assert "permissions" not in document
+    rules = [{"action": "shell", "resource": resource, "effect": effect} for resource, effect in bash.items()]
+    assert combined_shell_effect(["echo hello"], rules) == "allow"
+    assert combined_shell_effect(["git status"], rules) == "allow"
+    assert combined_shell_effect(["ml tree"], rules) == "allow"
+    assert combined_shell_effect(["ml login --show-secrets"], rules) == "deny"
+    assert combined_shell_effect(
+        ["ml jupyter exec --cwd x -- sh -c 'echo pwned' --help"], rules
+    ) == "ask"
     warning = capsys.readouterr().err
     assert "ml*" in warning
     assert "broad shell allow" in warning
@@ -568,7 +589,7 @@ def test_existing_backup_is_not_overwritten(tmp_path):
 
 def test_project_and_agent_rules_override_global():
     # OpenCode 2 loads global rules, then project rules, then appends agent rules.
-    # v2.0.0 also places permission.bash rules before the permissions array.
+    # The same file still evaluates permission.bash before the permissions array.
     global_rules = fresh_opencode_config()["permissions"]
     project = [{"action": "shell", "resource": "*", "effect": "allow"}]
     agent = [{"action": "shell", "resource": "ml login --show-secrets*", "effect": "deny"}]
@@ -590,3 +611,172 @@ def test_project_and_agent_rules_override_global():
     layered = layered_rules(bash, global_rules)
     assert combined_shell_effect(["echo hello"], layered) == "ask"
     assert combined_shell_effect(["rm -rf /tmp/demo"], layered) == "ask"
+
+
+def _bash_rules(bash: dict) -> list:
+    return [{"action": "shell", "resource": resource, "effect": effect} for resource, effect in bash.items()]
+
+
+def test_fresh_bash_puts_star_ask_first_and_ask_deny_last():
+    document = fresh_bash_config()
+    bash = document["permission"]["bash"]
+    keys = list(bash)
+    assert keys[0] == "*"
+    assert bash["*"] == "ask"
+    assert keys[1] == "ml *"
+    assert keys.index("ml tree") < keys.index("ml jupyter exec*")
+    assert keys.index("ml jupyter exec*") < keys.index("ml jupyter exec --help")
+    assert keys.index("ml jupyter exec --help") < keys.index("ml login --show-secrets*")
+    assert keys[-1] == "*credentials.json*"
+    assert "permissions" not in document
+    rules = _bash_rules(bash)
+    assert combined_shell_effect(["echo hello"], rules) == "ask"
+    assert combined_shell_effect(["ml tree"], rules) == "allow"
+    assert combined_shell_effect(["ml jupyter exec --help"], rules) == "allow"
+    assert combined_shell_effect(
+        ["ml jupyter exec --cwd x -- sh -c 'echo pwned' --help"], rules
+    ) == "ask"
+    assert combined_shell_effect(["ml login --show-secrets"], rules) == "deny"
+    assert permission_effect("read", "credentials.json", [
+        {"action": "read", "resource": resource, "effect": effect}
+        for resource, effect in document["permission"]["read"].items()
+    ]) == "deny"
+    assert document["permission"]["skill"]["wiserec-platform"] == "allow"
+
+
+def test_bash_inserts_star_ask_first_without_moving_user_keys(tmp_path):
+    path = tmp_path / "opencode.json"
+    original = {"permission": {"bash": {"git status *": "allow", "npm test *": "ask"}}}
+    path.write_text(json.dumps(original), encoding="utf-8")
+    install_opencode_permissions(tmp_path, rule_format="bash")
+    bash = json.loads(path.read_text(encoding="utf-8"))["permission"]["bash"]
+    assert list(bash)[:3] == ["*", "git status *", "npm test *"]
+    assert bash["*"] == "ask"
+    assert list(bash)[3] == "ml *"
+    assert list(bash)[-1] == "*credentials.json*"
+    rules = _bash_rules(bash)
+    assert combined_shell_effect(["echo hello"], rules) == "ask"
+    assert combined_shell_effect(["git status"], rules) == "allow"
+    assert combined_shell_effect(["npm test"], rules) == "ask"
+    assert combined_shell_effect(["ml tree"], rules) == "allow"
+    install_opencode_permissions(tmp_path, rule_format="bash")
+    again = json.loads(path.read_text(encoding="utf-8"))["permission"]["bash"]
+    assert list(again) == list(bash)
+
+
+def test_bash_does_not_move_an_existing_star_key():
+    merged = merge_opencode_config(
+        {"permission": {"bash": {"git status *": "allow", "*": "deny", "npm test *": "ask"}}},
+        rule_format="bash",
+    )
+    bash = merged["permission"]["bash"]
+    assert list(bash)[:3] == ["git status *", "*", "npm test *"]
+    assert bash["*"] == "deny"
+    assert list(bash)[3] == "ml *"
+    assert combined_shell_effect(["echo hello"], _bash_rules(bash)) == "deny"
+
+
+def test_bash_keeps_a_user_owned_pattern_and_string_shorthand():
+    merged = merge_opencode_config(
+        {"permission": {"bash": "allow", "read": {"*.md": "allow", "*credentials.json*": "allow"}}},
+        rule_format="bash",
+    )
+    bash = merged["permission"]["bash"]
+    assert list(bash)[0] == "*"
+    assert bash["*"] == "allow"
+    assert "*" not in merged[MARKER]["bash"]
+    read = merged["permission"]["read"]
+    assert list(read) == ["*.md", "*credentials.json*"]
+    assert read["*credentials.json*"] == "allow"
+
+
+def test_permissions_mode_does_not_change_permission_bash():
+    original = {
+        "permission": {
+            "edit": "ask",
+            "bash": {"*": "allow", "ml*": "allow", "git status *": "allow"},
+            "shell": {"npm test *": "allow"},
+        },
+        MARKER: {"format": "bash", "bash": ["ml*"], "read": [], "skill": []},
+    }
+    merged = merge_opencode_config(original, rule_format="permissions")
+    assert merged["permission"] == original["permission"]
+    assert list(merged["permission"]["bash"]) == ["*", "ml*", "git status *"]
+    assert merged[MARKER]["format"] == "bash"
+    assert merged[MARKER]["bash"] == ["ml*"]
+
+
+def test_bash_mode_drops_marked_array_rules_and_keeps_user_array_rules():
+    merged = merge_opencode_config(
+        {
+            "permissions": [
+                {"action": "read", "resource": "*.md", "effect": "allow"},
+                {"action": "shell", "resource": "ml *", "effect": "ask", MARKER: MARKER_VALUE},
+            ]
+        },
+        rule_format="bash",
+    )
+    assert merged["permissions"] == [{"action": "read", "resource": "*.md", "effect": "allow"}]
+    assert list(merged["permission"]["bash"])[0] == "*"
+
+
+def test_debug_config_rejection_restores_the_original(tmp_path, monkeypatch):
+    path = tmp_path / "opencode.json"
+    original = '{"model": "keep"}\n'
+    path.write_text(original, encoding="utf-8")
+
+    def reject(target):
+        raise ValueError("V2 permissions are not supported by OpenCode V1")
+
+    monkeypatch.setattr(permission_module, "_opencode_debug_config", reject)
+    with pytest.raises(ValueError, match="not supported"):
+        install_opencode_permissions(tmp_path)
+    assert path.read_text(encoding="utf-8") == original
+    assert (tmp_path / "opencode.json.bak").read_text(encoding="utf-8") == original
+    assert not (tmp_path / "opencode.json.wiserec-tmp").exists()
+
+
+def test_debug_config_rejection_removes_a_new_file(tmp_path, monkeypatch):
+    monkeypatch.setattr(
+        permission_module,
+        "_opencode_debug_config",
+        lambda target: (_ for _ in ()).throw(ValueError("Unrecognized key")),
+    )
+    with pytest.raises(ValueError, match="Unrecognized key"):
+        install_opencode_permissions(tmp_path, rule_format="bash")
+    assert not (tmp_path / "opencode.json").exists()
+    assert list(tmp_path.glob("opencode.json*")) == []
+
+
+def test_debug_config_asks_opencode_to_load_the_directory(tmp_path, monkeypatch):
+    seen = {}
+
+    class Completed:
+        def __init__(self, code, stdout, stderr):
+            self.returncode = code
+            self.stdout = stdout
+            self.stderr = stderr
+
+    def fake_run(argv, **kwargs):
+        seen["argv"] = argv
+        seen["cwd"] = kwargs["cwd"]
+        seen["env"] = kwargs["env"]
+        return Completed(0, "{}", "")
+
+    monkeypatch.setattr(permission_module.shutil, "which", lambda name: "/usr/bin/opencode" if name == "opencode" else None)
+    monkeypatch.setattr(permission_module.subprocess, "run", fake_run)
+    _DEBUG_CONFIG(tmp_path)
+    assert seen["argv"] == ["/usr/bin/opencode", "debug", "config"]
+    assert seen["cwd"] == str(tmp_path)
+    assert seen["env"]["OPENCODE_CONFIG_DIR"] == str(tmp_path)
+    assert seen["env"]["OPENCODE_DISABLE_PROJECT_CONFIG"] == "1"
+
+    def reject(argv, **kwargs):
+        return Completed(1, "", "V2 permissions are not supported by OpenCode V1")
+
+    monkeypatch.setattr(permission_module.subprocess, "run", reject)
+    with pytest.raises(ValueError, match="not supported"):
+        _DEBUG_CONFIG(tmp_path)
+    monkeypatch.setattr(permission_module.shutil, "which", lambda name: None)
+    with pytest.raises(ValueError, match="not found"):
+        _DEBUG_CONFIG(tmp_path)
