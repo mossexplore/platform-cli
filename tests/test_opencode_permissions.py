@@ -859,6 +859,61 @@ def test_skill_install_failure_restores_permissions_and_removes_manifest(tmp_pat
     assert "permission rules installed" not in error
 
 
+def test_upgrade_skill_failure_restores_manifest_and_uninstall_restores_original_bytes(tmp_path, monkeypatch, capsys):
+    from wiserec_cli.opencode_configfile import dump
+
+    user = {
+        "model": "keep",
+        "permissions": [
+            {"action": "shell", "resource": "ml *", "effect": "allow", "note": "user"},
+            {"action": "shell", "resource": "git status *", "effect": "allow"},
+        ],
+    }
+    path = tmp_path / "opencode.json"
+    original_bytes = dump(user).encode("utf-8")
+    path.write_bytes(original_bytes)
+    monkeypatch.setenv("OPENCODE_CONFIG_DIR", str(tmp_path))
+    _v2(monkeypatch)
+    with patch("wiserec_cli.opencode_install.install_resources"):
+        assert main([]) == 0
+    manifest = tmp_path / "wiserec-managed.json"
+    marked = manifest.read_bytes().replace(b"{", b'{\n  "upgrade_marker": "previous",', 1)
+    manifest.write_bytes(marked)
+    pre_upgrade_config = path.read_bytes()
+    pre_upgrade_manifest = manifest.read_bytes()
+    assert b"upgrade_marker" in pre_upgrade_manifest
+
+    with patch("wiserec_cli.opencode_install.install_resources", side_effect=OSError("disk full")):
+        assert main([]) == 1
+    assert path.read_bytes() == pre_upgrade_config
+    assert manifest.read_bytes() == pre_upgrade_manifest
+    assert "restored to its pre-install content" in capsys.readouterr().err
+
+    assert main(["--uninstall"]) == 0
+    assert path.read_bytes() == original_bytes
+    assert not manifest.exists()
+
+
+def test_skill_install_rollback_failure_reports_backup_path(tmp_path, monkeypatch, capsys):
+    path = tmp_path / "opencode.json"
+    path.write_text('{"model": "keep"}\n', encoding="utf-8")
+    monkeypatch.setenv("OPENCODE_CONFIG_DIR", str(tmp_path))
+    _v2(monkeypatch)
+
+    def explode(target_path, data):
+        raise OSError("restore failed")
+
+    monkeypatch.setattr(permission_module, "_restore", explode)
+    with patch("wiserec_cli.opencode_install.install_resources", side_effect=OSError("disk full")):
+        assert main() == 1
+    error = capsys.readouterr().err
+    assert "Permission rollback failed" in error
+    assert "may still contain this run's permission rules" in error
+    assert "partial replacement" in error
+    assert str(tmp_path / "opencode.json.bak") in error
+    assert "Nothing new was left installed" not in error
+
+
 def test_debug_config_rejection_removes_a_new_file(tmp_path, monkeypatch):
     monkeypatch.setattr(
         permission_module,

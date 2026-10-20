@@ -39,6 +39,7 @@ from .opencode_configfile import (
 from .opencode_debug import run_debug_config
 from .opencode_managed import (
     MergeReport,
+    manifest_bytes,
     manifest_problem,
     clear_record,
     content_hash,
@@ -52,6 +53,7 @@ from .opencode_managed import (
     restored_bash_keys,
     restrict_backup,
     save_record,
+    write_manifest_bytes,
     shell_family,
     take_legacy_marker,
 )
@@ -196,22 +198,40 @@ def preflight_opencode_permissions(
 _rollback_snapshot = None
 
 
-def rollback_opencode_permissions(target: Path) -> None:
-    """Undo this run's permission write and remove the sidecar manifest."""
+def rollback_opencode_permissions(target: Path) -> bool:
+    """Restore this run's config and the manifest bytes from before the install.
+
+    Returns whether a manifest existed before this run. A missing manifest is
+    deleted. An existing one is written back byte for byte.
+    """
     global _rollback_snapshot
     if _rollback_snapshot is None:
-        raise RuntimeError("OpenCode permission changes cannot be rolled back because this run has no backup")
-    path, original = _rollback_snapshot
+        raise RuntimeError(_rollback_failure("this run has no backup", None))
+    path, original, manifest, backup = _rollback_snapshot
     if path.parent.resolve() != target.resolve():
-        raise RuntimeError(f"OpenCode permission rollback does not match {target}")
-    _restore(path, original)
-    clear_record(path)
+        raise RuntimeError(_rollback_failure(f"does not match {target}", backup))
+    try:
+        _restore(path, original)
+        write_manifest_bytes(path, manifest)
+    except Exception as error:
+        raise RuntimeError(_rollback_failure(str(error), backup)) from error
     _rollback_snapshot = None
+    return manifest is not None
 
 
-def _remember_rollback(path: Path, original: bytes | None) -> None:
+def _rollback_failure(reason: str, backup: Path | None) -> str:
+    location = str(backup) if backup is not None else "unavailable"
+    return (
+        "Permission rollback failed. "
+        "opencode.json and wiserec-managed.json may still contain this run's permission rules. "
+        "The skill and /ml command may be the previous copy or a partial replacement. "
+        f"Backup: {location}. {reason}"
+    )
+
+
+def _remember_rollback(path: Path, original: bytes | None, manifest: bytes | None, backup: Path | None) -> None:
     global _rollback_snapshot
-    _rollback_snapshot = (path, original)
+    _rollback_snapshot = (path, original, manifest, backup)
 
 
 def install_opencode_permissions(
@@ -240,14 +260,15 @@ def install_opencode_permissions(
     _warn_project_and_agent(target)
     _announce(report)
     rendered = _dump(merged)
+    previous_manifest = manifest_bytes(path)
     if original is not None and _normalize_newlines(_decode(original)) == rendered:
         _store_manifest(path, rendered, rule_format, report)
-        _remember_rollback(path, original)
+        _remember_rollback(path, original, previous_manifest, None)
         return
     target.mkdir(parents=True, exist_ok=True)
-    _replace_with_rollback(path, rendered, original, _expected_rules(rule_format, report))
+    backup = _replace_with_rollback(path, rendered, original, _expected_rules(rule_format, report))
     _store_manifest(path, rendered, rule_format, report)
-    _remember_rollback(path, original)
+    _remember_rollback(path, original, previous_manifest, backup)
 
 
 def uninstall_opencode_permissions(target: Path) -> None:
@@ -419,7 +440,7 @@ def _opencode_debug_config(target: Path, expected: dict | None = None) -> None:
     run_debug_config(target, expected, resolver=shutil.which, run=subprocess.run)
 
 
-def _replace_with_rollback(path: Path, rendered: str, original: bytes | None, expected: dict | None) -> None:
+def _replace_with_rollback(path: Path, rendered: str, original: bytes | None, expected: dict | None) -> Path | None:
     backup = _backup_path(path) if original is not None else None
     temporary = path.with_name(path.name + ".wiserec-tmp")
     if original is not None and backup is not None:
@@ -443,6 +464,7 @@ def _replace_with_rollback(path: Path, rendered: str, original: bytes | None, ex
                 f"OpenCode config restore failed; backup is {backup}"
             ) from restore_error
         raise
+    return backup
 
 
 __all__ = [

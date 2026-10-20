@@ -153,17 +153,21 @@ def main(argv: list[str] | None = None) -> int:
     try:
         install_resources(target)
     except Exception as error:
-        try:
-            rollback_opencode_permissions(target)
-            rollback_note = (
-                "Permission changes from this run were restored from the backup, "
-                "and wiserec-managed.json was removed. "
-                "The previous skill and /ml command were restored when a previous copy existed."
-            )
-        except Exception as rollback_error:
-            rollback_note = f"OpenCode permission rollback failed: {rollback_error}"
         msg.error(f"OpenCode skill and /ml command installation failed: {error}")
-        msg.detail(rollback_note)
+        try:
+            kept_manifest = rollback_opencode_permissions(target)
+        except Exception as rollback_error:
+            msg.detail(str(rollback_error))
+            return 1
+        if kept_manifest:
+            manifest_note = "wiserec-managed.json was restored to its pre-install content."
+        else:
+            manifest_note = "wiserec-managed.json was removed."
+        msg.detail(
+            "Permission changes from this run were restored from the backup, "
+            f"and {manifest_note} "
+            "The previous skill and /ml command were restored when a previous copy existed."
+        )
         msg.detail(
             "Nothing new was left installed. An existing skill and /ml command were restored "
             "from the backup taken before replacement. "
