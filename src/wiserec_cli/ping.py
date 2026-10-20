@@ -126,7 +126,7 @@ def _valid_owners(entry: Dict[str, Any]) -> list[Dict[str, Any]]:
 
 
 def start(runtime: Any, *, automatic: bool = False) -> str:
-    """登记当前终端并确保当前环境只有一个后台进程。"""
+    """登记当前终端并确保当前环境只有一个后台进程，成功时静默返回空字符串。"""
     if not runtime.config.auto_ping:
         return "自动保活已在配置中关闭"
     if not sys.stdin.isatty():
@@ -216,12 +216,12 @@ def start(runtime: Any, *, automatic: bool = False) -> str:
                 and _process_identity(current.get("worker_pid", 0))
                 == current.get("worker_identity")
             ):
-                return f"自动保活已启动（环境 {profile}，间隔 {runtime.config.ping_interval_minutes} 分钟）"
+                return ""
             time.sleep(0.1)
         with store.locked():
             current = store.read()["profiles"].get(profile, {})
         raise RuntimeError(f"自动保活未能确认启动：{_worker_error(current)}")
-    return f"自动保活已启动（环境 {profile}，间隔 {runtime.config.ping_interval_minutes} 分钟）"
+    return ""
 
 
 def auto_start(runtime: Any, *, after_login: bool = False) -> str:

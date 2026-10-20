@@ -212,8 +212,8 @@ class PingTest(unittest.TestCase):
             stdin.isatty.return_value = True
             process.return_value.pid = 999
             process.return_value.poll.return_value = None
-            self.assertIn("已启动", start(self.runtime))
-            self.assertIn("已启动", start(self.runtime))
+            self.assertEqual("", start(self.runtime))
+            self.assertEqual("", start(self.runtime))
             process.assert_called_once()
             self.assertEqual(len(self.state.read()["profiles"]["dev"]["owners"]), 2)
             detach(self.runtime, "dev")
@@ -267,7 +267,7 @@ class PingTest(unittest.TestCase):
              patch("wiserec_cli.ping.time.sleep", side_effect=worker_ready):
             stdin.isatty.return_value = True
             process.return_value.pid = 999
-            self.assertIn("已启动", start(self.runtime))
+            self.assertEqual("", start(self.runtime))
             process.assert_called_once()
         self.assertEqual(self.state.read()["profiles"]["dev"]["worker_version"],
                          __version__)

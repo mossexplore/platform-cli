@@ -78,10 +78,10 @@ class MessageColumn(ProgressColumn):
 
 def ping_status(message: str) -> None:
     """保活服务返回状态文本，退出码由调用方决定。"""
+    if not message:
+        return
     if message.startswith(("警告", "无法")):
         warning(message)
-    elif message.startswith("自动保活已启动"):
-        success(message)
     else:
         detail(message)
 

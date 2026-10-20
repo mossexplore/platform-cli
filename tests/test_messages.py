@@ -185,7 +185,6 @@ def test_cli_entrypoint_contains_unexpected_exceptions(exception, code, capsys):
 
 
 @pytest.mark.parametrize('message,prefix', [
-    ('自动保活已启动（环境 dev）', '[成功]'),
     ('警告：自动保活启动失败', '[警告]'),
     ('无法识别当前终端窗口，未启动自动保活', '[警告]'),
     ('尚未选择业务，选择后将启动自动保活', '尚未选择业务'),
@@ -195,3 +194,9 @@ def test_ping_status_severity(message, prefix, capsys):
     output = capsys.readouterr()
     assert not output.out
     assert output.err.startswith(prefix)
+
+
+def test_ping_success_is_silent(capsys):
+    msg.ping_status("")
+    output = capsys.readouterr()
+    assert output.out == output.err == ""

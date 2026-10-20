@@ -88,7 +88,7 @@ def test_spinner_updates_and_stops_on_failure():
 
 
 @pytest.mark.parametrize('message,visible', [
-    ('自动保活已启动（环境 mirror，间隔 10 分钟）', False),
+    ('', False),
     ('当前不是交互式终端，未启动自动保活', False),
     ('警告：自动保活启动失败：网络不可用', True),
     ('尚未选择业务，选择后将启动自动保活', True),
