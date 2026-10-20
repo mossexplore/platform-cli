@@ -489,9 +489,9 @@ def _plant_skill(directory: Path) -> None:
     (commands / "custom.md").write_text("keep", encoding="utf-8")
 
 
-def _assert_skill_removed(directory: Path) -> None:
-    assert not (directory / "skills" / "wiserec-platform").exists()
-    assert not (directory / "commands" / "ml.md").exists()
+def _assert_prior_skill(directory: Path) -> None:
+    assert (directory / "skills" / "wiserec-platform" / "SKILL.md").read_text(encoding="utf-8") == "old"
+    assert (directory / "commands" / "ml.md").read_text(encoding="utf-8") == "old"
     assert (directory / "commands" / "custom.md").read_text(encoding="utf-8") == "keep"
 
 
@@ -506,10 +506,10 @@ def test_invalid_json_aborts_the_install_step(tmp_path, monkeypatch, capsys):
     install_resources.assert_not_called()
     assert path.read_text(encoding="utf-8") == "{"
     assert not (tmp_path / "opencode.json.bak").exists()
-    _assert_skill_removed(tmp_path)
+    _assert_prior_skill(tmp_path)
     error = capsys.readouterr().err
     assert "left unchanged" in error
-    assert "not left installed" in error
+    assert "were left unchanged" in error
 
 
 def test_uninstall_flag_removes_marked_rules(tmp_path, monkeypatch, capsys):
@@ -551,10 +551,10 @@ def test_main_reports_permission_failure_without_claiming_success(tmp_path, monk
     ):
         assert main() == 1
     install_resources.assert_not_called()
-    _assert_skill_removed(tmp_path)
+    _assert_prior_skill(tmp_path)
     error = capsys.readouterr().err
     assert "CLI remains usable" in error
-    assert "not left installed" in error
+    assert "were left unchanged" in error
     assert "permission rules installed" not in error
 
 
@@ -589,10 +589,10 @@ def test_undetectable_version_aborts_before_any_config_write(tmp_path, monkeypat
     install_resources.assert_not_called()
     assert path.read_text(encoding="utf-8") == '{"model": "keep"}\n'
     assert not (tmp_path / "opencode.json.bak").exists()
-    _assert_skill_removed(tmp_path)
+    _assert_prior_skill(tmp_path)
     error = capsys.readouterr().err
     assert "[错误]" in error
-    assert "not left installed" in error
+    assert "were left unchanged" in error
 
 
 def test_commented_jsonc_fails_the_install_step(tmp_path, monkeypatch, capsys):
@@ -606,8 +606,10 @@ def test_commented_jsonc_fails_the_install_step(tmp_path, monkeypatch, capsys):
     install_resources.assert_not_called()
     assert "// keep" in path.read_text(encoding="utf-8")
     assert not (tmp_path / "opencode.jsonc.bak").exists()
-    _assert_skill_removed(tmp_path)
-    assert "[错误]" in capsys.readouterr().err
+    _assert_prior_skill(tmp_path)
+    error = capsys.readouterr().err
+    assert "[错误]" in error
+    assert "were left unchanged" in error
 
 
 def test_bash_release_appends_without_moving_user_rules(tmp_path, capsys):
@@ -816,7 +818,7 @@ def test_debug_config_rejection_restores_the_original(tmp_path, monkeypatch):
     assert not (tmp_path / "opencode.json.wiserec-tmp").exists()
 
 
-def test_debug_config_failure_in_main_removes_skill_and_restores_config(tmp_path, monkeypatch, capsys):
+def test_prior_skill_stays_when_permission_validation_fails(tmp_path, monkeypatch, capsys):
     path = tmp_path / "opencode.json"
     original = '{"model": "keep"}\n'
     path.write_text(original, encoding="utf-8")
@@ -833,11 +835,11 @@ def test_debug_config_failure_in_main_removes_skill_and_restores_config(tmp_path
     install_resources.assert_not_called()
     assert path.read_text(encoding="utf-8") == original
     assert not (tmp_path / "wiserec-managed.json").exists()
-    _assert_skill_removed(tmp_path)
+    _assert_prior_skill(tmp_path)
     error = capsys.readouterr().err
     assert "missing managed bash rule" in error
     assert "super-secret" not in error
-    assert "not left installed" in error
+    assert "were left unchanged" in error
 
 
 def test_skill_install_failure_restores_permissions_and_removes_manifest(tmp_path, monkeypatch, capsys):
@@ -1278,13 +1280,18 @@ def test_restrict_backup_uses_icacls_for_the_current_user(tmp_path, monkeypatch)
 
     def fake_run(argv, **kwargs):
         calls.append(argv)
-        return type("Completed", (), {"returncode": 0})()
+        if argv == ["whoami"]:
+            return type("Completed", (), {"returncode": 0, "stdout": "CONTOSO\\alice\n", "stderr": ""})()
+        return type("Completed", (), {"returncode": 0, "stdout": "", "stderr": ""})()
 
     monkeypatch.setattr("wiserec_cli.opencode_managed.os.name", "nt")
-    monkeypatch.setenv("USERNAME", "alice")
+    monkeypatch.delenv("USERNAME", raising=False)
     monkeypatch.setattr("subprocess.run", fake_run)
     restrict_backup(path)
-    assert calls == [["icacls", str(path), "/inheritance:r", "/grant:r", "alice:(F)"]]
+    assert calls == [
+        ["whoami"],
+        ["icacls", str(path), "/inheritance:r", "/grant:r", "CONTOSO\\alice:(F)"],
+    ]
 
 
 def test_collision_still_installs_the_skill_and_overwrites_the_key(tmp_path, monkeypatch, capsys):
@@ -1302,3 +1309,272 @@ def test_collision_still_installs_the_skill_and_overwrites_the_key(tmp_path, mon
     assert bash["ml *"] == "ask"
     assert list(bash)[0] == "*"
     assert main(["--override-conflicts"]) == 2
+
+
+def _completed(code, stdout="", stderr=""):
+    return type("Completed", (), {"returncode": code, "stdout": stdout, "stderr": stderr})()
+
+
+def _use_real_debug(monkeypatch, completed):
+    monkeypatch.setattr(permission_module.shutil, "which", lambda name: "/usr/bin/opencode")
+    monkeypatch.setattr(permission_module.subprocess, "run", lambda argv, **kwargs: completed)
+    monkeypatch.setattr(permission_module, "_opencode_debug_config", _DEBUG_CONFIG)
+
+
+def _permission_failure_keeps_skill(tmp_path, monkeypatch, capsys, completed, needle):
+    path = tmp_path / "opencode.json"
+    original = '{"model": "keep"}\n'
+    path.write_text(original, encoding="utf-8")
+    _plant_skill(tmp_path)
+    monkeypatch.setenv("OPENCODE_CONFIG_DIR", str(tmp_path))
+    _v2(monkeypatch)
+    _use_real_debug(monkeypatch, completed)
+    with patch("wiserec_cli.opencode_install.install_resources") as install_resources:
+        assert main() == 1
+    install_resources.assert_not_called()
+    assert path.read_text(encoding="utf-8") == original
+    assert not (tmp_path / "wiserec-managed.json").exists()
+    _assert_prior_skill(tmp_path)
+    error = capsys.readouterr().err
+    assert needle in error
+    assert "were left unchanged" in error
+    return error
+
+
+def test_debug_nonzero_exit_keeps_prior_skill(tmp_path, monkeypatch, capsys):
+    error = _permission_failure_keeps_skill(
+        tmp_path,
+        monkeypatch,
+        capsys,
+        _completed(1, "", "Authorization: Bearer super-secret-token"),
+        "exit 1",
+    )
+    assert "super-secret-token" not in error
+    assert "Bearer [redacted]" in error
+
+
+def test_debug_missing_rules_keeps_prior_skill(tmp_path, monkeypatch, capsys):
+    loaded = json.dumps({"permissions": [{"action": "shell", "resource": "git status *", "effect": "allow"}]})
+    _permission_failure_keeps_skill(
+        tmp_path,
+        monkeypatch,
+        capsys,
+        _completed(0, loaded, ""),
+        "missing managed rule",
+    )
+
+
+def test_debug_non_json_on_permissions_keeps_prior_skill(tmp_path, monkeypatch, capsys):
+    _permission_failure_keeps_skill(
+        tmp_path,
+        monkeypatch,
+        capsys,
+        _completed(0, "not-json", ""),
+        "not a JSON config object",
+    )
+
+
+def test_skill_copy_failure_restores_the_previous_skill(tmp_path, monkeypatch, capsys):
+    import hashlib
+    import shutil
+
+    source = tmp_path / "bundle"
+    manifest = {}
+    for relative in ("skills/wiserec-platform/SKILL.md", "commands/ml.md"):
+        bundled = source / relative
+        bundled.parent.mkdir(parents=True, exist_ok=True)
+        bundled.write_text(relative, encoding="utf-8")
+        manifest[relative] = hashlib.sha256(bundled.read_bytes()).hexdigest()
+    (source / "manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
+    monkeypatch.setattr("wiserec_cli.opencode_install.RESOURCE_ROOT", source)
+
+    path = tmp_path / "opencode.json"
+    original = '{"model": "keep"}\n'
+    path.write_text(original, encoding="utf-8")
+    _plant_skill(tmp_path)
+    monkeypatch.setenv("OPENCODE_CONFIG_DIR", str(tmp_path))
+    _v2(monkeypatch)
+    real_copyfile = shutil.copyfile
+    state = {"failed": False}
+
+    def flaky(src, dst, *args, **kwargs):
+        if "wiserec-opencode-backup" in str(dst) or "wiserec-opencode-backup" in str(src):
+            return real_copyfile(src, dst, *args, **kwargs)
+        if not state["failed"]:
+            state["failed"] = True
+            raise OSError("disk full")
+        return real_copyfile(src, dst, *args, **kwargs)
+
+    with patch("wiserec_cli.opencode_install.shutil.copyfile", side_effect=flaky):
+        assert main() == 1
+    assert path.read_text(encoding="utf-8") == original
+    assert not (tmp_path / "wiserec-managed.json").exists()
+    _assert_prior_skill(tmp_path)
+    error = capsys.readouterr().err
+    assert "disk full" in error
+    assert "wiserec-managed.json was removed" in error
+    assert "restored from the backup" in error
+    assert "permission rules installed" not in error
+
+
+def test_debug_failure_redacts_bearer_and_basic_headers():
+    bearer = public_debug_failure(1, "", "Authorization: Bearer super-secret-token")
+    assert "Bearer [redacted]" in bearer
+    assert "super-secret-token" not in bearer
+    basic = public_debug_failure(1, "", "Authorization: Basic dXNlcjpwYXNz")
+    assert "Basic [redacted]" in basic
+    assert "dXNlcjpwYXNz" not in basic
+    generic = public_debug_failure(1, "", "bearer abc.def.ghi")
+    assert "[redacted]" in generic
+    assert "abc.def.ghi" not in generic
+
+
+def test_global_agent_bash_broad_allow_is_warned(tmp_path, capsys, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    narrow = tmp_path / "narrow"
+    narrow.mkdir()
+    (narrow / "opencode.json").write_text(json.dumps({
+        "agent": {"build": {"permission": {"bash": {"git status *": "allow"}}}},
+    }), encoding="utf-8")
+    install_opencode_permissions(narrow, rule_format="bash")
+    assert "Global agent permission.bash broad allow" not in capsys.readouterr().err
+
+    broad = tmp_path / "broad"
+    broad.mkdir()
+    (broad / "opencode.json").write_text(json.dumps({
+        "agent": {"build": {"permission": {"bash": {"*": "allow"}}}},
+    }), encoding="utf-8")
+    install_opencode_permissions(broad, rule_format="bash")
+    warning = capsys.readouterr().err
+    assert "Global agent permission.bash broad allow" in warning
+    assert "agent.build.permission.bash *=allow" in warning
+
+
+def test_agent_markdown_bash_shorthand_allow_is_warned(tmp_path, capsys, monkeypatch):
+    config = tmp_path / "config"
+    config.mkdir()
+    (config / "agents").mkdir()
+    (config / "agents" / "build.md").write_text("---\nbash: allow\n---\n", encoding="utf-8")
+    monkeypatch.chdir(tmp_path)
+    install_opencode_permissions(config, rule_format="bash")
+    warning = capsys.readouterr().err
+    assert "Project or agent config" in warning
+    assert "shell *=allow" in warning
+
+
+def test_missing_manifest_uninstall_warns_and_reports_unrestored_rules(tmp_path, capsys):
+    path = tmp_path / "opencode.json"
+    path.write_text(json.dumps({
+        "permission": {
+            "bash": {
+                "*": "allow",
+                "git status *": "allow",
+                "ml *": "ask",
+                "ml tree": "allow",
+            }
+        }
+    }), encoding="utf-8")
+    uninstall_opencode_permissions(tmp_path)
+    bash = json.loads(path.read_text(encoding="utf-8"))["permission"]["bash"]
+    assert bash == {"*": "allow", "git status *": "allow"}
+    warning = capsys.readouterr().err
+    assert "wiserec-managed.json is missing" in warning
+    assert 'Could not restore the original value of permission.bash "ml *"' in warning
+    assert 'Could not restore the original value of permission.bash "ml tree"' in warning
+    assert "git status" not in warning
+
+    array_dir = tmp_path / "array"
+    array_dir.mkdir()
+    array_path = array_dir / "opencode.json"
+    array_path.write_text(json.dumps({
+        "permission": {"bash": {"*": "allow"}},
+        "permissions": [
+            {"action": "shell", "resource": "git status *", "effect": "allow"},
+            {"action": "shell", "resource": "ml *", "effect": "ask"},
+            {"action": "read", "resource": "*.md", "effect": "allow"},
+        ],
+    }), encoding="utf-8")
+    uninstall_opencode_permissions(array_dir)
+    document = json.loads(array_path.read_text(encoding="utf-8"))
+    assert document["permission"]["bash"] == {"*": "allow"}
+    kept = {(rule["action"], rule["resource"], rule["effect"]) for rule in document["permissions"]}
+    assert ("shell", "git status *", "allow") in kept
+    assert ("read", "*.md", "allow") in kept
+    assert ("shell", "ml *", "ask") not in kept
+    warning = capsys.readouterr().err
+    assert 'Could not restore the original value of permissions shell "ml *"' in warning
+
+
+def test_corrupt_manifest_warns_on_install(tmp_path, capsys):
+    path = tmp_path / "opencode.json"
+    path.write_text(json.dumps({
+        "permission": {"bash": {"ml *": "ask", "git status *": "allow"}},
+    }), encoding="utf-8")
+    (tmp_path / "wiserec-managed.json").write_text("{", encoding="utf-8")
+    install_opencode_permissions(tmp_path, rule_format="bash")
+    warning = capsys.readouterr().err
+    assert "wiserec-managed.json is corrupt" in warning
+    assert "cannot be restored" in warning
+    bash = json.loads(path.read_text(encoding="utf-8"))["permission"]["bash"]
+    assert bash["ml *"] == "ask"
+    assert bash["git status *"] == "allow"
+    json.loads((tmp_path / "wiserec-managed.json").read_text(encoding="utf-8"))
+
+
+def test_missing_manifest_with_known_rules_warns_on_install(tmp_path, capsys):
+    path = tmp_path / "opencode.json"
+    path.write_text(json.dumps({"permission": {"bash": {"ml tree": "allow"}}}), encoding="utf-8")
+    install_opencode_permissions(tmp_path, rule_format="bash")
+    assert "wiserec-managed.json is missing" in capsys.readouterr().err
+    assert json.loads(path.read_text(encoding="utf-8"))["permission"]["bash"]["ml tree"] == "allow"
+
+
+def test_fresh_install_does_not_warn_about_a_missing_manifest(tmp_path, capsys):
+    install_opencode_permissions(tmp_path, rule_format="bash")
+    assert "wiserec-managed.json is missing" not in capsys.readouterr().err
+
+
+def test_icacls_failure_is_warned(tmp_path, monkeypatch, capsys):
+    path = tmp_path / "opencode.json.bak"
+    path.write_text("x", encoding="utf-8")
+
+    def fake_run(argv, **kwargs):
+        if argv == ["whoami"]:
+            return type("Completed", (), {"returncode": 0, "stdout": "CONTOSO\\alice\n", "stderr": ""})()
+        return type("Completed", (), {"returncode": 1, "stdout": "", "stderr": "access denied\n"})()
+
+    monkeypatch.setattr("wiserec_cli.opencode_managed.os.name", "nt")
+    monkeypatch.setattr("subprocess.run", fake_run)
+    restrict_backup(path)
+    warning = capsys.readouterr().err
+    assert "icacls failed" in warning
+    assert "access denied" in warning
+
+    def no_user(argv, **kwargs):
+        return type("Completed", (), {"returncode": 1, "stdout": "", "stderr": "whoami failed\n"})()
+
+    monkeypatch.setattr("subprocess.run", no_user)
+    restrict_backup(path)
+    warning = capsys.readouterr().err
+    assert "whoami did not return" in warning
+
+
+def test_backup_is_private_before_its_contents_are_written(tmp_path, monkeypatch):
+    path = tmp_path / "opencode.json"
+    original = '{"api_key": "secret-value"}\n'
+    path.write_text(original, encoding="utf-8")
+    seen = {}
+    real = permission_module.restrict_backup
+
+    def spy(backup):
+        seen["mode"] = stat.S_IMODE(backup.stat().st_mode)
+        seen["size"] = backup.stat().st_size
+        real(backup)
+
+    monkeypatch.setattr(permission_module, "restrict_backup", spy)
+    install_opencode_permissions(tmp_path, rule_format="bash")
+    assert seen["mode"] == 0o600
+    assert seen["size"] == 0
+    backup = tmp_path / "opencode.json.bak"
+    assert backup.read_text(encoding="utf-8") == original
+    assert stat.S_IMODE(backup.stat().st_mode) == 0o600
