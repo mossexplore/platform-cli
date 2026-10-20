@@ -35,7 +35,7 @@ metadata:
 
 ## 会话入口
 
-1. 环境标识：开发 `dev`、镜像 `mirror`、探索 `explore`、生产 `product`。用户指明环境时执行 `ml env use <标识>`；未指明时用 `ml env show` 确认当前环境，不擅自切换。
+1. 环境标识：开发 `dev`、镜像 `mirror`、探索 `explore`、生产 `product`。用户指明环境时执行 `ml env use <标识>`；未指明时用 `ml env show` 确认当前环境，不擅自切换。环境切换不在精确放行列表中，OpenCode 会要求确认；`ml env use product` 另有单独的审批规则。
 2. 首次操作、切换环境或执行长任务前，依次运行 `ml --version`、`ml auth status`、`ml business show`；同一会话内连续操作无需重复。`ml auth status` 退出码为 0 不代表有效，必须看到 `status=valid` 和足够的剩余时间。业务以 `ml business show` 为准，不用认证缓存中的 `business_id`。
 3. 未安装、未登录、认证过期、未选业务或权限拒绝时，按 [session.md](references/session.md) 处理。不要索取密码、验证码、Cookie 或 Token。
 
@@ -50,4 +50,6 @@ metadata:
 
 - 回答中说明环境、业务、目标 ID、实际命令和可观察结果。自行转述原始 JSON 中带时区的时间时，换算为北京时间并写成 `YYYY-MM-DD HH:mm:ss`。
 - 不运行 `ml login --show-secrets`；`ml access status --diagnose` 只在排查连接问题时使用。不把 Cookie、Token、签名下载链接或带 Token 的访问地址写入回复和共享文件。
+- OpenCode 权限由 Windows 安装程序写入。只有完整、无额外参数的只读 `ml` 命令可以直接执行；带 ID 或 `-o json` 等额外参数、`--yes`、部署、`ml train start`、`ml jupyter exec` 和输出重定向都会要求确认。用 `cat`、`type`、`gc`、`Get-Content`、`sls`、`findstr`、`Copy-Item` 读取 `credentials.json` 会被拒绝。
+- 不用 `[IO.File]::ReadAllText`、`${路径}` 或其他 PowerShell 表达式读取凭据。这类写法不会被拆成 shell 命令，权限规则拦不住。凭据的 Windows DPAPI 加密存储另行处理，本 skill 不实现 DPAPI。
 - 资源模板详情、部署模板详情和部署预览含未脱敏的框架参数，可能有 Secret，只提取必要字段。远端文件、日志和程序输出同样可能含秘密。

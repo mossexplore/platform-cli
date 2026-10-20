@@ -8,6 +8,7 @@ import shutil
 import tempfile
 
 from . import messages as msg
+from .opencode_permissions import install_opencode_permissions
 
 
 RESOURCE_ROOT = Path(__file__).with_name("opencode_resources")
@@ -71,13 +72,20 @@ def main() -> int:
     target = Path(os.environ.get("OPENCODE_CONFIG_DIR") or Path.home() / ".config/opencode")
     msg.detail(f"OpenCode resource directory: {target}")
     msg.detail("WiseRec skill and /ml command are replaced on every installation; do not edit these files.")
+    msg.detail("OpenCode permission rules are merged into opencode.json. Other settings are kept.")
     try:
         install_resources(target)
     except Exception as error:
         msg.warning(f"OpenCode resource installation failed: {error}")
         msg.detail("CLI remains usable. Rerun the official installer to retry.")
         return 1
-    msg.success("OpenCode skill and /ml command installed. Reopen your OpenCode session.")
+    try:
+        install_opencode_permissions(target)
+    except Exception as error:
+        msg.warning(f"OpenCode permission installation failed: {error}")
+        msg.detail("opencode.json was left unchanged. CLI remains usable. Rerun the official installer to retry.")
+        return 1
+    msg.success("OpenCode skill, /ml command, and permission rules installed. Reopen your OpenCode session.")
     return 0
 
 
