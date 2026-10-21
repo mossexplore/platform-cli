@@ -1,6 +1,6 @@
 # WiseRec CLI 使用手册
 
-`ml` 用于管理 WiseRec 平台的环境、业务、训练任务、特征任务、算法仓、服务、数据集、特征集和开发工作空间。本手册面向命令使用者。示例中的 `TASK_ID`、`JOB_ID`、`PROJECT_ID`、`EXPERIMENT_ID`、`SET_ID`、`SERVICE_ID`、`DATASET_ID` 等占位符，需要替换成列表查询得到的实际 ID。
+`ml` 用于管理 WiseRec 平台的环境、业务、训练任务、样本任务、特征任务、算法仓、服务、数据集、特征集和开发工作空间。本手册面向命令使用者。示例中的 `TASK_ID`、`JOB_ID`、`PROJECT_ID`、`EXPERIMENT_ID`、`SET_ID`、`SERVICE_ID`、`DATASET_ID` 等占位符，需要替换成列表查询得到的实际 ID。
 
 ## 1. 命令树
 
@@ -75,6 +75,8 @@ ml                                              WiseRec 命令行工具
 │   ├── cancel                                  取消执行
 │   ├── delete                                  删除任务
 │   └── clone                                   克隆任务
+├── sample-task                                 样本任务
+│   └── list                                    分页查询样本任务，默认使用旧任务管理
 ├── model                                       模型查询与部署
 │   ├── list                                    查询当前业务的模型列表
 │   ├── detail                                  查询模型详情
@@ -1296,4 +1298,74 @@ ml feature-task execution logs search JOB_ID [--start-line INTEGER] [--end-line 
 ml feature-task execution logs search JOB_ID
 ml feature-task execution logs search JOB_ID --start-line 2001 --end-line 4000
 ml feature-task execution logs search JOB_ID --keyword ERROR --keyword Exception --scope C --scope-lines 20
+```
+
+
+## 样本任务列表
+
+### 命令格式
+
+```bash
+ml sample-task list [--source legacy|new] [--page PAGE] [--page-size SIZE] [--name TASK_NAME] [--creator USER] [--updater USER] [--type TYPE] [--status all|stopped|started] [--sort desc] [--output table|json]
+```
+
+### 参数与选项
+
+| 参数 | 说明 |
+| --- | --- |
+| `--source` | 默认 `legacy`，查询“任务管理”；`new` 查询“任务管理（新）” |
+| `--page` | 正整数，默认第 1 页 |
+| `--page-size` | 正整数，默认每页 10 条 |
+| `--name` | 可选任务名称 |
+| `--creator` / `--updater` | 可选创建者、修改者 |
+| `--type` | 可重复指定类型，使用下表中对应来源的枚举值 |
+| `--status` | 仅旧版支持：`all` 全部、`stopped` 已停止、`started` 已启动；默认全部 |
+| `--sort` | 仅新版支持，目前仅支持 `desc`，新版默认使用该值 |
+| `--output` / `-o` | `table` 或 `json`，未指定时使用当前环境配置 |
+
+### 说明
+
+先通过 `ml env use ENV_NAME` 选择环境、`ml login` 登录，再通过 `ml business use` 选择租户或团队。请求使用当前环境所选业务，不支持通过参数覆盖业务 ID。
+
+不加参数默认查询旧任务管理。旧版默认查询特征预处理实时、特征预处理离线、特征装配和标签装配四种类型；指定 `--type` 后替换此默认范围。新版默认不限类型。两套列表分别查询，每次只取指定的一页，不自动合并或拉取全部任务。来源不支持的筛选项会报错。
+
+| 旧版类型 | 中文名称 |
+| --- | --- |
+| `feature_preprocess_realtime` | 特征预处理(实时) |
+| `feature_preprocess_offline` | 特征预处理(离线) |
+| `feature_assemble` | 特征装配 |
+| `label_assemble` | 标签装配 |
+| `feature_monitor` | 样本监控 |
+| `new_feature_assemble` | 新特征装配 |
+| `spark_jar` | spark_jar |
+
+| 新版类型 | 中文名称 |
+| --- | --- |
+| `FEATURE_ASSEMBLE` | 特征装配任务 |
+| `LABEL_ASSEMBLE` | 标签装配任务 |
+| `FEATURE_SYNC` | 特征同步任务 |
+| `FEATURE_IMPORT_OFFLINE` | 离线特征导入任务 |
+| `FEATURE_IMPORT_REALTIME` | 实时特征导入任务 |
+| `OFFLINE_FEATURE_SYNC` | 离线特征回流同步任务 |
+| `FEATURE_PREPROCESS_OFFLINE` | 预处理任务 |
+| `FEATURE_QUALITY_MONITOR` | 监控任务 |
+| `OFFLINE_FEEDBACK` | 离线回流任务 |
+| `REAL_TIME_FEEDBACK` | 实时回流任务 |
+| `REALTIME_LABEL_CALC` | 实时标签计算任务 |
+| `SAMPLE_GENERATION_OFFLINE` | 样本生成离线任务 |
+| `SAMPLE_GENERATION_REALTIME` | 样本生成实时任务 |
+
+表格展示任务 ID、名称、中文类型、创建者、修改者、最近修改时间和描述；新版还展示创建时间、开始执行时间和任务状态。开始执行时间使用平台返回的最近执行时间。空值显示为 `-`，任务 ID 完整显示。时间戳和带时区的时间按北京时间展示，无时区时间按服务端原值展示。表格显示来源与分页信息。
+
+JSON 输出包含 `source`、`page`、`pageSize`、`total`、`items`，其中任务记录保留服务端原字段、原始时间和空值。空列表为正常结果；请求失败则返回非零退出码并输出错误信息。
+
+### 示例
+
+```bash
+ml sample-task list
+ml sample-task list --source legacy --status stopped --type feature_preprocess_offline
+ml sample-task list --source new
+ml sample-task list --source new --type FEATURE_ASSEMBLE --type FEATURE_SYNC
+ml sample-task list --name TASK_NAME --creator USER --updater USER
+ml sample-task list --source new --page 2 --page-size 20 -o json
 ```

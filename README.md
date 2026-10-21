@@ -9,7 +9,7 @@
 
 启用权限校验后，CLI 在执行业务命令前向权限系统检查当前账号和环境的授权，通过后再调用平台接口。权限系统独立部署，数据保存在 MySQL；客户端校验不替代平台自身的权限控制。
 
-当前源码版本为 **1.0.7.4**（尚未发布），新增 `ml feature-task execution` 执行记录及日志查询，见 [开发说明](docs/RELEASE_NOTES_1.0.7.4.md)。此前新增特征任务列表 `ml feature-task list`，见 [开发说明](docs/RELEASE_NOTES_1.0.7.3.md)。此前新增 `ml context` 与独立演示环境，见 [开发说明](docs/RELEASE_NOTES_1.0.7.2.md) 和 [演示指南](docs/CLI演示环境使用指南.md)。上一正式版本为 **1.0.7.1**，包含 CLI 与权限管理系统。新增特征集 CSV 导出、安装时保留环境选择、环境别名、授权申请提示和审批默认环境配置，见 [发布说明](docs/RELEASE_NOTES_1.0.7.1.md)。本地开发参见 [Jupyter 本地开发指南](docs/Jupyter本地开发指南.md)。
+当前源码版本为 **1.0.7.5**（尚未发布），新增样本任务列表 `ml sample-task list`，默认旧任务管理，使用 `--source new` 查询新任务管理，见 [开发说明](docs/RELEASE_NOTES_1.0.7.5.md)。此前新增 `ml feature-task execution` 执行记录及日志查询，见 [开发说明](docs/RELEASE_NOTES_1.0.7.4.md)。此前新增特征任务列表 `ml feature-task list`，见 [开发说明](docs/RELEASE_NOTES_1.0.7.3.md)。此前新增 `ml context` 与独立演示环境，见 [开发说明](docs/RELEASE_NOTES_1.0.7.2.md) 和 [演示指南](docs/CLI演示环境使用指南.md)。上一正式版本为 **1.0.7.1**，包含 CLI 与权限管理系统。新增特征集 CSV 导出、安装时保留环境选择、环境别名、授权申请提示和审批默认环境配置，见 [发布说明](docs/RELEASE_NOTES_1.0.7.1.md)。本地开发参见 [Jupyter 本地开发指南](docs/Jupyter本地开发指南.md)。
 
 新增本地命令历史：`ml history` 查看最近记录，`ml history clear` 清理。历史以文本保存在配置目录，最多保留 1000 条；`ml --no-history COMMAND` 可跳过本次记录。
 
