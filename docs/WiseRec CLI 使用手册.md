@@ -76,7 +76,11 @@ ml                                              WiseRec 命令行工具
 │   ├── delete                                  删除任务
 │   └── clone                                   克隆任务
 ├── sample-task                                 样本任务
-│   └── list                                    分页查询样本任务，默认使用旧任务管理
+│   ├── list                                    分页查询样本任务，默认使用旧任务管理
+│   ├── period                                  新版样本任务执行周期
+│   │   └── list                                分页查询执行周期
+│   └── execution                               新版样本任务执行记录
+│       └── list                                分页查询执行记录
 ├── model                                       模型查询与部署
 │   ├── list                                    查询当前业务的模型列表
 │   ├── detail                                  查询模型详情
@@ -1368,4 +1372,92 @@ ml sample-task list --source new
 ml sample-task list --source new --type FEATURE_ASSEMBLE --type FEATURE_SYNC
 ml sample-task list --name TASK_NAME --creator USER --updater USER
 ml sample-task list --source new --page 2 --page-size 20 -o json
+```
+
+
+## 样本任务执行周期
+
+### 命令格式
+
+```bash
+ml sample-task period list TASK_ID [--page PAGE] [--page-size SIZE] [--start-time TIME] [--end-time TIME] [--state STATE] [--output table|json]
+```
+
+### 参数与选项
+
+| 参数 | 说明 |
+| --- | --- |
+| `TASK_ID` | 必填，新版样本任务 ID |
+| `--page` | 正整数，默认 1 |
+| `--page-size` | 正整数，默认 20 |
+| `--start-time` / `--end-time` | 可选周期日期边界，按北京时间输入 `YYYY-MM-DD HH:mm:ss`；可只指定一端 |
+| `--state` | 可重复指定运行状态，默认不限状态 |
+| `--output` / `-o` | `table` 或 `json`，默认使用当前环境配置 |
+
+### 说明
+
+先选择环境、登录并通过 `ml business use` 选择租户或团队。仅用于“任务管理（新）”，无需添加 `--source new`。可通过 `ml sample-task list --source new` 获取任务 ID。开始日期不得晚于结束日期。
+
+| 状态值 | 中文名称 |
+| --- | --- |
+| `INIT` | 初始化 |
+| `CANCELED` | 已取消 |
+| `QUEUE` | 排队中 |
+| `APPLY_FOR_RESOURCE` | 申请资源 |
+| `WAIT_FOR_QUOTA_QUEUE` | 等待中 |
+| `RUNNING` | 运行中 |
+| `COMPLETED` | 运行成功 |
+| `FAILED` | 执行失败 |
+| `LACK_RESOURCE` | 资源不足 |
+| `TIMEOUT` | 超时 |
+| `QUEUE_TIMEOUT` | 排队超时 |
+| `QUOTA_WAIT_TIMEOUT` | 配额等待失败 |
+| `FORCE_STOP` | 强制停止 |
+
+表格为无表头的四列网格，每格展示页内编号、周期和中文状态，按返回顺序从左往右填充，每页编号从 1 开始。只补齐最后一行；例如 7 条显示两行，最后一格为空。默认 20 条最多五行，指定更大的每页条数时相应增加行数。窄终端允许格内换行。空列表不绘制网格。
+
+每次只查询指定页，显示任务 ID 和分页总数。JSON 包含 `taskId`、`page`、`pageSize`、`total`、`items`，记录保留原始字段，不增加网格编号、不转换状态。错误返回非零退出码。
+
+### 示例
+
+```bash
+ml sample-task period list TASK_ID
+ml sample-task period list TASK_ID --state COMPLETED --state FAILED
+ml sample-task period list TASK_ID --start-time "2026-10-01 00:00:00" --end-time "2026-10-21 23:59:59"
+ml sample-task period list TASK_ID --page 2 --page-size 20 -o json
+```
+
+## 样本任务执行记录
+
+### 命令格式
+
+```bash
+ml sample-task execution list TASK_ID [--page PAGE] [--page-size SIZE] [--include-history] [--output table|json]
+```
+
+### 参数与选项
+
+| 参数 | 说明 |
+| --- | --- |
+| `TASK_ID` | 必填，新版样本任务 ID |
+| `--page` | 正整数，默认 1 |
+| `--page-size` | 正整数，默认 10 |
+| `--include-history` | 包含历史实例，默认关闭 |
+| `--output` / `-o` | `table` 或 `json`，默认使用当前环境配置 |
+
+### 说明
+
+先选择环境、登录并选择租户或团队。仅用于“任务管理（新）”，无需添加 `--source new`。默认不包含历史实例，每次只查询指定页。
+
+表格展示 JOB ID、算法名称、状态、文件大小、周期时间、执行时长、最新实例、检查时间、开始时间和结束时间。JOB ID 完整显示；周期时间保留原值，时间戳及带时区时间转换为北京时间。文件大小按 1024 进制显示，执行时长按分钟转换，例如 232 分钟显示为 `3h52min`，最新实例显示为“是”或“否”，空值显示为 `-`。
+
+状态 `COMPLETED` 显示为“执行完成”、`FAILED` 为“执行失败”、`CANCELED` 为“取消”，未知状态保留原值。JSON 包含 `taskId`、`page`、`pageSize`、`total`、`items`，保留原始记录及所有额外字段，不进行展示转换。空列表正常返回，接口错误返回非零退出码。
+
+### 示例
+
+```bash
+ml sample-task execution list TASK_ID
+ml sample-task execution list TASK_ID --include-history
+ml sample-task execution list TASK_ID --page 2 --page-size 20
+ml sample-task execution list TASK_ID -o json
 ```

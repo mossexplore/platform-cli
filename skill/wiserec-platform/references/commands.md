@@ -45,6 +45,8 @@
 | `ml offline experiment clone PROJECT_ID --name NAME` | 克隆实验，可先 `--dry-run` | 是 | 创建实验 |
 | `ml train list` | 训练任务 | | |
 | `ml sample-task list` | 样本任务列表，默认旧任务管理；`--source new` 查询新版，支持分页、名称、创建者、修改者和重复 `--type` 筛选，`--status` 仅旧版可用 | | |
+| `ml sample-task period list TASK_ID` | 新版样本任务执行周期，四列网格；支持分页、北京时间范围及重复 `--state` | | |
+| `ml sample-task execution list TASK_ID` | 新版样本任务执行记录，支持分页、`--include-history` 和 `-o json` | | |
 | `ml train instance list TASK_ID` | 执行实例 | | |
 | `ml train history list TASK_ID` | 执行记录 | | |
 | `ml train history logs download TASK_ID JOB_ID [--file PATH]` | 下载执行日志 | | 本地文件 |

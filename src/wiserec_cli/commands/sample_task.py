@@ -11,8 +11,11 @@ from rich.text import Text
 from ..output import console, print_result, print_text
 from ..services.sample_task import LEGACY_TYPES, NEW_TYPES, SampleTaskService, validate_options
 from .common import fail, runtime_from_context
+from .sample_execution import period_app, execution_app
 
 sample_task_app = typer.Typer(no_args_is_help=True, help="样本任务")
+sample_task_app.add_typer(period_app, name="period")
+sample_task_app.add_typer(execution_app, name="execution")
 LEGACY_COLUMNS = (
     ("任务ID", "taskId"), ("任务名称", "taskName"), ("任务类型", "category"),
     ("创建者", "createUser"), ("修改者", "updateUser"),
