@@ -1,11 +1,17 @@
 import hashlib
 import json
+import shutil
 from pathlib import Path
 from unittest.mock import patch
 
 import pytest
 
 from wiserec_cli.opencode_install import install_resources, main
+
+
+@pytest.fixture(autouse=True)
+def _wiserec_home(monkeypatch, tmp_path):
+    monkeypatch.setenv("WISEREC_HOME", str(tmp_path / "wiserec-home"))
 
 
 @pytest.fixture
@@ -44,18 +50,32 @@ def test_corrupt_bundle_does_not_delete_old_resources(resources, tmp_path):
     assert (target / "commands/ml.md").read_text() == "commands/ml.md"
 
 
-def test_copy_failure_cleans_partial_resources(resources, tmp_path):
+def test_copy_failure_restores_the_previous_resources(resources, tmp_path):
     target = tmp_path / "config"
     install_resources(target, resources)
-    with patch("wiserec_cli.opencode_install.shutil.copyfile", side_effect=OSError("disk full")):
+    (target / "skills/wiserec-platform/SKILL.md").write_text("previous-skill", encoding="utf-8")
+    (target / "commands/ml.md").write_text("previous-command", encoding="utf-8")
+    real_copyfile = shutil.copyfile
+    state = {"failed": False}
+
+    def flaky(src, dst, *args, **kwargs):
+        if "wiserec-opencode-backup" in str(dst) or "wiserec-opencode-backup" in str(src):
+            return real_copyfile(src, dst, *args, **kwargs)
+        if not state["failed"]:
+            state["failed"] = True
+            raise OSError("disk full")
+        return real_copyfile(src, dst, *args, **kwargs)
+
+    with patch("wiserec_cli.opencode_install.shutil.copyfile", side_effect=flaky):
         with pytest.raises(OSError, match="disk full"):
             install_resources(target, resources)
-    assert not (target / "commands/ml.md").exists()
-    assert not (target / "skills/wiserec-platform").exists()
+    assert (target / "skills/wiserec-platform/SKILL.md").read_text(encoding="utf-8") == "previous-skill"
+    assert (target / "commands/ml.md").read_text(encoding="utf-8") == "previous-command"
 
 
 def test_failure_reports_cli_still_usable(tmp_path, monkeypatch, capsys):
     monkeypatch.setenv("OPENCODE_CONFIG_DIR", str(tmp_path))
+    monkeypatch.setattr("wiserec_cli.opencode_install.detect_permission_format", lambda: "permissions")
     with patch("wiserec_cli.opencode_install.install_resources", side_effect=PermissionError("denied")):
         assert main() == 1
     assert "CLI remains usable" in capsys.readouterr().err

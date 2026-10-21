@@ -309,26 +309,29 @@ if ($PathChanged) {
     Write-Host "Open a new CMD or PowerShell window before running ml." -ForegroundColor Yellow
 }
 Write-Host ""
-Write-Host "[Stage 2/2] Installing OpenCode skill and /ml command" -ForegroundColor Cyan
-$OpenCodeInstalled = $false
-try {
-    Invoke-Checked -Command $VirtualEnvironmentPython -Arguments @(
-        "-m", "wiserec_cli.opencode_install"
-    )
-    $OpenCodeInstalled = $true
-} catch {
-    Write-Warning "OpenCode skill and /ml command installation failed: $_"
-    Write-Warning "CLI installation succeeded and ml remains usable. Rerun install.cmd to retry."
-}
-if ($OpenCodeInstalled) {
-    Write-Host "Result: CLI and OpenCode resources installed successfully." -ForegroundColor Green
-} else {
-    Write-Warning "Result: CLI installed; OpenCode resources failed."
-}
+Write-Host "[Stage 2/2] Installing OpenCode permission rules, then the skill and /ml command" -ForegroundColor Cyan
+& $VirtualEnvironmentPython -m wiserec_cli.opencode_install
+$OpenCodeExit = $LASTEXITCODE
 Write-Host ""
-Write-Host "Next steps:"
-Write-Host "  ml env show"
-Write-Host "  ml login"
+if ($OpenCodeExit -eq 0) {
+    Write-Host "Result: CLI and OpenCode resources installed successfully." -ForegroundColor Green
+    Write-Host "Next steps:"
+    Write-Host "  ml env show"
+    Write-Host "  ml login"
+    Write-Host "  Reopen OpenCode and run /ml"
+} else {
+    Write-Host "Result: CLI installed. Nothing new was installed." -ForegroundColor Red
+    Write-Host ("Reason: python -m wiserec_cli.opencode_install exited with code " + $OpenCodeExit + ". The error is printed above.")
+    Write-Host "An existing skill and /ml command were left in place or restored from the backup taken before replacement."
+    Write-Host "If this run wrote permission rules and the skill copy then failed, opencode.json was restored from the backup. wiserec-managed.json was removed when this run created it, or restored when a previous copy existed."
+    Write-Host "If the error above says permission rollback failed, opencode.json and wiserec-managed.json may still contain this run's rules. Use the backup path printed above."
+    Write-Host "The WiseRec CLI is installed and ml remains usable."
+    Write-Host "Next steps:"
+    Write-Host "  1. Fix the error printed above."
+    Write-Host "  2. Rerun install.cmd to install the OpenCode skill and /ml command."
+    Write-Host "  ml env show"
+    Write-Host "  ml login"
+}
 Write-Host ""
 Write-Host "Optional PowerShell Tab completion:"
 Write-Host "  ml --install-completion powershell"

@@ -24,6 +24,7 @@ ml business show
 - **引号**：PowerShell 中含空格或反斜杠的路径用单引号包住。Windows PowerShell 5.1 和 PowerShell 7.3 之前的版本会去掉参数里嵌入的双引号；有文件参数时（如 `--from-file`、`--request-file`）先把文本写入本地文件再传入，必须直接传含双引号的值（如 JSON 形式的 `--customize-config`）时，在这些版本中把每个 `"` 写成 `\"`，执行后核对平台上的实际值。
 - **中文乱码**：在同一条命令前加 `[Console]::OutputEncoding = [System.Text.Encoding]::UTF8;` 再运行 `ml`。
 - **Git Bash**：路径改用正斜杠或单引号，例如 `ml --config 'C:/Work/config.json' env show`。
+- **凭据文件**：不在 shell 中读取 CLI 的 `credentials.json`。`Get-Content`、`gc`、`type`、`cat`、`sls`、`findstr`、`Copy-Item` 会被 OpenCode 拒绝。`[IO.File]::ReadAllText` 和 `${路径}` 不算命令，规则无法拦截，同样禁止用来读取凭据。凭据的 Windows DPAPI 加密存储另行处理。
 
 ## 登录与业务选择
 
