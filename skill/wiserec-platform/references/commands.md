@@ -45,8 +45,8 @@
 | `ml offline experiment clone PROJECT_ID --name NAME` | 克隆实验，可先 `--dry-run` | 是 | 创建实验 |
 | `ml train list` | 训练任务 | | |
 | `ml sample-task list` | 样本任务列表，默认旧任务管理；`--source new` 查询新版，支持分页、名称、创建者、修改者和重复 `--type` 筛选，`--status` 仅旧版可用 | | |
-| `ml sample-task period list TASK_ID` | 新版样本任务执行周期，四列网格；支持分页、北京时间范围及重复 `--state` | | |
-| `ml sample-task execution list TASK_ID` | 新版样本任务执行记录，支持分页、`--include-history` 和 `-o json` | | |
+| `ml sample-task period list TASK_ID` | 新旧样本任务共用执行周期查询，无需 `--source`，四列网格；支持分页、北京时间范围及重复 `--state` | | |
+| `ml sample-task execution list TASK_ID` | 新旧样本任务共用执行记录查询，无需 `--source`，支持分页、`--include-history` 和 `-o json` | | |
 | `ml train instance list TASK_ID` | 执行实例 | | |
 | `ml train history list TASK_ID` | 执行记录 | | |
 | `ml train history logs download TASK_ID JOB_ID [--file PATH]` | 下载执行日志 | | 本地文件 |
@@ -91,7 +91,7 @@
 | `ml feature-task execution logs search JOB_ID` | 日志搜索，默认原样文本，可选 `-o json` | | |
 | `ml featureset wide list` / `ml featureset model list` | 宽表 / 模型特征集 | | |
 | `ml featureset wide config SET_ID` / `ml featureset model config SET_ID` | 特征集配置 | | |
-| `ml featureset wide export SET_ID` / `ml featureset model export SET_ID` | 导出特征 CSV，重名自动编号 | `--lang zh_cn\|en_us`、`--file PATH` | `--output text\|json` |
+| `ml featureset wide export SET_ID` / `ml featureset model export SET_ID` | 导出特征 CSV，重名自动编号；支持 `--lang zh_cn\|en_us`、`--file PATH`、`--output text\|json` | | 本地文件 |
 
 ## Web Studio 与 Jupyter
 

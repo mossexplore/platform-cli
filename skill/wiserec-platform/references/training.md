@@ -1,4 +1,4 @@
-# 训练任务、离线实验、算法仓与训练看板
+# 训练任务、样本任务、离线实验、算法仓与训练看板
 
 以下命令的列表和查询均支持 `-o json`，具体筛选和分页参数查 `--help`。
 
@@ -41,6 +41,39 @@ ml train history logs download TASK_ID JOB_ID --file 'D:\logs\job.log' -o json
 - `cancel`、`delete`、`clone` 默认询问确认，授权后加 `--yes`。`cancel` 逐个取消全部执行实例，需看逐条结果和退出码，没有实例时退出 1。`clone` 成功后可能返回新任务 ID。
 - `ml train config update TASK_ID --customize-config VALUE` 不询问确认，直接修改任务；值按字符串原样传递，含双引号时注意 [session.md](session.md) 的引号说明，更新后导出配置核对。
 - `config export` 和 `history logs download` 写入本地文件，父目录必须已存在，不覆盖同名文件。
+
+## 样本任务
+
+先从对应任务管理列表获取任务 ID：
+
+```powershell
+ml sample-task list --name NAME -o json
+ml sample-task list --source new --name NAME -o json
+ml sample-task list --creator USER --updater USER --page 2 --page-size 20 -o json
+ml sample-task list --type feature_preprocess_offline --status stopped -o json
+ml sample-task list --source new --type FEATURE_ASSEMBLE --type FEATURE_SYNC -o json
+```
+
+- 默认 `--source legacy` 查询旧“任务管理”，`--source new` 查询“任务管理（新）”；两者默认第 1 页、每页 10 条。
+- 旧版默认查询特征预处理实时、特征预处理离线、特征装配和标签装配四种类型，并非全部类型。重复 `--type` 替换默认范围；新版未指定类型时不限类型。两套类型枚举不同，见 `ml sample-task list --help`。
+- `--status all|stopped|started` 仅旧版支持，默认全部；`--sort desc` 仅新版支持，新版默认降序。不要跨来源传筛选项。
+- JSON 为 `source`、`page`、`pageSize`、`total`、`items`，记录保留服务端原字段。
+
+新旧任务共用执行周期和执行记录命令，直接传任务 ID，无需 `--source`：
+
+```powershell
+ml sample-task period list TASK_ID -o json
+ml sample-task period list TASK_ID --state COMPLETED --state FAILED --page 2 --page-size 20 -o json
+ml sample-task period list TASK_ID --start-time '2026-10-01 00:00:00' --end-time '2026-10-21 23:59:59'
+ml sample-task execution list TASK_ID -o json
+ml sample-task execution list TASK_ID --include-history --page 2 --page-size 20 -o json
+```
+
+- `period list` 默认第 1 页、每页 20 条。起止时间按北京时间输入 `YYYY-MM-DD HH:mm:ss`，可只指定一端，开始时间不得晚于结束时间。`--state` 可重复指定，未指定不限状态；状态枚举见命令帮助。
+- 周期的表格输出为无表头四列网格，按返回顺序从左往右填充，编号每页从 1 开始，只补齐最后一行；20 条为五行，7 条为两行，空列表不绘制网格。
+- `execution list` 默认第 1 页、每页 10 条，不包含历史实例；`--include-history` 开启后包含历史实例。任务 ID 和记录中的 JOB ID 不互换。
+- 执行记录表格展示 JOB ID、算法名称、中文状态、文件大小、周期时间、执行时长、最新实例及检查、开始、结束时间。大小按 1024 进制，执行时长按分钟转换，时间戳按北京时间展示。
+- 两种执行查询的 JSON 均为 `taskId`、`page`、`pageSize`、`total`、`items`，保留原始状态、时间和额外字段，不加入网格编号。每次只查询指定页，不把第一页当成全部结果。
 
 ## 算法仓
 

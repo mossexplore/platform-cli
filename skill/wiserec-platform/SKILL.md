@@ -1,6 +1,6 @@
 ---
 name: wiserec-platform
-description: 通过 WiseRec 命令行客户端 ml 查询和操作 WiseRec 平台，包括模型查询、溯源与模板部署，资源模板和部署模板，训练任务，算法仓，服务及主机日志，数据集及目录文件，特征集，离线实验，MEP/MTP 训练看板，Web Studio，Jupyter 文件读写、非交互执行与 Notebook；切换环境、核对登录或业务上下文时也使用
+description: 通过 WiseRec 命令行客户端 ml 查询和操作 WiseRec 平台，包括模型查询、溯源与模板部署，资源模板和部署模板，训练任务、样本任务及执行周期与记录、特征任务及执行日志，算法仓，服务及主机日志，数据集及目录文件，特征集，离线实验，MEP/MTP 训练看板，Web Studio，Jupyter 文件读写、非交互执行与 Notebook；切换环境、核对登录或业务上下文时也使用
 metadata:
   cli: wiserec-cli
   platform: windows
@@ -18,10 +18,10 @@ metadata:
 | --- | --- |
 | 会话预检、登录、业务选择、Windows shell、故障处理 | [session.md](references/session.md) |
 | 全部命令、确认提示与副作用速查 | [commands.md](references/commands.md) |
-| 训练任务、离线实验、算法仓、训练看板 | [training.md](references/training.md) |
+| 训练任务、样本任务及执行周期与记录、离线实验、算法仓、训练看板 | [training.md](references/training.md) |
 | 模型查询与溯源、资源模板、部署模板、模型部署 | [deployment.md](references/deployment.md) |
 | 服务列表、主机与服务日志 | [services.md](references/services.md) |
-| 数据集目录文件、特征集 | [data.md](references/data.md) |
+| 数据集目录文件、特征任务及执行日志、特征集与 CSV 导出 | [data.md](references/data.md) |
 | Web Studio、Jupyter 文件、exec、Notebook | [jupyter.md](references/jupyter.md) |
 
 ## 运行约束
@@ -44,7 +44,7 @@ metadata:
 - 有准确 ID 时直接使用；否则用最窄的名称或状态条件定位。任务、作业、算法仓、模型、模板、服务、Pod、数据集、实例等 ID 不互换。名称匹配不唯一时请用户选择，不默认取第一项。列表默认分页，第一页不代表全部结果。
 - 支持 `-o json` 的命令优先用 JSON，并检查退出码和 stderr。stdout 混有认证提示时不要硬解析，先处理认证再重新查询。结果较大时只提取任务需要的字段。
 - 写操作前核对环境、业务、目标 ID 和用户意图，执行后用只读命令核验，区分“请求已接受”与“远端已完成”。**`product` 环境的写操作，执行前必须向用户复述环境、目标和参数并得到确认**，笼统授权不算。
-- 训练配置导出、训练日志下载、算法仓下载会写入本地文件：父目录必须已存在，不覆盖同名文件。
+- 训练配置导出、训练日志下载、算法仓下载会写入本地文件：父目录必须已存在，不覆盖同名文件。特征集 CSV 导出也写入本地文件，重名时自动编号。
 
 ## 输出与凭据
 

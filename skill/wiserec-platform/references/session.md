@@ -12,6 +12,7 @@ ml business show
 逐条检查退出码和实际字段。用户指定了环境时，先运行 `ml env use dev`、`ml env use mirror`、`ml env use explore` 或 `ml env use product` 中对应的一条。切换环境后重新核对认证和业务。
 
 - `ml --version` 成功才说明 `ml` 可调用。
+- 需要核对运行模式或生效配置路径时，运行 `ml context --json`；无需登录，使用 `--json` 而非 `-o json`。只查看命令报告的路径，不读取凭据或业务文件。
 - `ml auth status` 只读本地缓存、不续期；无缓存会失败，过期也可能退出 0，必须看 `status` 与 `remaining_seconds`。
 - `ml business show` 必须显示当前环境有效的租户或团队。`auth status` 中的 `business_id` 可能是旧值，不作依据。
 - 使用自定义配置时，`--config PATH` 放在子命令之前，例如 `ml --config 'C:\Work\config.json' env show`；也可设置 `ML_CONFIG`。同一任务内所有命令使用同一配置来源。
