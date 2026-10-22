@@ -24,11 +24,19 @@ $Shell = New-Object -ComObject WScript.Shell
 $Desktop = [Environment]::GetFolderPath('DesktopDirectory')
 if ([string]::IsNullOrWhiteSpace($Desktop)) { throw '无法定位当前用户的桌面目录' }
 New-Item -ItemType Directory -Force -Path $Desktop | Out-Null
-$Shortcut = $Shell.CreateShortcut((Join-Path $Desktop '权限通知助手.lnk'))
-$Shortcut.TargetPath = $PythonW
-$Shortcut.Arguments = '-m permission_notifier.main'
-$Shortcut.WorkingDirectory = $Target
-$Shortcut.Save()
+# WScript shortcut persistence can lose Chinese filenames on non-Chinese Windows.
+# Save with an ASCII filename, then let PowerShell rename it using Unicode APIs.
+$TemporaryShortcut = Join-Path $Desktop ("PermissionNotifier-$([Guid]::NewGuid().ToString('N')).lnk")
+try {
+    $Shortcut = $Shell.CreateShortcut($TemporaryShortcut)
+    $Shortcut.TargetPath = $PythonW
+    $Shortcut.Arguments = '-m permission_notifier.main'
+    $Shortcut.WorkingDirectory = $Target
+    $Shortcut.Save()
+    Move-Item -LiteralPath $TemporaryShortcut -Destination (Join-Path $Desktop '权限通知助手.lnk') -Force
+} finally {
+    Remove-Item -LiteralPath $TemporaryShortcut -ErrorAction SilentlyContinue
+}
 Copy-Item (Join-Path $PSScriptRoot 'autostart.ps1') $Target -Force
 Copy-Item (Join-Path $PSScriptRoot 'uninstall.ps1') $Target -Force
 if ($AutoStart) { & (Join-Path $Target 'autostart.ps1') -Enable }

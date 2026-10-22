@@ -19,9 +19,17 @@ try {
     $python = Join-Path $env:LOCALAPPDATA 'Programs/PermissionNotifier/venv/Scripts/python.exe'
     $shortcutPath = Join-Path ([Environment]::GetFolderPath('DesktopDirectory')) '权限通知助手.lnk'
     if (-not (Test-Path -LiteralPath $shortcutPath)) { throw 'Desktop shortcut was not created' }
-    $shortcut = (New-Object -ComObject WScript.Shell).CreateShortcut($shortcutPath)
-    if ($shortcut.TargetPath -ne (Join-Path (Split-Path $python) 'pythonw.exe')) { throw 'Shortcut target mismatch' }
-    if ($shortcut.Arguments -ne '-m permission_notifier.main') { throw 'Shortcut entry point mismatch' }
+    # Read through an ASCII filename too: WScript can lose Chinese filenames
+    # on the runner's English Windows, while PowerShell copies them correctly.
+    $shortcutProbe = Join-Path $env:RUNNER_TEMP 'notifier-shortcut-probe.lnk'
+    try {
+        Copy-Item -LiteralPath $shortcutPath -Destination $shortcutProbe -Force
+        $shortcut = (New-Object -ComObject WScript.Shell).CreateShortcut($shortcutProbe)
+        if ($shortcut.TargetPath -ne (Join-Path (Split-Path $python) 'pythonw.exe')) { throw 'Shortcut target mismatch' }
+        if ($shortcut.Arguments -ne '-m permission_notifier.main') { throw 'Shortcut entry point mismatch' }
+    } finally {
+        Remove-Item -LiteralPath $shortcutProbe -ErrorAction SilentlyContinue
+    }
     & $python -c "import permission_notifier; assert permission_notifier.__version__ == '$($meta.version)'"
     if ($LASTEXITCODE -ne 0) { throw 'Installed assistant version mismatch' }
     & $python "$bundle/scripts/smoke.py"
