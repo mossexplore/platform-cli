@@ -21,7 +21,10 @@ if ($IndexUrl) { $PipArgs += @('--index-url',$IndexUrl) }
 if ($LASTEXITCODE -ne 0) { throw '助手安装失败' }
 $PythonW = Join-Path $Target 'venv\Scripts\pythonw.exe'
 $Shell = New-Object -ComObject WScript.Shell
-$Shortcut = $Shell.CreateShortcut((Join-Path ([Environment]::GetFolderPath('Desktop')) '权限通知助手.lnk'))
+$Desktop = [Environment]::GetFolderPath('DesktopDirectory')
+if ([string]::IsNullOrWhiteSpace($Desktop)) { throw '无法定位当前用户的桌面目录' }
+New-Item -ItemType Directory -Force -Path $Desktop | Out-Null
+$Shortcut = $Shell.CreateShortcut((Join-Path $Desktop '权限通知助手.lnk'))
 $Shortcut.TargetPath = $PythonW
 $Shortcut.Arguments = '-m permission_notifier.main'
 $Shortcut.WorkingDirectory = $Target

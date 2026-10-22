@@ -7,7 +7,7 @@ if (Get-Process python,pythonw -ErrorAction SilentlyContinue | Where-Object { $_
     throw '请先通过托盘退出助手。'
 }
 & (Join-Path $Target 'autostart.ps1') -Disable
-$Shortcut = Join-Path ([Environment]::GetFolderPath('Desktop')) '权限通知助手.lnk'
+$Shortcut = Join-Path ([Environment]::GetFolderPath('DesktopDirectory')) '权限通知助手.lnk'
 Remove-Item $Shortcut -ErrorAction SilentlyContinue
 if ($DeleteData) {
     $Answer = Read-Host '删除配置、凭据和未完成任务可能导致无法核对消息；输入 DELETE 确认'
