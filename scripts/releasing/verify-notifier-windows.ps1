@@ -1,7 +1,7 @@
 ﻿$ErrorActionPreference = 'Stop'
 $archive = @(Get-ChildItem permission-notifier/dist -Filter '*.zip')
 if ($archive.Count -ne 1) { throw 'Expected one assistant ZIP' }
-$extract = Join-Path $env:RUNNER_TEMP 'notifier-source'
+$extract = Join-Path $env:RUNNER_TEMP 'notifier source with spaces'
 Expand-Archive $archive[0].FullName $extract
 $bundle = @(Get-ChildItem $extract -Directory)[0].FullName
 $meta = Get-Content "$bundle/release.json" | ConvertFrom-Json
@@ -13,9 +13,24 @@ foreach ($script in Get-ChildItem "$bundle/scripts" -Filter '*.ps1') {
 }
 # Isolate the installation and config from the runner's ordinary application data.
 $originalLocalAppData = $env:LOCALAPPDATA
+$originalNoPause = $env:PERMISSION_NOTIFIER_INSTALL_NO_PAUSE
 try {
+    $env:PERMISSION_NOTIFIER_INSTALL_NO_PAUSE = '1'
+    if (-not (Test-Path "$bundle/install.cmd")) { throw 'CMD installer missing from source archive' }
+    # Probe argument forwarding and nonzero exit propagation without running an installation.
+    $probe = Join-Path $env:RUNNER_TEMP 'notifier wrapper probe'
+    New-Item -ItemType Directory -Force -Path "$probe/scripts" | Out-Null
+    Copy-Item "$bundle/install.cmd" "$probe/install.cmd"
+    @'
+param([switch]$AutoStart, [string]$IndexUrl)
+if (-not $AutoStart -or $IndexUrl -ne 'https://example.invalid/path with spaces') { exit 24 }
+exit 23
+'@ | Set-Content "$probe/scripts/install.ps1" -Encoding ASCII
+    & "$probe/install.cmd" -AutoStart -IndexUrl 'https://example.invalid/path with spaces'
+    if ($LASTEXITCODE -ne 23) { throw 'CMD installer did not preserve arguments or failure exit code' }
     $env:LOCALAPPDATA = Join-Path $env:RUNNER_TEMP 'notifier-user'
-    & "$bundle/scripts/install.ps1"
+    & "$bundle/install.cmd"
+    if ($LASTEXITCODE -ne 0) { throw 'CMD assistant installation failed' }
     $python = Join-Path $env:LOCALAPPDATA 'Programs/PermissionNotifier/venv/Scripts/python.exe'
     $shortcutPath = Join-Path ([Environment]::GetFolderPath('DesktopDirectory')) '权限通知助手.lnk'
     if (-not (Test-Path -LiteralPath $shortcutPath)) { throw 'Desktop shortcut was not created' }
@@ -36,8 +51,10 @@ try {
     if ($LASTEXITCODE -ne 0) { throw 'Installed assistant HTTP smoke failed' }
     $dataFile = Join-Path $env:LOCALAPPDATA 'PermissionNotifier/upgrade-probe.txt'
     Set-Content $dataFile 'preserve-user-data'
-    & "$bundle/scripts/install.ps1"
+    & "$bundle/install.cmd"
+    if ($LASTEXITCODE -ne 0) { throw 'CMD assistant reinstallation failed' }
     if ((Get-Content $dataFile) -ne 'preserve-user-data') { throw 'Reinstall removed user data' }
 } finally {
     $env:LOCALAPPDATA = $originalLocalAppData
+    $env:PERMISSION_NOTIFIER_INSTALL_NO_PAUSE = $originalNoPause
 }

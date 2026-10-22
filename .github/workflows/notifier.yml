@@ -1,0 +1,25 @@
+name: Validate standalone notification assistant
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'permission-notifier/**'
+      - 'scripts/releasing/verify-notifier-windows.ps1'
+      - '.github/workflows/notifier.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  windows-installer:
+    runs-on: windows-2022
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1
+        with:
+          python-version: '3.12'
+          architecture: x64
+      - run: python permission-notifier/scripts/build.py
+      - name: Verify CMD installer, shortcut, HTTP startup and reinstall
+        shell: powershell
+        run: ./scripts/releasing/verify-notifier-windows.ps1

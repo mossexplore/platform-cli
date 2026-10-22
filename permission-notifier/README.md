@@ -4,13 +4,24 @@ Windows 托盘与本地网页应用。通过权限系统领取任务，逐个调
 
 ## 安装与启动
 
-需要 Python 3.12。将本项目单独交付到用户电脑，不放入 CLI 安装包。PowerShell 运行：
+需要 Python 3.12。将本项目单独交付到用户电脑，不放入 CLI 安装包。**完整解压安装包后，双击根目录的 `install.cmd`** 即可安装；安装成功或失败都会保留窗口，按任意键关闭。无需手动执行 `.ps1` 或修改系统执行策略。
+
+已发布的 1.0.7.7 ZIP 附件保持原样。如果解压后没有 `install.cmd`，可[单独下载 CMD 安装入口](https://raw.githubusercontent.com/mossexplore/platform-cli/main/permission-notifier/install.cmd)，保存到解压根目录，与 `pyproject.toml` 同级；保留完整的 `scripts` 目录，然后双击安装。不要将文件保存为 `install.cmd.txt`。后续源码安装包会直接包含此入口。
+
+也可以在命令提示符或 PowerShell 中运行：
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\install.ps1
+.\install.cmd
 ```
 
-安装时添加 `-AutoStart` 可注册当前用户登录启动任务；不需要系统服务账号。企业 Python 包源可通过 `-IndexUrl` 指定，不在参数中嵌入凭据。首次安装需要能获取依赖。
+安装时添加 `-AutoStart` 可注册当前用户登录启动任务；不需要系统服务账号。企业 Python 包源可通过 `-IndexUrl` 指定，不在参数中嵌入凭据。例如：
+
+```powershell
+.\install.cmd -AutoStart
+.\install.cmd -IndexUrl "https://你的包源地址/simple"
+```
+
+首次安装需要能获取依赖。安装失败时查看窗口中的错误，处理后重新运行 `install.cmd`。升级或重复安装前先通过托盘退出助手，安装会保留个人配置和任务状态。
 
 安装完成后使用桌面“权限通知助手”快捷方式。托盘菜单可打开管理页面、暂停/恢复、查看日志和退出；关闭浏览器不会停止助手。管理地址：
 
