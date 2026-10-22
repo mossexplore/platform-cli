@@ -1,5 +1,8 @@
 """Release gate must keep the third ZIP separate and reject mixed build sources."""
 import hashlib
+import io
+import tarfile
+import runpy
 import json
 import os
 from pathlib import Path
@@ -21,6 +24,9 @@ def assemble(tmp_path, *, wrong_revision=False, extra_file=False, leak=False):
         shutil.copyfile(ROOT / 'scripts/releasing' / name, scripts / name)
     files = {
         'access-service/VERSION': VERSION,
+        f'docs/RELEASE_NOTES_{VERSION}.md': 'release notes fixture',
+        'docs/权限管理系统Docker离线导入与运行.md': 'image readme',
+        'access-service/docker/service.env.example': 'placeholder',
         'docs/权限管理系统Docker安装部署与调试指南.md': 'runbook',
         f'docs/权限管理系统1.0.7.1升级至{VERSION}指南.md': 'upgrade',
         'docs/WiseRec CLI 使用手册.md': 'commands',
@@ -44,8 +50,9 @@ def assemble(tmp_path, *, wrong_revision=False, extra_file=False, leak=False):
         if leak:
             z.writestr('permission_notifier/worker.py', 'not CLI code')
     for mode in ('online', 'offline'):
-        with ZipFile(out / f'wiserec-cli-{VERSION}-{mode}.zip', 'w') as z:
-            z.writestr('bundle/release.json', json.dumps({'version': VERSION, 'mode': mode,
+        suffix = 'windows-py3-online' if mode == 'online' else 'windows-x64-py312-offline'
+        with ZipFile(out / f'wiserec-cli-{VERSION}-{suffix}.zip', 'w') as z:
+            z.writestr('bundle/release.json', json.dumps({'version': VERSION, 'mode': mode, 'platform': 'windows',
                 'architecture': 'x64', 'python_major': 3, 'python_minor': 12}))
             z.writestr('bundle/' + wheel.name, wheel.read_bytes())
     assistant_files = {name.removeprefix('permission-notifier/'): value for name, value in files.items()
@@ -59,12 +66,21 @@ def assemble(tmp_path, *, wrong_revision=False, extra_file=False, leak=False):
             'python': '3.12', 'platform': 'windows',
             'files': {name: hashlib.sha256(value.encode()).hexdigest() for name, value in assistant_files.items()}}))
     image = f'cli-access-{VERSION}-linux-amd64.tar.gz'
-    (out / image).write_bytes(b'fixture; Docker contents are independently validated by image CI')
+    config = json.dumps({'os': 'linux', 'architecture': 'amd64', 'config': {'Labels': {
+        'org.opencontainers.image.version': VERSION, 'org.opencontainers.image.revision': SHA}}}).encode()
+    image_id = 'sha256:' + hashlib.sha256(config).hexdigest()
+    with tarfile.open(out / image, 'w:gz') as archive:
+        for name, content in {'config.json': config, 'manifest.json': json.dumps([{
+            'Config': 'config.json', 'RepoTags': ['cli-access:' + VERSION], 'Layers': []}]).encode()}.items():
+            entry = tarfile.TarInfo(name)
+            entry.size = len(content)
+            archive.addfile(entry, io.BytesIO(content))
     (out / 'README.md').write_text('image readme')
     (out / 'service.env.example').write_text('placeholder')
     (out / 'manifest.json').write_text(json.dumps({'image_version': VERSION, 'image_revision': SHA,
-        'image_reference': 'ghcr.io/example/cli-access@sha256:' + 'c' * 64,
-        'image_tag': 'cli-access:' + VERSION, 'image_file': image}))
+        'image_reference': 'ghcr.io/mossexplore/cli-access@sha256:' + 'c' * 64,
+        'image_tag': 'cli-access:' + VERSION, 'image_file': image,
+        'image_id': image_id, 'platform': 'linux/amd64'}))
     if extra_file:
         (out / 'unexpected-config.txt').write_text('must not ship')
     (out / 'SHA256SUMS').write_text(''.join(
@@ -89,3 +105,36 @@ def test_assistant_is_third_separate_archive_with_complete_checksums(tmp_path):
 @pytest.mark.parametrize('fault', ['wrong_revision', 'extra_file', 'leak'])
 def test_release_rejects_mixed_sources_extra_files_or_cli_leak(tmp_path, fault):
     assert assemble(tmp_path, **{fault: True}).returncode != 0
+
+
+def downloaded_release(directory):
+    return {'draft': True, 'prerelease': False, 'tag_name': 'v' + VERSION,
+            'target_commitish': SHA, 'body': 'release notes fixture',
+            'assets': [{'name': p.name, 'size': p.stat().st_size,
+                        'digest': 'sha256:' + hashlib.sha256(p.read_bytes()).hexdigest()}
+                       for p in directory.iterdir()]}
+
+
+def test_independent_download_verifier_accepts_matching_draft(tmp_path, monkeypatch):
+    result = assemble(tmp_path)
+    assert result.returncode == 0, result.stderr
+    verify = runpy.run_path(str(ROOT / 'scripts/releasing/verify-assets.py'))['verify']
+    monkeypatch.chdir(tmp_path)
+    directory = tmp_path / 'release-assets'
+    verify(directory, downloaded_release(directory), VERSION, SHA, 'sha256:' + 'c' * 64)
+
+
+def test_download_verifier_rejects_wrong_image_even_with_valid_file_hashes(tmp_path, monkeypatch):
+    assert assemble(tmp_path).returncode == 0
+    directory = tmp_path / 'release-assets'
+    manifest = directory / 'manifest.json'
+    data = json.loads(manifest.read_text())
+    data['image_id'] = 'sha256:' + 'd' * 64
+    manifest.write_text(json.dumps(data))
+    (directory / 'SHA256SUMS').write_text(''.join(
+        f'{hashlib.sha256(p.read_bytes()).hexdigest()}  {p.name}\n' for p in directory.iterdir()
+        if p.name != 'SHA256SUMS'))
+    verify = runpy.run_path(str(ROOT / 'scripts/releasing/verify-assets.py'))['verify']
+    monkeypatch.chdir(tmp_path)
+    with pytest.raises(AssertionError):
+        verify(directory, downloaded_release(directory), VERSION, SHA, 'sha256:' + 'c' * 64)

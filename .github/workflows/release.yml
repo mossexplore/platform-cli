@@ -196,3 +196,25 @@ jobs:
             --title "v$VERSION — CLI、权限管理系统与独立本地助手" \
             --notes-file "docs/RELEASE_NOTES_${VERSION}.md" release-assets/*
           echo 'Draft ready. Verify assets and publish after review.' >> "$GITHUB_STEP_SUMMARY"
+  verify-draft:
+    needs: [validate, image, draft]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+      - name: Download draft into a clean runner and verify exact attachments
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ needs.validate.outputs.version }}
+          IMAGE_DIGEST: ${{ needs.image.outputs.digest }}
+        run: |
+          gh api "repos/$GITHUB_REPOSITORY/releases/tags/v$VERSION" > "$RUNNER_TEMP/draft.json"
+          gh release download "v$VERSION" --dir verified-assets
+          python scripts/releasing/verify-assets.py verified-assets "$RUNNER_TEMP/draft.json"
+          docker load -i "verified-assets/cli-access-$VERSION-linux-amd64.tar.gz"
+          expected=$(python -c 'import json; print(json.load(open("verified-assets/manifest.json"))["image_id"])')
+          test "$(docker image inspect --format '{{.Id}}' "cli-access:$VERSION")" = "$expected"
+          test "$(docker run --rm --pull=never --network none "cli-access:$VERSION" python -c 'import os; print(os.getuid())')" = 10001
+          echo 'All 14 draft assets downloaded and verified; Docker archive loaded with matching image ID. Draft remains unpublished.' >> "$GITHUB_STEP_SUMMARY"
