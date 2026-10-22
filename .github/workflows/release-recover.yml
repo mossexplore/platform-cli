@@ -6,6 +6,11 @@ on:
         description: 'Prepare formal release run with successful CLI and image jobs'
         required: true
         type: string
+      verify_only:
+        description: 'Only download and verify the existing draft; keep all attachments unchanged'
+        required: true
+        default: true
+        type: boolean
 permissions:
   contents: read
   actions: read
@@ -85,6 +90,7 @@ jobs:
           export IMAGE_DIGEST=$(python -c 'import json; print(json.load(open("release-assets/manifest.json"))["image_reference"].split("@")[1])')
           python /tmp/prepare-assets.py
       - name: Repair draft attachments without changing binaries
+        if: ${{ !inputs.verify_only }}
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           VERSION: ${{ steps.source.outputs.version }}
@@ -103,8 +109,26 @@ jobs:
           PY
           gh release upload "v$VERSION" release-assets/* --clobber
           gh release edit "v$VERSION" --notes-file /tmp/release-notes.md
+      - name: Download existing draft and independently verify all attachments
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ steps.source.outputs.version }}
+          SOURCE_SHA: ${{ steps.source.outputs.sha }}
+        run: |
+          export GITHUB_SHA="$SOURCE_SHA"
+          export IMAGE_DIGEST=$(python -c 'import json; print(json.load(open("release-assets/manifest.json"))["image_reference"].split("@")[1])')
+          # The tag endpoint serves published releases. Resolve a draft by its API URL.
+          api_url=$(gh release view "v$VERSION" --json apiUrl --jq .apiUrl)
+          gh api "$api_url" > "$RUNNER_TEMP/draft.json"
+          gh release download "v$VERSION" --dir verified-assets
+          python scripts/releasing/verify-assets.py verified-assets "$RUNNER_TEMP/draft.json"
+          docker load -i "verified-assets/cli-access-$VERSION-linux-amd64.tar.gz"
+          expected=$(python -c 'import json; print(json.load(open("verified-assets/manifest.json"))["image_id"])')
+          test "$(docker image inspect --format '{{.Id}}' "cli-access:$VERSION")" = "$expected"
+          test "$(docker run --rm --pull=never --network none "cli-access:$VERSION" python -c 'import os; print(os.getuid())')" = 10001
+          echo 'All 14 draft assets freshly downloaded and verified against the original tested source and artifacts; Docker load and image ID verified. Draft remains unpublished.' >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: verified-release-assets
-          path: release-assets/
+          path: verified-assets/
           if-no-files-found: error

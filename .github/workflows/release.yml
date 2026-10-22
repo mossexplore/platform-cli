@@ -210,7 +210,8 @@ jobs:
           VERSION: ${{ needs.validate.outputs.version }}
           IMAGE_DIGEST: ${{ needs.image.outputs.digest }}
         run: |
-          gh api "repos/$GITHUB_REPOSITORY/releases/tags/v$VERSION" > "$RUNNER_TEMP/draft.json"
+          api_url=$(gh release view "v$VERSION" --json apiUrl --jq .apiUrl)
+          gh api "$api_url" > "$RUNNER_TEMP/draft.json"
           gh release download "v$VERSION" --dir verified-assets
           python scripts/releasing/verify-assets.py verified-assets "$RUNNER_TEMP/draft.json"
           docker load -i "verified-assets/cli-access-$VERSION-linux-amd64.tar.gz"
