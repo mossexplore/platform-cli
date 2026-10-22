@@ -32,7 +32,7 @@ def main():
             entry = root/('bin/ml.cmd' if sys.platform == 'win32' else 'bin/ml')
             for arguments in [('context', '--json'), ('train', 'list', '-o', 'json')]:
                 result = subprocess.run([str(entry), *arguments], env=environment, cwd=target,
-                                        capture_output=True, text=True, check=True)
+                                        capture_output=True, text=True, encoding='utf-8', check=True)
                 value = json.loads(result.stdout)
                 if arguments[0] == 'context':
                     assert value['运行模式'] == '演示（模拟数据）'
