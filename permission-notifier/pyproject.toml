@@ -1,0 +1,24 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "permission-notifier"
+version = "1.0.7.7"
+description = "Private Windows permission notification assistant"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = ["fastapi>=0.115,<1", "uvicorn>=0.30,<1", "httpx>=0.28,<1", "jinja2>=3.1,<4", "pystray>=0.19,<1; sys_platform == 'win32'", "Pillow>=10,<13; sys_platform == 'win32'"]
+
+[project.gui-scripts]
+permission-notifier = "permission_notifier.main:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+permission_notifier = ["static/*", "templates/*"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]

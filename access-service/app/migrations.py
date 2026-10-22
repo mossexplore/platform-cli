@@ -3,19 +3,21 @@ from sqlalchemy import inspect, select, text
 from .models import Base, CallLog, SchemaVersion, AccessApplication, ApplicationAttempt
 
 from .version_models import VersionPolicy, VersionException
+from .notification_models import NotificationClient, NotificationTask
 
-SCHEMA_VERSION = 11
+SCHEMA_VERSION = 12
 
 
 def migrate(engine, sessions):
     SchemaVersion.__table__.create(engine, checkfirst=True)
     with sessions() as db:
         versions = db.scalars(select(SchemaVersion.version)).all()
-        if versions not in ([], [1], [2], [3], [4], [5], [6], [7], [8], [9], [10], [11]):
+        if versions not in ([], *([i] for i in range(1, SCHEMA_VERSION + 1))):
             raise RuntimeError('数据库版本不兼容，不能自动迁移')
         if not versions:
             Base.metadata.create_all(engine)
             db.add(SchemaVersion(version=SCHEMA_VERSION))
+            db.add(NotificationClient(id=1))
             db.commit()
             return
         version = versions[0]
@@ -80,6 +82,11 @@ def migrate(engine, sessions):
         if 'default_grant' not in columns:
             with engine.begin() as connection:
                 connection.execute(text('ALTER TABLE environments ADD COLUMN default_grant BOOLEAN NOT NULL DEFAULT 0'))
+    if version < 12:
+        NotificationClient.__table__.create(engine, checkfirst=True)
+        NotificationTask.__table__.create(engine, checkfirst=True)
     with sessions() as db:
+        if db.get(NotificationClient, 1) is None:
+            db.add(NotificationClient(id=1))
         db.get(SchemaVersion, version).version = SCHEMA_VERSION
         db.commit()

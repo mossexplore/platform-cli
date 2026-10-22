@@ -1,0 +1,69 @@
+# 独立权限通知助手
+
+Windows 托盘与本地网页应用。通过权限系统领取任务，逐个调用消息接口；不依赖、不修改业务 CLI。
+
+## 安装与启动
+
+需要 Python 3.12。将本项目单独交付到用户电脑，不放入 CLI 安装包。PowerShell 运行：
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\install.ps1
+```
+
+安装时添加 `-AutoStart` 可注册当前用户登录启动任务；不需要系统服务账号。企业 Python 包源可通过 `-IndexUrl` 指定，不在参数中嵌入凭据。首次安装需要能获取依赖。
+
+安装完成后使用桌面“权限通知助手”快捷方式。托盘菜单可打开管理页面、暂停/恢复、查看日志和退出；关闭浏览器不会停止助手。管理地址：
+
+```text
+http://127.0.0.1:18765
+```
+
+已有实例运行时，再次启动只打开页面。端口被其他程序占用时启动失败，不会监听外部地址。
+
+## 首次配置
+
+1. 权限服务先迁移至结构 12，并配置 `NOTIFICATION_OWNER_ADMIN_ID` 为你的现有管理员 ID。
+2. 登录权限系统“个人通知”，开启通知，输入 `reset` 生成 Token；30 分钟内在本地绑定。
+3. 本地网页填写权限系统地址和助手 Token，保存并绑定。
+4. 填写消息 URL、auth、可选 sender，添加启用的接收 UID。每个 UID 单独请求一次。
+5. 明确成功规则：默认“尚未确认”，不自动发送。只有确认 HTTP 2xx 即代表接受时选择该规则；也可按真实响应配置 JSON 字段与期望值。期望值填写合法 JSON，例如 `true`、`0` 或 `"ok"`。
+6. 勾选对象，主动发送测试消息；检查逐项结果后保存配置并恢复通知。
+
+消息请求 JSON 为 `content`、`receiver`、`auth`；sender 非空才加入。auth 不放入 HTTP Authorization；助手 Token 才用于访问权限系统的 Bearer 认证。
+
+权限系统需 HTTPS，本机联调允许 HTTP 回环地址。消息接口支持 HTTP/HTTPS。两条连接可以独立配置代理、CA 文件及是否使用当前用户代理环境，不关闭 TLS 校验。
+
+## 配置与数据
+
+主文件：`%LOCALAPPDATA%\PermissionNotifier\assistant.json`。明文保存 Token/auth、配置及恢复状态；安装器限制目录为当前用户与 SYSTEM 访问。不要发送原文件到群聊或提交版本控制。网页不回显原凭据，留空保留，替换/清除显式进行。
+
+网页保存后无需重启。当前 HTTP 请求沿用开始时配置；新接收列表用于新任务。已有任务保留目标快照，切换消息接口时需在明细中显式迁移未完成项。切换权限系统地址会等待旧任务和回传处理完毕，旧连接信息仅在等待期间保留；需要取消切换时把原地址及凭据重新保存。
+
+不确定任务不会自动重发：先在消息客户端核对，再选择“确认已发送”“重试此对象”或“取消此对象”。成功对象不会随整单重试。即使所有对象结束为失败/不确定，后续任务仍可继续；存在此类任务时权限系统地址切换需要先处置。
+
+文件损坏或不能写入时，助手停止新发送并提示。退出后恢复有效文件再启动，不要直接清空以继续发送。当前同一安装实例可备份恢复；换电脑时需保留实例与任务文件，且确保旧电脑助手已退出，然后在服务端重置 Token 并绑定。没有原快照时不能自动重发旧任务。
+
+## 自动启动与卸载
+
+```powershell
+& "$env:LOCALAPPDATA\Programs\PermissionNotifier\autostart.ps1" -Enable
+& "$env:LOCALAPPDATA\Programs\PermissionNotifier\autostart.ps1" -Disable
+& "$env:LOCALAPPDATA\Programs\PermissionNotifier\uninstall.ps1"
+```
+
+正常退出不会立即重启；下次登录遵循自动启动设置。暂停持久保存，重新启动仍暂停。注销、关机和休眠期间不能发送。
+
+升级前通过托盘退出，再运行安装器；配置保留。卸载默认保留数据；指定 `-DeleteData` 还需输入 `DELETE` 才删除。无需也不应卸载业务 CLI。
+
+## 开发与测试
+
+```bash
+python -m pip install -e . pytest
+python -m pytest -q
+PERMISSION_SERVICE_SOURCE=/path/to/platform-cli/access-service python -m pytest -q
+python -m permission_notifier.main --headless --data-dir /tmp/notifier-test
+```
+
+最后两项用于联调；跨项目测试还需安装权限服务依赖。测试使用模拟消息发送，不访问真实接口。Windows 托盘/任务计划需在实际 Windows 用户环境验收。
+
+构建私有源码包和 Wheel：`python -m build`。构建包含 Windows 安装脚本的独立 ZIP：`python scripts/build.py`。本项目随 1.0.7.7 Release 作为单独附件交付，不放入 CLI 安装包或公共 Python 包仓库。当前不含 Python 解释器和离线依赖包，联网安装所需依赖需由用户环境提供。

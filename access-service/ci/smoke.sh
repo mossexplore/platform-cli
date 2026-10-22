@@ -37,11 +37,12 @@ with sessions() as db:
     db.flush()
     db.add(Grant(user_id=user.id, environment_id=environment.id))
     db.commit()
-# Test-only fixture matching the previous formal release's schema 10.
+# Test-only fixture matching the previous formal release's schema 11.
 # This isolated MySQL database is never a production database.
 with engine.begin() as connection:
-    connection.execute(text('ALTER TABLE environments DROP COLUMN default_grant'))
-    connection.execute(text('UPDATE schema_versions SET version=10'))
+    connection.execute(text('DROP TABLE notification_tasks'))
+    connection.execute(text('DROP TABLE notification_clients'))
+    connection.execute(text('UPDATE schema_versions SET version=11'))
 engine.dispose()
 PY
 "${compose[@]}" run --rm cli-access python -m app.manage migrate
@@ -53,7 +54,7 @@ from sqlalchemy import select
 from app.models import Environment, Grant, SchemaVersion, database
 engine, sessions = database(os.environ['DATABASE_URL'])
 with sessions() as db:
-    assert db.scalar(select(SchemaVersion.version)) == 11
+    assert db.scalar(select(SchemaVersion.version)) == 12
     assert db.scalar(select(Environment)).default_grant is False
     assert db.scalar(select(Grant)) is not None
 engine.dispose()

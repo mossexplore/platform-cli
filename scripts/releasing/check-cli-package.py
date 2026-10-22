@@ -7,7 +7,11 @@ import zipfile
 
 FORBIDDEN = ('wiserec_cli_mock', 'wiserec-cli-mock', 'devtools/', 'scripts/demo/',
              'workspace.json', 'state.sqlite3', 'jupyter.json', 'wiserec_cli/mock/',
-             'wiserec_cli/mock.py', 'wiserec_cli/seeds/', 'wiserec_cli/scenarios/')
+             'wiserec_cli/mock.py', 'wiserec_cli/seeds/', 'wiserec_cli/scenarios/',
+             'permission_notifier', 'permission-notifier', 'assistant.json',
+             'notification_models.py', 'notification_api.py', 'notification_auth.py',
+             'notification_admin.py', 'notification_schema.py', 'notification_state.py',
+             'notifications.html', '权限申请通知与独立本地助手设计.md', '权限通知开发与验收说明.md')
 
 
 def check(path, content=None):
@@ -23,8 +27,10 @@ def check(path, content=None):
                     top = PurePosixPath(item).parts[0]
                     if top != 'wiserec_cli' and not top.endswith('.dist-info'):
                         raise ValueError(f'CLI Wheel 中出现未知模块: {item}')
-                    if item.endswith('METADATA') and b'wiserec-cli-mock' in archive.read(item).lower():
-                        raise ValueError('正式 CLI 依赖了演示扩展')
+                    if item.endswith('METADATA'):
+                        metadata = archive.read(item).lower()
+                        if any(name in metadata for name in (b'wiserec-cli-mock', b'permission-notifier', b'pystray')):
+                            raise ValueError('正式 CLI 依赖了隔离组件')
                 if item.endswith('.whl'):
                     check(item, archive.read(item))
     elif name.endswith('.tar.gz'):

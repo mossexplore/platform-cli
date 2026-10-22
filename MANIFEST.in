@@ -9,3 +9,12 @@ prune devtools
 prune scripts/demo
 exclude docs/CLI演示环境使用指南.md
 prune tests
+
+# Notification service and private desktop assistant never belong in CLI sdists.
+prune access-service
+prune permission-notifier
+exclude docs/权限申请通知与独立本地助手设计.md
+exclude docs/权限通知开发与验收说明.md
+
+# Repository overview includes service/assistant release information.
+exclude README.md

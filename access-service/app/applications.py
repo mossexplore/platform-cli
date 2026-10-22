@@ -11,6 +11,7 @@ from .application_review import approve, fingerprint, identity, reject, review_s
 from .models import AccessApplication, ApplicationAttempt, now
 from .pagination import PAGE_SIZE
 from .security import digest
+from .notification_models import enqueue
 
 router = APIRouter()
 STATUSES = {'pending': '待审批', 'approved': '已通过', 'rejected': '已拒绝'}
@@ -56,6 +57,7 @@ def submit(request: Request, csrf: str = Form(max_length=64),
                                  pending_username=username, token_hash=digest(token))
         db.add(item)
         try:
+            enqueue(db, item)
             db.commit()
         except IntegrityError:
             db.rollback()

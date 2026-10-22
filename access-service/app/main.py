@@ -10,6 +10,7 @@ from sqlalchemy import select, func
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from . import access, admin, admin_auth, call_logs, analytics, administrators, deletions, grant_selection, applications
 from . import version_admin, bulk_grants, access_batch
+from . import notification_api, notification_admin
 from .models import SchemaVersion, AccessApplication, database
 from .migrations import SCHEMA_VERSION
 from .pagination import PAGE_SIZE
@@ -49,6 +50,8 @@ def create_app(settings=None):
     app.include_router(grant_selection.router, prefix="/cli-permission")
     app.include_router(bulk_grants.router, prefix="/cli-permission")
     app.include_router(applications.router, prefix="/cli-permission")
+    app.include_router(notification_api.router, prefix="/cli-permission")
+    app.include_router(notification_admin.router, prefix="/cli-permission")
 
     @app.middleware('http')
     async def response_headers(request, call_next):
