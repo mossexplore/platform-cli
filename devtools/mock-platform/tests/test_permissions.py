@@ -23,7 +23,7 @@ def test_real_permission_audit_and_revocation(tmp_path, permission_service):
     record = logs(permission_service)[-1]
     assert (record.actor, record.environment, record.business_id, record.command, record.allowed) == (
         'demo', 'demo-dev', business_ids('demo-dev')[1], 'ml train list', True)
-    assert record.cli_version == '1.0.7.2' and record.invocation_id and record.request_id
+    assert record.cli_version == '1.0.7.7' and record.invocation_id and record.request_id
     with Store(root).transaction() as db:
         before = Store.items(db, business_ids('demo-dev')[1], 'job')
     with permission_service.app.state.sessions() as db:
@@ -45,7 +45,7 @@ def test_version_policy_is_server_decision(tmp_path, permission_service):
     root = initialize(tmp_path/'demo')
     with permission_service.app.state.sessions() as db:
         rule = VersionPolicy(name='test-denial', environment='demo-dev', mode='enforce',
-                             blocked_versions='["1.0.7.2"]', created_by='test')
+                             blocked_versions='["1.0.7.7"]', created_by='test')
         db.add(rule)
         db.commit()
         rule_id = rule.id

@@ -49,4 +49,4 @@ if __name__ == '__main__':
     args = parser.parse_args()
     for archive in args.archives:
         check(archive)
-        print(f'正式包隔离检查通过: {archive.name}')
+        print(f'CLI package isolation passed: {archive.name}')

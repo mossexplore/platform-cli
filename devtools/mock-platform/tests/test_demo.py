@@ -136,7 +136,7 @@ def test_fail_closed_and_production_unchanged(workspace, tmp_path):
     (workspace/'state.sqlite3').write_bytes(b'corrupt database')
     invoke(workspace, 'context', success=False)
     production = subprocess.run([sys.executable, '-m', 'wiserec_cli.cli', '--version'], capture_output=True, text=True)
-    assert production.returncode == 0 and '1.0.7.2' in production.stdout
+    assert production.returncode == 0 and '1.0.7.7' in production.stdout
 
 
 @pytest.mark.parametrize('scenario', ['empty', 'large', 'partial-failure', 'malformed-response'])

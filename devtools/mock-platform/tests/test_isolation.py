@@ -82,7 +82,7 @@ run()
 '''
     result = subprocess.run([sys.executable, '-c', script, '--version'], text=True, capture_output=True,
                             env=dict(os.environ, WISEREC_DEMO_WORKSPACE=str(tmp_path)))
-    assert result.returncode == 0 and '1.0.7.2' in result.stdout
+    assert result.returncode == 0 and '1.0.7.7' in result.stdout
 
 
 def test_worker_transport_and_reset_are_isolated(tmp_path):

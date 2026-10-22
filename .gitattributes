@@ -1,0 +1,2 @@
+# The Windows-built assistant ZIP is compared byte-for-byte with Linux checkout.
+permission-notifier/** text eol=lf
