@@ -46,7 +46,7 @@ def main():
     entry.chmod(0o755)
     (root/'start-demo.sh').chmod(0o755)
     (root/'manage-demo.sh').chmod(0o755)
-    print('演示安装完成，使用 start-demo 打开专用终端')
+    print('Demo installed. Use start-demo to open its dedicated terminal.')
 
 
 if __name__ == '__main__':
