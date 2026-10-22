@@ -58,6 +58,8 @@ exit 23
     if ($LASTEXITCODE -ne 0) { throw 'Installed assistant version mismatch' }
     & $python "$bundle/scripts/smoke.py"
     if ($LASTEXITCODE -ne 0) { throw 'Installed assistant HTTP smoke failed' }
+    & $python "$bundle/scripts/smoke.py" --windowless
+    if ($LASTEXITCODE -ne 0) { throw 'Installed pythonw assistant HTTP smoke failed' }
     $dataFile = Join-Path $env:LOCALAPPDATA 'PermissionNotifier/upgrade-probe.txt'
     Set-Content $dataFile 'preserve-user-data'
     & "$bundle/install.cmd"

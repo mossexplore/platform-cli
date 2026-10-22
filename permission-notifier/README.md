@@ -31,6 +31,35 @@ http://127.0.0.1:18765
 
 已有实例运行时，再次启动只打开页面。端口被其他程序占用时启动失败，不会监听外部地址。
 
+## 启动失败定位
+
+按 **Win + R**，粘贴以下命令并回车，可打开当前用户的日志：
+
+```text
+notepad "%LOCALAPPDATA%\PermissionNotifier\logs\assistant.log"
+```
+
+通常对应 `C:\Users\你的Windows用户名\AppData\Local\PermissionNotifier\logs\assistant.log`，实际位置以 `%LOCALAPPDATA%` 为准。记录报错时间和最后几行，不发送含 Token/auth 的 `assistant.json`。
+
+在 PowerShell 中检查端口是否已有程序监听：
+
+```powershell
+Get-NetTCPConnection -LocalPort 18765 -State Listen -ErrorAction SilentlyContinue |
+    Select-Object LocalAddress, LocalPort, OwningProcess
+```
+
+无输出表示当前未发现监听，不代表启动失败一定与端口无关；有输出时可按 `OwningProcess` 到任务管理器核对程序。如果已是助手，尝试打开 `http://127.0.0.1:18765`；不要直接结束未知进程。
+
+关闭失败弹窗、确认没有助手实例运行后，可在 PowerShell 中使用已安装的 Python 前台启动，排除托盘相关问题：
+
+```powershell
+& "$env:LOCALAPPDATA\Programs\PermissionNotifier\venv\Scripts\python.exe" -m permission_notifier.main --headless
+```
+
+保持窗口打开，再访问本地网页；结束诊断时在页面点击“退出助手”或在该窗口按 Ctrl+C。此命令使用原配置和任务状态，正常启动后会按原暂停状态工作。
+
+1.0.7.7 的通用弹窗不等于端口被占用。若桌面快捷方式失败、日志为 `ValueError`，但上述前台方式可用，可能是 `pythonw.exe` 无控制台时网页服务的日志初始化问题。当前源码已修复该问题，并在错误日志中增加失败阶段和系统错误码；仅补入 CMD 入口不会更新已安装的 Python 代码，原 Release 附件也不会自动包含源码修复。
+
 ## 首次配置
 
 1. 权限服务先迁移至结构 12，并配置 `NOTIFICATION_OWNER_ADMIN_ID` 为你的现有管理员 ID。

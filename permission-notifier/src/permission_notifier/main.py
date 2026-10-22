@@ -37,8 +37,10 @@ def main():
     logging.getLogger('httpcore').setLevel(logging.CRITICAL)
     server = None
     worker = None
+    stage = 'check_port'
     try:
         ensure_port_free(18765)
+        stage = 'load_config'
         store = Store(args.data_dir / 'assistant.json')
         worker = Worker(store)
         stop_lock = threading.Lock()
@@ -51,17 +53,23 @@ def main():
                 worker.thread.join(timeout=90)
             server.should_exit = True
 
+        stage = 'create_web_app'
         app = create_app(store, worker, shutdown=stop)
+        # pythonw.exe has no stdout/stderr. Keep our file logging configuration;
+        # Uvicorn's default console formatter otherwise calls None.isatty().
         server = uvicorn.Server(uvicorn.Config(app, host='127.0.0.1', port=18765,
-            access_log=False, log_level='warning', timeout_graceful_shutdown=5))
+            log_config=None, access_log=False, log_level='warning', timeout_graceful_shutdown=5))
+        stage = 'start_web'
         web_thread = threading.Thread(target=server.run, name='local-web', daemon=True)
         web_thread.start()
         if not wait_ready(server):
             raise RuntimeError('本地网页启动失败，请检查端口占用')
+        stage = 'start_worker'
         worker.start()
         if not args.autostart and not args.headless:
             webbrowser.open('http://127.0.0.1:18765')
         if os.name == 'nt' and not args.headless:
+            stage = 'start_tray'
             from .tray import run_tray
             run_tray(store, worker, stop, logs)
             stop()
@@ -72,10 +80,15 @@ def main():
         if worker.thread:
             worker.thread.join(timeout=90)
     except Exception as exc:
-        logging.error('启动或运行失败：%s', type(exc).__name__)
+        # Exception text can contain configured URLs or credentials. Record only
+        # the stage, exception class and OS error numbers for safe diagnostics.
+        logging.error('启动或运行失败：stage=%s type=%s errno=%s winerror=%s',
+            stage, type(exc).__name__, getattr(exc, 'errno', None), getattr(exc, 'winerror', None))
         if os.name == 'nt' and not args.headless:
             import ctypes
-            ctypes.windll.user32.MessageBoxW(None, '助手启动失败，请检查端口 18765 和日志目录。', '权限通知助手', 16)
+            ctypes.windll.user32.MessageBoxW(None,
+                f'助手启动失败（{stage} / {type(exc).__name__}）。\n日志：{logs / "assistant.log"}',
+                '权限通知助手', 16)
         raise SystemExit(1) from None
     finally:
         if worker:
