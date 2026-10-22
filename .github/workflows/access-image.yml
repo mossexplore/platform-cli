@@ -70,7 +70,7 @@ jobs:
               out.write(f'version={version}\ncli_version={cli_version}\nimage={image}\ncandidate={candidate}\npublish={str(publish).lower()}\n')
           PY
       - name: Install test dependencies
-        run: python -m pip install -e . -r access-service/requirements.lock pytest
+        run: python -m pip install -e . -r access-service/requirements.lock pytest "setuptools>=68" wheel
       - name: CLI tests
         env:
           # Typer forces ANSI output on GitHub; help assertions require plain text.
