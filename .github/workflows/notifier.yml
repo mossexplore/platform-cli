@@ -20,6 +20,6 @@ jobs:
           python-version: '3.12'
           architecture: x64
       - run: python permission-notifier/scripts/build.py
-      - name: Verify CMD installer, shortcut, HTTP startup and reinstall
+      - name: Verify CMD install, reinstall, HTTP startup and uninstall preserving data
         shell: powershell
         run: ./scripts/releasing/verify-notifier-windows.ps1

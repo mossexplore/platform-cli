@@ -11,7 +11,7 @@ version = tomllib.loads((root / 'pyproject.toml').read_text())['project']['versi
 name = f'permission-notifier-{version}-windows-source'
 output = root / 'dist'
 output.mkdir(exist_ok=True)
-files = [root / p for p in ('pyproject.toml', 'MANIFEST.in', 'README.md', '.gitignore', 'install.cmd')]
+files = [root / p for p in ('pyproject.toml', 'MANIFEST.in', 'README.md', '.gitignore', 'install.cmd', 'uninstall.cmd')]
 for folder, suffixes in [('src/permission_notifier', {'.py', '.html', '.css', '.js'}),
                          ('scripts', {'.ps1', '.py'}), ('tests', {'.py'})]:
     files += [p for p in (root / folder).rglob('*') if p.is_file() and p.suffix in suffixes

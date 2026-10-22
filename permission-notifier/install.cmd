@@ -8,5 +8,5 @@ if not "%INSTALL_EXIT_CODE%"=="0" (
 ) else (
   echo Installation completed. Start Permission Notifier from the desktop shortcut.
 )
-if not "%PERMISSION_NOTIFIER_INSTALL_NO_PAUSE%"=="1" pause
+if not "%PERMISSION_NOTIFIER_NO_PAUSE%"=="1" pause
 exit /b %INSTALL_EXIT_CODE%

@@ -13,10 +13,11 @@ foreach ($script in Get-ChildItem "$bundle/scripts" -Filter '*.ps1') {
 }
 # Isolate the installation and config from the runner's ordinary application data.
 $originalLocalAppData = $env:LOCALAPPDATA
-$originalNoPause = $env:PERMISSION_NOTIFIER_INSTALL_NO_PAUSE
+$originalNoPause = $env:PERMISSION_NOTIFIER_NO_PAUSE
 try {
-    $env:PERMISSION_NOTIFIER_INSTALL_NO_PAUSE = '1'
+    $env:PERMISSION_NOTIFIER_NO_PAUSE = '1'
     if (-not (Test-Path "$bundle/install.cmd")) { throw 'CMD installer missing from source archive' }
+    if (-not (Test-Path "$bundle/uninstall.cmd")) { throw 'CMD uninstaller missing from source archive' }
     # Probe argument forwarding and nonzero exit propagation without running an installation.
     $probe = Join-Path $env:RUNNER_TEMP 'notifier wrapper probe'
     New-Item -ItemType Directory -Force -Path "$probe/scripts" | Out-Null
@@ -28,6 +29,14 @@ exit 23
 '@ | Set-Content "$probe/scripts/install.ps1" -Encoding ASCII
     & "$probe/install.cmd" -AutoStart -IndexUrl 'https://example.invalid/path with spaces'
     if ($LASTEXITCODE -ne 23) { throw 'CMD installer did not preserve arguments or failure exit code' }
+    Copy-Item "$bundle/uninstall.cmd" "$probe/uninstall.cmd"
+    @'
+param([switch]$DeleteData)
+if (-not $DeleteData) { exit 24 }
+exit 23
+'@ | Set-Content "$probe/scripts/uninstall.ps1" -Encoding ASCII
+    & "$probe/uninstall.cmd" -DeleteData
+    if ($LASTEXITCODE -ne 23) { throw 'CMD uninstaller did not preserve arguments or failure exit code' }
     $env:LOCALAPPDATA = Join-Path $env:RUNNER_TEMP 'notifier-user'
     & "$bundle/install.cmd"
     if ($LASTEXITCODE -ne 0) { throw 'CMD assistant installation failed' }
@@ -54,7 +63,12 @@ exit 23
     & "$bundle/install.cmd"
     if ($LASTEXITCODE -ne 0) { throw 'CMD assistant reinstallation failed' }
     if ((Get-Content $dataFile) -ne 'preserve-user-data') { throw 'Reinstall removed user data' }
+    & "$bundle/uninstall.cmd"
+    if ($LASTEXITCODE -ne 0) { throw 'CMD assistant uninstallation failed' }
+    if (Test-Path (Join-Path $env:LOCALAPPDATA 'Programs/PermissionNotifier')) { throw 'Uninstall left the program directory' }
+    if (Test-Path -LiteralPath $shortcutPath) { throw 'Uninstall left the desktop shortcut' }
+    if ((Get-Content $dataFile) -ne 'preserve-user-data') { throw 'Default uninstall removed user data' }
 } finally {
     $env:LOCALAPPDATA = $originalLocalAppData
-    $env:PERMISSION_NOTIFIER_INSTALL_NO_PAUSE = $originalNoPause
+    $env:PERMISSION_NOTIFIER_NO_PAUSE = $originalNoPause
 }

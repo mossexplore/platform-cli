@@ -6,7 +6,7 @@ Windows 托盘与本地网页应用。通过权限系统领取任务，逐个调
 
 需要 Python 3.12。将本项目单独交付到用户电脑，不放入 CLI 安装包。**完整解压安装包后，双击根目录的 `install.cmd`** 即可安装；安装成功或失败都会保留窗口，按任意键关闭。无需手动执行 `.ps1` 或修改系统执行策略。
 
-已发布的 1.0.7.7 ZIP 附件保持原样。如果解压后没有 `install.cmd`，可[单独下载 CMD 安装入口](https://raw.githubusercontent.com/mossexplore/platform-cli/main/permission-notifier/install.cmd)，保存到解压根目录，与 `pyproject.toml` 同级；保留完整的 `scripts` 目录，然后双击安装。不要将文件保存为 `install.cmd.txt`。后续源码安装包会直接包含此入口。
+已发布的 1.0.7.7 ZIP 附件保持原样。如果解压后没有 CMD 入口，可分别下载 [install.cmd](https://raw.githubusercontent.com/mossexplore/platform-cli/main/permission-notifier/install.cmd) 和 [uninstall.cmd](https://raw.githubusercontent.com/mossexplore/platform-cli/main/permission-notifier/uninstall.cmd)，保存到解压根目录，与 `pyproject.toml` 同级；保留完整的 `scripts` 目录。不要将文件保存为 `.cmd.txt`。后续源码安装包会直接包含这两个入口。
 
 也可以在命令提示符或 PowerShell 中运行：
 
@@ -59,12 +59,25 @@ http://127.0.0.1:18765
 ```powershell
 & "$env:LOCALAPPDATA\Programs\PermissionNotifier\autostart.ps1" -Enable
 & "$env:LOCALAPPDATA\Programs\PermissionNotifier\autostart.ps1" -Disable
-& "$env:LOCALAPPDATA\Programs\PermissionNotifier\uninstall.ps1"
 ```
 
 正常退出不会立即重启；下次登录遵循自动启动设置。暂停持久保存，重新启动仍暂停。注销、关机和休眠期间不能发送。
 
-升级前通过托盘退出，再运行安装器；配置保留。卸载默认保留数据；指定 `-DeleteData` 还需输入 `DELETE` 才删除。无需也不应卸载业务 CLI。
+升级前通过托盘退出，再运行 `install.cmd`；配置保留。
+
+**卸载前先通过托盘或本地网页退出助手，再双击解压目录中的 `uninstall.cmd`。** 默认删除助手程序、快捷方式和登录启动任务，保留个人 JSON 配置、凭据、任务记录及日志。命令行也可运行：
+
+```powershell
+.\uninstall.cmd
+```
+
+仅在确定不再需要个人数据时使用以下命令，并在提示时输入 `DELETE` 确认；取消或输入其他内容不会删除个人数据：
+
+```powershell
+.\uninstall.cmd -DeleteData
+```
+
+无需也不应卸载业务 CLI。卸载窗口会显示结果并等待按键关闭。
 
 ## 开发与测试
 

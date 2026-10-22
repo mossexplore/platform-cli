@@ -1,5 +1,6 @@
 include README.md
 include install.cmd
+include uninstall.cmd
 recursive-include scripts *.ps1
 include scripts/build.py
 include scripts/smoke.py
