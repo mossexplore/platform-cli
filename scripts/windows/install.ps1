@@ -309,7 +309,7 @@ if ($PathChanged) {
     Write-Host "Open a new CMD or PowerShell window before running ml." -ForegroundColor Yellow
 }
 Write-Host ""
-Write-Host "[Stage 2/2] Installing OpenCode skill and /ml command" -ForegroundColor Cyan
+Write-Host "[Stage 2/2] Installing OpenCode and codeagent skills and OpenCode /ml command" -ForegroundColor Cyan
 $OpenCodeInstalled = $false
 try {
     Invoke-Checked -Command $VirtualEnvironmentPython -Arguments @(
@@ -317,13 +317,13 @@ try {
     )
     $OpenCodeInstalled = $true
 } catch {
-    Write-Warning "OpenCode skill and /ml command installation failed: $_"
+    Write-Warning "OpenCode/codeagent resource installation failed: $_"
     Write-Warning "CLI installation succeeded and ml remains usable. Rerun install.cmd to retry."
 }
 if ($OpenCodeInstalled) {
-    Write-Host "Result: CLI and OpenCode resources installed successfully." -ForegroundColor Green
+    Write-Host "Result: CLI, OpenCode and codeagent resources installed successfully." -ForegroundColor Green
 } else {
-    Write-Warning "Result: CLI installed; OpenCode resources failed."
+    Write-Warning "Result: CLI installed; some OpenCode/codeagent resources failed."
 }
 Write-Host ""
 Write-Host "Next steps:"

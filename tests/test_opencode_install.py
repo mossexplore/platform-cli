@@ -70,3 +70,53 @@ def test_redirected_parent_is_not_modified(resources, tmp_path):
     with pytest.raises(ValueError, match="symlink"):
         install_resources(target, resources)
     assert list(external.iterdir()) == []
+
+
+def test_skill_only_reinstall_preserves_commands_and_other_skills(resources, tmp_path):
+    target = tmp_path / ".cac"
+    install_resources(target, resources, include_command=False)
+    skill = target / "skills/wiserec-platform"
+    (skill / "old.md").write_text("obsolete")
+    other = target / "skills/other/SKILL.md"
+    other.parent.mkdir()
+    other.write_text("keep")
+    commands = target / "commands"
+    commands.mkdir()
+    (commands / "ml.md").write_text("custom command")
+    install_resources(target, resources, include_command=False)
+    assert not (skill / "old.md").exists()
+    assert (skill / "references/session.md").read_bytes() == (
+        resources / "skills/wiserec-platform/references/session.md"
+    ).read_bytes()
+    assert (commands / "ml.md").read_text() == "custom command"
+    assert other.read_text() == "keep"
+
+
+@pytest.mark.parametrize("failed_target", [None, "OpenCode", "codeagent"])
+def test_main_installs_both_targets_independently(
+    resources, tmp_path, monkeypatch, failed_target,
+):
+    home = tmp_path / "用户"
+    opencode = tmp_path / "custom-opencode"
+    cac = home / ".cac"
+    monkeypatch.setenv("OPENCODE_CONFIG_DIR", str(opencode))
+    monkeypatch.setattr(Path, "home", lambda: home)
+
+    def install(directory, *, include_command):
+        if directory == {"OpenCode": opencode, "codeagent": cac}.get(failed_target):
+            raise PermissionError("denied")
+        install_resources(directory, resources, include_command=include_command)
+
+    with patch("wiserec_cli.opencode_install.install_resources", side_effect=install) as mocked, \
+            patch("wiserec_cli.opencode_install.msg.detail") as detail:
+        assert main() == (1 if failed_target else 0)
+    assert mocked.call_count == 2
+    for label, directory in (("OpenCode", opencode), ("codeagent", cac)):
+        assert (directory / "skills/wiserec-platform/SKILL.md").exists() == (
+            label != failed_target
+        )
+    assert not (cac / "commands").exists()
+    output = "\n".join(call.args[0] for call in detail.call_args_list)
+    assert str(opencode / "skills/wiserec-platform") in output
+    assert str(cac / "skills/wiserec-platform") in output
+    assert str(opencode / "commands/ml.md") in output

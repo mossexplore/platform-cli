@@ -1,4 +1,4 @@
-"""Internal installer for bundled OpenCode resources; no CLI command registration."""
+"""Internal installer for bundled agent resources; no CLI command registration."""
 
 import hashlib
 import json
@@ -20,8 +20,10 @@ def _remove(path: Path) -> None:
         shutil.rmtree(path)
 
 
-def install_resources(target: Path, source: Path = RESOURCE_ROOT) -> None:
-    """Validate before deletion, then replace only the two owned resources."""
+def install_resources(
+    target: Path, source: Path = RESOURCE_ROOT, *, include_command: bool = True,
+) -> None:
+    """Validate before deletion, then replace only the selected owned resources."""
     manifest = json.loads((source / "manifest.json").read_text(encoding="utf-8"))
     required = {"commands/ml.md", "skills/wiserec-platform/SKILL.md"}
     if not isinstance(manifest, dict) or not required.issubset(manifest):
@@ -40,11 +42,16 @@ def install_resources(target: Path, source: Path = RESOURCE_ROOT) -> None:
             destination = staged / relative
             destination.parent.mkdir(parents=True, exist_ok=True)
             destination.write_bytes(data)
-        owned = [target / "skills/wiserec-platform", target / "commands/ml.md"]
+        owned = [target / "skills/wiserec-platform"]
+        if include_command:
+            owned.append(target / "commands/ml.md")
         # Refuse redirected parent directories; do not delete unrelated resources.
-        for parent in (target, target / "skills", target / "commands"):
+        parents = [target, target / "skills"]
+        if include_command:
+            parents.append(target / "commands")
+        for parent in parents:
             if parent.is_symlink():
-                raise ValueError(f"OpenCode directory must not be a symlink: {parent}")
+                raise ValueError(f"Resource directory must not be a symlink: {parent}")
         replacement_started = False
         try:
             for destination in owned:
@@ -58,6 +65,8 @@ def install_resources(target: Path, source: Path = RESOURCE_ROOT) -> None:
                 else:
                     shutil.copyfile(origin, destination)
             for relative, digest in manifest.items():
+                if not include_command and relative == "commands/ml.md":
+                    continue
                 if hashlib.sha256((target / relative).read_bytes()).hexdigest() != digest:
                     raise ValueError(f"Installed resource checksum failed: {relative}")
         except Exception:
@@ -69,15 +78,27 @@ def install_resources(target: Path, source: Path = RESOURCE_ROOT) -> None:
 
 def main() -> int:
     target = Path(os.environ.get("OPENCODE_CONFIG_DIR") or Path.home() / ".config/opencode")
-    msg.detail(f"OpenCode resource directory: {target}")
+    cac_target = Path.home() / ".cac"
     msg.detail("WiseRec skill and /ml command are replaced on every installation; do not edit these files.")
-    try:
-        install_resources(target)
-    except Exception as error:
-        msg.warning(f"OpenCode resource installation failed: {error}")
+    failed = False
+    for label, directory, include_command in (
+        ("OpenCode", target, True), ("codeagent", cac_target, False),
+    ):
+        msg.detail(f"{label} resource directory: {directory}")
+        msg.detail(f"{label} skill directory: {directory / 'skills/wiserec-platform'}")
+        if include_command:
+            msg.detail(f"OpenCode /ml command file: {directory / 'commands/ml.md'}")
+        try:
+            install_resources(directory, include_command=include_command)
+        except Exception as error:
+            failed = True
+            msg.warning(f"{label} resource installation failed: {error}")
+        else:
+            msg.success(f"{label} resources installed.")
+    if failed:
         msg.detail("CLI remains usable. Rerun the official installer to retry.")
         return 1
-    msg.success("OpenCode skill and /ml command installed. Reopen your OpenCode session.")
+    msg.success("WiseRec skill installed in both directories. Reopen your agent session.")
     return 0
 
 
