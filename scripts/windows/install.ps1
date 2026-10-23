@@ -309,7 +309,7 @@ if ($PathChanged) {
     Write-Host "Open a new CMD or PowerShell window before running ml." -ForegroundColor Yellow
 }
 Write-Host ""
-Write-Host "[Stage 2/2] Installing OpenCode and codeagent skills and OpenCode /ml command" -ForegroundColor Cyan
+Write-Host "[Stage 2/2] Installing OpenCode and codeagent skills and /ml commands" -ForegroundColor Cyan
 $OpenCodeInstalled = $false
 try {
     Invoke-Checked -Command $VirtualEnvironmentPython -Arguments @(

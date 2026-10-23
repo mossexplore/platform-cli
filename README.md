@@ -94,7 +94,7 @@ docker load -i cli-access-1.0.7.7-linux-amd64.tar.gz
 
 OpenCode 集成分两个可见阶段执行：先安装并验证 CLI，再安装 `wiserec-platform` skill 和唯一的 `/ml` command。第二阶段失败会显示原因，CLI 仍可正常使用；排除文件占用或目录权限问题后，重新运行安装程序即可重试。
 
-skill 同时安装到当前用户的 `~/.config/opencode/skills/wiserec-platform` 和 `~/.cac/skills/wiserec-platform`；`/ml` command 仅安装到 OpenCode 的 `commands/ml.md`。设置 `OPENCODE_CONFIG_DIR` 时仅替换 OpenCode 根目录，CAC 路径保持不变。每次安装都会完整替换两份 skill 和 OpenCode 的 `/ml` command，同版本重装也会更新。WiseRec skill 与 `/ml` command 由安装程序管理，请勿直接修改这些文件。其他 skill、command 和 OpenCode 配置不受影响。项目目录或兼容目录中的同名副本需自行移除，以免加载旧副本。
+skill 同时安装到当前用户的 `~/.config/opencode/skills/wiserec-platform` 和 `~/.cac/skills/wiserec-platform`；`/ml` command 同时安装到 `~/.config/opencode/commands/ml.md` 和 `~/.cac/commands/ml.md`。设置 `OPENCODE_CONFIG_DIR` 时仅替换 OpenCode 根目录，CAC 路径保持不变。每次安装都会完整替换两份 skill 和两份 `/ml` command，同版本重装也会更新。WiseRec skill 与 `/ml` command 由安装程序管理，请勿直接修改这些文件。其他 skill、command 和 OpenCode 配置不受影响。项目目录或兼容目录中的同名副本需自行移除，以免加载旧副本。
 
 完成后重新打开 OpenCode 会话，输入 `/ml 查询当前业务下的模型`；输入 `/ml` 可检查使用上下文并查看用法。需要允许 OpenCode 加载 skill 和调用终端工具，安装程序不会修改权限。直接通过 pip 安装 Wheel 不自动执行这一阶段，自动安装入口为官方 Windows 安装包。
 
