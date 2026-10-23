@@ -1,0 +1,55 @@
+.notification-heading p { margin-top: 5px; }
+.notification-refresh, .notification-actions { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.notification-refresh { justify-content: flex-end; }
+.notification-refresh .secondary { min-height: 32px; font-size: 13px; }
+.notification-summary { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 12px; margin: 0 0 16px; }
+.notification-summary .panel { margin: 0; padding: 16px; }
+.notification-status h2 { color: var(--text-2); font-size: 13px; font-weight: 500; margin-bottom: 10px; }
+.notification-status p { margin-top: 10px; color: var(--text-3); font-size: 12px; line-height: 1.7; }
+.notification-body { padding: 16px 20px; display: grid; gap: 14px; font-size: 13px; line-height: 1.8; min-width: 0; }
+.notification-body form { display: grid; justify-items: start; gap: 12px; margin: 0; width: 100%; }
+.notification-body label { display: grid; gap: 6px; max-width: 360px; width: 100%; }
+.notification-body label.notification-toggle { display: flex; align-items: center; gap: 8px; font-weight: 500; }
+.notification-toggle input { flex-shrink: 0; }
+.notification-settings { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); align-items: start; gap: 16px; margin-top: 16px; }
+.notification-settings > .panel { margin: 0; min-width: 0; }
+.notification-history { border-top: 1px solid var(--border); padding-top: 16px; display: grid; gap: 10px; }
+.notification-details { display: grid; gap: 10px; margin: 0; }
+.notification-details > div { display: grid; grid-template-columns: 90px minmax(0,1fr); gap: 12px; }
+.notification-details dt { color: var(--text-3); }
+.notification-details dd { margin: 0; overflow-wrap: anywhere; }
+.notification-body details summary { color: var(--brand); cursor: pointer; }
+.notification-body details .notification-details { margin: 12px 0; }
+.notification-steps { margin: 0; padding-left: 20px; color: var(--text-2); }
+.notification-records { margin: 0; }
+.management-page .table-scroll > .notifications-table { min-width: 1060px; table-layout: auto; }
+.notifications-table th:first-child { min-width: 150px; }
+.notifications-table th:nth-child(3) { min-width: 166px; }
+.notifications-table th:nth-child(4) { min-width: 116px; }
+.notifications-table td small, .notification-time span { display: block; }
+.notifications-table td small { margin-top: 4px; }
+.notifications-table .notification-time { white-space: nowrap; }
+.notifications-table td:last-child { min-width: 145px; }
+.notifications-table form { margin: 0; }
+.notification-caption { padding: 10px 16px; font-size: 12px; color: var(--text-3); border-top: 1px solid var(--border); }
+.notification-token-result { margin-bottom: 16px; border-color: var(--brand-border); }
+.notification-token-result textarea { max-width: 620px; font-family: var(--font-mono); overflow-wrap: anywhere; }
+.notification-dialog { border: 1px solid var(--border); border-radius: var(--radius-l); padding: 0; width: min(520px,calc(100% - 32px)); max-height: calc(100dvh - 40px); color: var(--text-1); background: var(--card-bg); box-shadow: var(--shadow-drawer); }
+.notification-dialog::backdrop { background: rgba(13,25,51,.45); }
+.notification-dialog .notification-body { overflow-y: auto; }
+.notification-danger { background: var(--danger); border-color: var(--danger); }
+.notification-actions .delete-link { color: var(--danger); }
+.notification-dialog .form-error { margin: 0; }
+@media(max-width:1100px) { .notification-summary { grid-template-columns: repeat(2,minmax(0,1fr)); } }
+@media(max-width:760px) {
+  .notification-settings { grid-template-columns: minmax(0,1fr); }
+  .management-page .notification-heading { align-items: flex-start; flex-direction: column; }
+  .notification-refresh { justify-content: flex-start; }
+  .notification-body { padding: 16px; }
+  .notification-summary { gap: 8px; }
+  .notification-summary .panel { padding: 12px; }
+}
+@media(max-width:360px) { .notification-summary { grid-template-columns: minmax(0,1fr); } }
+
+.notification-scroll-note { display: none; }
+@media(max-width:1360px) { .notification-scroll-note { display: block; padding-top: 0; } }

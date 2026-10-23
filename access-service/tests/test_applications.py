@@ -191,7 +191,7 @@ def test_list_filter_default_pending_and_no_available_environments(system):
     submit(client)
     csrf = login(client)
     html = client.get('/cli-permission/admin/applications').text
-    assert '权限审批 · 1' in html and 'l00123456' in html
+    assert 'aria-label="1 条待审批"' in html and 'l00123456' in html
     assert 'l00123456' not in client.get('/cli-permission/admin/applications?status=approved').text
     assert client.get('/cli-permission/admin/applications?status=invalid').status_code == 400
     with app.state.sessions() as db:

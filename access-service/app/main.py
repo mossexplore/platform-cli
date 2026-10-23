@@ -14,6 +14,7 @@ from . import notification_api, notification_admin
 from .models import SchemaVersion, AccessApplication, database
 from .migrations import SCHEMA_VERSION
 from .pagination import PAGE_SIZE
+from .navigation import GROUPS, ROOTS
 from .security import display_time
 from .settings import Settings
 
@@ -26,7 +27,7 @@ def create_app(settings=None):
     app.state.templates = Jinja2Templates(directory=str(directory / 'templates'))
     app.state.templates.env.filters['beijing'] = display_time
     app.state.templates.env.filters['application_expiry'] = lambda value: display_time(datetime.fromisoformat(value))
-    app.state.templates.env.globals['page_size'] = PAGE_SIZE
+    app.state.templates.env.globals.update(page_size=PAGE_SIZE, navigation_groups=GROUPS, navigation_roots=ROOTS)
     def application_context(request):
         if request.url.path.startswith('/cli-permission/admin'):
             try:
@@ -65,8 +66,14 @@ def create_app(settings=None):
     def error_response(request, message, status):
         if request.url.path.startswith('/cli-permission/api/') or request.url.path == '/cli-permission/healthz':
             return JSONResponse({'detail': message}, status_code=status)
+        messages = {
+            'NOTIFICATION_OWNER_REQUIRED': '只有配置的通知所有者可以管理个人通知。',
+            'OWNER_CONFIGURATION_CHANGED': '通知所有者配置已变化，请联系服务维护人员核对配置。',
+            'NOTIFICATION_SCHEMA_NOT_READY': '通知数据尚未初始化，请联系服务维护人员检查数据库迁移。',
+            'TASK_NOT_FOUND': '通知记录不存在，请刷新列表后重试。',
+        }
         return app.state.templates.TemplateResponse(request=request, name='error.html',
-            context={'message': message}, status_code=status)
+            context={'message': messages.get(message, message)}, status_code=status)
 
     @app.exception_handler(HTTPException)
     async def http_error(request: Request, exc):

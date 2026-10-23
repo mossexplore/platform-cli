@@ -49,7 +49,12 @@ def grant_state(item, user, environment):
     return ('positive', '生效中')
 
 
-ACTIONS = {'grants.selection_save': '配置环境授权', 'users.delete': '删除人员', 'environments.delete': '删除环境', 'version_policy.update': '编辑版本策略', 'version_policy.delete': '删除版本策略', 'administrators.delete': '删除管理员', 'administrators.reset_password': '重置管理员密码', 'administrators.create': '创建管理员', 'administrators.update_name': '更新管理员姓名', 'administrators.enable': '启用管理员', 'administrators.disable': '停用管理员', 'login': '登录管理台', 'logout': '退出登录', 'login_failed': '登录失败',
+ACTIONS = {
+    'notifications.token.reset': '生成助手凭据', 'notifications.token.revoke': '撤销助手凭据',
+    'notifications.enabled': '调整通知开关', 'notifications.backfill': '补建历史通知',
+    'notifications.retry': '请求重试失败项', 'notifications.bind': '绑定通知助手',
+    'notifications.resolve': '人工处理通知结果',
+'grants.selection_save': '配置环境授权', 'users.delete': '删除人员', 'environments.delete': '删除环境', 'version_policy.update': '编辑版本策略', 'version_policy.delete': '删除版本策略', 'administrators.delete': '删除管理员', 'administrators.reset_password': '重置管理员密码', 'administrators.create': '创建管理员', 'administrators.update_name': '更新管理员姓名', 'administrators.enable': '启用管理员', 'administrators.disable': '停用管理员', 'login': '登录管理台', 'logout': '退出登录', 'login_failed': '登录失败',
            'users.save': '更新人员', 'environments.save': '更新环境',
            'grants.save': '更新授权', 'grants.batch_save': '批量配置授权', 'grants.bulk_save': '多人批量编辑授权'}
 FIELDS = {'role': '管理角色', 'username': '账号', 'display_name': '名称', 'enabled': '启用状态',
@@ -65,6 +70,8 @@ def audit_detail(item):
         data = json.loads(item.detail)
     except (ValueError, TypeError):
         return {'label': ACTIONS.get(item.action, item.action), 'summary': item.detail, 'changes': []}
+    if item.action == 'notifications.enabled' and isinstance(data, bool):
+        return {'label': ACTIONS[item.action], 'summary': '开启新通知' if data else '关闭新通知', 'changes': []}
     if item.action == 'applications.approve' and isinstance(data, dict):
         original, corrected = data['original'], data['corrected']
         return {'label': '通过权限申请', 'summary': f"申请 #{data['application_id']} · {corrected['username']}",

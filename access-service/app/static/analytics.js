@@ -67,11 +67,12 @@ if (host) {
   function axes(svg, width, height, left, bottom, maximum, points) {
     const top = 24;
     const plotHeight = height - top - bottom;
-    for (let i = 0; i <= 4; i++) {
-      const y = top + plotHeight * i / 4;
+    const scale = countScale(maximum);
+    for (const value of [...scale.ticks].reverse()) {
+      const y = top + plotHeight * (1 - value / scale.maximum);
       add(svg, 'line', {x1: left, y1: y, x2: width - 20, y2: y, class: 'analysis-grid-line'});
       add(svg, 'text', {x: left - 10, y: y + 4, 'text-anchor': 'end', class: 'analysis-axis-label'},
-        String(Math.round(maximum * (4 - i) / 4)));
+        String(value));
     }
     const visible = Math.max(1, Math.floor((width - left - 20) / 84));
     const every = Math.max(1, Math.ceil(points.length / visible));
@@ -91,7 +92,7 @@ if (host) {
   function commandBars() {
     const {width, height, left, bottom} = timeSize();
     const svg = canvas(width, height);
-    const maximum = Math.max(1, ...data.points.map(point => point.total));
+    const maximum = countScale(Math.max(1, ...data.points.map(point => point.total))).maximum;
     const {top, plotHeight, plotWidth} = axes(svg, width, height, left, bottom, maximum, data.points);
     const slot = plotWidth / data.points.length;
     const barWidth = Math.min(54, slot * 0.7);
@@ -117,7 +118,7 @@ if (host) {
   function trendLines() {
     const {width, height, left, bottom} = timeSize();
     const svg = canvas(width, height);
-    const maximum = Math.max(1, ...data.points.map(point => point.total));
+    const maximum = countScale(Math.max(1, ...data.points.map(point => point.total))).maximum;
     const {top, plotHeight, plotWidth} = axes(svg, width, height, left, bottom, maximum, data.points);
     [['total', '检查次数', colors[0]], ['allowed', '通过', colors[1]],
       ['denied', '拒绝', '#d54941']].forEach(([key, label, color]) => {
@@ -165,7 +166,7 @@ if (host) {
     const left = 50;
     const bottom = 96;
     const svg = canvas(width, height);
-    const maximum = Math.max(1, ...data.ranking.map(item => item.value));
+    const maximum = countScale(Math.max(1, ...data.ranking.map(item => item.value))).maximum;
     const {top, plotHeight, plotWidth} = axes(svg, width, height, left, bottom, maximum, []);
     const slot = plotWidth / data.ranking.length;
     const barWidth = Math.min(64, slot * 0.62);

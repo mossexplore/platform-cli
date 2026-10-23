@@ -36,7 +36,7 @@ function initCellPreviews() {
   }
 document.querySelectorAll('.main-content > .panel .table-scroll > table > tbody > tr > td').forEach((cell) => {
   if (cell.classList.contains('has-cell-preview')) return;
-  if (cell.colSpan > 1 || cell.querySelector('button,a,input') || cell.closest('.grant-accounts') || cell.classList.contains('people-environments') || cell.matches('.administrators-table td:nth-child(4), .logs-table td:nth-child(1), .logs-table td:nth-child(7), .environment-table .origin, .environment-table td:nth-child(2), .environment-table td:nth-child(6), .environment-table td:nth-child(7)')) return;
+  if (cell.closest('[data-no-cell-preview]') || cell.colSpan > 1 || cell.querySelector('button,a,input') || cell.closest('.grant-accounts') || cell.classList.contains('people-environments') || cell.matches('.administrators-table td:nth-child(4), .logs-table td:nth-child(1), .logs-table td:nth-child(7), .environment-table .origin, .environment-table td:nth-child(2), .environment-table td:nth-child(6), .environment-table td:nth-child(7)')) return;
   if (cell.matches('.people-table td:nth-last-child(6)')) return;
   const preview = document.createElement('div');
   preview.className = 'cell-preview';
@@ -70,6 +70,7 @@ document.addEventListener('people-page-updated', () => { initCellPreviews(); siz
 const listTables = [...document.querySelectorAll('.main-content > .panel .table-scroll > table')];
 function sizeListRows() {
   for (const table of listTables) {
+    if (table.hasAttribute('data-natural-rows')) continue;
     const panel = table.closest('.panel');
     const pager = panel.querySelector('.pagination');
     if (!pager) continue;

@@ -27,7 +27,7 @@
 .bulk-environment-choice:focus-within { outline:2px solid var(--brand); outline-offset:-2px; }
 .bulk-environments input[type="checkbox"] { width:16px; height:16px; margin:0; accent-color:var(--brand); }
 .bulk-empty { padding:24px; color:var(--text-3); text-align:center; }
-.management-page:has(.people-table) .table-scroll > .people-table { min-width:0; width:100%; }
+.management-page:has(.people-table) .table-scroll > .people-table { min-width:1420px; width:100%; }
 .management-page:has(.people-table) .people-table td { height:var(--list-row-height,40px); padding:1px 12px; }
 .management-page .people-table .text-button { min-height:24px; padding:0 4px; }
 .people-table .cell-preview { max-height:20px; white-space:nowrap; }

@@ -2,11 +2,44 @@
 {% set tab = 'notifications' %}{% set page_title = '个人通知' %}
 {% block title %}个人通知{% endblock %}
 {% block content %}
-<div class="page-heading"><div><h1>个人通知</h1><p>由你的本地助手发送权限申请提醒。只有通知所有者可以管理。</p></div></div>
-{% if token %}<section class="panel"><h2>请复制助手 Token</h2><p>仅显示一次，30 分钟内在助手中绑定。旧 Token 已立即失效。</p><textarea readonly rows="3" aria-label="助手 Token">{{ token }}</textarea><p>关闭后无法找回，丢失时重新生成。</p></section>{% endif %}
-<section class="panel"><h2>助手状态</h2><p>{{ '在线' if online else '离线 / 尚未连接' }} · {{ client.health_code }} · {{ client.agent_version or '尚无版本信息' }}</p><p>最近连接：{{ client.last_seen_at|beijing if client.last_seen_at else '—' }}　有效期：{{ client.expires_at|beijing if client.expires_at else '尚未绑定' }}</p><p>实例：{{ client.installation_id or '未绑定' }}</p></section>
-<section class="panel"><h2>通知设置</h2><form method="post" action="/cli-permission/admin/notifications/enabled"><input type="hidden" name="csrf" value="{{ csrf }}"><label><input type="checkbox" name="enabled" value="true" {% if client.enabled %}checked{% endif %}>生成新通知并允许领取</label><p>关闭后不生成新任务、不领取新任务；已领取任务仍可完成和回传。需要停止所有发送，请在本地助手暂停。</p><button>保存设置</button></form>
-<form method="post" action="/cli-permission/admin/notifications/backfill"><input type="hidden" name="csrf" value="{{ csrf }}"><p>首次启用不会自动发送历史申请。每次最多为 100 条尚无通知的待审批申请补建任务。</p><button class="secondary">补建历史待审批通知</button></form></section>
-<section class="panel"><h2>助手凭据</h2><p>生成新凭据会立即撤销旧 Token。更换电脑前请备份本地 JSON 并核对未完成任务。</p><form method="post" action="/cli-permission/admin/notifications/token"><input type="hidden" name="csrf" value="{{ csrf }}"><label>输入 reset 确认生成或重置<input name="confirmation" pattern="reset" required autocomplete="off"></label><button>生成 / 重置 Token</button></form><form method="post" action="/cli-permission/admin/notifications/revoke"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="secondary">立即撤销 Token</button></form></section>
-<section class="panel"><h2>通知记录</h2><p>接收 UID 和消息凭据仅保存在本地；结果不确定项请在本地网页核对。此页面刷新后更新。</p><div class="table-scroll"><table><thead><tr><th>申请</th><th>创建时间</th><th>状态</th><th>逐项统计</th><th>操作</th></tr></thead><tbody>{% for task in tasks %}<tr><td><a href="/cli-permission/admin/applications/{{ task.application_id }}">{{ task.application_id }}</a></td><td>{{ task.created_at|beijing }}</td><td>{{ task.status }}</td><td>{{ counts(task) }}</td><td><form method="post" action="/cli-permission/admin/notifications/{{ task.id }}/retry"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="secondary">请求重试失败项</button></form></td></tr>{% else %}<tr><td colspan="5">暂无通知任务</td></tr>{% endfor %}</tbody></table></div><p>{% if page > 1 %}<a href="?page={{ page-1 }}">上一页</a>{% endif %} 第 {{ page }} 页 {% if has_next %}<a href="?page={{ page+1 }}">下一页</a>{% endif %}</p></section>
+<link rel="stylesheet" href="/cli-permission/static/notifications.css">
+<script src="/cli-permission/static/notifications.js" defer></script>
+{% macro location_fields() %}
+<input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="page" value="{{ page }}"><input type="hidden" name="q" value="{{ q }}"><input type="hidden" name="status" value="{{ status }}">
+{% endmacro %}
+<div class="page-heading notification-heading"><div><h1>个人通知</h1><p class="muted">通过本地助手发送权限申请提醒，仅通知所有者可管理</p></div><div class="notification-refresh"><span class="muted">更新于 {{ refreshed_at|beijing }}</span><a class="secondary" href="?page={{ page }}&amp;q={{ q|urlencode }}&amp;status={{ status|urlencode }}">刷新状态</a></div></div>
+{% if notice %}<div class="success" role="status">{{ notice }}</div>{% endif %}
+<div class="form-error" role="alert" data-notification-error {% if not error %}hidden{% endif %}>{{ error }}</div>
+<section class="panel notification-token-result" data-token-result {% if not token %}hidden{% endif %} aria-labelledby="token-result-title">
+<div class="panel-title"><h2 id="token-result-title">请复制助手 Token</h2><button type="button" class="text-button" data-token-close>关闭并清除</button></div>
+<div class="notification-body"><p>仅显示一次，请在30分钟内绑定到本地助手。旧 Token 已立即失效。</p><textarea readonly rows="2" aria-label="助手 Token">{{ token }}</textarea><div class="notification-actions"><button type="button" data-token-copy>复制 Token</button><span class="muted" role="status" data-token-copy-status>关闭后无法找回，丢失时请重新生成。</span></div></div>
+</section>
+<div class="notification-summary" aria-label="通知与助手状态">
+{% for item in summary %}<section class="panel notification-status"><h2>{{ item.title }}</h2><span class="badge {{ item.tone }}">{{ item.label }}</span><p>{{ item.hint }}</p></section>{% endfor %}
+</div>
+<section class="panel notification-records" aria-labelledby="notification-records-title">
+<div class="panel-title"><h2 id="notification-records-title">通知记录 <span class="count">{{ count }} 条</span></h2><span class="muted">接口接受不代表实际送达</span></div>
+<form method="get" class="filter-bar"><input name="q" class="search-input" value="{{ q }}" maxlength="128" placeholder="搜索申请人、账号或申请编号" aria-label="搜索通知申请人、账号或申请编号"><select name="status" aria-label="通知状态"><option value="">全部状态</option>{% for key,value in statuses.items() %}<option value="{{ key }}" {% if status == key %}selected{% endif %}>{{ value[0] }}</option>{% endfor %}</select><button class="secondary">查询</button>{% if q or status %}<a href="/cli-permission/admin/notifications" class="reset-link">重置</a>{% endif %}</form>
+<p class="table-scroll-note notification-scroll-note">左右滚动表格可查看完整统计和操作</p>
+<div class="table-scroll" tabindex="0" role="region" aria-label="通知记录，可横向滚动"><table class="notifications-table" data-natural-rows data-no-cell-preview><thead><tr><th>申请人 / 账号</th><th>申请编号</th><th>创建 / 更新时间</th><th>通知状态</th><th>接收对象统计</th><th>操作</th></tr></thead><tbody>
+{% for row in rows %}<tr><td><strong>{{ row.application.display_name if row.application else '申请记录不存在' }}</strong><small>{{ row.application.username if row.application else '—' }}</small></td><td>{% if row.application %}<a href="/cli-permission/admin/applications/{{ row.task.application_id }}">#{{ row.task.application_id }}</a>{% else %}#{{ row.task.application_id }}{% endif %}</td><td class="notification-time"><span>{{ row.task.created_at|beijing }}</span><small>{{ row.task.updated_at|beijing }}</small></td><td><span class="badge {{ row.tone }}">{{ row.label }}</span></td><td><span>{{ row.summary }}</span>{% if row.uncertain %}<small>请在本地助手核对结果，避免重复发送</small>{% endif %}</td><td>{% if row.can_retry %}<form method="post" action="/cli-permission/admin/notifications/{{ row.task.id }}/retry">{{ location_fields() }}<button type="submit" class="text-button">重试失败项（{{ row.failed }}）</button></form>{% elif not row.application_pending and row.failed %}<span class="muted">申请已处理，停止重试</span>{% else %}<span class="muted">—</span>{% endif %}</td></tr>
+{% else %}<tr><td colspan="6" class="empty"><strong>{{ '暂无匹配的通知记录' if q or status else '暂无通知记录' }}</strong><p>{{ '请调整筛选条件。' if q or status else '开启通知后，新提交的权限申请将生成通知任务。' }}</p></td></tr>{% endfor %}
+</tbody></table></div>
+{% include 'pagination.html' %}
+<p class="notification-caption">接收 UID 和消息接口凭据仅保存在本地助手。页面数据在刷新后更新。</p>
+</section>
+<div class="notification-settings">
+<section class="panel" aria-labelledby="notification-settings-title"><div class="panel-title"><h2 id="notification-settings-title">通知设置</h2></div><div class="notification-body">
+<form method="post" action="/cli-permission/admin/notifications/enabled">{{ location_fields() }}<label class="notification-toggle"><input type="checkbox" name="enabled" value="true" {% if client.enabled %}checked{% endif %}><span>开启新申请通知</span></label><p class="muted">允许生成和领取新通知。关闭后，已领取任务仍可完成；如需停止所有发送，请在本地助手中暂停。</p><button type="submit">保存设置</button></form>
+<div class="notification-history"><h3>历史待审批申请</h3><p class="muted">首次开启不会自动发送历史申请。每次最多补建100条尚无通知的待审批申请。</p><form method="post" action="/cli-permission/admin/notifications/backfill">{{ location_fields() }}<button type="submit" class="secondary" {% if not client.enabled %}disabled{% endif %}>补建历史通知</button></form>{% if not client.enabled %}<p class="muted">请先开启并保存通知设置</p>{% endif %}</div>
+</div></section>
+<section class="panel" aria-labelledby="notification-credentials-title"><div class="panel-title"><h2 id="notification-credentials-title">助手连接与凭据</h2></div><div class="notification-body">
+{% if not client.token_hash or not client.installation_id %}<ol class="notification-steps"><li>生成并复制助手 Token</li><li>在本地助手填写权限服务地址，保存并绑定 Token</li><li>配置消息接口和接收对象，核对发送成功判据</li></ol>{% endif %}
+<dl class="notification-details"><div><dt>最近连接</dt><dd>{{ client.last_seen_at|beijing if client.last_seen_at else '尚未连接' }}</dd></div><div><dt>凭据有效期</dt><dd>{{ client.expires_at|beijing if client.token_hash and client.installation_id and client.expires_at else '尚未绑定' }}</dd></div><div><dt>助手版本</dt><dd>{{ client.agent_version or '尚未上报' }}</dd></div></dl>
+<details><summary>查看连接详情</summary><dl class="notification-details"><div><dt>助手实例</dt><dd class="mono">{{ client.installation_id or '未绑定' }}</dd></div>{% if client.token_hash and not client.installation_id and client.bind_deadline %}<div><dt>绑定截止时间</dt><dd>{{ client.bind_deadline|beijing }}</dd></div>{% endif %}</dl><p class="muted">更换电脑前，请备份本地助手配置并核对未完成任务。</p></details>
+<div class="notification-actions"><button type="button" class="secondary" data-open="notification-token-dialog" data-token-trigger>{{ '重新生成 Token' if client.credential_generation else '生成助手 Token' }}</button><button type="button" class="text-button delete-link" data-open="notification-revoke-dialog" {% if not client.token_hash %}disabled{% endif %}>撤销 Token</button></div>
+<noscript><p class="muted">请启用 JavaScript 管理助手凭据。</p></noscript>
+</div></section>
+</div>
+{% include 'notification_dialogs.html' %}
 {% endblock %}

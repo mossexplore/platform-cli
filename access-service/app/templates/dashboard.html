@@ -6,16 +6,17 @@
 {% block content %}
 <div class="page-heading"><div><p class="eyebrow">{{ 'AUDIT TRAIL' if tab == 'audit' else 'IDENTITY & ACCESS' }}</p><h1>{{ page_title }}</h1><p class="subtitle">{{ {'users':'统一管理 CLI 使用人员，维护账号状态与环境访问权限。','environments':'管理接入环境，让授权范围与业务平台保持一致。','grants':'按平台账号汇总授权环境，集中查看各环境的访问权限。','audit':'追溯管理员操作，查看配置变更与登录活动。'}[tab] }}</p></div>{% if tab == 'grants' %}<details class="list-help"><summary>授权生效规则</summary><p>人员、环境和授权均启用，且未到期时允许访问。停用人员或环境会同时阻止其关联授权。</p></details>{% endif %}{% if tab != 'audit' %}<button data-open="create">新增{{ '人员' if tab == 'users' else '环境' if tab == 'environments' else '授权' }}</button>{% endif %}</div>
 {% if saved %}<div class="success" role="status"><strong>保存成功</strong><span>新的配置将在下一次 CLI 业务请求时生效。</span></div>{% endif %}
-<div class="stats-grid">
+{% if tab != 'audit' %}<div class="stats-grid">
 {% for label,value,detail,link in [('人员总数',stats.users,'已纳入访问管理','/cli-permission/admin?tab=users'),('接入环境',stats.environments,'独立管理各环境权限','/cli-permission/admin?tab=environments'),('有效授权',stats.active,'人员、环境及授权均有效','/cli-permission/admin?tab=grants&status=active'),('即将到期',stats.expiring,'未来 7 天内到期','/cli-permission/admin?tab=grants&status=expiring')] %}<a class="stat-card" href="{{ link }}"><span class="stat-icon {{ 'tint-blue' if loop.index == 1 else 'tint-green' if loop.index == 3 else 'tint-amber' if loop.index == 4 else '' }}" aria-hidden="true">{% if loop.index == 1 %}<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>{% elif loop.index == 2 %}<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="7" rx="2"/><rect x="2" y="14" width="20" height="7" rx="2"/><path d="M6 6.5h.01"/><path d="M6 17.5h.01"/></svg>{% elif loop.index == 3 %}<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/></svg>{% else %}<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>{% endif %}</span><span>{{ label }}</span><strong class="{{ 'amber' if loop.last and value else '' }}">{{ value }}<small>{{ '个' if loop.index == 2 else '项' if loop.index > 2 else '人' }}</small></strong><p>{{ detail }}</p></a>{% endfor %}
 </div>
+{% endif %}
 {% if request.query_params.get('deleted') == '1' %}<div class="success" role="status">删除成功，关联授权已清理。</div>{% endif %}
 <section class="panel">
 <div class="panel-title"><h2>{{ {'users':'人员列表','environments':'环境列表','grants':'授权列表','audit':'审计记录'}[tab] }} <span class="count">{{ count }} {{ '个账号' if tab == 'grants' else '条' }}</span></h2><span class="muted">{{ '配置变更可追溯' if tab == 'audit' else '授权配置实时生效' }}</span></div>
 <form method="get" class="filter-bar"><input type="hidden" name="tab" value="{{ tab }}"><input class="search-input" name="q" value="{{ q }}" maxlength="128" aria-label="搜索账号或环境标识" placeholder="{{ '搜索环境标识或名称' if tab == 'environments' else '搜索账号或环境标识' if tab == 'grants' else '搜索操作人账号' if tab == 'audit' else '搜索账号或姓名' }}">
 {% if tab != 'audit' %}<select name="status" aria-label="状态筛选"><option value="">全部状态</option>{% for key,label in ([('active','有效授权'),('expiring','即将到期'),('expired','已过期'),('disabled','已撤销 / 已停用')] if tab == 'grants' else [('enabled','已启用'),('disabled','已停用')]) %}<option value="{{ key }}" {% if status == key %}selected{% endif %}>{{ label }}</option>{% endfor %}</select>{% endif %}<button class="secondary">查询</button>{% if q or status %}<a href="/cli-permission/admin?tab={{ tab }}" class="reset-link">重置</a>{% endif %}</form>
 {% if tab == 'grants' %}{% include 'grant_accounts.html' %}{% else %}
-<div class="table-scroll"><table {% if tab == 'environments' %}class="environment-table"{% elif tab == 'audit' %}class="audit-table"{% endif %}><thead><tr>
+<div class="table-scroll" tabindex="0" role="region" aria-label="管理列表，可横向滚动"><table {% if tab == 'environments' %}class="environment-table"{% elif tab == 'audit' %}class="audit-table"{% endif %}><thead><tr>
 {% if tab == 'users' %}<th>人员</th><th>平台账号</th><th>账号状态</th><th>授权配置</th><th class="actions">操作</th>
 {% elif tab == 'environments' %}<th>环境名称</th><th>环境标识</th><th>平台地址</th><th>默认开通</th><th>状态</th><th>创建时间</th><th>修改时间</th><th>最新操作人</th><th class="actions">操作</th>
 {% else %}<th>操作人</th><th>姓名</th><th>操作类型</th><th>变更摘要</th><th>操作时间</th><th class="actions">详情</th>{% endif %}
@@ -28,6 +29,7 @@
 {% else %}<tr><td colspan="{{ 9 if tab == 'environments' else 6 if tab == 'audit' else 5 }}"><div class="empty"><strong>{{ '暂无匹配记录' if q or status else '尚未添加记录' }}</strong><p>{{ '请调整搜索内容或状态筛选后重试。' if q or status else '从右上角新增开始，配置人员、环境与访问授权。' if tab != 'audit' else '管理员操作后，审计记录将显示在这里。' }}</p>{% if q or status %}<a href="/cli-permission/admin?tab={{ tab }}">清空筛选</a>{% endif %}</div></td></tr>{% endfor %}
 </tbody></table></div>
 {% endif %}
+{% if tab == 'environments' %}<p class="table-scroll-note">左右滚动表格可查看全部字段和操作</p>{% endif %}
 {% include 'pagination.html' %}
 </section>
 
