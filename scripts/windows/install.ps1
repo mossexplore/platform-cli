@@ -245,12 +245,12 @@ if (-not (Test-Path -LiteralPath $VirtualEnvironmentPython)) {
 }
 
 Write-Host "[5/7] Installing wiserec-cli..." -ForegroundColor Cyan
-$UninstallArguments = @("-m", "pip", "uninstall", "--yes", "wiserec-cli")
+$UninstallArguments = @("-I", "-m", "pip", "uninstall", "--yes", "wiserec-cli")
 Invoke-Checked -Command $VirtualEnvironmentPython -Arguments $UninstallArguments
 $PackagesDirectory = Join-Path $BundleDirectory "packages"
 if (Test-Path -LiteralPath $PackagesDirectory -PathType Container) {
     Invoke-Checked -Command $VirtualEnvironmentPython -Arguments @(
-        "-m", "pip", "install",
+        "-I", "-m", "pip", "install",
         "--no-index",
         "--find-links", $PackagesDirectory,
         "--upgrade",
@@ -258,7 +258,7 @@ if (Test-Path -LiteralPath $PackagesDirectory -PathType Container) {
     )
 } else {
     $InstallArguments = @(
-        "-m", "pip", "install",
+        "-I", "-m", "pip", "install",
         "--upgrade"
     )
     if (-not [string]::IsNullOrWhiteSpace($EffectiveIndexUrl)) {
@@ -276,10 +276,63 @@ if (Test-Path -LiteralPath $PackagesDirectory -PathType Container) {
     Invoke-Checked -Command $VirtualEnvironmentPython -Arguments $InstallArguments
 }
 
+# 在修改用户配置前核对本次 Wheel、安装元数据与实际加载的代码。
+# -I 忽略 PYTHONPATH、用户 site-packages 和当前目录，避免开发源码覆盖安装包。
+$VerifyInstalledPackage = @'
+from email.parser import Parser
+from importlib import metadata
+import json
+from pathlib import Path
+import re
+import sys
+from zipfile import ZipFile
+
+def fail(message):
+    raise SystemExit('CLI installation verification failed: ' + message)
+
+with ZipFile(sys.argv[1]) as wheel:
+    entries = [name for name in wheel.namelist() if name.endswith('.dist-info/METADATA')]
+    if len(entries) != 1:
+        fail('Wheel must contain exactly one METADATA file')
+    expected = Parser().parsestr(wheel.read(entries[0]).decode('utf-8'))
+if re.sub(r'[-_.]+', '-', expected.get('Name', '')).lower() != 'wiserec-cli':
+    fail('unexpected Wheel package name')
+expected_version = expected.get('Version')
+if not expected_version:
+    fail('Wheel version is missing')
+release_path = Path(sys.argv[1]).parent / 'release.json'
+if release_path.exists():
+    release = json.loads(release_path.read_text(encoding='utf-8-sig'))
+    if release.get('version') != expected_version:
+        fail('release.json version differs from Wheel')
+installed = [dist for dist in metadata.distributions()
+             if re.sub(r'[-_.]+', '-', dist.metadata.get('Name', '')).lower() == 'wiserec-cli']
+if len(installed) != 1:
+    fail('expected exactly one installed wiserec-cli distribution; rebuild with -Force')
+dist = installed[0]
+direct_url = json.loads(dist.read_text('direct_url.json') or '{}')
+if direct_url.get('dir_info', {}).get('editable'):
+    fail('editable installation detected; rebuild with -Force')
+import wiserec_cli
+module = Path(wiserec_cli.__file__).resolve()
+expected_module = Path(dist.locate_file('wiserec_cli/__init__.py')).resolve()
+prefix = Path(sys.prefix).resolve()
+if module != expected_module or prefix not in module.parents:
+    fail('imported CLI is outside the installed package; rebuild with -Force')
+if dist.version != expected_version or wiserec_cli.__version__ != expected_version:
+    fail('Wheel, installed metadata and imported CLI versions differ; rebuild with -Force')
+print('  Verified Wheel / metadata / imported CLI: ' + expected_version)
+print('  Python: ' + sys.executable)
+print('  Module: ' + str(module))
+'@
+Invoke-Checked -Command $VirtualEnvironmentPython -Arguments @(
+    "-I", "-c", $VerifyInstalledPackage, $WheelPath
+)
+
 # 每次运行均使用本次 Wheel 安装 CLI；保留用户的环境选择与明确设置的自动保活选项。
 Write-Host "Updating user config.json from the package..." -ForegroundColor Cyan
 Invoke-Checked -Command $VirtualEnvironmentPython -Arguments @(
-    "-c", "from wiserec_cli.config import reset_packaged_config; print(reset_packaged_config())"
+    "-I", "-c", "from wiserec_cli.config import reset_packaged_config; print(reset_packaged_config())"
 )
 
 Write-Host "[6/7] Registering the ml command..." -ForegroundColor Cyan
@@ -287,7 +340,7 @@ New-Item -ItemType Directory -Path $BinDirectory -Force | Out-Null
 $LauncherPath = Join-Path $BinDirectory "ml.cmd"
 $Launcher = @'
 @echo off
-"%~dp0..\venv\Scripts\ml.exe" %*
+"%~dp0..\venv\Scripts\python.exe" -I -c "import sys; sys.argv[0]='ml'; from wiserec_cli.cli import run; run()" %*
 '@
 Set-Content -LiteralPath $LauncherPath -Value $Launcher -Encoding ASCII
 $PathChanged = Add-ToUserPath -Directory $BinDirectory
@@ -296,7 +349,7 @@ Write-Host "[7/7] Verifying installation..." -ForegroundColor Cyan
 if (-not (Test-Path -LiteralPath $VirtualEnvironmentMl)) {
     throw "ml.exe is missing from the isolated environment. Rerun install.cmd -Force to rebuild it."
 }
-Invoke-Checked -Command $VirtualEnvironmentMl -Arguments @("--version")
+Invoke-Checked -Command $LauncherPath -Arguments @("--version")
 
 Write-Host ""
 Write-Host "WiseRec CLI installation completed." -ForegroundColor Green
@@ -313,7 +366,7 @@ Write-Host "[Stage 2/2] Installing OpenCode and codeagent skills and /ml command
 $OpenCodeInstalled = $false
 try {
     Invoke-Checked -Command $VirtualEnvironmentPython -Arguments @(
-        "-m", "wiserec_cli.opencode_install"
+        "-I", "-m", "wiserec_cli.opencode_install"
     )
     $OpenCodeInstalled = $true
 } catch {

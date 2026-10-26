@@ -189,6 +189,8 @@ ml business use
 
 首次安装采用包内默认环境。重装或升级后保留之前选择的环境及自动保活设置，其他配置仍由安装包更新。若原配置损坏、无效或所选环境已被新包删除、改名，配置更新会停止并保留原文件；按提示修复配置，或通过 `--config CONFIG_PATH` 指定原配置并使用 `ml env use NAME` 选择新包支持的环境后重试。
 
+安装器会核对安装包、安装记录及实际加载的 CLI 是否一致，不一致时停止安装。安装过程和注册的 `ml.cmd` 使用独立环境并忽略 `PYTHONPATH`、用户 Python 包及当前目录中的同名源码。日常使用请通过该入口启动；此安装不会更新全局 Python 或其他开发环境中的 CLI。
+
 完整解压管理员提供的安装包，运行 `install.cmd` 后重新打开终端。安装分两个阶段：先安装 CLI，再安装 OpenCode skill 和 `/ml` command。第二阶段失败不影响 CLI 使用，解决提示的问题后重新运行安装程序即可重试。skill 同时安装到当前用户的 `~/.config/opencode/skills/wiserec-platform` 和 `~/.cac/skills/wiserec-platform`；`/ml` command 同时安装到 `~/.config/opencode/commands/ml.md` 和 `~/.cac/commands/ml.md`。设置 `OPENCODE_CONFIG_DIR` 仅改变 OpenCode 根目录，CAC 路径保持不变。每次安装完整替换两份 skill 和两份 `/ml` command，请勿直接修改这些文件。重新打开 OpenCode 会话后，可输入 `/ml 查询当前业务下的模型`，也可输入 `/ml` 查看用法。直接安装 Wheel 不自动安装 OpenCode 资源。使用前准备好所需 Python 环境和 Microsoft Edge，依次选择环境、登录、选择业务。
 
 ### 2.4 示例

@@ -73,7 +73,7 @@ class WindowsPackagingScriptTest(unittest.TestCase):
             '[Environment]::SetEnvironmentVariable("Path", $NewUserPath, "User")',
             script,
         )
-        self.assertIn('Invoke-Checked -Command $VirtualEnvironmentMl', script)
+        self.assertIn('Invoke-Checked -Command $LauncherPath', script)
 
     def test_scripts_avoid_newer_or_ambiguous_powershell_syntax(self):
         ambiguous_variable = re.compile(
@@ -104,7 +104,7 @@ class WindowsPackagingScriptTest(unittest.TestCase):
 
     def test_installer_replaces_cli_from_bundle_on_every_run(self):
         script = (self.windows_scripts / "install.ps1").read_text(encoding="utf-8")
-        uninstall = '"-m", "pip", "uninstall", "--yes", "wiserec-cli"'
+        uninstall = '"-I", "-m", "pip", "uninstall", "--yes", "wiserec-cli"'
         self.assertIn(uninstall, script)
         self.assertIn('Invoke-Checked -Command $VirtualEnvironmentPython -Arguments $UninstallArguments', script)
         self.assertLess(script.index(uninstall), script.index('$PackagesDirectory ='))

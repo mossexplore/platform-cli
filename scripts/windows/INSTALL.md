@@ -22,6 +22,19 @@ ml login
 安装器会创建独立 Python 虚拟环境，不会污染用户现有项目的 Python 依赖，并将
 `ml.cmd` 所在目录移到当前用户 `PATH` 的首位，避免用户安装的其他 Python 入口抢先匹配。
 
+安装完成前会核对本次 Wheel、安装元数据及实际导入的 CLI 版本，并确认模块来自安装目录
+中的虚拟环境。不一致时安装失败，不会报告成功；按提示使用 `-Force` 重建后重试。
+安装过程及 `ml.cmd` 使用 Python 隔离模式，避免 `PYTHONPATH`、用户 Python 包或当前目录
+中的同名源码覆盖安装包。此操作不会更新全局 Python 中单独安装的 CLI 或开发环境。
+诊断脚本也应使用该虚拟环境的 Python，以检查实际安装的 CLI：
+
+```powershell
+& "$env:LOCALAPPDATA\Programs\WiseRecCLI\venv\Scripts\python.exe" -I -c "from importlib.metadata import version; import wiserec_cli; print(version('wiserec-cli')); print(wiserec_cli.__version__); print(wiserec_cli.__file__)"
+```
+
+自定义安装目录时替换路径。单独执行全局 `python` 或通过 `ml.exe` 入口启动不具备
+`ml.cmd` 的隔离设置；日常使用请通过安装器注册的 `ml.cmd` 启动。
+
 ## 配置覆盖规则
 
 每次安装成功前，安装器都会用新包中的 `config.json` 更新当前用户的

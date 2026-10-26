@@ -31,6 +31,25 @@ foreach ($mode in @('online', 'offline')) {
     }
     & $installedPython -c "from wiserec_cli.config import ConfigManager; assert ConfigManager().current_name == 'test'"
     if ($LASTEXITCODE -ne 0) { throw 'Same-version reinstall changed selected environment' }
+
+    # Source directories on PYTHONPATH must not override the bundle during install or ml.cmd startup.
+    $shadow = Join-Path $env:RUNNER_TEMP "cli-shadow-$mode"
+    New-Item -ItemType Directory -Path "$shadow/wiserec_cli" -Force | Out-Null
+    Set-Content -LiteralPath "$shadow/wiserec_cli/__init__.py" -Encoding ASCII -Value "raise RuntimeError('source-shadow-probe')"
+    $previousPythonPath = $env:PYTHONPATH
+    try {
+        $env:PYTHONPATH = $shadow
+        & "$bundle/install.ps1" -InstallDirectory $install
+        $launcher = Join-Path $install 'bin/ml.cmd'
+        $isolatedVersion = & $launcher --version
+        if ($LASTEXITCODE -ne 0 -or $isolatedVersion -notmatch "ml $version") {
+            throw 'PYTHONPATH overrode the installed CLI launcher'
+        }
+        & $installedPython -I -c "from importlib.metadata import version; import wiserec_cli; assert version('wiserec-cli') == wiserec_cli.__version__ == '$version'"
+        if ($LASTEXITCODE -ne 0) { throw 'Installed metadata and imported CLI versions differ' }
+    } finally {
+        $env:PYTHONPATH = $previousPythonPath
+    }
     if ($mode -eq 'offline') {
         Remove-Item Env:PIP_NO_INDEX, Env:PIP_INDEX_URL, Env:PIP_NO_CACHE_DIR
     }
