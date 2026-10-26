@@ -596,7 +596,7 @@ ml algorithm clone SOURCE_ID --name mnist_copy --version VERSION
 
 ```text
 ml service list [OPTIONS]
-ml service mock SERVICE_ID [-o table|json]
+ml service mock SERVICE_ID [--transmission-tag 0|1] [-o table|json]
 ml service logs SERVICE_ID [--pod POD_NAME --cluster-name CLUSTER_NAME] [--type TYPE] [--file FILE_NAME] [-k TEXT] [-n N] [--list] [--no-input]
 ml service host list SERVICE_ID [-o table|json]
 ml service deployment list SERVICE_ID [-o table|json]
@@ -607,7 +607,7 @@ ml service deployment list SERVICE_ID [-o table|json]
 | 命令 | 主要参数与选项 |
 | --- | --- |
 | `list` | `--page`、`--page-size`；可用 `--name` / `--service-name`、`--model-name`、`--model-version` 筛选；可选 `--output` / `-o` |
-| `mock` | 必填 `SERVICE_ID`；`--output` / `-o` 支持 `table`、`json`，默认沿用当前环境输出配置 |
+| `mock` | 必填 `SERVICE_ID`；`--transmission-tag` 默认 `0`，表示不调用透传接口，设为 `1` 表示调用透传接口，仅支持这两个整数；`--output` / `-o` 支持 `table`、`json`，默认沿用当前环境输出配置 |
 | `logs` | 必填 `SERVICE_ID`；可选成对的 `--pod` 与 `--cluster-name`，以及 `--type`、`--file`；`--keyword` / `-k` 可重复，`--lines` / `-n` 默认 200；`--list` 只列文件，`--no-input` 禁止交互；高级选项 `--search-order` 默认 tail、`--grep-scope` 默认 C、`--grep-line` 默认 0 |
 | `host list`、`deployment list` | 必填 `SERVICE_ID`；可选 `--output` / `-o` |
 
@@ -632,6 +632,7 @@ ml service deployment list SERVICE_ID [-o table|json]
 ml service list --name demo --model-name model --model-version MODEL_VERSION
 ml service list --page 2 --page-size 20 -o json
 ml service mock SERVICE_ID
+ml service mock SERVICE_ID --transmission-tag 1
 ml service mock SERVICE_ID -o json > service-mock-result.json
 ml service logs SERVICE_ID
 ml service logs SERVICE_ID -k error -n 500

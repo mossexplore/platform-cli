@@ -22,7 +22,8 @@ class ServiceMockCommandTest(unittest.TestCase):
     setUp = test_service.ServiceCommandTest.setUp
     invoke = test_service.ServiceCommandTest.invoke
 
-    def handler(self, *, base=None, document=None, nodes=None, responses=None):
+    def handler(self, *, base=None, document=None, nodes=None, responses=None,
+                transmission_tag=0):
         self.calls = []
         base = base if base is not None else {'code': 0, 'modelInfo': {
             'modelName': 'wrong-model', 'modelVersion': 'wrong-version',
@@ -49,7 +50,8 @@ class ServiceMockCommandTest(unittest.TestCase):
                     'serviceId': 's', 'serviceName': 'target-service',
                     'serviceVersion': 'service-version', 'businessId': 'service-tenant',
                     'requestSample': SAMPLE, 'lmsServiceId': '',
-                    'algoType': 'field-npy', 'transmissionTag': 0}})
+                    'algoType': 'field-npy', 'transmissionTag': transmission_tag}})
+                self.assertIs(type(json.loads(request.content)['data']['transmissionTag']), int)
             else:
                 self.fail(f'Unexpected request: {path}')
             override = (responses or {}).get(path)
@@ -79,6 +81,23 @@ class ServiceMockCommandTest(unittest.TestCase):
         self.assertEqual(nodes[0]['mockResponseRaw'], self.node()['mockResponse'])
         self.assertEqual(nodes[0]['extra'], [1, 2])
         self.assertEqual(nodes[0]['cost'], 0)
+
+    def test_explicit_transmission_tag_is_sent_as_integer(self):
+        for tag in (0, 1):
+            with self.subTest(tag=tag):
+                result = self.invoke(['mock', 's', '--transmission-tag', str(tag), '-o', 'json'],
+                                     self.handler(transmission_tag=tag))
+                self.assertEqual(result.exit_code, 0, result.output)
+                self.assertEqual([r.url.path for r in self.calls], [BASE, DOC, MOCK])
+
+    def test_invalid_transmission_tag_stops_before_requests(self):
+        for tag in ('-1', '2', 'true', '0.5', ''):
+            with self.subTest(tag=tag):
+                calls = []
+                result = self.invoke(['mock', 's', '--transmission-tag', tag],
+                                     lambda r: calls.append(r))
+                self.assertEqual(result.exit_code, 2, result.output)
+                self.assertEqual(calls, [])
 
     def test_table_has_six_columns_and_full_pretty_json(self):
         raw = json.dumps({'embedding': list(range(200)), '文本': '[red]中文'}, ensure_ascii=False)

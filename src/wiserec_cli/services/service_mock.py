@@ -31,7 +31,9 @@ def _required(info: Any, key: str, label: str) -> str:
 
 
 class ServiceMock(ServiceCatalog):
-    def run(self, service_id: str) -> dict[str, Any]:
+    def run(self, service_id: str, *, transmission_tag: int = 0) -> dict[str, Any]:
+        if type(transmission_tag) is not int or transmission_tag not in (0, 1):
+            raise ValueError("transmission-tag 仅支持 0 或 1")
         headers = {"businessid": self._business_id()}
         base = self._result(self.client.request(
             "POST", "/ai/backend/mep/services/rtcContainer/queryServiceBaseInfoDetail",
@@ -61,7 +63,7 @@ class ServiceMock(ServiceCatalog):
                     "requestSample": sample, "serviceName": name,
                     "serviceVersion": version, "serviceId": service_id,
                     "lmsServiceId": "", "algoType": "field-npy",
-                    "transmissionTag": 0, "businessId": business_id,
+                    "transmissionTag": transmission_tag, "businessId": business_id,
                 }}, headers=headers,
             )
         except ApiError as exc:

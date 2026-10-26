@@ -47,6 +47,10 @@ def render_mock(payload, output):
 def service_mock(
     context: typer.Context,
     service_id: str = typer.Argument(..., help="服务 ID"),
+    transmission_tag: int = typer.Option(
+        0, "--transmission-tag", min=0, max=1,
+        help="0 不调用透传接口，1 调用透传接口",
+    ),
     output: Optional[str] = typer.Option(None, "--output", "-o", help="table 或 json"),
 ) -> None:
     """使用服务文档样例测试服务响应"""
@@ -59,7 +63,7 @@ def service_mock(
 
         def query(client):
             _selected_business(runtime, client)
-            return ServiceMock(client).run(service_id)
+            return ServiceMock(client).run(service_id, transmission_tag=transmission_tag)
 
         # 测试调用不具备幂等保证，认证失败也不自动重放整个流程。
         with redirect_stdout(sys.stderr):
