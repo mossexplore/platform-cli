@@ -43,7 +43,7 @@ function Invoke-CheckedPython {
 
     $Command = $script:PythonCommand
     $Prefix = @($script:PythonPrefix)
-    & $Command @Prefix @Arguments
+    & $Command @Prefix -I @Arguments
     if ($LASTEXITCODE -ne 0) {
         throw "Python command failed with exit code $($LASTEXITCODE)."
     }
@@ -91,6 +91,7 @@ $PythonPrefix = @($Python.Prefix)
 $script:PythonCommand = $PythonCommand
 $script:PythonPrefix = $PythonPrefix
 $PythonVersionArguments = $PythonPrefix + @(
+    "-I",
     "-c",
     "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}')"
 )
@@ -105,6 +106,7 @@ if ($PythonVersion -lt [Version]"3.9") {
 $PythonTag = "py$($PythonVersion.Major)$($PythonVersion.Minor)"
 
 $ArchitectureArguments = $PythonPrefix + @(
+    "-I",
     "-c",
     "import platform, struct; m=platform.machine().lower(); b=struct.calcsize('P')*8; print('arm64' if b == 64 and m in ('arm64', 'aarch64') else ('x64' if b == 64 else 'x86'))"
 )
@@ -139,15 +141,19 @@ $TemporaryRoot = Join-Path ([System.IO.Path]::GetTempPath()) (
     "wiserec-cli-release-" + [Guid]::NewGuid().ToString("N")
 )
 $WheelDirectory = Join-Path $TemporaryRoot "wheel"
+$BuildEnvironment = Join-Path $TemporaryRoot "build-env"
 
 try {
     New-Item -ItemType Directory -Path $WheelDirectory -Force | Out-Null
     New-Item -ItemType Directory -Path $BundleDirectory -Force | Out-Null
 
-    Write-Host "[1/5] Preparing Python build tools..." -ForegroundColor Cyan
+    Write-Host "[1/5] Preparing isolated Python build tools..." -ForegroundColor Cyan
+    Invoke-CheckedPython -Arguments @("-m", "venv", $BuildEnvironment)
+    $script:PythonCommand = Join-Path $BuildEnvironment "Scripts\python.exe"
+    $script:PythonPrefix = @()
     $BuildToolArguments = @("-m", "pip", "install", "--upgrade")
     $BuildToolArguments += @(Get-PipIndexArguments)
-    $BuildToolArguments += @("build", "setuptools>=68")
+    $BuildToolArguments += @("build", "setuptools>=68", "wheel")
     Invoke-CheckedPython -Arguments $BuildToolArguments
 
     Write-Host "[2/5] Building wiserec-cli $Version..." -ForegroundColor Cyan
@@ -165,7 +171,8 @@ try {
         throw "Expected exactly one Wheel, but found $($Wheels.Count)."
     }
     Invoke-CheckedPython -Arguments @(
-        (Join-Path $RepositoryRoot "scripts\releasing\check-cli-package.py"), $Wheels[0].FullName
+        (Join-Path $RepositoryRoot "scripts\releasing\check-cli-package.py"),
+        "--expected-version", $Version, $Wheels[0].FullName
     )
     $WheelPath = Join-Path $BundleDirectory $Wheels[0].Name
     Copy-Item -LiteralPath $Wheels[0].FullName -Destination $WheelPath
@@ -228,7 +235,8 @@ try {
 
     Write-Host ""
     Invoke-CheckedPython -Arguments @(
-        (Join-Path $RepositoryRoot "scripts\releasing\check-cli-package.py"), $ArchivePath
+        (Join-Path $RepositoryRoot "scripts\releasing\check-cli-package.py"),
+        "--expected-version", $Version, $ArchivePath
     )
     Write-Host "Release package created:" -ForegroundColor Green
     Write-Host "  Directory: $BundleDirectory"

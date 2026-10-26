@@ -75,6 +75,28 @@ class WindowsPackagingScriptTest(unittest.TestCase):
         )
         self.assertIn('Invoke-Checked -Command $LauncherPath', script)
 
+    def test_build_tools_use_disposable_environment_and_check_artifact_versions(self):
+        script = (self.windows_scripts / "build-release.ps1").read_text(encoding="utf-8")
+        self.assertIn('& $Command @Prefix -I @Arguments', script)
+        self.assertIn('Invoke-CheckedPython -Arguments @("-m", "venv", $BuildEnvironment)', script)
+        self.assertIn('$script:PythonCommand = Join-Path $BuildEnvironment "Scripts\\python.exe"', script)
+        self.assertIn('$script:PythonPrefix = @()', script)
+        self.assertLess(script.index('$script:PythonCommand = Join-Path $BuildEnvironment'),
+                        script.index('$BuildToolArguments ='))
+        self.assertEqual(script.count('"--expected-version", $Version'), 2)
+        self.assertIn('Remove-Item -LiteralPath $TemporaryRoot -Recurse -Force', script)
+
+    def test_local_build_entry_only_installs_new_bundle_and_forwards_options(self):
+        wrapper = (self.root / "scripts/build-install.cmd").read_text(encoding="utf-8")
+        script = (self.root / "scripts/build-install.ps1").read_text(encoding="utf-8")
+        self.assertIn('"%~dp0build-install.ps1" %*', wrapper)
+        self.assertIn('exit /b %BUILD_INSTALL_RESULT%', wrapper)
+        self.assertIn('"build-" + [Guid]::NewGuid().ToString("N")', script)
+        self.assertIn('Get-ChildItem -LiteralPath $RunDirectory -Directory', script)
+        self.assertIn('if ($LASTEXITCODE -ne 0)', script)
+        self.assertLess(script.index('throw "Build failed.'), script.index('$InstallScript ='))
+        self.assertIn('if ($Force) { $InstallArguments += "-Force" }', script)
+
     def test_scripts_avoid_newer_or_ambiguous_powershell_syntax(self):
         ambiguous_variable = re.compile(
             r'\$(?!(?:env|script|global|local|private):)'

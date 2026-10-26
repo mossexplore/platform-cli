@@ -1,6 +1,7 @@
 """Build real wheels from a checkout containing obsolete build outputs."""
 from pathlib import Path
 import runpy
+import re
 import shutil
 import subprocess
 import sys
@@ -33,7 +34,8 @@ def test_wheel_excludes_stale_build_modules(tmp_path):
         )
         assert result.returncode == 0, result.stdout + result.stderr
         wheel, = (project / "dist").glob("*.whl")
-        check(wheel)
+        expected = re.search(r'^version = "([^"]+)"', (root / 'pyproject.toml').read_text(), re.M)[1]
+        check(wheel, expected_version=expected)
         with zipfile.ZipFile(wheel) as archive:
             names = set(archive.namelist())
             assert names.isdisjoint(stale_files)
