@@ -14,7 +14,6 @@ from rich.text import Text
 
 from .. import messages as msg
 from ..jupyter.connection import JupyterClient, from_runtime
-from ..jupyter.notebook import run_notebook
 from ..jupyter.terminal import attach, require_tty
 from ..output import print_text, console
 from .common import fail, runtime_from_context
@@ -90,6 +89,8 @@ def run(context: typer.Context,
     if source.suffix.lower() != ".ipynb":
         fail("输入必须为 .ipynb 文件")
     try:
+        from ..jupyter.notebook import run_notebook
+
         with client_for(context, studio_id) as client:
             result = run_notebook(client, source, download, kernel=kernel, cwd=cwd,
                                   timeout=timeout, startup_timeout=startup_timeout, emit=text_output)

@@ -50,11 +50,11 @@ class CliEnvironmentCommandTest(unittest.TestCase):
         self.assertNotEqual(result.exit_code, 0)
         self.assertIn("未知命令", result.output)
 
-    def test_version_is_1_0_7_6(self):
+    def test_version_is_1_0_7_8(self):
         result = self.runner.invoke(app, ["--version"])
 
         self.assertEqual(result.exit_code, 0, result.output)
-        self.assertIn("ml 1.0.7.7", result.output)
+        self.assertIn("ml 1.0.7.8", result.output)
 
     def test_offline_experiment_list_command_is_available(self):
         result = self.runner.invoke(

@@ -7,13 +7,13 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from uuid import uuid4
 
-import nbformat
-
 from .connection import JupyterError, remote_path
 from .protocol import KernelChannel, Outputs, execute_cell
 
 
 def save_local(path, notebook):
+    import nbformat
+
     temporary = path.with_suffix(".ipynb.tmp")
     nbformat.write(notebook, temporary)
     temporary.replace(path)
@@ -21,6 +21,8 @@ def save_local(path, notebook):
 
 def run_notebook(client, source: Path, download: Path, *, kernel=None, cwd="",
                  timeout=600, startup_timeout=60, emit=print):
+    import nbformat
+
     notebook = nbformat.read(source, as_version=4)
     nbformat.validate(notebook)
     for cell in notebook.cells:

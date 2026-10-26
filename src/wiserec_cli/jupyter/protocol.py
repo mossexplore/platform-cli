@@ -7,7 +7,6 @@ import time
 from datetime import datetime, timezone
 from uuid import uuid4
 
-import nbformat
 import websocket
 
 from .connection import JupyterError
@@ -98,6 +97,8 @@ class Outputs:
                 output.data = content.get("data", {})
                 output.metadata = content.get("metadata", {})
             return
+        import nbformat
+
         if kind == "stream":
             output = nbformat.v4.new_output(kind, name=content["name"], text=content["text"])
             self.emit(content["text"])

@@ -730,7 +730,7 @@ ml jupyter terminal close NAME [--studio-id ENV_ID]
 
 | 参数或选项 | 用途 |
 | --- | --- |
-| `SOURCE` | 要执行的本地 Notebook 文件 |
+| `SOURCE` | 要执行的本地 `.ipynb` Notebook 文件 |
 | `--download DIR` | Notebook 结果保存位置，默认 `results` |
 | `--kernel NAME` | 指定 Kernel |
 | `--cwd DIR` | 指定远程工作目录 |
