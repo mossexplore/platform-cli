@@ -35,7 +35,7 @@ LIST_COLUMNS = (
     ("模型名称", "modelName"), ("归属者", "owner"),
 )
 HOST_COLUMNS = (
-    ("部署 ID", "deployId"), ("集群", "clusterName"),
+    ("部署 ID", "deployId"), ("主机ID", "nodeId"), ("集群", "clusterName"),
     ("pod名称", "nodeName"), ("podIP", "nodeHost"),
     ("主机IP", "hostIp"), ("规格", "spec"),
     ("状态", "health_status"), ("最大并发数", "execute_limit"),

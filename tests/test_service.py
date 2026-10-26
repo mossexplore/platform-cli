@@ -84,7 +84,7 @@ class ServiceCommandTest(unittest.TestCase):
             "pageIndex": 2, "pageSize": 20, "items": [item]})
 
     def test_host_view_sends_fixed_filters_and_preserves_fields(self):
-        item = {"deployId": "d", "health_status": 0, "memUsage": 0.28,
+        item = {"deployId": "d", "nodeId": "host-node-1", "health_status": 0, "memUsage": 0.28,
                 "other": "kept"}
 
         def handler(request):
@@ -102,6 +102,17 @@ class ServiceCommandTest(unittest.TestCase):
         result = self.invoke(["host", "list", "s", "-o", "json"], handler)
         self.assertEqual(result.exit_code, 0, result.output)
         self.assertEqual(json.loads(result.stdout)["items"], [item])
+
+        with patch("wiserec_cli.commands.service.console.print") as printed:
+            result = self.invoke(["host", "list", "s", "-o", "table"], handler)
+        self.assertEqual(result.exit_code, 0, result.output)
+        table = printed.call_args_list[0].args[0]
+        self.assertEqual([column.header for column in table.columns[:3]],
+                         ["部署 ID", "主机ID", "集群"])
+        self.assertEqual(table.columns[1]._cells[0].plain, "host-node-1")
+        self.assertEqual((table.columns[0].width, table.columns[0].min_width,
+                          table.columns[0].max_width), (36, 36, 36))
+        self.assertTrue(table.columns[0].no_wrap)
 
     def test_deployment_view_displays_block_id_and_derived_columns(self):
         item = {"blockId": "b" * 36, "imageName": "repo/image",

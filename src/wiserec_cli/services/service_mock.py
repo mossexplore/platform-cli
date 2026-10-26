@@ -47,17 +47,26 @@ def validate_host_address(value: str) -> str:
         if ip.version != (6 if bracketed else 4) or not 1 <= int(port) <= 65535:
             raise ValueError
     except ValueError as exc:
-        raise ValueError("host-address 必须为有效的 IPv4:端口或 [IPv6]:端口，端口范围为 1–65535") from exc
+        raise ValueError("pod-ip 必须为有效的 IPv4:端口或 [IPv6]:端口，端口范围为 1–65535") from exc
     return address
+
+
+def validate_node_id(value: str) -> str:
+    if not isinstance(value, str) or not value.strip():
+        raise ValueError("node-id 不能为空")
+    return value.strip()
 
 
 class ServiceMock(ServiceCatalog):
     def run(self, service_id: str, *, transmission_tag: int = 0,
-            host_address: str | None = None) -> dict[str, Any]:
+            host_address: str | None = None, node_id: str | None = None) -> dict[str, Any]:
         if type(transmission_tag) is not int or transmission_tag not in (0, 1):
             raise ValueError("transmission-tag 仅支持 0 或 1")
+        if (host_address is None) != (node_id is None):
+            raise ValueError("主机测试必须同时提供 pod-ip 和 node-id")
         if host_address is not None:
             host_address = validate_host_address(host_address)
+            node_id = validate_node_id(node_id)
         headers = {"businessid": self._business_id()}
         base = self._result(self.client.request(
             "POST", "/ai/backend/mep/services/rtcContainer/queryServiceBaseInfoDetail",
@@ -87,7 +96,7 @@ class ServiceMock(ServiceCatalog):
             "transmissionTag": transmission_tag, "businessId": business_id,
         }
         if host_address is not None:
-            data["node"] = {"hostAddress": host_address}
+            data["node"] = {"hostId": node_id, "hostAddress": host_address}
         try:
             payload = self.client.request(
                 "POST", "/ai/backend/mep/services/serviceMock",

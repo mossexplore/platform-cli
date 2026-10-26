@@ -9,6 +9,7 @@ ml service deployment list SERVICE_ID -o json
 ```
 
 - 主机视图和部署视图只返回第一页 10 条，不能当作完整集合。主机视图中的 `nodeName` 是 Pod 名称。
+- 主机视图在部署 ID 后展示“主机ID”，取自 `nodeId`，缺失时显示 `-`。
 - 部署视图首列为 `blockId`。
 
 ## 测试服务
@@ -27,12 +28,12 @@ ml service mock SERVICE_ID --transmission-tag 1 -o json
 ## 测试指定主机
 
 ```powershell
-ml service host mock SERVICE_ID --host-address IP:PORT -o json
-ml service host mock SERVICE_ID --host-address IP:PORT --transmission-tag 1 -o json
-ml service host mock SERVICE_ID --host-address "[IPv6]:PORT" -o json
+ml service host mock SERVICE_ID --node-id NODE_ID --pod-ip IP:PORT -o json
+ml service host mock SERVICE_ID --node-id NODE_ID --pod-ip IP:PORT --transmission-tag 1 -o json
+ml service host mock SERVICE_ID --node-id NODE_ID --pod-ip "[IPv6]:PORT" -o json
 ```
 
-必须提供完整 IPv4 或 IPv6 地址及 1–65535 的端口，无默认端口。不接受域名、URL、路径或查询参数，不根据 Pod IP 或主机 IP 猜测测试地址，也不验证地址归属。请求在原有服务测试的 `data` 中增加 `node.hostAddress`，其他字段、透传选项、输出及错误处理与服务测试相同。目标地址提示写入 stderr，stdout 保持 JSON 结果。
+必须通过 `--node-id` 提供主机列表中 `nodeId` 的值，不可为空，按字符串传给 `node.hostId`。同时必须提供完整 IPv4 或 IPv6 地址及 1–65535 的端口，无默认端口。不接受域名、URL、路径或查询参数，不根据 Pod IP 或主机 IP 猜测测试地址，也不验证地址归属。请求在原有服务测试的 `data` 中增加 `node.hostId` 和 `node.hostAddress`，其他字段、透传选项、输出及错误处理与服务测试相同。目标地址提示写入 stderr，stdout 保持 JSON 结果。
 
 ## 读取日志
 

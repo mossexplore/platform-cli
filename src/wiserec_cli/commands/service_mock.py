@@ -13,7 +13,9 @@ from rich.text import Text
 
 from .. import messages as msg
 from ..output import console, print_result
-from ..services.service_mock import ServiceMock, normalize_response, parse_sample, validate_host_address
+from ..services.service_mock import (
+    ServiceMock, normalize_response, parse_sample, validate_host_address, validate_node_id,
+)
 from .common import fail, runtime_from_context
 
 
@@ -44,7 +46,7 @@ def render_mock(payload, output):
     console.print(table)
 
 
-def _run_mock(context, service_id, transmission_tag, output, host_address=None):
+def _run_mock(context, service_id, transmission_tag, output, host_address=None, node_id=None):
     from .service import _selected_business, _selected_output, _service_id
 
     try:
@@ -56,6 +58,7 @@ def _run_mock(context, service_id, transmission_tag, output, host_address=None):
             _selected_business(runtime, client)
             return ServiceMock(client).run(
                 service_id, transmission_tag=transmission_tag, host_address=host_address,
+                node_id=node_id,
             )
 
         # 测试调用不具备幂等保证，认证失败也不自动重放整个流程。
@@ -93,12 +96,22 @@ def _host_address(value: str) -> str:
         raise typer.BadParameter(str(exc)) from exc
 
 
+def _node_id(value: str) -> str:
+    try:
+        return validate_node_id(value)
+    except ValueError as exc:
+        raise typer.BadParameter(str(exc)) from exc
+
+
 def host_mock(
     context: typer.Context,
     service_id: str = typer.Argument(..., help="服务 ID"),
     host_address: str = typer.Option(
-        ..., "--host-address", callback=_host_address,
+        ..., "--pod-ip", callback=_host_address,
         help="主机测试地址，格式为 IPv4:端口或 [IPv6]:端口，无默认端口",
+    ),
+    node_id: str = typer.Option(
+        ..., "--node-id", callback=_node_id, help="主机ID，取自主机列表的 nodeId",
     ),
     transmission_tag: int = typer.Option(
         0, "--transmission-tag", min=0, max=1,
@@ -107,4 +120,4 @@ def host_mock(
     output: Optional[str] = typer.Option(None, "--output", "-o", help="table 或 json"),
 ) -> None:
     """使用服务文档样例测试指定主机"""
-    _run_mock(context, service_id, transmission_tag, output, host_address)
+    _run_mock(context, service_id, transmission_tag, output, host_address, node_id)

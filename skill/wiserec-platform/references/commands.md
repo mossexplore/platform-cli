@@ -76,7 +76,7 @@
 | `ml service mock SERVICE_ID [--transmission-tag 0\|1]` | 使用文档样例测试服务响应，默认不调用透传接口 | | 调用一次服务 |
 | `ml service logs SERVICE_ID --no-input` | 日志文件列表或正文 | | |
 | `ml service host list SERVICE_ID` | 主机视图 | | |
-| `ml service host mock SERVICE_ID --host-address IP:PORT` | 使用文档样例测试指定主机，可选 `--transmission-tag 0\|1` | | 调用一次服务 |
+| `ml service host mock SERVICE_ID --node-id NODE_ID --pod-ip IP:PORT` | 使用文档样例测试指定主机，可选 `--transmission-tag 0\|1` | | 调用一次服务 |
 | `ml service deployment list SERVICE_ID` | 部署视图 | | |
 
 ## 数据集与特征集
