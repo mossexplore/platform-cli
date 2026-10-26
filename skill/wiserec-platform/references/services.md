@@ -24,6 +24,16 @@ ml service mock SERVICE_ID --transmission-tag 1 -o json
 
 必要信息或有效样例缺失时停止。失败节点或无效报文仍会展示，但退出码为 1；无节点也退出 1。全部节点结果码为 0 且报文有效才退出 0，内部业务结果仍须查看报文。超时、断连或认证失败不自动重发，不要盲目重试。
 
+## 测试指定主机
+
+```powershell
+ml service host mock SERVICE_ID --host-address IP:PORT -o json
+ml service host mock SERVICE_ID --host-address IP:PORT --transmission-tag 1 -o json
+ml service host mock SERVICE_ID --host-address "[IPv6]:PORT" -o json
+```
+
+必须提供完整 IPv4 或 IPv6 地址及 1–65535 的端口，无默认端口。不接受域名、URL、路径或查询参数，不根据 Pod IP 或主机 IP 猜测测试地址，也不验证地址归属。请求在原有服务测试的 `data` 中增加 `node.hostAddress`，其他字段、透传选项、输出及错误处理与服务测试相同。目标地址提示写入 stderr，stdout 保持 JSON 结果。
+
 ## 读取日志
 
 在 shell 工具中必须加 `--no-input`，并明确传入 `--type`：

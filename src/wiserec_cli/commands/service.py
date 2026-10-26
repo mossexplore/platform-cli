@@ -20,7 +20,7 @@ from .common import fail, runtime_from_context
 
 
 service_app = typer.Typer(no_args_is_help=True, help="服务查询、模拟调用与日志查看")
-host_app = typer.Typer(no_args_is_help=True, help="服务主机视图查询")
+host_app = typer.Typer(no_args_is_help=True, help="服务主机查询与测试")
 deployment_app = typer.Typer(no_args_is_help=True, help="服务部署视图查询")
 logs_app = typer.Typer(no_args_is_help=True, help="主机日志文件列表与检索")
 service_app.add_typer(host_app, name="host")
@@ -339,6 +339,7 @@ from .service_logs import service_logs
 
 service_app.command("logs")(service_logs)
 
-from .service_mock import service_mock
+from .service_mock import host_mock, service_mock
 
 service_app.command("mock")(service_mock)
+host_app.command("mock")(host_mock)

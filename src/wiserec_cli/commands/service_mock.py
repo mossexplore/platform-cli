@@ -13,7 +13,7 @@ from rich.text import Text
 
 from .. import messages as msg
 from ..output import console, print_result
-from ..services.service_mock import ServiceMock, normalize_response, parse_sample
+from ..services.service_mock import ServiceMock, normalize_response, parse_sample, validate_host_address
 from .common import fail, runtime_from_context
 
 
@@ -44,6 +44,35 @@ def render_mock(payload, output):
     console.print(table)
 
 
+def _run_mock(context, service_id, transmission_tag, output, host_address=None):
+    from .service import _selected_business, _selected_output, _service_id
+
+    try:
+        service_id = _service_id(service_id)
+        runtime = runtime_from_context(context)
+        selected = _selected_output(runtime, output)
+
+        def query(client):
+            _selected_business(runtime, client)
+            return ServiceMock(client).run(
+                service_id, transmission_tag=transmission_tag, host_address=host_address,
+            )
+
+        # 测试调用不具备幂等保证，认证失败也不自动重放整个流程。
+        with redirect_stdout(sys.stderr):
+            if host_address is not None:
+                msg.detail(f"目标主机测试地址：{host_address}")
+            payload = runtime.authenticated_call(query, retry_auth=False)
+        normalized, issues = normalize_response(payload)
+        render_mock(normalized, selected)
+    except Exception as exc:
+        fail(exc)
+    if issues:
+        for issue in issues:
+            msg.error(issue)
+        raise typer.Exit(code=1)
+
+
 def service_mock(
     context: typer.Context,
     service_id: str = typer.Argument(..., help="服务 ID"),
@@ -54,25 +83,28 @@ def service_mock(
     output: Optional[str] = typer.Option(None, "--output", "-o", help="table 或 json"),
 ) -> None:
     """使用服务文档样例测试服务响应"""
-    from .service import _selected_business, _selected_output, _service_id
+    _run_mock(context, service_id, transmission_tag, output)
 
+
+def _host_address(value: str) -> str:
     try:
-        service_id = _service_id(service_id)
-        runtime = runtime_from_context(context)
-        selected = _selected_output(runtime, output)
+        return validate_host_address(value)
+    except ValueError as exc:
+        raise typer.BadParameter(str(exc)) from exc
 
-        def query(client):
-            _selected_business(runtime, client)
-            return ServiceMock(client).run(service_id, transmission_tag=transmission_tag)
 
-        # 测试调用不具备幂等保证，认证失败也不自动重放整个流程。
-        with redirect_stdout(sys.stderr):
-            payload = runtime.authenticated_call(query, retry_auth=False)
-        normalized, issues = normalize_response(payload)
-        render_mock(normalized, selected)
-    except Exception as exc:
-        fail(exc)
-    if issues:
-        for issue in issues:
-            msg.error(issue)
-        raise typer.Exit(code=1)
+def host_mock(
+    context: typer.Context,
+    service_id: str = typer.Argument(..., help="服务 ID"),
+    host_address: str = typer.Option(
+        ..., "--host-address", callback=_host_address,
+        help="主机测试地址，格式为 IPv4:端口或 [IPv6]:端口，无默认端口",
+    ),
+    transmission_tag: int = typer.Option(
+        0, "--transmission-tag", min=0, max=1,
+        help="0 不调用透传接口，1 调用透传接口",
+    ),
+    output: Optional[str] = typer.Option(None, "--output", "-o", help="table 或 json"),
+) -> None:
+    """使用服务文档样例测试指定主机"""
+    _run_mock(context, service_id, transmission_tag, output, host_address)

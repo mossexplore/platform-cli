@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import json
+import ipaddress
+import re
 from copy import deepcopy
 from typing import Any
 
@@ -30,10 +32,32 @@ def _required(info: Any, key: str, label: str) -> str:
     return value
 
 
+def validate_host_address(value: str) -> str:
+    """接受 IPv4:端口或 [IPv6]:端口，不猜测地址或默认端口。"""
+    address = value.strip()
+    match = re.fullmatch(r"(?:\[([^\[\]]+)\]|([^:]+)):([0-9]{1,5})", address)
+    try:
+        if match is None:
+            raise ValueError
+        bracketed, plain, port = match.groups()
+        host = bracketed or plain
+        if "%" in host:
+            raise ValueError
+        ip = ipaddress.ip_address(host)
+        if ip.version != (6 if bracketed else 4) or not 1 <= int(port) <= 65535:
+            raise ValueError
+    except ValueError as exc:
+        raise ValueError("host-address 必须为有效的 IPv4:端口或 [IPv6]:端口，端口范围为 1–65535") from exc
+    return address
+
+
 class ServiceMock(ServiceCatalog):
-    def run(self, service_id: str, *, transmission_tag: int = 0) -> dict[str, Any]:
+    def run(self, service_id: str, *, transmission_tag: int = 0,
+            host_address: str | None = None) -> dict[str, Any]:
         if type(transmission_tag) is not int or transmission_tag not in (0, 1):
             raise ValueError("transmission-tag 仅支持 0 或 1")
+        if host_address is not None:
+            host_address = validate_host_address(host_address)
         headers = {"businessid": self._business_id()}
         base = self._result(self.client.request(
             "POST", "/ai/backend/mep/services/rtcContainer/queryServiceBaseInfoDetail",
@@ -56,15 +80,18 @@ class ServiceMock(ServiceCatalog):
         except (ValueError, RecursionError) as exc:
             raise ApiError("服务文档 requestContent 不是有效的标准 JSON") from exc
 
+        data = {
+            "requestSample": sample, "serviceName": name,
+            "serviceVersion": version, "serviceId": service_id,
+            "lmsServiceId": "", "algoType": "field-npy",
+            "transmissionTag": transmission_tag, "businessId": business_id,
+        }
+        if host_address is not None:
+            data["node"] = {"hostAddress": host_address}
         try:
             payload = self.client.request(
                 "POST", "/ai/backend/mep/services/serviceMock",
-                json_body={"data": {
-                    "requestSample": sample, "serviceName": name,
-                    "serviceVersion": version, "serviceId": service_id,
-                    "lmsServiceId": "", "algoType": "field-npy",
-                    "transmissionTag": transmission_tag, "businessId": business_id,
-                }}, headers=headers,
+                json_body={"data": data}, headers=headers,
             )
         except ApiError as exc:
             raise ApiError(f"服务测试未成功确认，执行结果可能未知，不自动重发：{exc}") from exc
