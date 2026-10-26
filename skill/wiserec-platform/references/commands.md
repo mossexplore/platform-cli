@@ -73,6 +73,7 @@
 | `ml resource template list` / `detail RESOURCE_TEMPLATE_ID` | 资源模板 | | |
 | `ml deployment template list` / `detail DEPLOY_TEMPLATE_ID` | 部署模板 | | |
 | `ml service list` | 服务 | | |
+| `ml service mock SERVICE_ID` | 使用文档样例测试服务响应 | | 调用一次服务 |
 | `ml service logs SERVICE_ID --no-input` | 日志文件列表或正文 | | |
 | `ml service host list SERVICE_ID` | 主机视图 | | |
 | `ml service deployment list SERVICE_ID` | 部署视图 | | |

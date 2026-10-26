@@ -11,6 +11,16 @@ ml service deployment list SERVICE_ID -o json
 - 主机视图和部署视图只返回第一页 10 条，不能当作完整集合。主机视图中的 `nodeName` 是 Pod 名称。
 - 部署视图首列为 `blockId`。
 
+## 测试服务
+
+```powershell
+ml service mock SERVICE_ID -o json
+```
+
+自动查询基本信息与服务文档，使用默认请求样例执行一次测试。`result.nodeList` 包含各节点结果，`mockResponse` 为解析后的 JSON 值，`mockResponseRaw` 保留原始字符串。表格模式展示六列及完整的缩进 JSON 报文。
+
+必要信息或有效样例缺失时停止。失败节点或无效报文仍会展示，但退出码为 1；无节点也退出 1。全部节点结果码为 0 且报文有效才退出 0，内部业务结果仍须查看报文。超时、断连或认证失败不自动重发，不要盲目重试。
+
 ## 读取日志
 
 在 shell 工具中必须加 `--no-input`，并明确传入 `--type`：

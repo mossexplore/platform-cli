@@ -19,7 +19,7 @@ from ..services.service import ServiceCatalog
 from .common import fail, runtime_from_context
 
 
-service_app = typer.Typer(no_args_is_help=True, help="服务列表与部署视图查询")
+service_app = typer.Typer(no_args_is_help=True, help="服务查询、模拟调用与日志查看")
 host_app = typer.Typer(no_args_is_help=True, help="服务主机视图查询")
 deployment_app = typer.Typer(no_args_is_help=True, help="服务部署视图查询")
 logs_app = typer.Typer(no_args_is_help=True, help="主机日志文件列表与检索")
@@ -338,3 +338,7 @@ def search_logs(
 from .service_logs import service_logs
 
 service_app.command("logs")(service_logs)
+
+from .service_mock import service_mock
+
+service_app.command("mock")(service_mock)

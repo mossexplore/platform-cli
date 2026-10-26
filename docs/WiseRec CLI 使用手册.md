@@ -100,6 +100,7 @@ ml                                              WiseRec 命令行工具
 │   └── clone                                   克隆算法仓
 ├── service                                     服务管理
 │   ├── list                                    查看服务列表
+│   ├── mock                                    使用服务文档样例测试服务响应
 │   ├── logs                                    选择服务主机和文件并查看日志
 │   ├── host                                    服务主机视图
 │   │   └── list                                查看指定服务的主机列表
@@ -595,6 +596,7 @@ ml algorithm clone SOURCE_ID --name mnist_copy --version VERSION
 
 ```text
 ml service list [OPTIONS]
+ml service mock SERVICE_ID [-o table|json]
 ml service logs SERVICE_ID [--pod POD_NAME --cluster-name CLUSTER_NAME] [--type TYPE] [--file FILE_NAME] [-k TEXT] [-n N] [--list] [--no-input]
 ml service host list SERVICE_ID [-o table|json]
 ml service deployment list SERVICE_ID [-o table|json]
@@ -605,12 +607,17 @@ ml service deployment list SERVICE_ID [-o table|json]
 | 命令 | 主要参数与选项 |
 | --- | --- |
 | `list` | `--page`、`--page-size`；可用 `--name` / `--service-name`、`--model-name`、`--model-version` 筛选；可选 `--output` / `-o` |
+| `mock` | 必填 `SERVICE_ID`；`--output` / `-o` 支持 `table`、`json`，默认沿用当前环境输出配置 |
 | `logs` | 必填 `SERVICE_ID`；可选成对的 `--pod` 与 `--cluster-name`，以及 `--type`、`--file`；`--keyword` / `-k` 可重复，`--lines` / `-n` 默认 200；`--list` 只列文件，`--no-input` 禁止交互；高级选项 `--search-order` 默认 tail、`--grep-scope` 默认 C、`--grep-line` 默认 0 |
 | `host list`、`deployment list` | 必填 `SERVICE_ID`；可选 `--output` / `-o` |
 
 ### 14.3 说明
 
 先登录并选择业务，从 `list` 获取服务 ID。服务列表默认每页 10 条；主机和部署详情显示第一页 10 条，时间按北京时间显示。
+
+`ml service mock SERVICE_ID` 自动查询服务名称、服务版本、所属租户和服务文档，使用文档中的默认 JSON 请求样例执行一次测试，无需手工填写请求内容。服务须已有有效请求样例。表格按主机展示主机名称、机器规格、站点、结果码、结果报文和耗时(ms)，结果报文解析为带缩进的 JSON，长内容完整换行显示。耗时使用平台返回值。
+
+`mock -o json` 保留接口其他字段，将 `result.nodeList` 中各节点的 `mockResponse` 转为 JSON 值，并以 `mockResponseRaw` 保留原始字符串。无效报文保留原文并提示错误，其他节点继续展示；没有节点、节点结果码缺失或非零、报文无效时退出码为 1。全部节点结果码为 0 且报文有效时退出码为 0，仅代表节点调用成功，具体业务结果须查看报文。接口失败或必要信息缺失时停止；认证失败、超时或断连不自动重发测试，执行结果可能未知。结果写入标准输出，诊断写入标准错误。
 
 推荐使用 `ml service logs SERVICE_ID`。主机以表格展示编号、集群、pod名称、podIP、主机IP、状态、创建时间和更新时间，时间按北京时间显示；每页 10 条，先显示第一页，输入 n/p 按需翻页，输入 q 退出；选中后立即继续，不扫描剩余页。整个服务仅一台主机或仅一个文件时自动选择；类别无默认值，交互时以“编号、日志类别”表格展示，在“请选择日志类别”提示后输入编号，也可通过 `--type` 指定。文件选择仅展示一次文件表格，再输入编号，不重复列出文件名称。自动获取集群，Python 主机自动设置对应请求类型。`infer-python` 支持 run、interface、metrics、engine、ascend、mslite、alarm；`rtc` 支持 rtc、run、interface、dcs、metrics、gc、interface_manager、interface_extend、engine、monitor、catalina、dmq。文件列表和正文使用相同类别。
 
@@ -624,6 +631,8 @@ ml service deployment list SERVICE_ID [-o table|json]
 ```bash
 ml service list --name demo --model-name model --model-version MODEL_VERSION
 ml service list --page 2 --page-size 20 -o json
+ml service mock SERVICE_ID
+ml service mock SERVICE_ID -o json > service-mock-result.json
 ml service logs SERVICE_ID
 ml service logs SERVICE_ID -k error -n 500
 ml service logs SERVICE_ID --list

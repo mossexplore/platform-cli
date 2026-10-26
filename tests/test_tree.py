@@ -22,6 +22,7 @@ def test_tree_works_without_runtime_or_login():
     assert "├── train" in result.output
     assert "── download" in result.output
     assert "── service" in result.output
+    assert "mock  使用服务文档样例测试服务响应" in result.output
     assert "── dataset" in result.output
     commands = typer.main.get_command(app).commands
     assert "search" not in commands["service"].commands
