@@ -234,46 +234,58 @@ $BinDirectory = Join-Path $ResolvedInstallDirectory "bin"
 $VirtualEnvironmentPython = Join-Path $VirtualEnvironment "Scripts\python.exe"
 $VirtualEnvironmentMl = Join-Path $VirtualEnvironment "Scripts\ml.exe"
 
+function New-CliEnvironment {
+    if (Test-Path -LiteralPath $VirtualEnvironment) {
+        $BackupPath = Join-Path $ResolvedInstallDirectory ("venv-backup-" + [Guid]::NewGuid().ToString("N"))
+        Move-Item -LiteralPath $VirtualEnvironment -Destination $BackupPath
+        Write-Warning "Previous CLI environment preserved at: $BackupPath"
+    }
+    $VenvArguments = $PythonPrefix + @("-I", "-m", "venv", $VirtualEnvironment)
+    Invoke-Checked -Command $PythonCommand -Arguments $VenvArguments
+}
+
 Write-Host "[4/7] Preparing isolated environment..." -ForegroundColor Cyan
 if ($Force -and (Test-Path -LiteralPath $VirtualEnvironment)) {
     Remove-Item -LiteralPath $VirtualEnvironment -Recurse -Force
 }
 New-Item -ItemType Directory -Path $ResolvedInstallDirectory -Force | Out-Null
+$EnvironmentRebuilt = $false
 if (-not (Test-Path -LiteralPath $VirtualEnvironmentPython)) {
-    $VenvArguments = $PythonPrefix + @("-m", "venv", $VirtualEnvironment)
-    Invoke-Checked -Command $PythonCommand -Arguments $VenvArguments
+    New-CliEnvironment
+    $EnvironmentRebuilt = $true
 }
 
-Write-Host "[5/7] Installing wiserec-cli..." -ForegroundColor Cyan
-$UninstallArguments = @("-I", "-m", "pip", "uninstall", "--yes", "wiserec-cli")
-Invoke-Checked -Command $VirtualEnvironmentPython -Arguments $UninstallArguments
-$PackagesDirectory = Join-Path $BundleDirectory "packages"
-if (Test-Path -LiteralPath $PackagesDirectory -PathType Container) {
-    Invoke-Checked -Command $VirtualEnvironmentPython -Arguments @(
-        "-I", "-m", "pip", "install",
-        "--no-index",
-        "--find-links", $PackagesDirectory,
-        "--upgrade",
-        $WheelPath
-    )
-} else {
-    $InstallArguments = @(
-        "-I", "-m", "pip", "install",
-        "--upgrade"
-    )
-    if (-not [string]::IsNullOrWhiteSpace($EffectiveIndexUrl)) {
-        $InstallArguments += @("--index-url", $EffectiveIndexUrl)
-    }
-    if (-not [string]::IsNullOrWhiteSpace($Cert)) {
-        $ResolvedCert = [System.IO.Path]::GetFullPath($Cert)
-        if (-not (Test-Path -LiteralPath $ResolvedCert -PathType Leaf)) {
-            throw "The pip certificate file does not exist: $ResolvedCert"
+function Install-BundledCli {
+    $UninstallArguments = @("-I", "-m", "pip", "uninstall", "--yes", "wiserec-cli")
+    Invoke-Checked -Command $VirtualEnvironmentPython -Arguments $UninstallArguments
+    $PackagesDirectory = Join-Path $BundleDirectory "packages"
+    if (Test-Path -LiteralPath $PackagesDirectory -PathType Container) {
+        Invoke-Checked -Command $VirtualEnvironmentPython -Arguments @(
+            "-I", "-m", "pip", "install",
+            "--no-index",
+            "--find-links", $PackagesDirectory,
+            "--upgrade",
+            $WheelPath
+        )
+    } else {
+        $InstallArguments = @(
+            "-I", "-m", "pip", "install",
+            "--upgrade"
+        )
+        if (-not [string]::IsNullOrWhiteSpace($EffectiveIndexUrl)) {
+            $InstallArguments += @("--index-url", $EffectiveIndexUrl)
         }
-        $InstallArguments += @("--cert", $ResolvedCert)
+        if (-not [string]::IsNullOrWhiteSpace($Cert)) {
+            $ResolvedCert = [System.IO.Path]::GetFullPath($Cert)
+            if (-not (Test-Path -LiteralPath $ResolvedCert -PathType Leaf)) {
+                throw "The pip certificate file does not exist: $ResolvedCert"
+            }
+            $InstallArguments += @("--cert", $ResolvedCert)
+        }
+        $InstallArguments += $WheelPath
+        Write-Host "  Python package index: $IndexSource"
+        Invoke-Checked -Command $VirtualEnvironmentPython -Arguments $InstallArguments
     }
-    $InstallArguments += $WheelPath
-    Write-Host "  Python package index: $IndexSource"
-    Invoke-Checked -Command $VirtualEnvironmentPython -Arguments $InstallArguments
 }
 
 # 在修改用户配置前核对本次 Wheel、安装元数据与实际加载的代码。
@@ -282,13 +294,15 @@ $VerifyInstalledPackage = @'
 from email.parser import Parser
 from importlib import metadata
 import json
+import os
 from pathlib import Path
 import re
 import sys
 from zipfile import ZipFile
 
-def fail(message):
-    raise SystemExit('CLI installation verification failed: ' + message)
+def fail(message, repairable=False):
+    print('CLI installation verification failed: ' + message, file=sys.stderr)
+    raise SystemExit(20 if repairable else 1)
 
 with ZipFile(sys.argv[1]) as wheel:
     entries = [name for name in wheel.namelist() if name.endswith('.dist-info/METADATA')]
@@ -305,29 +319,62 @@ if release_path.exists():
     release = json.loads(release_path.read_text(encoding='utf-8-sig'))
     if release.get('version') != expected_version:
         fail('release.json version differs from Wheel')
-installed = [dist for dist in metadata.distributions()
-             if re.sub(r'[-_.]+', '-', dist.metadata.get('Name', '')).lower() == 'wiserec-cli']
+installed_by_path = {}
+for candidate in metadata.distributions():
+    if re.sub(r'[-_.]+', '-', candidate.metadata.get('Name', '')).lower() == 'wiserec-cli':
+        location = Path(getattr(candidate, '_path', candidate.locate_file(''))).resolve()
+        installed_by_path[os.path.normcase(str(location))] = candidate
+installed = list(installed_by_path.values())
+print('  Installed CLI metadata records: ' + str(len(installed)), flush=True)
+for location, candidate in installed_by_path.items():
+    print('  Metadata: ' + str(candidate.version) + ' at ' + location, flush=True)
 if len(installed) != 1:
-    fail('expected exactly one installed wiserec-cli distribution; rebuild with -Force')
+    fail('expected exactly one installed wiserec-cli distribution', repairable=True)
 dist = installed[0]
-direct_url = json.loads(dist.read_text('direct_url.json') or '{}')
+try:
+    direct_url = json.loads(dist.read_text('direct_url.json') or '{}')
+except ValueError:
+    fail('invalid direct_url.json in installed metadata', repairable=True)
 if direct_url.get('dir_info', {}).get('editable'):
-    fail('editable installation detected; rebuild with -Force')
-import wiserec_cli
+    fail('editable installation detected', repairable=True)
+try:
+    import wiserec_cli
+except Exception as error:
+    fail('cannot import installed CLI: ' + type(error).__name__, repairable=True)
 module = Path(wiserec_cli.__file__).resolve()
 expected_module = Path(dist.locate_file('wiserec_cli/__init__.py')).resolve()
 prefix = Path(sys.prefix).resolve()
 if module != expected_module or prefix not in module.parents:
-    fail('imported CLI is outside the installed package; rebuild with -Force')
-if dist.version != expected_version or wiserec_cli.__version__ != expected_version:
-    fail('Wheel, installed metadata and imported CLI versions differ; rebuild with -Force')
+    fail('imported CLI is outside the installed package: ' + str(module), repairable=True)
+code_version = getattr(wiserec_cli, '__version__', None)
+if dist.version != expected_version or code_version != expected_version:
+    fail('Wheel=' + expected_version + ', metadata=' + str(dist.version)
+         + ', code=' + str(code_version) + ': versions differ', repairable=True)
 print('  Verified Wheel / metadata / imported CLI: ' + expected_version)
 print('  Python: ' + sys.executable)
 print('  Module: ' + str(module))
 '@
-Invoke-Checked -Command $VirtualEnvironmentPython -Arguments @(
-    "-I", "-c", $VerifyInstalledPackage, $WheelPath
-)
+Write-Host "[5/7] Installing wiserec-cli..." -ForegroundColor Cyan
+while ($true) {
+    try {
+        Install-BundledCli
+    } catch {
+        if ($EnvironmentRebuilt) { throw }
+        Write-Warning "Installation failed in the existing CLI environment. Rebuilding it once automatically."
+        New-CliEnvironment
+        $EnvironmentRebuilt = $true
+        continue
+    }
+    & $VirtualEnvironmentPython -I -c $VerifyInstalledPackage $WheelPath
+    $VerificationExitCode = $LASTEXITCODE
+    if ($VerificationExitCode -eq 0) { break }
+    if ($VerificationExitCode -ne 20 -or $EnvironmentRebuilt) {
+        throw "CLI verification failed (exit $VerificationExitCode). See the versions and metadata paths above; installation stopped."
+    }
+    Write-Warning "CLI installation is inconsistent. Rebuilding its environment once automatically."
+    New-CliEnvironment
+    $EnvironmentRebuilt = $true
+}
 
 # 每次运行均使用本次 Wheel 安装 CLI；保留用户的环境选择与明确设置的自动保活选项。
 Write-Host "Updating user config.json from the package..." -ForegroundColor Cyan

@@ -50,6 +50,30 @@ foreach ($mode in @('online', 'offline')) {
     } finally {
         $env:PYTHONPATH = $previousPythonPath
     }
+
+    # Recover from leftover metadata without requiring the user to pass -Force.
+    $backupsBefore = @(Get-ChildItem -LiteralPath $install -Directory -Filter 'venv-backup-*').Count
+    $extraMetadata = Join-Path $install 'venv/Lib/site-packages/wiserec_cli-0.0.1.dist-info'
+    New-Item -ItemType Directory -Path $extraMetadata -Force | Out-Null
+    Set-Content -LiteralPath "$extraMetadata/METADATA" -Encoding ASCII -Value "Name: wiserec-cli`nVersion: 0.0.1`n"
+    & "$bundle/install.ps1" -InstallDirectory $install
+    $backupsAfter = @(Get-ChildItem -LiteralPath $install -Directory -Filter 'venv-backup-*').Count
+    if ($backupsAfter -ne ($backupsBefore + 1)) { throw 'Duplicate metadata did not trigger one backed-up rebuild' }
+    & $installedPython -I -c "from importlib.metadata import version; import wiserec_cli; assert version('wiserec-cli') == wiserec_cli.__version__ == '$version'"
+    if ($LASTEXITCODE -ne 0) { throw 'Version verification after automatic repair failed' }
+
+    # Reproduce an existing venv pointing at a removed base Python.
+    $venvConfig = Join-Path $install 'venv/pyvenv.cfg'
+    $missingPython = Join-Path $env:RUNNER_TEMP 'removed-cli-base-python'
+    $brokenConfig = "home = $missingPython`ninclude-system-site-packages = false`nversion = 3.12.0`n"
+    Set-Content -LiteralPath $venvConfig -Encoding ASCII -Value $brokenConfig
+    & "$bundle/install.ps1" -InstallDirectory $install
+    $backupsRepaired = @(Get-ChildItem -LiteralPath $install -Directory -Filter 'venv-backup-*').Count
+    if ($backupsRepaired -ne ($backupsAfter + 1)) { throw 'Broken base Python did not trigger one backed-up rebuild' }
+    $repairedVersion = & "$install/bin/ml.cmd" --version
+    if ($LASTEXITCODE -ne 0 -or $repairedVersion -notmatch "ml $version") { throw 'Automatic repair left an unusable CLI' }
+    & $installedPython -I -c "from wiserec_cli.config import ConfigManager; assert ConfigManager().current_name == 'test'"
+    if ($LASTEXITCODE -ne 0) { throw 'Automatic repair changed the selected environment' }
     if ($mode -eq 'offline') {
         Remove-Item Env:PIP_NO_INDEX, Env:PIP_INDEX_URL, Env:PIP_NO_CACHE_DIR
     }
