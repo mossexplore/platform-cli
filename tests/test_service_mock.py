@@ -1,7 +1,9 @@
 """服务模拟调用的请求契约、完整展示及失败边界。"""
 
 import json
+import tempfile
 import unittest
+from pathlib import Path
 from unittest.mock import patch
 
 import httpx
@@ -308,39 +310,100 @@ class ServiceMockCommandTest(unittest.TestCase):
                 self.assertEqual([r.url.path for r in self.calls], [HOST])
                 self.assertNotIn('目前主机不存在，请检查！', result.stderr)
 
-    def test_custom_sample_overrides_document_without_querying_it(self):
-        for host in (False, True):
-            for sample in (' {\n "data": {"queryTexts": ["自定义样例"]}, "value": 1.25\n} ',
-                           '[1,true,null]', 'null', 'false', '0'):
-                with self.subTest(host=host, sample=sample):
-                    args = ['host', 'mock', 's', '--pod-ip', '10.1.1.1'] if host else ['mock', 's']
-                    args += ['--request-sample', sample, '--transmission-tag', '1', '-o', 'json']
-                    result = self.invoke(args, self.handler(
-                        host_address='from-host-view' if host else None, request_sample=sample,
-                        transmission_tag=1, document={'code': 3, 'des': 'no document'}))
-                    self.assertEqual(result.exit_code, 0, result.output)
-                    self.assertEqual([r.url.path for r in self.calls],
-                                     ([HOST] if host else []) + [BASE, MOCK])
-                    sent = json.loads(self.calls[-1].content)['data']['requestSample']
-                    self.assertEqual(sent, sample)
-                    self.assertIsInstance(sent, str)
-                    self.assertEqual(json.loads(result.stdout)['result']['code'], 0)
+    def test_sample_file_json_values_override_document_without_querying_it(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / 'sample.json'
+            for host in (False, True):
+                for sample in (' {\n "data":{"queryTexts":["自定义样例"]}, "value":1.25\n} ',
+                               '[1,true,null]', 'null', 'false', '0'):
+                    with self.subTest(host=host, sample=sample):
+                        path.write_text(sample, encoding='utf-8')
+                        args = ['host', 'mock', 's', '--pod-ip', '10.1.1.1'] if host else ['mock', 's']
+                        args += ['--request-sample-file', str(path), '--transmission-tag', '1', '-o', 'json']
+                        result = self.invoke(args, self.handler(
+                            host_address='from-host-view' if host else None, request_sample=sample,
+                            transmission_tag=1, document={'code': 3, 'des': 'no document'}))
+                        self.assertEqual(result.exit_code, 0, result.output)
+                        self.assertEqual([r.url.path for r in self.calls],
+                                         ([HOST] if host else []) + [BASE, MOCK])
+                        sent = json.loads(self.calls[-1].content)['data']['requestSample']
+                        self.assertEqual(sent, sample)
+                        self.assertIsInstance(sent, str)
+                        self.assertEqual(json.loads(result.stdout)['result']['code'], 0)
 
-    def test_invalid_custom_sample_is_rejected_before_any_platform_request(self):
+    def test_inline_sample_option_is_removed_before_any_platform_request(self):
         for host in (False, True):
-            for sample in ('', ' ', 'not json', '{"a":1,}', '{"a":NaN}', 'NaN',
-                           'Infinity', '-Infinity', '1e999', '{"a":1} extra'):
-                with self.subTest(host=host, sample=sample):
-                    args = ['host', 'mock', 's', '--pod-ip', '10.1.1.1'] if host else ['mock', 's']
+            args = ['host', 'mock', 's', '--pod-ip', '10.1.1.1'] if host else ['mock', 's']
+            calls = []
+            result = self.invoke(args + ['--request-sample', '{}'], lambda r: calls.append(r))
+            self.assertEqual(result.exit_code, 2, result.output)
+            self.assertEqual(calls, [])
+
+    def test_sample_file_does_not_bypass_host_lookup(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / 'sample.json'
+            path.write_text('{}', encoding='utf-8')
+            result = self.invoke(['host', 'mock', 's', '--pod-ip', '10.1.1.1',
+                                  '--request-sample-file', str(path)], self.handler(hosts=[]))
+            self.assertEqual(result.exit_code, 1, result.output)
+            self.assertIn('目前主机不存在，请检查！', result.stderr)
+            self.assertEqual([r.url.path for r in self.calls], [HOST])
+
+    def test_sample_file_preserves_utf8_content_and_skips_document_query(self):
+        sample = ' {\r\n "version":"1.2", "data":{"queryTexts":["中文测试"]}\r\n} '
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / '样例 报文.json'
+            for host in (False, True):
+                for bom in (b'', b'\xef\xbb\xbf'):
+                    with self.subTest(host=host, bom=bom):
+                        content = bom + sample.encode('utf-8')
+                        path.write_bytes(content)
+                        args = ['host', 'mock', 's', '--pod-ip', '10.1.1.1'] if host else ['mock', 's']
+                        args += ['--request-sample-file', str(path), '--transmission-tag', '1', '-o', 'json']
+                        result = self.invoke(args, self.handler(request_sample=sample, transmission_tag=1,
+                            host_address='from-host-view' if host else None,
+                            document={'code': 3, 'des': 'no document'}))
+                        self.assertEqual(result.exit_code, 0, result.output)
+                        self.assertEqual([r.url.path for r in self.calls],
+                                         ([HOST] if host else []) + [BASE, MOCK])
+                        self.assertEqual(path.read_bytes(), content)
+                        self.assertEqual(json.loads(self.calls[-1].content)['data']['requestSample'], sample)
+                        self.assertEqual(json.loads(result.stdout)['result']['code'], 0)
+
+    def test_removed_inline_option_is_rejected_even_with_sample_file(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / 'sample.json'
+            path.write_text('{}', encoding='utf-8')
+            for host in (False, True):
+                args = ['host', 'mock', 's', '--pod-ip', '10.1.1.1'] if host else ['mock', 's']
+                calls = []
+                result = self.invoke(args + ['--request-sample', '{}', '--request-sample-file', str(path)],
+                                     lambda r: calls.append(r))
+                self.assertEqual(result.exit_code, 2, result.output)
+                self.assertEqual(calls, [])
+
+    def test_invalid_sample_files_fail_before_any_platform_request(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / 'sample.json'
+            for host in (False, True):
+                args = ['host', 'mock', 's', '--pod-ip', '10.1.1.1'] if host else ['mock', 's']
+                for content in (b'', b'  ', b'{bad}', b'{"a":1,}', b'NaN', b'{"a":Infinity}', b'1e999', b'{} extra'):
+                    with self.subTest(host=host, content=content):
+                        path.write_bytes(content)
+                        calls = []
+                        result = self.invoke(args + ['--request-sample-file', str(path)],
+                                             lambda r: calls.append(r))
+                        self.assertEqual(result.exit_code, 2, result.output)
+                        self.assertIn('样例报文不是标准的JSON格式，请检查！', result.stderr)
+                        self.assertEqual(calls, [])
+                for value in (str(Path(directory) / 'missing.json'), directory):
                     calls = []
-                    result = self.invoke(args + ['--request-sample', sample], lambda r: calls.append(r))
+                    result = self.invoke(args + ['--request-sample-file', value], lambda r: calls.append(r))
                     self.assertEqual(result.exit_code, 2, result.output)
-                    self.assertIn('样例报文不是标准的JSON格式，请检查！', result.stderr)
                     self.assertEqual(calls, [])
-
-    def test_custom_sample_does_not_bypass_host_lookup(self):
-        result = self.invoke(['host', 'mock', 's', '--pod-ip', '10.1.1.1',
-                              '--request-sample', '{}'], self.handler(hosts=[]))
-        self.assertEqual(result.exit_code, 1, result.output)
-        self.assertIn('目前主机不存在，请检查！', result.stderr)
-        self.assertEqual([r.url.path for r in self.calls], [HOST])
+                path.write_bytes(b'\xff\xfe{\x00}\x00')
+                calls = []
+                result = self.invoke(args + ['--request-sample-file', str(path)], lambda r: calls.append(r))
+                self.assertEqual(result.exit_code, 2, result.output)
+                self.assertIn('UTF-8', result.stderr)
+                self.assertEqual(calls, [])

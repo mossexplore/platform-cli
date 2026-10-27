@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import sys
 from contextlib import redirect_stdout
+from pathlib import Path
 from typing import Optional
 
 import typer
@@ -56,9 +57,28 @@ def render_mock(payload, output, *, vertical=False):
     console.print(table)
 
 
-def _run_mock(context, service_id, transmission_tag, output, pod_ip=None, request_sample=None):
+def _sample_from_file(request_sample_file):
+    if request_sample_file is None:
+        return None
+    try:
+        with request_sample_file.open("r", encoding="utf-8-sig", newline="") as stream:
+            sample = stream.read()
+    except UnicodeError as exc:
+        raise typer.BadParameter("样例报文文件必须使用 UTF-8 编码",
+                                 param_hint="--request-sample-file") from exc
+    except OSError as exc:
+        raise typer.BadParameter(f"无法读取样例报文文件：{exc}",
+                                 param_hint="--request-sample-file") from exc
+    try:
+        return validate_request_sample(sample)
+    except ValueError as exc:
+        raise typer.BadParameter(str(exc), param_hint="--request-sample-file") from exc
+
+
+def _run_mock(context, service_id, transmission_tag, output, pod_ip=None, request_sample_file=None):
     from .service import _selected_business, _selected_output, _service_id
 
+    request_sample = _sample_from_file(request_sample_file)
     try:
         service_id = _service_id(service_id)
         runtime = runtime_from_context(context)
@@ -86,30 +106,21 @@ def _run_mock(context, service_id, transmission_tag, output, pod_ip=None, reques
         raise typer.Exit(code=1)
 
 
-def _request_sample(value: Optional[str]) -> Optional[str]:
-    if value is None:
-        return None
-    try:
-        return validate_request_sample(value)
-    except ValueError as exc:
-        raise typer.BadParameter(str(exc)) from exc
-
-
 def service_mock(
     context: typer.Context,
     service_id: str = typer.Argument(..., help="服务 ID"),
     transmission_tag: int = typer.Option(
-        0, "--transmission-tag", min=0, max=1,
+        0, "--transmission-tag", min=0, max=1, metavar="0|1",
         help="0 不调用透传接口，1 调用透传接口",
     ),
-    request_sample: Optional[str] = typer.Option(
-        None, "--request-sample", callback=_request_sample,
-        help="样例报文，必须为标准 JSON；默认使用服务文档样例",
+    request_sample_file: Optional[Path] = typer.Option(
+        None, "--request-sample-file", exists=True, dir_okay=False, readable=True,
+        help="样例报文文件，UTF-8 编码且支持 BOM；默认使用服务文档样例",
     ),
     output: Optional[str] = typer.Option(None, "--output", "-o", help="table 或 json"),
 ) -> None:
     """使用样例报文测试服务响应"""
-    _run_mock(context, service_id, transmission_tag, output, request_sample=request_sample)
+    _run_mock(context, service_id, transmission_tag, output, request_sample_file=request_sample_file)
 
 
 def _pod_ip(value: str) -> str:
@@ -125,14 +136,14 @@ def host_mock(
         ..., "--pod-ip", callback=_pod_ip, help="用于查询主机视图的 Pod IP",
     ),
     transmission_tag: int = typer.Option(
-        0, "--transmission-tag", min=0, max=1,
+        0, "--transmission-tag", min=0, max=1, metavar="0|1",
         help="0 不调用透传接口，1 调用透传接口",
     ),
-    request_sample: Optional[str] = typer.Option(
-        None, "--request-sample", callback=_request_sample,
-        help="样例报文，必须为标准 JSON；默认使用服务文档样例",
+    request_sample_file: Optional[Path] = typer.Option(
+        None, "--request-sample-file", exists=True, dir_okay=False, readable=True,
+        help="样例报文文件，UTF-8 编码且支持 BOM；默认使用服务文档样例",
     ),
     output: Optional[str] = typer.Option(None, "--output", "-o", help="table 或 json"),
 ) -> None:
     """使用样例报文测试指定主机"""
-    _run_mock(context, service_id, transmission_tag, output, pod_ip, request_sample)
+    _run_mock(context, service_id, transmission_tag, output, pod_ip, request_sample_file)

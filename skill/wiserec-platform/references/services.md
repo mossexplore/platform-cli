@@ -18,11 +18,11 @@ ml service deployment list SERVICE_ID -o json
 
 ```powershell
 ml service mock SERVICE_ID -o json
-ml service mock SERVICE_ID --request-sample '{"data":{"queryTexts":["自定义测试"]}}' -o json
-ml service mock SERVICE_ID --transmission-tag 1 -o json
+ml service mock SERVICE_ID --request-sample-file '.\sample.json' -o json
+ml service mock SERVICE_ID --request-sample-file '.\sample.json' --transmission-tag 1 -o json
 ```
 
-自动查询基本信息，默认查询服务文档并使用其中的请求样例执行一次测试。传入 `--request-sample JSON` 时跳过文档查询，使用传入的原始 JSON 字符串，不把 JSON 对象拆成多个参数，也不自行补写业务字段。两种测试均支持该选项，非法 JSON 会在平台请求前提示“样例报文不是标准的JSON格式，请检查！”。`result.nodeList` 包含各节点结果，`mockResponse` 为解析后的 JSON 值，`mockResponseRaw` 保留原始字符串。服务测试的表格模式依次展示主机名称、机器规格、站点、结果码、结果报文、耗时(ms)，报文为完整缩进 JSON。上述 JSON 示例按保留内嵌双引号的 shell 编写；较旧 PowerShell 的转义方法见 [session.md](session.md)。`--request-sample` 只接收命令行字符串，不支持 `--request-file` 或自动读取文件路径。
+自动查询基本信息；默认查询服务文档并使用其中的请求样例执行一次测试。两种测试都可通过 `--request-sample-file PATH` 读取本地 UTF-8 JSON 文件（兼容 BOM），跳过文档查询；保留正文、空白和换行，仅去掉 BOM，不修改文件，不自行补写业务字段。非法 JSON 在平台请求前提示“样例报文不是标准的JSON格式，请检查！”，文件不可读或编码错误时同样停止。`result.nodeList` 包含各节点结果，`mockResponse` 为解析后的 JSON 值，`mockResponseRaw` 保留原始字符串。服务测试的表格模式依次展示主机名称、机器规格、站点、结果码、结果报文、耗时(ms)，报文为完整缩进 JSON。自定义报文只通过文件传入，路径含空格时加引号，无需转义 JSON；不要构造 `--request-file` 或其他未列出的参数。
 
 `--transmission-tag` 默认 `0`，不调用透传接口；指定 `1` 调用透传接口，仅支持这两个整数。
 
@@ -32,9 +32,9 @@ ml service mock SERVICE_ID --transmission-tag 1 -o json
 
 ```powershell
 ml service host mock SERVICE_ID --pod-ip POD_IP -o json
-ml service host mock SERVICE_ID --pod-ip POD_IP --request-sample '{"data":{"queryTexts":["自定义测试"]}}' -o json
+ml service host mock SERVICE_ID --pod-ip POD_IP --request-sample-file '.\sample.json' -o json
 ml service host mock SERVICE_ID --pod-ip POD_IP --transmission-tag 1 -o json
-ml service host mock SERVICE_ID --pod-ip POD_IP --request-sample '{"data":{"queryTexts":["自定义测试"]}}' --transmission-tag 1 -o json
+ml service host mock SERVICE_ID --pod-ip POD_IP --request-sample-file '.\sample.json' --transmission-tag 1 -o json
 ```
 
 主机测试除服务 ID 外仅需 `--pod-ip`，该值作为查询条件传入，不要求填写主机ID或测试端口；先查询主机视图。返回记录的 `nodeId` 转为字符串填入 `node.hostId`，`nodeHost` 原样填入 `node.hostAddress`，不手工指定主机ID或拼接端口。查无主机时提示“目前主机不存在，请检查！”，停止后续调用；匹配多台、查询失败或必要字段缺失时同样停止。表格按每个返回节点使用“字段 / 值”两列展示，主机名称、机器规格、站点、结果码、耗时(ms) 依次列出，结果报文在最后一行完整展示缩进 JSON。其他请求字段、透传选项、JSON 输出及错误处理与服务测试相同。Pod IP 提示写入 stderr，stdout 保持 JSON 结果。
