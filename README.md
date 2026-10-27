@@ -9,7 +9,7 @@
 
 启用权限校验后，CLI 在执行业务命令前向权限系统检查当前账号和环境的授权，通过后再调用平台接口。权限系统独立部署，数据保存在 MySQL；客户端校验不替代平台自身的权限控制。
 
-当前 CLI 源码版本为 **1.0.7.10**，新增 `ml service host mock SERVICE_ID --pod-ip POD_IP`，使用服务文档样例测试指定主机，见 [开发说明](docs/RELEASE_NOTES_1.0.7.10.md)。
+当前 CLI 源码版本为 **1.0.7.10**，新增 `ml service host mock SERVICE_ID --pod-ip POD_IP`，使用样例报文测试指定主机，见 [开发说明](docs/RELEASE_NOTES_1.0.7.10.md)。
 
 正式下载版本为 **1.0.7.7**，包括 CLI、权限管理系统及独立本地通知助手。相较上一正式版 1.0.7.1，新增任务查询、上下文查询与权限申请通知，见 [发布说明](docs/RELEASE_NOTES_1.0.7.7.md)。本地开发参见 [Jupyter 本地开发指南](docs/Jupyter本地开发指南.md)。
 

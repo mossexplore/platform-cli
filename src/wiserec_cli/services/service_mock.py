@@ -23,6 +23,14 @@ def parse_sample(value: Any) -> Any:
     return parsed
 
 
+def validate_request_sample(value: str) -> str:
+    try:
+        parse_sample(value)
+    except (ValueError, RecursionError) as exc:
+        raise ValueError("样例报文不是标准的JSON格式，请检查！") from exc
+    return value
+
+
 def _required(info: Any, key: str, label: str) -> str:
     value = info.get(key) if isinstance(info, dict) else None
     if not isinstance(value, str) or not value.strip():
@@ -47,9 +55,11 @@ class ServiceMock(ServiceCatalog):
         return {"hostId": node_id, "hostAddress": _required(host, "nodeHost", "主机信息")}
 
     def run(self, service_id: str, *, transmission_tag: int = 0,
-            pod_ip: str | None = None) -> dict[str, Any]:
+            pod_ip: str | None = None, request_sample: str | None = None) -> dict[str, Any]:
         if type(transmission_tag) is not int or transmission_tag not in (0, 1):
             raise ValueError("transmission-tag 仅支持 0 或 1")
+        if request_sample is not None:
+            validate_request_sample(request_sample)
         node = self._host_node(service_id, pod_ip) if pod_ip is not None else None
         headers = {"businessid": self._business_id()}
         base = self._result(self.client.request(
@@ -60,18 +70,20 @@ class ServiceMock(ServiceCatalog):
         version = _required(base.get("serviceInfo"), "serviceVersion", "服务基本信息")
         business_id = _required(base.get("modelInfo"), "businessId", "服务租户信息")
 
-        document = self._result(self.client.request(
-            "POST", "/ai/backend/mep/services/queryServiceDoc",
-            json_body={"serviceId": service_id}, headers=headers,
-        ), "查询服务文档").get("serviceDocument")
-        sample = _required(document, "requestContent", "服务文档")
-        for key, expected in (("serviceId", service_id), ("businessId", business_id)):
-            if key in document and document[key] != expected:
-                raise ApiError(f"服务文档 {key} 与目标服务不一致，停止测试")
-        try:
-            parse_sample(sample)
-        except (ValueError, RecursionError) as exc:
-            raise ApiError("服务文档 requestContent 不是有效的标准 JSON") from exc
+        sample = request_sample
+        if sample is None:
+            document = self._result(self.client.request(
+                "POST", "/ai/backend/mep/services/queryServiceDoc",
+                json_body={"serviceId": service_id}, headers=headers,
+            ), "查询服务文档").get("serviceDocument")
+            sample = _required(document, "requestContent", "服务文档")
+            for key, expected in (("serviceId", service_id), ("businessId", business_id)):
+                if key in document and document[key] != expected:
+                    raise ApiError(f"服务文档 {key} 与目标服务不一致，停止测试")
+            try:
+                parse_sample(sample)
+            except (ValueError, RecursionError) as exc:
+                raise ApiError("服务文档 requestContent 不是有效的标准 JSON") from exc
 
         data = {
             "requestSample": sample, "serviceName": name,

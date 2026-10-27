@@ -35,7 +35,7 @@ LIST_COLUMNS = (
     ("模型名称", "modelName"), ("归属者", "owner"),
 )
 HOST_COLUMNS = (
-    ("部署 ID", "deployId"), ("主机ID", "nodeId"), ("集群", "clusterName"),
+    ("部署 ID", "deployId"), ("集群", "clusterName"),
     ("pod名称", "nodeName"), ("podIP", "nodeHost"),
     ("主机IP", "hostIp"), ("规格", "spec"),
     ("状态", "health_status"), ("最大并发数", "execute_limit"),
@@ -135,10 +135,15 @@ def render_page(view: str, result: dict[str, Any], output: str) -> None:
     columns = {"list": LIST_COLUMNS, "host": HOST_COLUMNS,
                "deployment": DEPLOYMENT_COLUMNS}[view]
     table = Table(show_header=True, header_style="bold cyan")
-    for index, (title, _) in enumerate(columns):
+    for index, (title, field) in enumerate(columns):
         if index == 0:
             table.add_column(title, width=36, min_width=36, max_width=36,
                              no_wrap=True, overflow="ignore")
+        elif view == "host" and field == "nodeHost":
+            width = max([Text(title).cell_len] + [
+                Text(display_value(field, item)).cell_len for item in result["items"]
+            ])
+            table.add_column(title, min_width=width, no_wrap=True, overflow="ignore")
         else:
             table.add_column(title, min_width=1, overflow="fold")
     for item in result["items"]:

@@ -3,11 +3,13 @@
 import inspect
 import json
 import unittest
+from io import StringIO
 from uuid import UUID
 from unittest.mock import patch
 
 import httpx
 from typer.testing import CliRunner
+from rich.console import Console
 
 import test_runtime
 from wiserec_cli.cli import app
@@ -84,8 +86,8 @@ class ServiceCommandTest(unittest.TestCase):
             "pageIndex": 2, "pageSize": 20, "items": [item]})
 
     def test_host_view_sends_fixed_filters_and_preserves_fields(self):
-        item = {"deployId": "d", "nodeId": "host-node-1", "health_status": 0, "memUsage": 0.28,
-                "other": "kept"}
+        item = {"deployId": "d" * 36, "nodeId": "host-node-1", "health_status": 0, "memUsage": 0.28,
+                "nodeHost": "255.255.255.255:65535", "other": "kept"}
 
         def handler(request):
             self.assertEqual(request.url.path,
@@ -108,11 +110,21 @@ class ServiceCommandTest(unittest.TestCase):
         self.assertEqual(result.exit_code, 0, result.output)
         table = printed.call_args_list[0].args[0]
         self.assertEqual([column.header for column in table.columns[:3]],
-                         ["部署 ID", "主机ID", "集群"])
-        self.assertEqual(table.columns[1]._cells[0].plain, "host-node-1")
+                         ["部署 ID", "集群", "pod名称"])
+        self.assertNotIn("主机ID", [column.header for column in table.columns])
+        pod_ip = next(column for column in table.columns if column.header == "podIP")
+        self.assertEqual(pod_ip._cells[0].plain, item["nodeHost"])
+        self.assertTrue(pod_ip.no_wrap)
+        self.assertGreaterEqual(pod_ip.min_width, len(item["nodeHost"]))
+        self.assertEqual(pod_ip.overflow, "ignore")
         self.assertEqual((table.columns[0].width, table.columns[0].min_width,
                           table.columns[0].max_width), (36, 36, 36))
         self.assertTrue(table.columns[0].no_wrap)
+        for width in (80, 120, 160):
+            stream = StringIO()
+            Console(file=stream, width=width, color_system=None).print(table)
+            self.assertIn(item["nodeHost"], stream.getvalue())
+            self.assertIn(item["deployId"], stream.getvalue())
 
     def test_host_view_filters_by_pod_ip_in_host_ip_request_field(self):
         item = {"deployId": "d", "nodeId": "node-1", "nodeHost": "10.1.1.1"}

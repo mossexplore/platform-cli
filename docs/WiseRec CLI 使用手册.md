@@ -100,11 +100,11 @@ ml                                              WiseRec 命令行工具
 │   └── clone                                   克隆算法仓
 ├── service                                     服务管理
 │   ├── list                                    查看服务列表
-│   ├── mock                                    使用服务文档样例测试服务响应
+│   ├── mock                                    使用样例报文测试服务响应
 │   ├── logs                                    选择服务主机和文件并查看日志
 │   ├── host                                    服务主机查询与测试
 │   │   ├── list                                查看指定服务的主机列表
-│   │   └── mock                                使用服务文档样例测试指定主机
+│   │   └── mock                                使用样例报文测试指定主机
 │   └── deployment                              服务部署视图
 │       └── list                                查看指定服务的部署列表
 ├── dataset                                     数据集管理
@@ -597,10 +597,10 @@ ml algorithm clone SOURCE_ID --name mnist_copy --version VERSION
 
 ```text
 ml service list [OPTIONS]
-ml service mock SERVICE_ID [--transmission-tag 0|1] [-o table|json]
+ml service mock SERVICE_ID [--request-sample JSON] [--transmission-tag 0|1] [-o table|json]
 ml service logs SERVICE_ID [--pod POD_NAME --cluster-name CLUSTER_NAME] [--type TYPE] [--file FILE_NAME] [-k TEXT] [-n N] [--list] [--no-input]
 ml service host list SERVICE_ID [--pod-ip IP] [-o table|json]
-ml service host mock SERVICE_ID --pod-ip POD_IP [--transmission-tag 0|1] [-o table|json]
+ml service host mock SERVICE_ID --pod-ip POD_IP [--request-sample JSON] [--transmission-tag 0|1] [-o table|json]
 ml service deployment list SERVICE_ID [-o table|json]
 ```
 
@@ -610,6 +610,7 @@ ml service deployment list SERVICE_ID [-o table|json]
 | --- | --- |
 | `list` | `--page`、`--page-size`；可用 `--name` / `--service-name`、`--model-name`、`--model-version` 筛选；可选 `--output` / `-o` |
 | `mock` | 必填 `SERVICE_ID`；`--transmission-tag` 默认 `0`，表示不调用透传接口，设为 `1` 表示调用透传接口，仅支持这两个整数；`--output` / `-o` 支持 `table`、`json`，默认沿用当前环境输出配置 |
+| `mock`、`host mock` | 可选 `--request-sample JSON` 指定样例报文，必须是标准 JSON；不传则使用服务文档中的请求样例 |
 | `logs` | 必填 `SERVICE_ID`；可选成对的 `--pod` 与 `--cluster-name`，以及 `--type`、`--file`；`--keyword` / `-k` 可重复，`--lines` / `-n` 默认 200；`--list` 只列文件，`--no-input` 禁止交互；高级选项 `--search-order` 默认 tail、`--grep-scope` 默认 C、`--grep-line` 默认 0 |
 | `host mock` | 必填 `SERVICE_ID` 和 `--pod-ip POD_IP`，按所传值查询主机视图；`--transmission-tag` 默认 `0`，仅支持 `0`、`1`，含义同 `mock`；可选 `--output` / `-o` |
 | `host list` | 必填 `SERVICE_ID`；可选 `--pod-ip IP` 按 Pod IP 筛选，不传则不按 IP 筛选，不能传空值；可选 `--output` / `-o` |
@@ -617,15 +618,17 @@ ml service deployment list SERVICE_ID [-o table|json]
 
 ### 14.3 说明
 
-先登录并选择业务，从 `list` 获取服务 ID。服务列表默认每页 10 条；主机和部署详情显示第一页 10 条，时间按北京时间显示。主机列表在“部署 ID”后展示“主机ID”，取自返回记录的 `nodeId`，缺失时显示 `-`。
+先登录并选择业务，从 `list` 获取服务 ID。服务列表默认每页 10 条；主机和部署详情显示第一页 10 条，时间按北京时间显示。主机列表不展示主机ID列；podIP 按接口返回的完整 `IP:端口` 优先单行展示，便于复制，其他长字段可换行。
 
 `ml service host list SERVICE_ID --pod-ip IP` 按指定 Pod IP 查询主机；主机测试命令 `host mock` 也使用所传 `--pod-ip` 查询主机视图。
 
-`ml service mock SERVICE_ID` 自动查询服务名称、服务版本、所属租户和服务文档，使用文档中的默认 JSON 请求样例执行一次测试，无需手工填写请求内容。服务须已有有效请求样例。表格按主机展示主机名称、机器规格、站点、结果码、结果报文和耗时(ms)，结果报文解析为带缩进的 JSON，长内容完整换行显示。耗时使用平台返回值。
+`ml service mock SERVICE_ID` 自动查询服务名称、服务版本、所属租户，默认查询服务文档并使用其中的 JSON 请求样例执行一次测试。指定 `--request-sample JSON` 时使用传入的报文原文，不查询服务文档；因此只有使用默认样例时，服务才须已有有效请求样例。表格按主机展示主机名称、机器规格、站点、结果码、结果报文和耗时(ms)，结果报文解析为带缩进的 JSON，长内容完整换行显示。耗时使用平台返回值。
+
+两个测试命令的 `--request-sample` 均只接受标准 JSON，中文和空白格式原样保留。非法值在平台请求前提示“样例报文不是标准的JSON格式，请检查！”。使用当前终端支持的引号包裹完整报文。
 
 `mock -o json` 保留接口其他字段，将 `result.nodeList` 中各节点的 `mockResponse` 转为 JSON 值，并以 `mockResponseRaw` 保留原始字符串。无效报文保留原文并提示错误，其他节点继续展示；没有节点、节点结果码缺失或非零、报文无效时退出码为 1。全部节点结果码为 0 且报文有效时退出码为 0，仅代表节点调用成功，具体业务结果须查看报文。接口失败或必要信息缺失时停止；认证失败、超时或断连不自动重发测试，执行结果可能未知。结果写入标准输出，诊断写入标准错误。
 
-`ml service host mock` 先按 `--pod-ip` 查询主机视图，再使用服务文档样例测试查到的主机。请求中的 `hostId` 取自该记录的 `nodeId`，`hostAddress` 原样取自 `nodeHost`，不手填主机ID，也不拼接端口。查无主机时提示“目前主机不存在，请检查！”，停止后续调用；匹配多台、查询失败或必要字段缺失时同样停止。表格按每个返回节点分别使用“字段 / 值”两列展示，行顺序为主机名称、机器规格、站点、结果码、耗时(ms)、结果报文，结果报文在最后一行完整展示缩进 JSON。JSON 输出和失败处理同 `mock`；Pod IP 提示写入标准错误，JSON 结果可单独重定向保存。
+`ml service host mock` 先按 `--pod-ip` 查询主机视图，再使用默认文档样例或 `--request-sample` 指定的报文测试查到的主机。请求中的 `hostId` 取自该记录的 `nodeId`，`hostAddress` 原样取自 `nodeHost`，不手填主机ID，也不拼接端口。查无主机时提示“目前主机不存在，请检查！”，停止后续调用；匹配多台、查询失败或必要字段缺失时同样停止。表格按每个返回节点分别使用“字段 / 值”两列展示，行顺序为主机名称、机器规格、站点、结果码、耗时(ms)、结果报文，结果报文在最后一行完整展示缩进 JSON。JSON 输出和失败处理同 `mock`；Pod IP 提示写入标准错误，JSON 结果可单独重定向保存。
 
 推荐使用 `ml service logs SERVICE_ID`。主机以表格展示编号、集群、pod名称、podIP、主机IP、状态、创建时间和更新时间，时间按北京时间显示；每页 10 条，先显示第一页，输入 n/p 按需翻页，输入 q 退出；选中后立即继续，不扫描剩余页。整个服务仅一台主机或仅一个文件时自动选择；类别无默认值，交互时以“编号、日志类别”表格展示，在“请选择日志类别”提示后输入编号，也可通过 `--type` 指定。文件选择仅展示一次文件表格，再输入编号，不重复列出文件名称。自动获取集群，Python 主机自动设置对应请求类型。`infer-python` 支持 run、interface、metrics、engine、ascend、mslite、alarm；`rtc` 支持 rtc、run、interface、dcs、metrics、gc、interface_manager、interface_extend、engine、monitor、catalina、dmq。文件列表和正文使用相同类别。
 
@@ -641,6 +644,7 @@ ml service list --name demo --model-name model --model-version MODEL_VERSION
 ml service list --page 2 --page-size 20 -o json
 ml service mock SERVICE_ID
 ml service mock SERVICE_ID --transmission-tag 1
+ml service mock SERVICE_ID --request-sample '{"data":{"queryTexts":["自定义测试"]}}'
 ml service mock SERVICE_ID -o json > service-mock-result.json
 ml service logs SERVICE_ID
 ml service logs SERVICE_ID -k error -n 500
@@ -649,6 +653,7 @@ ml service logs SERVICE_ID --pod POD_NAME --cluster-name CLUSTER_NAME --type int
 ml service host list SERVICE_ID
 ml service host list SERVICE_ID --pod-ip POD_IP -o json
 ml service host mock SERVICE_ID --pod-ip POD_IP
+ml service host mock SERVICE_ID --pod-ip POD_IP --request-sample '{"data":{"queryTexts":["自定义测试"]}}'
 ml service host mock SERVICE_ID --pod-ip POD_IP --transmission-tag 1 -o json
 ml service host mock SERVICE_ID --pod-ip "IPv6"
 ml service deployment list SERVICE_ID -o json

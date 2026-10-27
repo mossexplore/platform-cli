@@ -13,7 +13,7 @@ from rich.text import Text
 
 from .. import messages as msg
 from ..output import console, print_result
-from ..services.service_mock import ServiceMock, normalize_response, parse_sample
+from ..services.service_mock import ServiceMock, normalize_response, parse_sample, validate_request_sample
 from .common import fail, runtime_from_context
 
 
@@ -56,7 +56,7 @@ def render_mock(payload, output, *, vertical=False):
     console.print(table)
 
 
-def _run_mock(context, service_id, transmission_tag, output, pod_ip=None):
+def _run_mock(context, service_id, transmission_tag, output, pod_ip=None, request_sample=None):
     from .service import _selected_business, _selected_output, _service_id
 
     try:
@@ -68,6 +68,7 @@ def _run_mock(context, service_id, transmission_tag, output, pod_ip=None):
             _selected_business(runtime, client)
             return ServiceMock(client).run(
                 service_id, transmission_tag=transmission_tag, pod_ip=pod_ip,
+                request_sample=request_sample,
             )
 
         # 测试调用不具备幂等保证，认证失败也不自动重放整个流程。
@@ -85,6 +86,15 @@ def _run_mock(context, service_id, transmission_tag, output, pod_ip=None):
         raise typer.Exit(code=1)
 
 
+def _request_sample(value: Optional[str]) -> Optional[str]:
+    if value is None:
+        return None
+    try:
+        return validate_request_sample(value)
+    except ValueError as exc:
+        raise typer.BadParameter(str(exc)) from exc
+
+
 def service_mock(
     context: typer.Context,
     service_id: str = typer.Argument(..., help="服务 ID"),
@@ -92,10 +102,14 @@ def service_mock(
         0, "--transmission-tag", min=0, max=1,
         help="0 不调用透传接口，1 调用透传接口",
     ),
+    request_sample: Optional[str] = typer.Option(
+        None, "--request-sample", callback=_request_sample,
+        help="样例报文，必须为标准 JSON；默认使用服务文档样例",
+    ),
     output: Optional[str] = typer.Option(None, "--output", "-o", help="table 或 json"),
 ) -> None:
-    """使用服务文档样例测试服务响应"""
-    _run_mock(context, service_id, transmission_tag, output)
+    """使用样例报文测试服务响应"""
+    _run_mock(context, service_id, transmission_tag, output, request_sample=request_sample)
 
 
 def _pod_ip(value: str) -> str:
@@ -114,7 +128,11 @@ def host_mock(
         0, "--transmission-tag", min=0, max=1,
         help="0 不调用透传接口，1 调用透传接口",
     ),
+    request_sample: Optional[str] = typer.Option(
+        None, "--request-sample", callback=_request_sample,
+        help="样例报文，必须为标准 JSON；默认使用服务文档样例",
+    ),
     output: Optional[str] = typer.Option(None, "--output", "-o", help="table 或 json"),
 ) -> None:
-    """使用服务文档样例测试指定主机"""
-    _run_mock(context, service_id, transmission_tag, output, pod_ip)
+    """使用样例报文测试指定主机"""
+    _run_mock(context, service_id, transmission_tag, output, pod_ip, request_sample)

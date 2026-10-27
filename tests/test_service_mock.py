@@ -25,7 +25,7 @@ class ServiceMockCommandTest(unittest.TestCase):
 
     def handler(self, *, base=None, document=None, nodes=None, responses=None,
                 transmission_tag=0, host_address=None, node_id='178885833284959',
-                pod_ip='10.1.1.1', hosts=None, host_count=None):
+                pod_ip='10.1.1.1', hosts=None, host_count=None, request_sample=SAMPLE):
         self.calls = []
         base = base if base is not None else {'code': 0, 'modelInfo': {
             'modelName': 'wrong-model', 'modelVersion': 'wrong-version',
@@ -58,7 +58,7 @@ class ServiceMockCommandTest(unittest.TestCase):
                 data = {
                     'serviceId': 's', 'serviceName': 'target-service',
                     'serviceVersion': 'service-version', 'businessId': 'service-tenant',
-                    'requestSample': SAMPLE, 'lmsServiceId': '',
+                    'requestSample': request_sample, 'lmsServiceId': '',
                     'algoType': 'field-npy', 'transmissionTag': transmission_tag}
                 if host_address is not None:
                     data['node'] = {'hostId': node_id, 'hostAddress': host_address}
@@ -307,3 +307,40 @@ class ServiceMockCommandTest(unittest.TestCase):
                 self.assertEqual(result.exit_code, 1, result.output)
                 self.assertEqual([r.url.path for r in self.calls], [HOST])
                 self.assertNotIn('目前主机不存在，请检查！', result.stderr)
+
+    def test_custom_sample_overrides_document_without_querying_it(self):
+        for host in (False, True):
+            for sample in (' {\n "data": {"queryTexts": ["自定义样例"]}, "value": 1.25\n} ',
+                           '[1,true,null]', 'null', 'false', '0'):
+                with self.subTest(host=host, sample=sample):
+                    args = ['host', 'mock', 's', '--pod-ip', '10.1.1.1'] if host else ['mock', 's']
+                    args += ['--request-sample', sample, '--transmission-tag', '1', '-o', 'json']
+                    result = self.invoke(args, self.handler(
+                        host_address='from-host-view' if host else None, request_sample=sample,
+                        transmission_tag=1, document={'code': 3, 'des': 'no document'}))
+                    self.assertEqual(result.exit_code, 0, result.output)
+                    self.assertEqual([r.url.path for r in self.calls],
+                                     ([HOST] if host else []) + [BASE, MOCK])
+                    sent = json.loads(self.calls[-1].content)['data']['requestSample']
+                    self.assertEqual(sent, sample)
+                    self.assertIsInstance(sent, str)
+                    self.assertEqual(json.loads(result.stdout)['result']['code'], 0)
+
+    def test_invalid_custom_sample_is_rejected_before_any_platform_request(self):
+        for host in (False, True):
+            for sample in ('', ' ', 'not json', '{"a":1,}', '{"a":NaN}', 'NaN',
+                           'Infinity', '-Infinity', '1e999', '{"a":1} extra'):
+                with self.subTest(host=host, sample=sample):
+                    args = ['host', 'mock', 's', '--pod-ip', '10.1.1.1'] if host else ['mock', 's']
+                    calls = []
+                    result = self.invoke(args + ['--request-sample', sample], lambda r: calls.append(r))
+                    self.assertEqual(result.exit_code, 2, result.output)
+                    self.assertIn('样例报文不是标准的JSON格式，请检查！', result.stderr)
+                    self.assertEqual(calls, [])
+
+    def test_custom_sample_does_not_bypass_host_lookup(self):
+        result = self.invoke(['host', 'mock', 's', '--pod-ip', '10.1.1.1',
+                              '--request-sample', '{}'], self.handler(hosts=[]))
+        self.assertEqual(result.exit_code, 1, result.output)
+        self.assertIn('目前主机不存在，请检查！', result.stderr)
+        self.assertEqual([r.url.path for r in self.calls], [HOST])
