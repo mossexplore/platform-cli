@@ -114,6 +114,34 @@ class ServiceCommandTest(unittest.TestCase):
                           table.columns[0].max_width), (36, 36, 36))
         self.assertTrue(table.columns[0].no_wrap)
 
+    def test_host_view_filters_by_pod_ip_in_host_ip_request_field(self):
+        item = {"deployId": "d", "nodeId": "node-1", "nodeHost": "10.1.1.1"}
+
+        def handler(request):
+            self.assertEqual(request.url.path,
+                "/ai/backend/mep/services/rtcContainer/queryServiceHostList")
+            self.assertEqual(request.headers["businessid"], "mep")
+            self.assertEqual(json.loads(request.content), {
+                "businessId": "mep", "serviceId": "s", "status": "", "hostIp": "10.1.1.1",
+                "clusterName": "", "preheatStatus": "ALL", "quotaType": None,
+                "pageIndex": 1, "pageSize": 10,
+            })
+            return httpx.Response(200, json={"result": {"code": 0,
+                "count": 1, "data": [item]}})
+
+        result = self.invoke(["host", "list", "s", "--pod-ip", "10.1.1.1", "-o", "json"], handler)
+        self.assertEqual(result.exit_code, 0, result.output)
+        self.assertEqual(json.loads(result.stdout)["items"], [item])
+
+    def test_host_view_rejects_empty_pod_ip_before_requests(self):
+        for pod_ip in ("", "   "):
+            with self.subTest(pod_ip=pod_ip):
+                calls = []
+                result = self.invoke(["host", "list", "s", "--pod-ip", pod_ip],
+                                     lambda request: calls.append(request))
+                self.assertEqual(result.exit_code, 1, result.output)
+                self.assertEqual(calls, [])
+
     def test_deployment_view_displays_block_id_and_derived_columns(self):
         item = {"blockId": "b" * 36, "imageName": "repo/image",
                 "imageVersion": "1.2", "cpuLimit": "2", "memoryLimit": "4",

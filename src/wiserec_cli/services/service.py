@@ -74,13 +74,17 @@ class ServiceCatalog:
             "items": self._items(result, "services", "查询服务列表"),
         }
 
-    def list_hosts(self, service_id: str, page: int = 1) -> Dict[str, Any]:
+    def list_hosts(self, service_id: str, page: int = 1,
+                   *, pod_ip: Optional[str] = None) -> Dict[str, Any]:
+        host_ip = "" if pod_ip is None else pod_ip.strip()
+        if pod_ip is not None and not host_ip:
+            raise ValueError("Pod IP 不能为空")
         business_id = self._business_id()
         payload = self.client.request(
             "POST", "/ai/backend/mep/services/rtcContainer/queryServiceHostList",
             json_body={
                 "businessId": business_id, "serviceId": service_id,
-                "status": "", "hostIp": "", "clusterName": "",
+                "status": "", "hostIp": host_ip, "clusterName": "",
                 "preheatStatus": "ALL", "quotaType": None,
                 "pageIndex": page, "pageSize": 10,
             },

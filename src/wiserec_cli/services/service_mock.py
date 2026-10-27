@@ -3,8 +3,6 @@
 from __future__ import annotations
 
 import json
-import ipaddress
-import re
 from copy import deepcopy
 from typing import Any
 
@@ -32,41 +30,27 @@ def _required(info: Any, key: str, label: str) -> str:
     return value
 
 
-def validate_host_address(value: str) -> str:
-    """接受 IPv4:端口或 [IPv6]:端口，不猜测地址或默认端口。"""
-    address = value.strip()
-    match = re.fullmatch(r"(?:\[([^\[\]]+)\]|([^:]+)):([0-9]{1,5})", address)
-    try:
-        if match is None:
-            raise ValueError
-        bracketed, plain, port = match.groups()
-        host = bracketed or plain
-        if "%" in host:
-            raise ValueError
-        ip = ipaddress.ip_address(host)
-        if ip.version != (6 if bracketed else 4) or not 1 <= int(port) <= 65535:
-            raise ValueError
-    except ValueError as exc:
-        raise ValueError("pod-ip 必须为有效的 IPv4:端口或 [IPv6]:端口，端口范围为 1–65535") from exc
-    return address
-
-
-def validate_node_id(value: str) -> str:
-    if not isinstance(value, str) or not value.strip():
-        raise ValueError("node-id 不能为空")
-    return value.strip()
-
-
 class ServiceMock(ServiceCatalog):
+    def _host_node(self, service_id: str, pod_ip: str) -> dict[str, str]:
+        if not pod_ip.strip():
+            raise ValueError("Pod IP 不能为空")
+        page = self.list_hosts(service_id, pod_ip=pod_ip.strip())
+        if not page["items"]:
+            raise ApiError("目前主机不存在，请检查！")
+        if page["total"] > 1 or len(page["items"]) > 1:
+            raise ApiError("匹配到多台主机，请提供更精确的 --pod-ip")
+        host = page["items"][0]
+        node_id = host.get("nodeId")
+        if type(node_id) is int:
+            node_id = str(node_id)
+        node_id = _required({"nodeId": node_id}, "nodeId", "主机信息")
+        return {"hostId": node_id, "hostAddress": _required(host, "nodeHost", "主机信息")}
+
     def run(self, service_id: str, *, transmission_tag: int = 0,
-            host_address: str | None = None, node_id: str | None = None) -> dict[str, Any]:
+            pod_ip: str | None = None) -> dict[str, Any]:
         if type(transmission_tag) is not int or transmission_tag not in (0, 1):
             raise ValueError("transmission-tag 仅支持 0 或 1")
-        if (host_address is None) != (node_id is None):
-            raise ValueError("主机测试必须同时提供 pod-ip 和 node-id")
-        if host_address is not None:
-            host_address = validate_host_address(host_address)
-            node_id = validate_node_id(node_id)
+        node = self._host_node(service_id, pod_ip) if pod_ip is not None else None
         headers = {"businessid": self._business_id()}
         base = self._result(self.client.request(
             "POST", "/ai/backend/mep/services/rtcContainer/queryServiceBaseInfoDetail",
@@ -95,8 +79,8 @@ class ServiceMock(ServiceCatalog):
             "lmsServiceId": "", "algoType": "field-npy",
             "transmissionTag": transmission_tag, "businessId": business_id,
         }
-        if host_address is not None:
-            data["node"] = {"hostId": node_id, "hostAddress": host_address}
+        if node is not None:
+            data["node"] = node
         try:
             payload = self.client.request(
                 "POST", "/ai/backend/mep/services/serviceMock",

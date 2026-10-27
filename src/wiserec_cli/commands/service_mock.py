@@ -13,40 +13,50 @@ from rich.text import Text
 
 from .. import messages as msg
 from ..output import console, print_result
-from ..services.service_mock import (
-    ServiceMock, normalize_response, parse_sample, validate_host_address, validate_node_id,
-)
+from ..services.service_mock import ServiceMock, normalize_response, parse_sample
 from .common import fail, runtime_from_context
 
 
-def render_mock(payload, output):
+def _mock_value(node, field):
+    value = node.get(field)
+    if field == "mockResponse":
+        try:
+            value = json.dumps(parse_sample(node["mockResponseRaw"]),
+                               ensure_ascii=False, indent=2, allow_nan=False)
+        except (ValueError, RecursionError):
+            value = node.get("mockResponseRaw")
+    return Text("-" if value is None or value == "" else str(value))
+
+
+def render_mock(payload, output, *, vertical=False):
     if output == "json":
         print_result(payload, output)
         return
-    table = Table(show_header=True, header_style="bold cyan", show_lines=True)
     columns = (
         ("主机名称", "hostName"), ("机器规格", "scope"), ("站点", "domain"),
         ("结果码", "retCode"), ("结果报文", "mockResponse"), ("耗时(ms)", "cost"),
     )
+    if vertical:
+        fields = tuple(column for column in columns if column[1] != "mockResponse")
+        fields += (("结果报文", "mockResponse"),)
+        for node in payload["result"]["nodeList"]:
+            table = Table(show_header=True, header_style="bold cyan", show_lines=True)
+            table.add_column("字段", no_wrap=True)
+            table.add_column("值", min_width=1, overflow="fold", ratio=1)
+            for title, field in fields:
+                table.add_row(Text(title), _mock_value(node, field))
+            console.print(table)
+        return
+    table = Table(show_header=True, header_style="bold cyan", show_lines=True)
     for title, field in columns:
         table.add_column(title, min_width=1, overflow="fold",
                          ratio=4 if field == "mockResponse" else 1)
     for node in payload["result"]["nodeList"]:
-        values = []
-        for _, field in columns:
-            value = node.get(field)
-            if field == "mockResponse":
-                try:
-                    value = json.dumps(parse_sample(node["mockResponseRaw"]),
-                                       ensure_ascii=False, indent=2, allow_nan=False)
-                except (ValueError, RecursionError):
-                    value = node.get("mockResponseRaw")
-            values.append(Text("-" if value is None or value == "" else str(value)))
-        table.add_row(*values)
+        table.add_row(*(_mock_value(node, field) for _, field in columns))
     console.print(table)
 
 
-def _run_mock(context, service_id, transmission_tag, output, host_address=None, node_id=None):
+def _run_mock(context, service_id, transmission_tag, output, pod_ip=None):
     from .service import _selected_business, _selected_output, _service_id
 
     try:
@@ -57,17 +67,16 @@ def _run_mock(context, service_id, transmission_tag, output, host_address=None, 
         def query(client):
             _selected_business(runtime, client)
             return ServiceMock(client).run(
-                service_id, transmission_tag=transmission_tag, host_address=host_address,
-                node_id=node_id,
+                service_id, transmission_tag=transmission_tag, pod_ip=pod_ip,
             )
 
         # 测试调用不具备幂等保证，认证失败也不自动重放整个流程。
         with redirect_stdout(sys.stderr):
-            if host_address is not None:
-                msg.detail(f"目标主机测试地址：{host_address}")
+            if pod_ip is not None:
+                msg.detail(f"目标主机 Pod IP：{pod_ip}")
             payload = runtime.authenticated_call(query, retry_auth=False)
         normalized, issues = normalize_response(payload)
-        render_mock(normalized, selected)
+        render_mock(normalized, selected, vertical=pod_ip is not None)
     except Exception as exc:
         fail(exc)
     if issues:
@@ -89,29 +98,17 @@ def service_mock(
     _run_mock(context, service_id, transmission_tag, output)
 
 
-def _host_address(value: str) -> str:
-    try:
-        return validate_host_address(value)
-    except ValueError as exc:
-        raise typer.BadParameter(str(exc)) from exc
-
-
-def _node_id(value: str) -> str:
-    try:
-        return validate_node_id(value)
-    except ValueError as exc:
-        raise typer.BadParameter(str(exc)) from exc
+def _pod_ip(value: str) -> str:
+    if not value.strip():
+        raise typer.BadParameter("Pod IP 不能为空")
+    return value.strip()
 
 
 def host_mock(
     context: typer.Context,
     service_id: str = typer.Argument(..., help="服务 ID"),
-    host_address: str = typer.Option(
-        ..., "--pod-ip", callback=_host_address,
-        help="主机测试地址，格式为 IPv4:端口或 [IPv6]:端口，无默认端口",
-    ),
-    node_id: str = typer.Option(
-        ..., "--node-id", callback=_node_id, help="主机ID，取自主机列表的 nodeId",
+    pod_ip: str = typer.Option(
+        ..., "--pod-ip", callback=_pod_ip, help="用于查询主机视图的 Pod IP",
     ),
     transmission_tag: int = typer.Option(
         0, "--transmission-tag", min=0, max=1,
@@ -120,4 +117,4 @@ def host_mock(
     output: Optional[str] = typer.Option(None, "--output", "-o", help="table 或 json"),
 ) -> None:
     """使用服务文档样例测试指定主机"""
-    _run_mock(context, service_id, transmission_tag, output, host_address, node_id)
+    _run_mock(context, service_id, transmission_tag, output, pod_ip)

@@ -15,6 +15,7 @@ PREFIX = '/ai/backend/mep/services/'
 BASE = PREFIX + 'rtcContainer/queryServiceBaseInfoDetail'
 DOC = PREFIX + 'queryServiceDoc'
 MOCK = PREFIX + 'serviceMock'
+HOST = PREFIX + 'rtcContainer/queryServiceHostList'
 SAMPLE = ' {\n "data": {"queryTexts": ["测试"]}, "version": "request-version"\n} '
 
 
@@ -23,7 +24,8 @@ class ServiceMockCommandTest(unittest.TestCase):
     invoke = test_service.ServiceCommandTest.invoke
 
     def handler(self, *, base=None, document=None, nodes=None, responses=None,
-                transmission_tag=0, host_address=None, node_id='178885833284959'):
+                transmission_tag=0, host_address=None, node_id='178885833284959',
+                pod_ip='10.1.1.1', hosts=None, host_count=None):
         self.calls = []
         base = base if base is not None else {'code': 0, 'modelInfo': {
             'modelName': 'wrong-model', 'modelVersion': 'wrong-version',
@@ -32,7 +34,9 @@ class ServiceMockCommandTest(unittest.TestCase):
         document = document if document is not None else {'code': 0, 'serviceDocument': {
             'serviceId': 's', 'businessId': 'service-tenant', 'requestContent': SAMPLE}}
         nodes = nodes if nodes is not None else [self.node()]
-        defaults = {BASE: {'version': 'protocol-version', 'result': base},
+        hosts = hosts if hosts is not None else [{'nodeId': node_id, 'nodeHost': host_address}]
+        defaults = {HOST: {'result': {'code': 0, 'count': len(hosts) if host_count is None else host_count,
+                                      'data': hosts}}, BASE: {'version': 'protocol-version', 'result': base},
                     DOC: {'result': document}, MOCK: {'version': '1.0',
                     'meta': {'uuid': 'trace'}, 'extra': {'keep': True},
                     'result': {'code': 0, 'nodeList': nodes, 'unknown': [1]}}}
@@ -45,6 +49,11 @@ class ServiceMockCommandTest(unittest.TestCase):
             path = request.url.path
             if path in (BASE, DOC):
                 self.assertEqual(json.loads(request.content), {'serviceId': 's'})
+            elif path == HOST:
+                self.assertEqual(json.loads(request.content), {
+                    'businessId': 'mep', 'serviceId': 's', 'status': '', 'hostIp': pod_ip,
+                    'clusterName': '', 'preheatStatus': 'ALL', 'quotaType': None,
+                    'pageIndex': 1, 'pageSize': 10})
             elif path == MOCK:
                 data = {
                     'serviceId': 's', 'serviceName': 'target-service',
@@ -183,45 +192,56 @@ class ServiceMockCommandTest(unittest.TestCase):
             self.assertEqual(text, raw if issues else json.dumps(json.loads(raw), indent=2))
             self.assertEqual(payload['result']['nodeList'][0]['mockResponse'], raw)
 
-    def test_host_mock_sends_only_explicit_node_and_preserves_all_nodes(self):
-        for address in ('10.1.1.1:18090', '10.1.1.1:1', '[2001:db8::1]:65535'):
+    def test_host_mock_looks_up_node_and_preserves_all_results(self):
+        for pod_ip, address in (('10.1.1.1', '10.1.1.1:18090'),
+                                ('10.1.1.1:18090', 'returned-node-host'),
+                                ('2001:db8::1', '[2001:db8::1]:18090')):
             for tag in (0, 1):
-                with self.subTest(address=address, tag=tag):
-                    args = ['host', 'mock', 's', '--node-id', '178885833284959', '--pod-ip', f' {address} ', '-o', 'json']
+                with self.subTest(pod_ip=pod_ip, tag=tag):
+                    args = ['host', 'mock', 's', '--pod-ip', f' {pod_ip} ', '-o', 'json']
                     if tag:
                         args += ['--transmission-tag', str(tag)]
-                    result = self.invoke(args, self.handler(host_address=address,
+                    result = self.invoke(args, self.handler(host_address=address, pod_ip=pod_ip,
                         transmission_tag=tag, nodes=[self.node(), self.node(hostName='second')]))
                     self.assertEqual(result.exit_code, 0, result.output)
-                    self.assertEqual([r.url.path for r in self.calls], [BASE, DOC, MOCK])
+                    self.assertEqual([r.url.path for r in self.calls], [HOST, BASE, DOC, MOCK])
                     nodes = json.loads(result.stdout)['result']['nodeList']
                     self.assertEqual(len(nodes), 2)
                     self.assertEqual(nodes[0]['mockResponse']['result']['文本'], '中文')
-                    self.assertIn(address, result.stderr)
-                    self.assertNotIn('目标主机测试地址', result.stdout)
+                    self.assertIn(pod_ip, result.stderr)
+                    self.assertNotIn('目标主机', result.stdout)
 
-    def test_host_mock_rejects_missing_or_invalid_address_before_requests(self):
-        values = (None, '', ' ', '10.1.1.1', '10.1.1.1:0', '10.1.1.1:65536',
-                  '10.1.1.1:-1', '10.1.1.1:abc', '999.1.1.1:80', 'example.com:80',
-                  'http://10.1.1.1:80', 'https://10.1.1.1:443', '10.1.1.1:80/path',
-                  '10.1.1.1:80?x=1', '10.1.1.1:80#frag', '10.1.1.1 :80',
-                  '[10.1.1.1]:80', '2001:db8::1:80', '[not-ip]:80', '[::1%eth0]:80')
-        for address in values:
-            with self.subTest(address=address):
+    def test_host_mock_requires_pod_ip_and_removes_node_id(self):
+        for args in (['host', 'mock', 's'], ['host', 'mock', 's', '--pod-ip', ''],
+                     ['host', 'mock', 's', '--pod-ip', '   '],
+                     ['host', 'mock', 's', '--pod-ip', '10.1.1.1', '--node-id', 'old-id']):
+            with self.subTest(args=args):
                 calls = []
-                args = ['host', 'mock', 's', '--node-id', '178885833284959']
-                if address is not None:
-                    args += ['--pod-ip', address]
                 result = self.invoke(args, lambda r: calls.append(r))
                 self.assertEqual(result.exit_code, 2, result.output)
                 self.assertEqual(calls, [])
 
-    def test_host_mock_uses_shared_table_and_failures(self):
-        args = ['host', 'mock', 's', '--node-id', '178885833284959', '--pod-ip', '10.1.1.1:18090']
+    def test_host_mock_uses_two_column_tables_with_response_last_and_preserves_failures(self):
+        args = ['host', 'mock', 's', '--pod-ip', '10.1.1.1']
+        raw = json.dumps({'文本': '[red]中文', 'embedding': list(range(200))}, ensure_ascii=False)
         with patch('wiserec_cli.commands.service_mock.console.print') as printed:
-            result = self.invoke(args, self.handler(host_address='10.1.1.1:18090'))
+            result = self.invoke(args, self.handler(host_address='10.1.1.1:18090', nodes=[
+                self.node(mockResponse=raw), self.node(hostName='second', mockResponse='bad [red] text')]))
+        # 无效节点报文仍须完整展示，命令报告失败。
+        self.assertEqual(result.exit_code, 1, result.output)
+        tables = [call.args[0] for call in printed.call_args_list]
+        self.assertEqual(len(tables), 2)
+        for table in tables:
+            self.assertEqual([column.header for column in table.columns], ['字段', '值'])
+            self.assertEqual([cell.plain for cell in table.columns[0]._cells],
+                ['主机名称', '机器规格', '站点', '结果码', '耗时(ms)', '结果报文'])
+        self.assertEqual(tables[0].columns[1]._cells[-1].plain,
+                         json.dumps(json.loads(raw), ensure_ascii=False, indent=2))
+        self.assertEqual(tables[0].columns[1]._cells[4].plain, '0')
+        self.assertEqual(tables[1].columns[1]._cells[0].plain, 'second')
+        self.assertEqual(tables[1].columns[1]._cells[-1].plain, 'bad [red] text')
+        result = self.invoke(args, self.handler(host_address='10.1.1.1:18090'))
         self.assertEqual(result.exit_code, 0, result.output)
-        self.assertEqual(len(printed.call_args.args[0].columns), 6)
         for nodes in ([], [self.node(retCode=1)], [self.node(mockResponse='bad')]):
             with self.subTest(nodes=nodes):
                 result = self.invoke(args + ['-o', 'json'], self.handler(
@@ -230,11 +250,12 @@ class ServiceMockCommandTest(unittest.TestCase):
                 self.assertEqual(len(json.loads(result.stdout)['result']['nodeList']), len(nodes))
 
     def test_host_mock_never_replays_and_stops_on_precondition_errors(self):
-        args = ['host', 'mock', 's', '--node-id', '178885833284959', '--pod-ip', '10.1.1.1:18090', '-o', 'json']
-        for options, count in (({'base': {'code': 3, 'des': 'denied'}}, 1),
-                               ({'document': {'code': 0}}, 2),
-                               ({'responses': {MOCK: httpx.ReadTimeout('timeout')}}, 3),
-                               ({'responses': {MOCK: httpx.Response(401)}}, 3)):
+        args = ['host', 'mock', 's', '--pod-ip', '10.1.1.1', '-o', 'json']
+        for options, count in (({'base': {'code': 3, 'des': 'denied'}}, 2),
+                               ({'document': {'code': 0}}, 3),
+                               ({'responses': {MOCK: httpx.ReadTimeout('timeout')}}, 4),
+                               ({'responses': {MOCK: httpx.Response(401)}}, 4),
+                               ({'responses': {HOST: httpx.Response(401)}}, 1)):
             with self.subTest(options=options):
                 result = self.invoke(args, self.handler(host_address='10.1.1.1:18090', **options))
                 self.assertEqual(result.exit_code, 1, result.output)
@@ -250,29 +271,39 @@ class ServiceMockCommandTest(unittest.TestCase):
         data['profiles']['dev']['selected']['businessId'] = 'stale'
         self.fixture.business_path.write_text(json.dumps(data))
         calls = []
-        result = self.invoke(['host', 'mock', 's', '--node-id', '178885833284959', '--pod-ip', '10.1.1.1:18090'],
+        result = self.invoke(['host', 'mock', 's', '--pod-ip', '10.1.1.1'],
                              lambda r: calls.append(r))
         self.assertEqual(result.exit_code, 1, result.output)
         self.assertEqual(calls, [])
 
-    def test_host_mock_requires_nonblank_node_id_before_requests(self):
-        for node_id in (None, '', '   '):
-            with self.subTest(node_id=node_id):
-                calls = []
-                args = ['host', 'mock', 's', '--pod-ip', '10.1.1.1:18090']
-                if node_id is not None:
-                    args += ['--node-id', node_id]
-                result = self.invoke(args, lambda r: calls.append(r))
-                self.assertEqual(result.exit_code, 2, result.output)
-                self.assertEqual(calls, [])
+    def test_host_mock_missing_host_stops_before_other_requests(self):
+        result = self.invoke(['host', 'mock', 's', '--pod-ip', '10.1.1.1', '-o', 'json'],
+                             self.handler(hosts=[]))
+        self.assertEqual(result.exit_code, 1, result.output)
+        self.assertIn('目前主机不存在，请检查！', result.stderr)
+        self.assertEqual(result.stdout, '')
+        self.assertEqual([r.url.path for r in self.calls], [HOST])
 
-    def test_host_mock_preserves_node_id_as_string(self):
-        for node_id in ('178885833284959', '000178885833284959', '90071992547409931234'):
+    def test_host_mock_preserves_returned_node_id_as_string(self):
+        for node_id in ('178885833284959', '000178885833284959', '90071992547409931234', 178885833284959):
             with self.subTest(node_id=node_id):
-                result = self.invoke(['host', 'mock', 's', '--pod-ip', '10.1.1.1:18090',
-                                      '--node-id', node_id, '-o', 'json'],
-                                     self.handler(host_address='10.1.1.1:18090', node_id=node_id))
+                host = {'nodeId': node_id, 'nodeHost': 'address-from-host-view'}
+                result = self.invoke(['host', 'mock', 's', '--pod-ip', '10.1.1.1', '-o', 'json'],
+                    self.handler(host_address=host['nodeHost'], node_id=str(node_id), hosts=[host]))
                 self.assertEqual(result.exit_code, 0, result.output)
                 node = json.loads(self.calls[-1].content)['data']['node']
-                self.assertEqual(node, {'hostId': node_id, 'hostAddress': '10.1.1.1:18090'})
-                self.assertIsInstance(node['hostId'], str)
+                self.assertEqual(node, {'hostId': str(node_id), 'hostAddress': host['nodeHost']})
+
+    def test_host_mock_rejects_ambiguous_and_incomplete_host_info(self):
+        for options in ({'hosts': [{'nodeId': 'a', 'nodeHost': 'ip'}, {'nodeId': 'b', 'nodeHost': 'ip'}]},
+                        {'hosts': [{'nodeId': 'a', 'nodeHost': 'ip'}], 'host_count': 2},
+                        {'hosts': [{'nodeHost': 'ip'}]}, {'hosts': [{'nodeId': 'a'}]},
+                        {'hosts': [{'nodeId': '', 'nodeHost': 'ip'}]},
+                        {'hosts': [{'nodeId': 'a', 'nodeHost': None}]},
+                        {'responses': {HOST: httpx.Response(200, json={'result': {'code': 3, 'des': 'denied'}})}},
+                        {'responses': {HOST: httpx.Response(200, json={'result': {'code': 0, 'count': 0}})}}):
+            with self.subTest(options=options):
+                result = self.invoke(['host', 'mock', 's', '--pod-ip', '10.1.1.1'], self.handler(**options))
+                self.assertEqual(result.exit_code, 1, result.output)
+                self.assertEqual([r.url.path for r in self.calls], [HOST])
+                self.assertNotIn('目前主机不存在，请检查！', result.stderr)

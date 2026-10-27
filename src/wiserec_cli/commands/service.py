@@ -218,17 +218,20 @@ def list_services(
 def list_hosts(
     context: typer.Context,
     service_id: str = typer.Argument(..., help="服务 ID"),
+    pod_ip: Optional[str] = typer.Option(None, "--pod-ip", help="按 Pod IP 筛选主机"),
     output: Optional[str] = typer.Option(None, "--output", "-o", help="table 或 json"),
 ) -> None:
     """查询指定服务的主机视图。"""
     try:
         service_id = _service_id(service_id)
+        if pod_ip is not None:
+            pod_ip = _required_text(pod_ip, "Pod IP")
         runtime = runtime_from_context(context)
         selected = _selected_output(runtime, output)
 
         def query(client):
             _selected_business(runtime, client)
-            return ServiceCatalog(client).list_hosts(service_id)
+            return ServiceCatalog(client).list_hosts(service_id, pod_ip=pod_ip)
 
         with redirect_stdout(sys.stderr):
             result = runtime.authenticated_call(query)

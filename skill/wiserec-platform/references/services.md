@@ -5,11 +5,13 @@
 ```powershell
 ml service list --name SERVICE_NAME -o json
 ml service host list SERVICE_ID -o json
+ml service host list SERVICE_ID --pod-ip POD_IP -o json
 ml service deployment list SERVICE_ID -o json
 ```
 
 - 主机视图和部署视图只返回第一页 10 条，不能当作完整集合。主机视图中的 `nodeName` 是 Pod 名称。
 - 主机视图在部署 ID 后展示“主机ID”，取自 `nodeId`，缺失时显示 `-`。
+- `host list --pod-ip IP` 按 Pod IP 筛选，传入值用于接口的 `hostIp`，无需端口；不传时不按 IP 筛选，空值会报错。主机测试也按所传 `--pod-ip` 查询主机视图。
 - 部署视图首列为 `blockId`。
 
 ## 测试服务
@@ -28,12 +30,12 @@ ml service mock SERVICE_ID --transmission-tag 1 -o json
 ## 测试指定主机
 
 ```powershell
-ml service host mock SERVICE_ID --node-id NODE_ID --pod-ip IP:PORT -o json
-ml service host mock SERVICE_ID --node-id NODE_ID --pod-ip IP:PORT --transmission-tag 1 -o json
-ml service host mock SERVICE_ID --node-id NODE_ID --pod-ip "[IPv6]:PORT" -o json
+ml service host mock SERVICE_ID --pod-ip POD_IP -o json
+ml service host mock SERVICE_ID --pod-ip POD_IP --transmission-tag 1 -o json
+ml service host mock SERVICE_ID --pod-ip "IPv6" -o json
 ```
 
-必须通过 `--node-id` 提供主机列表中 `nodeId` 的值，不可为空，按字符串传给 `node.hostId`。同时必须提供完整 IPv4 或 IPv6 地址及 1–65535 的端口，无默认端口。不接受域名、URL、路径或查询参数，不根据 Pod IP 或主机 IP 猜测测试地址，也不验证地址归属。请求在原有服务测试的 `data` 中增加 `node.hostId` 和 `node.hostAddress`，其他字段、透传选项、输出及错误处理与服务测试相同。目标地址提示写入 stderr，stdout 保持 JSON 结果。
+仅需提供 `--pod-ip`，先查询主机视图。返回记录的 `nodeId` 转为字符串填入 `node.hostId`，`nodeHost` 原样填入 `node.hostAddress`，不手工指定主机ID或拼接端口。查无主机时提示“目前主机不存在，请检查！”，停止后续调用；匹配多台、查询失败或必要字段缺失时同样停止。表格按每个返回节点使用“字段 / 值”两列展示，主机名称、机器规格、站点、结果码、耗时(ms) 依次列出，结果报文在最后一行完整展示缩进 JSON。其他请求字段、透传选项、JSON 输出及错误处理与服务测试相同。Pod IP 提示写入 stderr，stdout 保持 JSON 结果。
 
 ## 读取日志
 
