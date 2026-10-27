@@ -22,11 +22,11 @@ ml service mock SERVICE_ID --request-sample '{"data":{"queryTexts":["自定义�
 ml service mock SERVICE_ID --transmission-tag 1 -o json
 ```
 
-自动查询基本信息，默认查询服务文档并使用其中的请求样例执行一次测试。传入 `--request-sample JSON` 时跳过文档查询，使用传入的原始 JSON 字符串。两种测试均支持该选项，非法 JSON 会在平台请求前提示“样例报文不是标准的JSON格式，请检查！”。`result.nodeList` 包含各节点结果，`mockResponse` 为解析后的 JSON 值，`mockResponseRaw` 保留原始字符串。表格模式展示六列及完整的缩进 JSON 报文。
+自动查询基本信息，默认查询服务文档并使用其中的请求样例执行一次测试。传入 `--request-sample JSON` 时跳过文档查询，使用传入的原始 JSON 字符串，不把 JSON 对象拆成多个参数，也不自行补写业务字段。两种测试均支持该选项，非法 JSON 会在平台请求前提示“样例报文不是标准的JSON格式，请检查！”。`result.nodeList` 包含各节点结果，`mockResponse` 为解析后的 JSON 值，`mockResponseRaw` 保留原始字符串。服务测试的表格模式依次展示主机名称、机器规格、站点、结果码、结果报文、耗时(ms)，报文为完整缩进 JSON。上述 JSON 示例按保留内嵌双引号的 shell 编写；较旧 PowerShell 的转义方法见 [session.md](session.md)。`--request-sample` 只接收命令行字符串，不支持 `--request-file` 或自动读取文件路径。
 
 `--transmission-tag` 默认 `0`，不调用透传接口；指定 `1` 调用透传接口，仅支持这两个整数。
 
-必要信息或默认文档样例缺失时停止；提供自定义报文时无需已有服务文档。失败节点或无效报文仍会展示，但退出码为 1；无节点也退出 1。全部节点结果码为 0 且报文有效才退出 0，内部业务结果仍须查看报文。超时、断连或认证失败不自动重发，不要盲目重试。
+先核对服务 ID、样例和用户的测试意图；这些命令会实际调用服务，无 `--dry-run` 或 `--yes`。必要信息或默认文档样例缺失时停止；提供自定义报文时无需已有服务文档。失败节点或无效报文仍会展示，但退出码为 1；无节点也退出 1。全部节点结果码为 0 且报文有效才退出 0，内部业务结果仍须查看报文；即使退出 1，stdout 也可能保留节点结果，结合 stderr 一起核对。超时、断连或认证失败不自动重发，不要盲目重试。
 
 ## 测试指定主机
 
@@ -34,10 +34,10 @@ ml service mock SERVICE_ID --transmission-tag 1 -o json
 ml service host mock SERVICE_ID --pod-ip POD_IP -o json
 ml service host mock SERVICE_ID --pod-ip POD_IP --request-sample '{"data":{"queryTexts":["自定义测试"]}}' -o json
 ml service host mock SERVICE_ID --pod-ip POD_IP --transmission-tag 1 -o json
-ml service host mock SERVICE_ID --pod-ip "IPv6" -o json
+ml service host mock SERVICE_ID --pod-ip POD_IP --request-sample '{"data":{"queryTexts":["自定义测试"]}}' --transmission-tag 1 -o json
 ```
 
-仅需提供 `--pod-ip`，先查询主机视图。返回记录的 `nodeId` 转为字符串填入 `node.hostId`，`nodeHost` 原样填入 `node.hostAddress`，不手工指定主机ID或拼接端口。查无主机时提示“目前主机不存在，请检查！”，停止后续调用；匹配多台、查询失败或必要字段缺失时同样停止。表格按每个返回节点使用“字段 / 值”两列展示，主机名称、机器规格、站点、结果码、耗时(ms) 依次列出，结果报文在最后一行完整展示缩进 JSON。其他请求字段、透传选项、JSON 输出及错误处理与服务测试相同。Pod IP 提示写入 stderr，stdout 保持 JSON 结果。
+主机测试除服务 ID 外仅需 `--pod-ip`，该值作为查询条件传入，不要求填写主机ID或测试端口；先查询主机视图。返回记录的 `nodeId` 转为字符串填入 `node.hostId`，`nodeHost` 原样填入 `node.hostAddress`，不手工指定主机ID或拼接端口。查无主机时提示“目前主机不存在，请检查！”，停止后续调用；匹配多台、查询失败或必要字段缺失时同样停止。表格按每个返回节点使用“字段 / 值”两列展示，主机名称、机器规格、站点、结果码、耗时(ms) 依次列出，结果报文在最后一行完整展示缩进 JSON。其他请求字段、透传选项、JSON 输出及错误处理与服务测试相同。Pod IP 提示写入 stderr，stdout 保持 JSON 结果。
 
 ## 读取日志
 

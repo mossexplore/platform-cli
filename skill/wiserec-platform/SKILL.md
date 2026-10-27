@@ -1,6 +1,6 @@
 ---
 name: wiserec-platform
-description: 通过 WiseRec 命令行客户端 ml 查询和操作 WiseRec 平台，包括模型查询、溯源与模板部署，资源模板和部署模板，训练任务、样本任务及执行周期与记录、特征任务及执行日志，算法仓，服务及主机日志，数据集及目录文件，特征集，离线实验，MEP/MTP 训练看板，Web Studio，Jupyter 文件读写、非交互执行与 Notebook；切换环境、核对登录或业务上下文时也使用
+description: 通过 WiseRec 命令行客户端 ml 查询和操作 WiseRec 平台，包括模型查询、溯源与模板部署，资源模板和部署模板，训练任务、样本任务及执行周期与记录、特征任务及执行日志，算法仓，服务与主机查询及样例报文测试、服务日志，数据集及目录文件，特征集，离线实验，MEP/MTP 训练看板，Web Studio，Jupyter 文件读写、非交互执行与 Notebook；切换环境、核对登录或业务上下文时也使用
 metadata:
   cli: wiserec-cli
   platform: windows
@@ -20,7 +20,7 @@ metadata:
 | 全部命令、确认提示与副作用速查 | [commands.md](references/commands.md) |
 | 训练任务、样本任务及执行周期与记录、离线实验、算法仓、训练看板 | [training.md](references/training.md) |
 | 模型查询与溯源、资源模板、部署模板、模型部署 | [deployment.md](references/deployment.md) |
-| 服务列表、主机与服务日志 | [services.md](references/services.md) |
+| 服务与主机查询、样例报文测试及服务日志 | [services.md](references/services.md) |
 | 数据集目录文件、特征任务及执行日志、特征集与 CSV 导出 | [data.md](references/data.md) |
 | Web Studio、Jupyter 文件、exec、Notebook | [jupyter.md](references/jupyter.md) |
 

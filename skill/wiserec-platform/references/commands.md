@@ -73,10 +73,10 @@
 | `ml resource template list` / `detail RESOURCE_TEMPLATE_ID` | 资源模板 | | |
 | `ml deployment template list` / `detail DEPLOY_TEMPLATE_ID` | 部署模板 | | |
 | `ml service list` | 服务 | | |
-| `ml service mock SERVICE_ID [--request-sample JSON] [--transmission-tag 0\|1]` | 使用样例报文测试服务响应，默认不调用透传接口 | | 调用一次服务 |
+| `ml service mock SERVICE_ID [--request-sample JSON] [--transmission-tag 0\|1]` | 使用文档或自定义 JSON 样例测试服务，默认不调用透传接口 | | 调用一次服务 |
 | `ml service logs SERVICE_ID --no-input` | 日志文件列表或正文 | | |
 | `ml service host list SERVICE_ID [--pod-ip IP]` | 主机视图，可按 Pod IP 筛选 | | |
-| `ml service host mock SERVICE_ID --pod-ip POD_IP [--request-sample JSON]` | 使用样例报文测试指定主机，可选 `--transmission-tag 0\|1` | | 调用一次服务 |
+| `ml service host mock SERVICE_ID --pod-ip POD_IP [--request-sample JSON] [--transmission-tag 0\|1]` | 先按 Pod IP 查询主机，再使用文档或自定义样例测试 | | 调用一次服务 |
 | `ml service deployment list SERVICE_ID` | 部署视图 | | |
 
 ## 数据集与特征集
