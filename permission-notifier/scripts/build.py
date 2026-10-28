@@ -12,10 +12,11 @@ name = f'permission-notifier-{version}-windows-source'
 output = root / 'dist'
 output.mkdir(exist_ok=True)
 files = [root / p for p in ('pyproject.toml', 'MANIFEST.in', 'README.md', '.gitignore', 'install.cmd', 'uninstall.cmd')]
-for folder, suffixes in [('src/permission_notifier', {'.py', '.html', '.css', '.js'}),
-                         ('scripts', {'.ps1', '.py'}), ('tests', {'.py'})]:
+for folder, suffixes in [('src/permission_notifier', {'.py', '.html', '.css', '.js', '.svg'}),
+                         ('scripts', {'.ps1', '.py'}), ('tests', {'.py', '.cjs'})]:
     files += [p for p in (root / folder).rglob('*') if p.is_file() and p.suffix in suffixes
               and '__pycache__' not in p.parts]
+files.append(root / 'src/permission_notifier/static/icons/LICENSE')
 with ZipFile(output / f'{name}.zip', 'w', compression=ZIP_DEFLATED) as archive:
     archive.writestr(name + '/release.json', json.dumps({
         'version': version, 'revision': os.environ.get('GITHUB_SHA', 'local-uncommitted'),

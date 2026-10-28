@@ -11,6 +11,7 @@ from fastapi.templating import Jinja2Templates
 from fastapi.concurrency import run_in_threadpool
 from pydantic import ValidationError
 from .config import Config, ready
+from .records import query as query_records
 from .service import ServiceError
 from .store import Conflict, StoreError, effective
 
@@ -109,6 +110,20 @@ def create_app(store, worker, shutdown=None, port=18765):
             dest[key] = action.get('value', '') if action['action'] == 'replace' else (
                 '' if action['action'] == 'clear' else original)
         return Config.model_validate(values).model_dump()
+
+    @app.post('/api/secrets/reveal')
+    async def reveal(request: Request):
+        body = await request.json()
+        key = body.get('field')
+        if key not in ('assistant_token', 'auth'):
+            raise ValueError('无效凭据字段')
+        config = store.snapshot()['config']
+        value = config['assistant_token'] if key == 'assistant_token' else config['message']['auth']
+        return {'value': value}
+
+    @app.get('/api/records')
+    def records(start: str = '', end: str = '', source: str = '', page: int = 1, page_size: int = 10):
+        return query_records(store.snapshot(), start, end, source, page, page_size)
 
     @app.post('/api/check')
     async def check(request: Request):

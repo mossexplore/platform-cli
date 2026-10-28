@@ -4,6 +4,8 @@ import time
 import logging
 import hashlib
 from . import __version__
+from . import records
+from uuid import uuid4
 from .config import ready
 from .delivery import Deliveries, TERMINAL
 from .service import Service, ServiceError
@@ -32,6 +34,7 @@ class Worker:
         self.tests = []
         self.test_results = []
         self.client_info = {}
+        records.recover_interrupted(store)
 
     def start(self):
         self.thread = threading.Thread(target=self.run, name='notification-worker', daemon=True)
@@ -167,9 +170,14 @@ class Worker:
             self.deliveries.report(task_id, key, 'retry_wait', 'PAUSED_BEFORE_SEND')
             return
         task = self.deliveries.task(task_id)
+        record_id = records.begin(self.store, task_id, 'permission', task['deliveries'][key]['uid'], task['content'], key)
         self.sending = True
         try:
             result = self.sender.send(config, task['route'], task['deliveries'][key]['uid'], task['content'])
+            records.finish(self.store, record_id, result)
+        except Exception:
+            records.finish(self.store, record_id, {'state':'uncertain', 'error_code':'INTERRUPTED'})
+            raise
         finally:
             self.sending = False
         if result['state'] == 'retry_wait' and task['deliveries'][key]['attempts'] >= 8:
@@ -208,15 +216,21 @@ class Worker:
             if self.tests:
                 raise ValueError('已有测试正在等待发送')
             self.test_results = []
-            self.tests = [(config, uid) for uid in uids]
+            task_id = str(uuid4())
+            self.tests = [(config, uid, task_id) for uid in uids]
         self.wake.set()
 
     def run_test(self):
-        config, uid = self.tests.pop(0)
+        config, uid, task_id = self.tests.pop(0)
+        record_id = records.begin(self.store, task_id, 'test', uid, records.TEST_CONTENT)
         self.sending = True
         try:
-            result = self.sender.send(config, config['message'], uid, '【测试】权限通知助手连接验证')
+            result = self.sender.send(config, config['message'], uid, records.TEST_CONTENT)
+            records.finish(self.store, record_id, result)
             self.test_results.append({'uid': uid, 'tested_at': time.time(), **result})
+        except Exception:
+            records.finish(self.store, record_id, {'state':'uncertain', 'error_code':'INTERRUPTED'})
+            raise
         finally:
             self.sending = False
 

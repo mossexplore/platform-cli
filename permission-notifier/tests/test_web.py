@@ -71,3 +71,34 @@ def test_navigation_resources_are_available_offline(tmp_path):
             assert response.status_code == 200, path
             if path.endswith('.svg'):
                 assert '<svg' in response.text
+
+
+def test_reveal_requires_local_post_and_never_changes_config(tmp_path):
+    store=Store(tmp_path/'assistant.json');configured(store)
+    before=store.path.read_bytes()
+    with TestClient(create_app(store,Worker(store)),base_url='http://127.0.0.1:18765') as client:
+        page=client.get('/')
+        csrf=re.search('name="csrf-token" content="([^"]+)"',page.text)[1]
+        headers={'Origin':'http://127.0.0.1:18765','X-CSRF-Token':csrf}
+        assert client.get('/api/secrets/reveal').status_code==405
+        assert client.post('/api/secrets/reveal',json={'field':'auth'}).status_code==403
+        assert client.post('/api/secrets/reveal',json={'field':'auth'},headers={**headers,'Origin':'https://evil.example'}).status_code==403
+        for field,value in [('auth','auth-value'),('assistant_token','token-value')]:
+            response=client.post('/api/secrets/reveal',json={'field':field},headers=headers)
+            assert response.json()=={'value':value}
+            assert response.headers['cache-control']=='no-store'
+        assert client.post('/api/secrets/reveal',json={'field':'unknown'},headers=headers).status_code==400
+        assert 'auth-value' not in client.get('/api/config').text
+        assert 'token-value' not in client.get('/api/status').text
+    assert store.path.read_bytes()==before
+
+
+def test_record_api_filters_and_invalid_times(tmp_path):
+    from permission_notifier.records import begin,finish
+    store=Store(tmp_path/'assistant.json')
+    rid=begin(store,'test-id','test','001','test content');finish(store,rid,{'state':'accepted'})
+    with TestClient(create_app(store,Worker(store)),base_url='http://127.0.0.1:18765') as client:
+        assert client.get('/api/records?source=test').json()['total']==1
+        assert client.get('/api/records?source=permission').json()['total']==0
+        assert client.get('/api/records?start=invalid').status_code==400
+        assert client.get('/api/records?page=0').status_code==400

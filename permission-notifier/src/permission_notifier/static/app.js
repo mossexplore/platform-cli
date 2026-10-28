@@ -33,11 +33,11 @@ async function load() {
     input.placeholder=configured?'已保存；输入新值可替换':'请输入凭据';
   }
   checkResult('尚未检查');
-  $('clear-token').checked=false;$('clear-auth').checked=false;
+  for(const id of ['token','auth']){ $(id).type='password';const button=document.querySelector('[data-reveal="'+id+'"]');button.setAttribute('aria-pressed','false');button.setAttribute('aria-label','显示'+(id==='token'?'助手 Token':'认证 auth'));button.querySelector('img').src='/static/icons/eye.svg';}
   for(const [id,configured] of [['token-state',data.secrets_configured.assistant_token],['auth-state',data.secrets_configured.auth]])badge(id,configured?'已配置':'未配置',configured?'positive':'neutral');
-  $('receivers').replaceChildren();current.message.receivers.forEach(receiverRow);$('revision').textContent='配置已保存';
+  $('receivers').replaceChildren();current.message.receivers.forEach(receiverRow);$('revision').textContent='';$('revision').hidden=true;
   $('message-config-state').textContent=current.message.url&&data.secrets_configured.auth?'已配置':'待配置';
-  $('revision').className='save-state positive';
+  $('revision').className='save-state';
   $('message-config-state').dataset.ready=String(!!(current.message.url&&data.secrets_configured.auth));
   $('config-summary').replaceChildren();
   for(const [name,ok] of [['权限系统地址',!!current.permission_service_url],['助手 Token',data.secrets_configured.assistant_token],['消息地址',!!current.message.url],['消息 auth',data.secrets_configured.auth],['启用接收对象',current.message.receivers.some(r=>r.enabled)]]) {
@@ -51,8 +51,8 @@ function form() {
   const config=structuredClone(current);config.permission_service_url=$('service-url').value;config.message.url=$('message-url').value;config.message.sender=$('sender').value;
   config.poll_interval_seconds=Number($('poll').value);config.message_timeout_seconds=Number($('timeout').value);
   config.message.receivers=Array.from($('receivers').children).map(tr=>({uid:tr.querySelector('[data-field=uid]').value,label:tr.querySelector('[data-field=label]').value,enabled:tr.querySelector('[data-field=enabled]').checked}));
-  const secret=(id,clear)=>$(clear).checked?{action:'clear'}:$(id).dataset.masked!=='true'&&$(id).value?{action:'replace',value:$(id).value}:{action:'retain'};
-  return {config_revision:revision,config,secrets:{assistant_token:secret('token','clear-token'),auth:secret('auth','clear-auth')}};
+  const secret=id=>$(id).dataset.masked==='true'?{action:'retain'}:{action:'replace',value:$(id).value};
+  return {config_revision:revision,config,secrets:{assistant_token:secret('token'),auth:secret('auth')}};
 }
 async function refresh() {
   if(stopping)return;
@@ -93,25 +93,12 @@ async function refresh() {
       box.append(heading,meta,title,response);
       $('test-results').append(box);
     }
-    if(s.token_expires_at){const expiry=new Date(s.token_expires_at);$('status').textContent+='\n助手 Token 到期：'+expiry.toLocaleString('zh-CN',{timeZone:'Asia/Shanghai',hour12:false})+(expiry-Date.now()<7*86400000?'（即将到期，请重置）':'');}
-    const tasks=await api('tasks');$('tasks').replaceChildren();
-    for(const task of tasks) {
-      const div=document.createElement('div');div.className='task';const title=document.createElement('strong');title.textContent='任务 '+task.id;div.append(title);
-      for(const [id,item] of Object.entries(task.deliveries)) {
-        const row=document.createElement('p'),state=document.createElement('span');state.className='state-badge '+NotifierStatus.deliveryTone(item.state);state.textContent=labels[item.state]||item.state;row.append(document.createTextNode(`${item.label||item.uid}（${item.uid}）：`),state,document.createTextNode(' '+(item.error_code||'')+' '));
-        if(['failed','uncertain','retry_wait','pending'].includes(item.state))for(const [operation,label] of [['retry','重试此对象'],['confirm','确认已发送'],['skip','取消此对象']]) {
-          const button=document.createElement('button');button.type='button';button.textContent=label;button.onclick=action(async()=>{if(!confirm(`${label}：${item.uid}？不确定项重发可能造成重复消息。`))return;await api('tasks/'+task.id+'/resolve',{delivery_id:id,action:operation,confirmation:'confirm'});await refresh();});row.append(button);
-        }div.append(row);
-      }
-      if(!task.closed){const button=document.createElement('button');button.textContent='将未完成项迁移到当前消息接口';button.onclick=action(async()=>{if(confirm('确认迁移当前任务的接口？成功项不会重发，不确定项需先核对。'))await api('tasks/'+task.id+'/resolve',{action:'migrate_route',confirmation:'confirm'});});div.append(button);}
-      $('tasks').append(div);
-    }
-    if(!tasks.length){const empty=document.createElement('p');empty.className='empty';empty.textContent='暂无本地发送记录';$('tasks').append(empty);}
+    if(s.token_expires_at){const expiry=new Date(s.token_expires_at);$('status').textContent+='\n助手 Token 到期：'+time(expiry.getTime()/1000)+(expiry-Date.now()<7*86400000?'（即将到期，请重置）':'');}
+    if(location.hash==='#records')await refreshRecords();
   } catch(e) { $('runtime-alert').hidden=true;badge('local-state','无法连接','negative');badge('service-state','状态未知','neutral');badge('delivery-state','状态未知','neutral'); $('worker-state').textContent='状态未知';$('worker-state').className='state-badge neutral';$('notification-state').textContent='状态未知';$('notification-state').className='state-badge neutral';$('status').textContent='无法连接助手。请检查托盘或重新启动。'; }
 }
 $('config-form').onsubmit=action(async()=>{const result=await api('config',form(),'PUT');await load();notice(result.apply_state==='applied'?'已保存并应用；接口可用性请另行检查。':result.apply_state==='waiting_request'?'已保存，当前请求完成后应用。':'已保存，旧任务未完成，权限系统切换正在等待处理。',result.apply_state==='applied'?'positive':'warning');});
 $('add-receiver').onclick=()=>{receiverRow();markDirty();};$('reload').onclick=action(async()=>{if($('revision').classList.contains('dirty')&&!confirm('放弃未保存的修改并重新加载？'))return;await load();});
-$('bind').onclick=action(async()=>{await api('bind',{});notice('助手 Token 已绑定。','positive');});
 function checkResult(message,tone='neutral'){
   $('check-result').textContent=message;
   $('check-result').className='connection-result '+tone;
@@ -127,12 +114,24 @@ $('check').onclick=action(async()=>{
 $('test-message').onclick=action(async()=>{const body=form();body.uids=Array.from($('test-receivers').selectedOptions).map(option=>option.value);if(!body.uids.length)throw new Error('请先在测试与诊断页签添加并启用对象，再选择测试接收人');if(!confirm('将使用当前表单（可能未保存）实际发送测试消息给：'+body.uids.join('、')))return;await api('test-message',body);notice('测试已排队，尚未确认发送；请查看下方测试结果。测试不依赖权限系统连接，不会保存表单配置。');await refresh();});
 for(const id of ['pause','resume'])$(id).onclick=action(async()=>{await api(id,{});await refresh();});
 $('shutdown').onclick=action(async()=>{if(!confirm('退出后将停止发送，本地网页也将关闭。继续？'))return;await api('shutdown',{});stopping=true;notice('正在退出助手，在途请求将收尾并保存。');});
-for(const button of document.querySelectorAll('[data-replace]'))button.onclick=()=>{const input=$(button.dataset.replace);input.value='';input.dataset.masked='false';if(button.dataset.replace==='token')checkResult('连接配置已修改，请重新检查');input.focus();};
+for(const button of document.querySelectorAll('[data-reveal]'))button.onclick=action(async()=>{
+  const id=button.dataset.reveal,input=$(id);
+  if(input.type==='password'){
+    if(input.dataset.masked==='true'){
+      const before=input.value,readRevision=revision;button.disabled=true;
+      try{const result=await api('secrets/reveal',{field:id==='token'?'assistant_token':'auth'});if(input.dataset.masked!=='true'||input.value!==before||revision!==readRevision)return;input.value=result.value;input.dataset.masked='false';}
+      finally{button.disabled=false;}
+    }
+    input.type='text';button.setAttribute('aria-pressed','true');button.setAttribute('aria-label','隐藏'+(id==='token'?'助手 Token':'认证 auth'));button.querySelector('img').src='/static/icons/eye-off.svg';
+  }else{
+    input.type='password';button.setAttribute('aria-pressed','false');button.setAttribute('aria-label','显示'+(id==='token'?'助手 Token':'认证 auth'));button.querySelector('img').src='/static/icons/eye.svg';
+  }
+});
 for(const id of ['token','auth']) {
   $(id).addEventListener('focus',()=>{if($(id).dataset.masked==='true')$(id).select();});
   $(id).addEventListener('input',()=>{$(id).dataset.masked='false';});
 }
-function markDirty(){ $('revision').textContent='有未保存的修改，请保存配置';$('revision').className='save-state warning dirty'; }
+function markDirty(){ $('revision').hidden=false;$('revision').textContent='有未保存的修改，请保存配置';$('revision').className='save-state warning dirty'; }
 function updateTestReceivers(){
   const selected=new Set(Array.from($('test-receivers').selectedOptions).map(o=>o.value));
   $('test-receivers').replaceChildren();
@@ -153,7 +152,8 @@ function showPage(page){
   document.querySelectorAll('[data-page]').forEach(node=>{node.classList.toggle('active',node.dataset.page===page);if(node.dataset.page===page)node.setAttribute('aria-current','page');else node.removeAttribute('aria-current');});
   $('page-title').textContent=pageTitles[page][0];$('page-description').textContent=pageTitles[page][1];
 
-  $('revision').hidden=page==='records';
+  $('revision').hidden=page==='records'||!$('revision').classList.contains('dirty');
+  if(page==='records')refreshRecords();
 }
 for(const button of document.querySelectorAll('[data-page]'))button.onclick=()=>{location.hash=button.dataset.page;};
 window.addEventListener('hashchange',()=>showPage(location.hash.slice(1)));
@@ -177,6 +177,7 @@ for(const kind of ['message','diagnostics']){
   };
 }
 showReceiverTab('message');
-$('config-form').addEventListener('input',event=>{if(event.target.id==='test-receivers')return;markDirty();if(['service-url','token','clear-token'].includes(event.target.id))checkResult('连接配置已修改，请重新检查');if(event.target.closest('#receivers'))updateTestReceivers();});
+$('config-form').addEventListener('input',event=>{if(event.target.id==='test-receivers')return;markDirty();if(['service-url','token'].includes(event.target.id))checkResult('连接配置已修改，请重新检查');if(event.target.closest('#receivers'))updateTestReceivers();});
+initRecords();
 showPage(location.hash.slice(1));
 action(load)();refresh();setInterval(refresh,5000);

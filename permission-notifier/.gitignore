@@ -8,3 +8,6 @@ dist/
 assistant.json
 assistant.*.tmp
 *.log*
+
+send-records.json
+send-records.*.tmp

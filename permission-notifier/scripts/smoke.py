@@ -27,7 +27,12 @@ with tempfile.TemporaryDirectory(prefix='notifier-smoke-') as directory:
             headers={'Origin':'http://127.0.0.1:18765','X-CSRF-Token':token}
             assert client.get('/static/app.js').status_code==200
             assert client.get('/static/app.css').status_code==200
-            assert client.get('/api/config').json()['config']['message']['success_mode']=='unconfirmed'
+            assert not client.get('/api/config').json()['secrets_configured']['assistant_token']
+            assert client.get('/api/records').json()['total']==0
+            assert client.get('/static/icons/eye.svg').status_code==200
+            assert client.get('/static/records.js').status_code==200
+            assert (Path(directory)/'send-records.json').exists()
+            assert 'tasks' not in __import__('json').loads((Path(directory)/'assistant.json').read_text())['state']
             assert client.post('/api/pause',json={},headers=headers).status_code==200
             assert client.post('/api/resume',json={},headers=headers).status_code==400
             assert client.post('/api/pause',json={},headers={**headers,'Origin':'https://foreign.example'}).status_code==403

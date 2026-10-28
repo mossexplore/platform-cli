@@ -166,3 +166,21 @@ def test_route_change_requires_explicit_migration(pair):
     worker.resolve(task_id,'','migrate_route')
     worker.tick()
     assert sender.calls==['001','002']
+
+
+def test_permission_send_records_are_written_before_request_and_survive_restart(pair):
+    from permission_notifier.records import query
+    app,store,bridge,sender,worker=pair
+    original=sender.send
+    def checked(config,route,uid,content):
+        history=query(Store(store.path).snapshot(),source='permission')['items']
+        assert any(r['uid']==uid and r['state']=='sending' and r['sent_at'] for r in history)
+        return original(config,route,uid,content)
+    sender.send=checked
+    worker.tick();worker.tick();worker.tick()
+    history=query(Store(store.path).snapshot(),source='permission')['items']
+    assert len(history)==2
+    assert all(r['state']=='accepted' and '【权限申请待审批】' in r['content'] for r in history)
+    assert {r['uid'] for r in history}=={'001','002'}
+    assert 'token-value' not in store.records_path.read_text()
+    assert 'auth-value' not in store.records_path.read_text()

@@ -1,12 +1,13 @@
-"""One atomically replaced JSON file; callers never mutate shared references."""
+"""Settings and delivery state in separate atomic files, with legacy migration."""
 import copy
 import json
 import os
 from pathlib import Path
-import tempfile
 import threading
 from uuid import uuid4
 from .config import Config
+from .storage_files import split, read, atomic_write
+from .records import rows as record_rows
 
 
 class StoreError(RuntimeError):
@@ -21,7 +22,7 @@ def initial():
     return {'file_version': 1, 'config_revision': 1, 'config': Config().model_dump(),
             'state': {'installation_id': str(uuid4()), 'paused': True,
                       'active_config_revision': 1, 'config_apply': {'pending_fields': [], 'effective_overrides': {}},
-                      'tasks': {}, 'pending_reports': [], 'last_success_at': None, 'last_error': None}}
+                      'tasks': {}, 'send_records': {}, 'pending_reports': [], 'last_success_at': None, 'last_error': None}}
 
 
 def outstanding(data):
@@ -37,13 +38,12 @@ def effective(data):
 class Store:
     def __init__(self, path):
         self.path = Path(path)
+        self.records_path = self.path.with_name('send-records.json')
         self.lock = threading.RLock()
         self.fault = ''
         try:
             if self.path.exists():
-                raw = json.loads(self.path.read_text(encoding='utf-8'))
-                if raw['file_version'] != 1:
-                    raise ValueError('文件版本不兼容')
+                raw, migrate = read(self.path, self.records_path)
                 raw['config'] = Config.model_validate(raw['config']).model_dump()
                 state = raw['state']
                 if not isinstance(state['tasks'], dict) or not isinstance(state['pending_reports'], list):
@@ -51,29 +51,41 @@ class Store:
                 if not isinstance(state['installation_id'], str) or len(state['installation_id']) < 8:
                     raise ValueError('实例编号无效')
                 state['config_apply']['effective_overrides']
+                state.setdefault('send_records', {})
+                if not isinstance(state['send_records'], dict):
+                    raise ValueError('发送记录格式错误')
                 self.data = raw
+                legacy = {row['id']: row for row in record_rows(raw) if row['id'].startswith('legacy:') and row['id'] not in state['send_records']}
+                if legacy:
+                    updated = copy.deepcopy(raw)
+                    updated['state']['send_records'].update(legacy)
+                    if not migrate:
+                        self._write(updated)
+                    self.data = updated
+                if migrate:
+                    self._write(self.data, initialize=True)
             else:
+                if self.records_path.exists():
+                    raise ValueError('配置缺失，已有发送记录不能丢弃')
                 self.data = initial()
-                self._write(self.data)
+                self._write(self.data, initialize=True)
         except (ValueError, KeyError, TypeError, OSError):
             self.data = initial()
-            self.fault = '配置文件损坏、版本不兼容或无法读取；已停止发送，请退出并恢复有效文件'
+            self.fault = '配置或发送记录文件损坏、缺失、版本不兼容或无法读取；已停止发送，请退出并恢复有效文件'
 
-    def _write(self, data):
-        self.path.parent.mkdir(parents=True, exist_ok=True)
-        fd, name = tempfile.mkstemp(prefix='assistant.', suffix='.tmp', dir=self.path.parent)
-        try:
-            with os.fdopen(fd, 'w', encoding='utf-8') as file:
-                json.dump(data, file, ensure_ascii=False, indent=2, allow_nan=False)
-                file.write('\n')
-                file.flush()
-                os.fsync(file.fileno())
-            os.replace(name, self.path)
-            if os.name != 'nt':
-                os.chmod(self.path, 0o600)
-        finally:
-            if os.path.exists(name):
-                os.unlink(name)
+    def _write(self, data, initialize=False):
+        settings, records = split(data)
+        before_settings, before_records = split(self.data)
+        write_settings = initialize or settings != before_settings
+        write_records = initialize or records != before_records
+        # Each normal operation changes exactly one document. Never pretend two
+        # separate os.replace calls are a single atomic transaction.
+        if not initialize and write_settings and write_records:
+            raise ValueError('配置与发送状态不能在同一操作中同时修改')
+        if write_records:
+            atomic_write(self.records_path, records)
+        if write_settings:
+            atomic_write(self.path, settings)
 
     def snapshot(self):
         with self.lock:
