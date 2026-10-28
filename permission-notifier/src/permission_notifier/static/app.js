@@ -105,7 +105,7 @@ $('config-form').onsubmit=action(async()=>{const result=await api('config',form(
 $('add-receiver').onclick=()=>{receiverRow();markDirty();};$('reload').onclick=action(async()=>{if($('revision').classList.contains('dirty')&&!confirm('放弃未保存的修改并重新加载？'))return;await load();});
 $('bind').onclick=action(async()=>{await api('bind',{});notice('助手 Token 已绑定。');});
 $('check').onclick=action(async()=>{if(!$('service-url').value){$('check-result').textContent='请先填写权限系统服务地址';throw new Error('请先填写权限系统服务地址');}$('check-result').textContent='正在检查…';let result;try{result=await api('check',form());}catch(e){$('check-result').textContent=e.message;throw e;}$('check-result').textContent=result.message;notice('当前表单检查：'+result.message);});
-$('test-message').onclick=action(async()=>{const body=form();body.uids=Array.from($('test-receivers').selectedOptions).map(option=>option.value);if(!body.uids.length)throw new Error('请先在接收对象页面添加并启用对象，再选择测试接收人');if(!confirm('将使用当前表单（可能未保存）实际发送测试消息给：'+body.uids.join('、')))return;await api('test-message',body);notice('测试已排队，尚未确认发送；请查看下方测试结果。测试不依赖权限系统连接，不会保存表单配置。');await refresh();});
+$('test-message').onclick=action(async()=>{const body=form();body.uids=Array.from($('test-receivers').selectedOptions).map(option=>option.value);if(!body.uids.length)throw new Error('请先在测试与诊断页签添加并启用对象，再选择测试接收人');if(!confirm('将使用当前表单（可能未保存）实际发送测试消息给：'+body.uids.join('、')))return;await api('test-message',body);notice('测试已排队，尚未确认发送；请查看下方测试结果。测试不依赖权限系统连接，不会保存表单配置。');await refresh();});
 for(const id of ['pause','resume'])$(id).onclick=action(async()=>{await api(id,{});await refresh();});
 $('shutdown').onclick=action(async()=>{if(!confirm('退出后将停止发送，本地网页也将关闭。继续？'))return;await api('shutdown',{});stopping=true;notice('正在退出助手，在途请求将收尾并保存。');});
 for(const button of document.querySelectorAll('[data-replace]'))button.onclick=()=>{const input=$(button.dataset.replace);input.value='';input.dataset.masked='false';input.focus();};
@@ -126,20 +126,38 @@ function updateTestReceivers(){
   }
   if(!selected.size&&$('test-receivers').options.length)$('test-receivers').options[0].selected=true;
 }
-const pageTitles={connection:['连接配置','配置与验证，一目了然'],receivers:['接收对象','管理接收通知的人员与 UID'],diagnostics:['测试与诊断','查看测试响应与助手运行状态'],records:['发送记录','查看发送结果，处理需要关注的通知'],advanced:['高级设置','按需调整网络与运行参数']};
+const pageTitles={connection:['连接配置','配置与验证，一目了然'],receivers:['消息配置','管理消息接口、接收人及测试诊断'],records:['发送记录','查看发送结果，处理需要关注的通知'],advanced:['高级设置','按需调整网络与运行参数']};
 function showPage(page){
+  if(page==='diagnostics'){page='receivers';showReceiverTab('diagnostics');}
   if(!pageTitles[page])page='connection';
   document.querySelectorAll('[data-view]').forEach(node=>node.hidden=node.dataset.view!==page);
   document.querySelectorAll('[data-page]').forEach(node=>{node.classList.toggle('active',node.dataset.page===page);if(node.dataset.page===page)node.setAttribute('aria-current','page');else node.removeAttribute('aria-current');});
   $('page-title').textContent=pageTitles[page][0];$('page-description').textContent=pageTitles[page][1];
-  $(page==='diagnostics'?'diagnostic-test-slot':'message-test-slot').append($('test-panel'));
+
   $('revision').hidden=page==='records';
 }
 for(const button of document.querySelectorAll('[data-page]'))button.onclick=()=>{location.hash=button.dataset.page;};
 window.addEventListener('hashchange',()=>showPage(location.hash.slice(1)));
-for(const kind of ['service','message'])$('tab-'+kind).onclick=()=>{
-  for(const key of ['service','message']){const selected=key===kind;$('tab-'+key).classList.toggle('active',selected);$('tab-'+key).setAttribute('aria-selected',String(selected));$(key+'-panel').hidden=!selected;}
-};
+function showReceiverTab(kind){
+  for(const key of ['message','diagnostics']){
+    const selected=key===kind;
+    $('tab-'+key).classList.toggle('active',selected);
+    $('tab-'+key).setAttribute('aria-selected',String(selected));
+    $('tab-'+key).tabIndex=selected?0:-1;
+    $(key+'-panel').hidden=!selected;
+  }
+}
+$('diagnostic-test-slot').append($('test-panel'));
+for(const kind of ['message','diagnostics']){
+  $('tab-'+kind).onclick=()=>showReceiverTab(kind);
+  $('tab-'+kind).onkeydown=event=>{
+    if(!['ArrowLeft','ArrowRight','Home','End'].includes(event.key))return;
+    event.preventDefault();
+    const next=event.key==='Home'?'message':event.key==='End'?'diagnostics':kind==='message'?'diagnostics':'message';
+    showReceiverTab(next);$('tab-'+next).focus();
+  };
+}
+showReceiverTab('message');
 $('config-form').addEventListener('input',event=>{if(event.target.id==='test-receivers')return;markDirty();if(event.target.closest('#receivers'))updateTestReceivers();});
 showPage(location.hash.slice(1));
 action(load)();refresh();setInterval(refresh,5000);

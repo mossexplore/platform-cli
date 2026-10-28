@@ -65,7 +65,7 @@ def test_navigation_resources_are_available_offline(tmp_path):
                         self.paths.append(value)
         resources = Resources()
         resources.feed(page.text)
-        assert len(resources.paths) >= 8
+        assert len(resources.paths) >= 7
         for path in resources.paths:
             response = client.get(path)
             assert response.status_code == 200, path
