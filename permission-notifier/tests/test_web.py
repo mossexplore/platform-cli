@@ -28,3 +28,23 @@ def test_local_boundary_csrf_and_config(tmp_path):
         assert not store.snapshot()['state']['paused']
         assert client.post('/api/pause',json={},headers=headers).status_code==200
         assert store.snapshot()['state']['paused']
+
+
+def test_connection_tracks_current_identity_and_heartbeat(tmp_path):
+    import time
+    store = Store(tmp_path/'assistant.json')
+    values = configured(store)
+    worker = Worker(store)
+    with TestClient(create_app(store, worker), base_url='http://127.0.0.1:18765') as client:
+        assert client.get('/api/status').json()['connection_state'] == 'pending'
+        worker.bound_signature = (values['permission_service_url'], values['assistant_token'])
+        worker.last_heartbeat = time.time()
+        assert client.get('/api/status').json()['connection_state'] == 'connected'
+        worker.last_heartbeat -= 121
+        assert client.get('/api/status').json()['connection_state'] == 'disconnected'
+        worker.last_heartbeat = time.time()
+        worker.bound_signature = ('https://other.example', 'other')
+        assert client.get('/api/status').json()['connection_state'] != 'connected'
+        worker.bound_signature = (values['permission_service_url'], values['assistant_token'])
+        worker.error = 'AUTH_REJECTED'
+        assert client.get('/api/status').json()['connection_state'] == 'disconnected'

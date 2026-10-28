@@ -50,7 +50,7 @@ class Message(StrictModel):
     auth: str = Field(default='', max_length=8192)
     sender: str = Field(default='', max_length=256)
     receivers: list[Receiver] = Field(default_factory=list, max_length=100)
-    success_mode: Literal['unconfirmed', 'http_2xx', 'json_equals'] = 'unconfirmed'
+    success_mode: Literal['unconfirmed', 'http_2xx', 'json_equals'] = 'http_2xx'
     success_field: str = Field(default='', max_length=128)
     success_value: str = Field(default='true', max_length=256)
     network: Network = Field(default_factory=Network)
@@ -65,14 +65,6 @@ class Message(StrictModel):
         ids = [r.uid for r in self.receivers]
         if len(ids) != len(set(ids)):
             raise ValueError('接收 UID 不得重复')
-        if self.success_mode == 'json_equals':
-            import json
-            if not self.success_field:
-                raise ValueError('请填写业务成功字段')
-            try:
-                json.loads(self.success_value)
-            except ValueError:
-                raise ValueError('成功期望值须为合法 JSON') from None
         return self
 
 
@@ -93,5 +85,4 @@ class Config(StrictModel):
 def ready(config):
     return bool(config['permission_service_url'] and config['assistant_token'] and
                 config['message']['url'] and config['message']['auth'] and
-                config['message']['success_mode'] != 'unconfirmed' and
                 any(r['enabled'] for r in config['message']['receivers']))

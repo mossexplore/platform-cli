@@ -1,5 +1,4 @@
-"""Exactly one POST per invocation; never infer business success by default."""
-import json
+"""Exactly one POST per invocation; HTTP 200 is the agreed success contract."""
 import httpx
 from .transport import client
 
@@ -27,16 +26,6 @@ class Sender:
             return {'state': 'failed', 'error_code': 'REDIRECT_REFUSED', 'http_status': status}
         if not 200 <= status < 300:
             return {'state': 'uncertain', 'error_code': 'HTTP_OUTCOME_UNCONFIRMED', 'http_status': status}
-        mode = message['success_mode']
-        accepted = mode == 'http_2xx'
-        if mode == 'json_equals':
-            try:
-                value = response.json()
-                for key in message['success_field'].split('.'):
-                    value = value[key]
-                expected = json.loads(message['success_value'])
-                accepted = type(value) is type(expected) and value == expected
-            except (ValueError, KeyError, TypeError):
-                accepted = False
+        accepted = status == 200
         return {'state': 'accepted' if accepted else 'uncertain', 'http_status': status,
                 'error_code': '' if accepted else 'BUSINESS_OUTCOME_UNCONFIRMED'}

@@ -36,15 +36,14 @@ async function load() {
   const data=await api('config');current=data.config;revision=data.config_revision;
   $('service-url').value=current.permission_service_url;$('message-url').value=current.message.url;$('sender').value=current.message.sender;
   $('poll').value=current.poll_interval_seconds;$('timeout').value=current.message_timeout_seconds;
-  $('success-mode').value=current.message.success_mode;$('success-field').value=current.message.success_field;$('success-value').value=current.message.success_value;
   $('token').value='';$('auth').value='';$('clear-token').checked=false;$('clear-auth').checked=false;
   $('token-state').textContent=data.secrets_configured.assistant_token?'（已配置）':'（未配置）';$('auth-state').textContent=data.secrets_configured.auth?'（已配置）':'（未配置）';
-  $('receivers').replaceChildren();current.message.receivers.forEach(receiverRow);networkFields();$('revision').textContent='配置修订 '+revision;
+  $('receivers').replaceChildren();current.message.receivers.forEach(receiverRow);networkFields();$('revision').textContent='配置已保存';
+  $('config-summary').textContent=[['权限系统地址',!!current.permission_service_url],['助手 Token',data.secrets_configured.assistant_token],['消息地址',!!current.message.url],['消息 auth',data.secrets_configured.auth],['启用接收对象',current.message.receivers.some(r=>r.enabled)]].map(([name,ok])=>name+'：'+(ok?'已配置':'未配置')).join('　 ·　 ');
 }
 function form() {
   const config=structuredClone(current);config.permission_service_url=$('service-url').value;config.message.url=$('message-url').value;config.message.sender=$('sender').value;
   config.poll_interval_seconds=Number($('poll').value);config.message_timeout_seconds=Number($('timeout').value);
-  config.message.success_mode=$('success-mode').value;config.message.success_field=$('success-field').value;config.message.success_value=$('success-value').value;
   config.message.receivers=Array.from($('receivers').children).map(tr=>({uid:tr.querySelector('[data-field=uid]').value,label:tr.querySelector('[data-field=label]').value,enabled:tr.querySelector('[data-field=enabled]').checked}));
   for(const key of ['service','message']) {const value={proxy:$(key+'-proxy').value,ca_file:$(key+'-ca_file').value,trust_env:$(key+'-trust_env').checked};if(key==='service')config.service_network=value;else config.message.network=value;}
   const secret=(id,clear)=>$(clear).checked?{action:'clear'}:$(id).value?{action:'replace',value:$(id).value}:{action:'retain'};
@@ -53,7 +52,12 @@ function form() {
 async function refresh() {
   if(stopping)return;
   try {
-    const s=await api('status');$('status').textContent=`${s.worker_alive?'工作线程运行中':'工作线程尚未运行或异常'} · ${s.paused?'已暂停':'运行中'}${s.sending?' · 正在发送':''}\n最近轮询：${time(s.last_poll)}　最近连接：${time(s.last_heartbeat)}\n最近成功：${time(s.last_success_at)}　待回传：${s.pending_reports}　需处理：${s.needs_attention}\n${s.error?'提示：'+s.error:''}${s.pending_fields.length?'\n配置等待切换：'+s.pending_fields.join('、'):''}`;
+    const s=await api('status');
+    $('local-state').textContent=s.worker_alive?'运行正常':'工作线程未运行';
+    $('service-state').textContent={connected:'已连接',disconnected:'连接异常或已过期',unconfigured:'未配置',pending:'等待连接'}[s.connection_state];
+    $('delivery-state').textContent=s.paused?'已暂停':!s.config_ready?'配置未完成':s.error?'需要处理':s.connection_state!=='connected'?'等待连接':'自动通知已开启';
+    $('pause').disabled=s.paused;$('resume').disabled=!s.paused||!s.config_ready;
+    $('status').textContent=`${s.worker_alive?'工作线程运行中':'工作线程尚未运行或异常'} · ${s.paused?'已暂停':'运行中'}${s.sending?' · 正在发送':''}\n最近轮询：${time(s.last_poll)}　最近连接：${time(s.last_heartbeat)}\n最近成功：${time(s.last_success_at)}　待回传：${s.pending_reports}　需处理：${s.needs_attention}\n${s.error?'提示：'+s.error:''}${s.pending_fields.length?'\n配置等待切换：'+s.pending_fields.join('、'):''}`;
     $('test-results').textContent=s.test_results.map(r=>`${r.uid}：${labels[r.state]||r.state} ${r.error_code||''}${r.http_status?' HTTP '+r.http_status:''}`).join('；');
     if(s.token_expires_at){const expiry=new Date(s.token_expires_at);$('status').textContent+='\n助手 Token 到期：'+expiry.toLocaleString('zh-CN',{timeZone:'Asia/Shanghai',hour12:false})+(expiry-Date.now()<7*86400000?'（即将到期，请重置）':'');}
     const tasks=await api('tasks');$('tasks').replaceChildren();
@@ -69,7 +73,7 @@ async function refresh() {
       $('tasks').append(div);
     }
     if(!tasks.length)$('tasks').textContent='暂无本地发送记录';
-  } catch(e) { $('status').textContent='无法连接助手。请检查托盘或重新启动。'; }
+  } catch(e) { $('local-state').textContent='无法连接';$('service-state').textContent='状态未知';$('delivery-state').textContent='状态未知'; $('status').textContent='无法连接助手。请检查托盘或重新启动。'; }
 }
 $('config-form').onsubmit=action(async()=>{const result=await api('config',form(),'PUT');await load();notice(result.apply_state==='applied'?'已保存并应用；接口可用性请另行检查。':result.apply_state==='waiting_request'?'已保存，当前请求完成后应用。':'已保存，旧任务未完成，权限系统切换正在等待处理。');});
 $('add-receiver').onclick=()=>receiverRow();$('reload').onclick=action(load);
@@ -78,4 +82,5 @@ $('check').onclick=action(async()=>{const result=await api('check',form());notic
 $('test-message').onclick=action(async()=>{const body=form();body.uids=Array.from($('receivers').children).filter(tr=>tr.querySelector('[data-field=test]').checked).map(tr=>tr.querySelector('[data-field=uid]').value.trim());if(!body.uids.length)throw new Error('请勾选测试对象');if(!confirm('将使用当前表单（可能未保存）实际发送测试消息给：'+body.uids.join('、')))return;await api('test-message',body);notice('测试已排队，不会保存表单配置。');});
 for(const id of ['pause','resume'])$(id).onclick=action(async()=>{await api(id,{});await refresh();});
 $('shutdown').onclick=action(async()=>{if(!confirm('退出后将停止发送，本地网页也将关闭。继续？'))return;await api('shutdown',{});stopping=true;notice('正在退出助手，在途请求将收尾并保存。');});
+$('config-form').addEventListener('input',()=>{$('revision').textContent='有未保存的修改';});
 action(load)();refresh();setInterval(refresh,5000);

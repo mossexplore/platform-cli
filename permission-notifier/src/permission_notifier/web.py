@@ -50,7 +50,7 @@ def create_app(store, worker, shutdown=None, port=18765):
 
     async def known_error(request, exc):
         if isinstance(exc, ValidationError):
-            detail = '配置字段无效，请检查 URL、UID、间隔和成功规则'
+            detail = '配置字段无效，请检查 URL、UID、间隔'
         elif isinstance(exc, ServiceError):
             detail = exc.code
         else:
@@ -70,7 +70,15 @@ def create_app(store, worker, shutdown=None, port=18765):
         data = store.snapshot()
         unresolved = sum(i['state'] in ('failed', 'uncertain') for t in data['state']['tasks'].values()
                          for i in t['deliveries'].values())
-        return {'paused': data['state']['paused'], 'stopping': worker.stop.is_set(),
+        active = effective(data)
+        signature = (active['permission_service_url'], active['assistant_token'])
+        configured = all(signature)
+        connected = (worker.bound_signature == signature and worker.last_heartbeat > 0
+                     and time.time() - worker.last_heartbeat < 120 and not worker.error)
+        connection = ('unconfigured' if not configured else 'connected' if connected else
+                      'disconnected' if worker.error or worker.last_heartbeat else 'pending')
+        return {'connection_state': connection, 'config_ready': ready(active),
+                'paused': data['state']['paused'], 'stopping': worker.stop.is_set(),
                 'worker_alive': bool(worker.thread and worker.thread.is_alive() and time.time() - worker.last_loop < 120),
                 'sending': worker.sending, 'last_loop': worker.last_loop, 'last_poll': worker.last_poll,
                 'last_heartbeat': worker.last_heartbeat, 'error': store.fault or worker.error,
@@ -130,7 +138,7 @@ def create_app(store, worker, shutdown=None, port=18765):
     @app.post('/api/resume')
     def resume():
         if not ready(effective(store.snapshot())):
-            raise ValueError('请填写地址、凭据、启用对象，并确认消息成功判据')
+            raise ValueError('请填写地址、凭据、启用对象，并保存配置')
         store.change(lambda d: d['state'].update(paused=False))
         worker.wake.set()
         return {'paused': False}

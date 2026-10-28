@@ -60,6 +60,7 @@ class Worker:
         result = self.service.call(config, data['state']['installation_id'], 'bind')
         self.client_info = result
         self.bound_signature = (config['permission_service_url'], config['assistant_token'])
+        self.last_heartbeat = 0
         self.restored.clear()
         return result
 

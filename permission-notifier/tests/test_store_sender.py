@@ -76,14 +76,22 @@ def test_each_post_exact_fields_and_no_automatic_retry(tmp_path):
     for uid in ('001','002'): assert sender.send(config,config['message'],uid,'hello')['state']=='accepted'
     assert seen==[{'content':'hello','receiver':uid,'auth':'auth-value'} for uid in ('001','002')]
     config['message']['success_mode']='unconfirmed'
-    assert sender.send(config,config['message'],'001','hello')['state']=='uncertain'
+    assert sender.send(config,config['message'],'001','hello')['state']=='accepted'
     def timeout(request): raise httpx.ReadTimeout('must not expose auth')
     sender=Sender(lambda *_:httpx.Client(transport=httpx.MockTransport(timeout)))
     assert sender.send(config,config['message'],'001','hello')['state']=='uncertain'
 
 
-def test_business_success_requires_exact_type(tmp_path):
+def test_http_200_ignores_legacy_json_rule(tmp_path):
     config=configured(Store(tmp_path/'assistant.json'))
     config['message'].update(success_mode='json_equals',success_field='data.code',success_value='0')
     sender=Sender(lambda *_:httpx.Client(transport=httpx.MockTransport(lambda r:httpx.Response(200,json={'data':{'code':False}}))))
-    assert sender.send(config,config['message'],'001','x')['state']=='uncertain'
+    assert sender.send(config,config['message'],'001','x')['state']=='accepted'
+
+
+@pytest.mark.parametrize('status', [201, 204, 302, 401, 403, 500])
+def test_non_200_never_accepted(tmp_path, status):
+    config = configured(Store(tmp_path/'assistant.json'))
+    sender = Sender(lambda *_: httpx.Client(transport=httpx.MockTransport(
+        lambda r: httpx.Response(status))))
+    assert sender.send(config, config['message'], '001', 'x')['state'] != 'accepted'

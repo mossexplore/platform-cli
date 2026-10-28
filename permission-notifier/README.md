@@ -66,7 +66,7 @@ Get-NetTCPConnection -LocalPort 18765 -State Listen -ErrorAction SilentlyContinu
 2. 登录权限系统“个人通知”，开启通知，输入 `reset` 生成 Token；30 分钟内在本地绑定。
 3. 本地网页填写权限系统地址和助手 Token，保存并绑定。
 4. 填写消息 URL、auth、可选 sender，添加启用的接收 UID。每个 UID 单独请求一次。
-5. 明确成功规则：默认“尚未确认”，不自动发送。只有确认 HTTP 2xx 即代表接受时选择该规则；也可按真实响应配置 JSON 字段与期望值。期望值填写合法 JSON，例如 `true`、`0` 或 `"ok"`。
+5. 消息接口固定以 HTTP 200 判断发送成功，无需选择成功规则或配置 JSON 字段。超时及其他未知响应需先核对消息，再处理。
 6. 勾选对象，主动发送测试消息；检查逐项结果后保存配置并恢复通知。
 
 消息请求 JSON 为 `content`、`receiver`、`auth`；sender 非空才加入。auth 不放入 HTTP Authorization；助手 Token 才用于访问权限系统的 Bearer 认证。
@@ -120,3 +120,5 @@ python -m permission_notifier.main --headless --data-dir /tmp/notifier-test
 最后两项用于联调；跨项目测试还需安装权限服务依赖。测试使用模拟消息发送，不访问真实接口。Windows 托盘/任务计划需在实际 Windows 用户环境验收。
 
 构建私有源码包和 Wheel：`python -m build`。构建包含 Windows 安装脚本的独立 ZIP：`python scripts/build.py`。本项目随 1.0.7.7 Release 作为单独附件交付，不放入 CLI 安装包或公共 Python 包仓库。当前不含 Python 解释器和离线依赖包，联网安装所需依赖需由用户环境提供。
+
+页面顶部分别展示本地助手、权限系统连接及自动通知状态；权限系统连接依据当前配置绑定及最近两分钟的心跳判断。已保存配置清单显示缺失项，编辑后提示未保存。轮询间隔、超时及代理位于折叠的高级设置中。消息接口通过主动测试验证，不能将权限系统已连接视作消息接口可用。
