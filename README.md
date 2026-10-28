@@ -11,7 +11,7 @@
 
 当前 CLI 源码版本为 **1.0.7.10**，新增 `ml service host mock SERVICE_ID --pod-ip POD_IP`，使用样例报文测试指定主机，见 [发布说明](docs/RELEASE_NOTES_1.0.7.10.md)。
 
-本次 Release 候选版本为 **1.0.7.10**，包括 CLI、权限管理系统及独立本地通知助手，见 [发布说明](docs/RELEASE_NOTES_1.0.7.10.md)。正式发布状态以 GitHub Release 页面为准。本地开发参见 [Jupyter 本地开发指南](docs/Jupyter本地开发指南.md)。
+当前正式版本为 **1.0.7.10**，包括 CLI、权限管理系统及独立本地通知助手，见 [发布说明](docs/RELEASE_NOTES_1.0.7.10.md)。已发布为最新稳定版。本地开发参见 [Jupyter 本地开发指南](docs/Jupyter本地开发指南.md)。
 
 新增本地命令历史：`ml history` 查看最近记录，`ml history clear` 清理。历史以文本保存在配置目录，最多保留 1000 条；`ml --no-history COMMAND` 可跳过本次记录。
 
