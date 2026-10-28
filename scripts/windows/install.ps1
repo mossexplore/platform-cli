@@ -309,12 +309,12 @@ if ($PathChanged) {
     Write-Host "Open a new CMD or PowerShell window before running ml." -ForegroundColor Yellow
 }
 Write-Host ""
-Write-Host "[Stage 2/2] Installing OpenCode permission rules, then the skill and /ml command" -ForegroundColor Cyan
+Write-Host "[Stage 2/2] Installing OpenCode permission rules, then the OpenCode and codeagent skill and /ml command" -ForegroundColor Cyan
 & $VirtualEnvironmentPython -m wiserec_cli.opencode_install
 $OpenCodeExit = $LASTEXITCODE
 Write-Host ""
 if ($OpenCodeExit -eq 0) {
-    Write-Host "Result: CLI and OpenCode resources installed successfully." -ForegroundColor Green
+    Write-Host "Result: CLI, OpenCode permission rules, and codeagent resources installed successfully." -ForegroundColor Green
     Write-Host "Next steps:"
     Write-Host "  ml env show"
     Write-Host "  ml login"

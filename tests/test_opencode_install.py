@@ -122,7 +122,18 @@ def test_main_installs_both_targets_independently(
     opencode = tmp_path / "custom-opencode"
     cac = home / ".cac"
     monkeypatch.setenv("OPENCODE_CONFIG_DIR", str(opencode))
-    monkeypatch.setattr(Path, "home", lambda: home)
+    monkeypatch.setattr(Path, "home", staticmethod(lambda: home))
+    monkeypatch.setattr("wiserec_cli.opencode_install.detect_permission_format", lambda: "permissions")
+    monkeypatch.setattr("wiserec_cli.opencode_install.validate_opencode_config", lambda target: None)
+    monkeypatch.setattr(
+        "wiserec_cli.opencode_install.preflight_opencode_permissions",
+        lambda target, rule_format="permissions": None,
+    )
+    monkeypatch.setattr(
+        "wiserec_cli.opencode_install.install_opencode_permissions",
+        lambda target, rule_format="permissions": None,
+    )
+    monkeypatch.setattr("wiserec_cli.opencode_install.rollback_opencode_permissions", lambda target: False)
 
     def install(directory):
         if directory == {"OpenCode": opencode, "codeagent": cac}.get(failed_target):

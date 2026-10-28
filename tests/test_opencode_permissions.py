@@ -503,7 +503,7 @@ def test_invalid_json_aborts_the_install_step(tmp_path, monkeypatch, capsys):
     _v2(monkeypatch)
     with patch("wiserec_cli.opencode_install.install_resources") as install_resources:
         assert main() == 1
-    install_resources.assert_not_called()
+    assert tmp_path not in [call.args[0] for call in install_resources.call_args_list]
     assert path.read_text(encoding="utf-8") == "{"
     assert not (tmp_path / "opencode.json.bak").exists()
     _assert_prior_skill(tmp_path)
@@ -529,7 +529,10 @@ def test_main_writes_permissions_before_the_skill(tmp_path, monkeypatch, capsys)
     seen = {}
 
     def resources(target):
-        seen["ready"] = json.loads((target / "opencode.json").read_text(encoding="utf-8"))
+        config = target / "opencode.json"
+        if not config.is_file():
+            return
+        seen["ready"] = json.loads(config.read_text(encoding="utf-8"))
         seen["manifest"] = (target / "wiserec-managed.json").is_file()
 
     with patch("wiserec_cli.opencode_install.install_resources", side_effect=resources):
@@ -550,7 +553,7 @@ def test_main_reports_permission_failure_without_claiming_success(tmp_path, monk
         side_effect=OSError("disk full"),
     ):
         assert main() == 1
-    install_resources.assert_not_called()
+    assert tmp_path not in [call.args[0] for call in install_resources.call_args_list]
     _assert_prior_skill(tmp_path)
     error = capsys.readouterr().err
     assert "CLI remains usable" in error
@@ -586,7 +589,7 @@ def test_undetectable_version_aborts_before_any_config_write(tmp_path, monkeypat
     )
     with patch("wiserec_cli.opencode_install.install_resources") as install_resources:
         assert main() == 1
-    install_resources.assert_not_called()
+    assert tmp_path not in [call.args[0] for call in install_resources.call_args_list]
     assert path.read_text(encoding="utf-8") == '{"model": "keep"}\n'
     assert not (tmp_path / "opencode.json.bak").exists()
     _assert_prior_skill(tmp_path)
@@ -603,7 +606,7 @@ def test_commented_jsonc_fails_the_install_step(tmp_path, monkeypatch, capsys):
     _v2(monkeypatch)
     with patch("wiserec_cli.opencode_install.install_resources") as install_resources:
         assert main() == 1
-    install_resources.assert_not_called()
+    assert tmp_path not in [call.args[0] for call in install_resources.call_args_list]
     assert "// keep" in path.read_text(encoding="utf-8")
     assert not (tmp_path / "opencode.jsonc.bak").exists()
     _assert_prior_skill(tmp_path)
@@ -832,7 +835,7 @@ def test_prior_skill_stays_when_permission_validation_fails(tmp_path, monkeypatc
     monkeypatch.setattr(permission_module, "_opencode_debug_config", reject)
     with patch("wiserec_cli.opencode_install.install_resources") as install_resources:
         assert main() == 1
-    install_resources.assert_not_called()
+    assert tmp_path not in [call.args[0] for call in install_resources.call_args_list]
     assert path.read_text(encoding="utf-8") == original
     assert not (tmp_path / "wiserec-managed.json").exists()
     _assert_prior_skill(tmp_path)
@@ -1356,7 +1359,8 @@ def test_collision_still_installs_the_skill_and_overwrites_the_key(tmp_path, mon
     _v2(monkeypatch, "bash")
     with patch("wiserec_cli.opencode_install.install_resources") as install_resources:
         assert main([]) == 0
-    install_resources.assert_called_once()
+    assert [call.args[0] for call in install_resources.call_args_list][0] == tmp_path
+    assert install_resources.call_count == 2
     warning = capsys.readouterr().err
     assert 'permission.bash "ml *": allow -> ask' in warning
     assert "[错误]" not in warning
@@ -1386,7 +1390,7 @@ def _permission_failure_keeps_skill(tmp_path, monkeypatch, capsys, completed, ne
     _use_real_debug(monkeypatch, completed)
     with patch("wiserec_cli.opencode_install.install_resources") as install_resources:
         assert main() == 1
-    install_resources.assert_not_called()
+    assert tmp_path not in [call.args[0] for call in install_resources.call_args_list]
     assert path.read_text(encoding="utf-8") == original
     assert not (tmp_path / "wiserec-managed.json").exists()
     _assert_prior_skill(tmp_path)

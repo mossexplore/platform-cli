@@ -113,6 +113,26 @@ _PERMISSION_NEXT = (
 )
 
 
+def _announce_resources(label: str, directory: Path) -> None:
+    msg.detail(f"{label} resource directory: {directory}")
+    msg.detail(f"{label} skill directory: {directory / 'skills/wiserec-platform'}")
+    msg.detail(f"{label} /ml command file: {directory / 'commands/ml.md'}")
+
+
+def _install_codeagent_resources() -> bool:
+    """Copy the skill and /ml command into ``~/.cac``. No OpenCode permission file."""
+    directory = Path.home() / ".cac"
+    _announce_resources("codeagent", directory)
+    try:
+        install_resources(directory)
+    except Exception as error:
+        msg.warning(f"codeagent resource installation failed: {error}")
+        msg.detail("CLI remains usable. Rerun the official installer to retry.")
+        return False
+    msg.success("codeagent resources installed.")
+    return True
+
+
 def main(argv: list[str] | None = None) -> int:
     args = [] if argv is None else list(argv)
     target = Path(os.environ.get("OPENCODE_CONFIG_DIR") or Path.home() / ".config/opencode")
@@ -129,7 +149,7 @@ def main(argv: list[str] | None = None) -> int:
     if args:
         msg.warning("Usage: python -m wiserec_cli.opencode_install [--uninstall]")
         return 2
-    msg.detail(f"OpenCode resource directory: {target}")
+    _announce_resources("OpenCode", target)
     msg.detail("WiseRec skill and /ml command are replaced on every installation; do not edit these files.")
     msg.detail(
         "OpenCode permission rules are merged into opencode.json. Other settings are kept. "
@@ -141,6 +161,7 @@ def main(argv: list[str] | None = None) -> int:
         msg.error(str(error))
         msg.detail("opencode.json was left unchanged.")
         msg.detail(_PERMISSION_NEXT)
+        _install_codeagent_resources()
         return 1
     try:
         validate_opencode_config(target)
@@ -150,15 +171,19 @@ def main(argv: list[str] | None = None) -> int:
         msg.error(f"OpenCode permission installation failed: {error}")
         msg.detail("opencode.json was left unchanged or restored from the backup.")
         msg.detail(_PERMISSION_NEXT)
+        _install_codeagent_resources()
         return 1
+    opencode_ok = True
     try:
         install_resources(target)
     except Exception as error:
+        opencode_ok = False
         msg.error(f"OpenCode skill and /ml command installation failed: {error}")
         try:
             kept_manifest = rollback_opencode_permissions(target)
         except Exception as rollback_error:
             msg.detail(str(rollback_error))
+            _install_codeagent_resources()
             return 1
         if kept_manifest:
             manifest_note = "wiserec-managed.json was restored to its pre-install content."
@@ -170,12 +195,18 @@ def main(argv: list[str] | None = None) -> int:
             "The previous skill and /ml command were restored when a previous copy existed."
         )
         msg.detail(
-            "Nothing new was left installed. An existing skill and /ml command were restored "
+            "Nothing new was left installed for OpenCode. An existing skill and /ml command were restored "
             "from the backup taken before replacement. "
             "The WiseRec CLI remains usable. Fix the error above, then rerun the official installer."
         )
+    if not _install_codeagent_resources():
         return 1
-    msg.success("OpenCode skill, /ml command, and permission rules installed. Reopen your OpenCode session.")
+    if not opencode_ok:
+        return 1
+    msg.success(
+        "OpenCode skill, /ml command, and permission rules installed. "
+        "codeagent resources installed. Reopen your agent session."
+    )
     return 0
 
 
