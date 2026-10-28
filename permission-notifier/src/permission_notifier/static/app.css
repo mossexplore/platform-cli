@@ -155,3 +155,8 @@ details:has(input[id^="clear-"]:checked)>summary{background:#fdecea;color:#b4231
 .record-pagination{display:flex;align-items:center;gap:12px;justify-content:flex-end;margin-top:16px;flex-wrap:wrap;font-size:13px}
 #record-notice:empty{display:none}
 .records-table-wrap{border:1px solid #e5e6eb;border-radius:6px}
+
+#test-content{resize:vertical}
+#test-message{margin-top:20px}
+#test-notice:empty{display:none}
+#test-notice:not(:empty){margin-top:16px;padding:12px 16px;border-radius:6px;font-size:13px;line-height:1.7}

@@ -154,9 +154,9 @@ function showPage(page){
   $('page-title').textContent=pageTitles[page][0];$('page-description').textContent=pageTitles[page][1];
 
   $('revision').hidden=page==='records'||!$('revision').classList.contains('dirty');
-  if(page==='records')refreshRecords();
+  if(page==='records')enterRecords();
 }
-for(const button of document.querySelectorAll('[data-page]'))button.onclick=()=>{location.hash=button.dataset.page;};
+for(const button of document.querySelectorAll('[data-page]'))button.onclick=()=>{if(button.dataset.page==='records'&&location.hash==='#records')showPage('records');else location.hash=button.dataset.page;};
 window.addEventListener('hashchange',()=>showPage(location.hash.slice(1)));
 function showReceiverTab(kind){
   for(const key of ['message','diagnostics']){

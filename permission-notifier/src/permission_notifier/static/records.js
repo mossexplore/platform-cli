@@ -30,6 +30,12 @@ function recentRange(now=Date.now()){
   const local=value=>new Date(value+8*3600000).toISOString().slice(0,19);
   return {start:local(now-3*86400000),end:local(now),source:''};
 }
+function enterRecords(now=Date.now()){
+  recordFilters.end=recentRange(now).end;
+  $('record-end').value=recordFilters.end;
+  recordsPage=1;
+  return refreshRecords();
+}
 function resetRecordFilters(){
   recordsPage=1;recordFilters=recentRange();
   $('record-start').value=recordFilters.start;$('record-end').value=recordFilters.end;$('record-source').value='';
