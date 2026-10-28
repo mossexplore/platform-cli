@@ -22,8 +22,6 @@ header p{font-size:13px;margin:6px 0 0;color:#677992}
 .status-strip>div{border-left:1px solid #e1e7ef;padding-left:20px;min-width:110px}
 .status-strip small,.status-strip strong{display:block}
 .status-strip strong{font-weight:500;font-size:13px;color:#60728b}
-.status-strip strong[data-tone=good]{color:#059669}
-.status-strip strong[data-tone=bad]{color:#b45309}
 main{padding:24px 28px 16px;max-width:1660px;margin:auto}
 h2{font-size:16px;font-weight:600;margin:0 0 8px}
 h3{font-size:14px;font-weight:600;margin:20px 0 10px}
@@ -48,7 +46,7 @@ button:disabled{opacity:.45;cursor:default}
 .danger{color:#b42318}
 .hint{font-size:12px;color:#75849a;margin:10px 0 20px}
 .required{color:#d53343}
-.credential-state,.badge{color:#059669;font-size:12px;font-weight:500}
+.credential-state,.badge{color:#087a51;font-size:12px;font-weight:500}
 .badge{background:#e7f8f0;padding:2px 8px;margin-left:8px;vertical-align:middle}
 .form-actions{display:flex;gap:18px;align-items:center;flex-wrap:wrap;margin-top:24px}
 .form-actions .hint{margin:0}
@@ -60,7 +58,7 @@ details>label{padding:0 8px}
 hr{border:0;border-top:1px solid #e1e7ef;margin:20px 0}
 .status-detail{white-space:pre-line;font-size:13px;line-height:1.8;color:#52657e}
 .empty{padding:16px;background:#f7f9fc;color:#7a899e;border-radius:6px}
-#notice:not(:empty){padding:14px 18px;background:#edf4ff;color:#23569d;margin:20px 0;border-radius:6px}
+#notice:not(:empty){padding:14px 18px;margin:20px 0;border-radius:6px}
 .save-state{font-size:13px;color:#76869c;margin-top:28px;padding-top:14px;border-top:1px solid #edf0f5}
 .save-state.dirty{color:#b45309}
 .table-wrap{overflow:auto}
@@ -72,11 +70,9 @@ td input[data-field=uid]{min-width:210px}
 .task{border-bottom:1px solid #e1e7ef;padding:18px 0;overflow-wrap:anywhere}
 .task p{margin:10px 0}
 .task button{font-size:13px;margin:4px}
-.result-heading{display:block;padding:14px 16px;background:#fff3e2;color:#9a5708;border-radius:6px}
-.result-heading.accepted{background:#e7f8f1;color:#008859}
+.result-heading{display:block;padding:14px 16px;border-radius:6px}
 .result-meta{font-size:13px;color:#6f8098;white-space:pre-line;margin:12px 0}
 pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#f5f7fb;border:1px solid #e1e7ef;border-radius:6px;padding:16px;font-size:13px;max-height:300px;overflow:auto}
-#network-fields{display:grid;gap:20px}
 footer{text-align:center;color:#8491a4;font-size:12px;padding:20px}
 button:focus-visible,input:focus-visible,select:focus-visible,summary:focus-visible{outline:3px solid #95bfff;outline-offset:3px}
 @media(min-width:1450px){header{padding:20px 28px}
@@ -110,7 +106,28 @@ h2{font-size:16px}
 .secret-control{display:flex;gap:10px;align-items:center;margin-top:6px}
 .secret-control input{margin-top:0!important;min-width:0}
 .secret-control button{white-space:nowrap}
-.badge[data-ready=false]{background:#f1f3f6;color:#73829a}
+.badge[data-ready=false]{background:#f2f3f5;color:#586579}
 .grid{display:flex;gap:16px}
 .grid>label{flex:1;min-width:0}
 .config-column{max-width:760px}
+
+.state-badge{display:inline-flex;align-items:center;font-size:12px;font-weight:500;line-height:20px;padding:2px 8px;border-radius:4px;white-space:nowrap}
+/* Semantic colors are shared by badges, notices, test results and save state. */
+:is(.state-badge,.connection-result,.result-heading,.notice,.save-state).positive{color:#087a51;background:#e6f7f0}
+:is(.state-badge,.connection-result,.result-heading,.notice,.save-state).warning{color:#99520d;background:#fdf1e6}
+:is(.state-badge,.connection-result,.result-heading,.notice,.save-state).negative{color:#b42318;background:#fdecea}
+:is(.state-badge,.connection-result,.result-heading,.notice,.save-state).neutral{color:#586579;background:#f2f3f5}
+:is(.state-badge,.connection-result,.result-heading,.notice,.save-state).info{color:#23569d;background:#edf4ff}
+.connection-result{padding:14px 16px;border-radius:6px;font-size:14px}
+.config-summary{display:grid;gap:8px;margin:12px 0}
+.config-summary-row{display:flex;align-items:center;justify-content:space-between;gap:12px;font-size:13px;max-width:360px}
+.runtime-details{margin-top:24px;border-top:1px solid #e5e6eb;padding-top:4px}
+.runtime-line{display:flex;gap:8px;align-items:center;margin:10px 0;font-size:13px}
+
+.status-strip strong.state-badge{display:inline-flex;margin-top:4px;font-size:12px;font-weight:500}
+.save-state{padding:8px 12px;border-radius:4px;border-top:0}
+button.danger{color:#b42318;border-color:#f0bbb7;background:#fff5f4}
+button.danger:hover{background:#fdecea}
+
+#runtime-alert{white-space:pre-line;font-size:13px;margin:12px 0}
+details:has(input[id^="clear-"]:checked)>summary{background:#fdecea;color:#b42318}
