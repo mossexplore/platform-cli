@@ -7,6 +7,7 @@ from unittest.mock import patch
 import pytest
 
 from wiserec_cli.opencode_install import install_resources, main
+from wiserec_cli.opencode_permissions import OpenCodeVersionError
 
 
 @pytest.fixture(autouse=True)
@@ -143,6 +144,16 @@ def test_main_installs_both_targets_independently(
     with patch("wiserec_cli.opencode_install.install_resources", side_effect=install) as mocked, \
             patch("wiserec_cli.opencode_install.msg.detail") as detail:
         assert main() == (1 if failed_target else 0)
+    output = "\n".join(call.args[0] for call in detail.call_args_list)
+    assert str(opencode / "skills/wiserec-platform") in output
+    assert str(opencode / "commands/ml.md") in output
+    if failed_target == "OpenCode":
+        assert mocked.call_count == 1
+        assert mocked.call_args_list[0].args[0] == opencode
+        assert not (cac / "skills/wiserec-platform").exists()
+        assert not (cac / "commands/ml.md").exists()
+        assert str(cac / "skills/wiserec-platform") not in output
+        return
     assert mocked.call_count == 2
     for label, directory in (("OpenCode", opencode), ("codeagent", cac)):
         assert (directory / "skills/wiserec-platform/SKILL.md").exists() == (
@@ -152,8 +163,102 @@ def test_main_installs_both_targets_independently(
         assert command.exists() == (label != failed_target)
         if command.exists():
             assert command.read_bytes() == (resources / "commands/ml.md").read_bytes()
-    output = "\n".join(call.args[0] for call in detail.call_args_list)
-    assert str(opencode / "skills/wiserec-platform") in output
     assert str(cac / "skills/wiserec-platform") in output
-    assert str(opencode / "commands/ml.md") in output
     assert str(cac / "commands/ml.md") in output
+
+
+def _use_home(monkeypatch, home: Path) -> None:
+    monkeypatch.setattr(Path, "home", staticmethod(lambda: home))
+
+
+def _fail_permission_setup(monkeypatch, mode: str) -> None:
+    if mode == "version":
+        monkeypatch.setattr(
+            "wiserec_cli.opencode_install.detect_permission_format",
+            lambda: (_ for _ in ()).throw(OpenCodeVersionError("undetectable")),
+        )
+        return
+    monkeypatch.setattr("wiserec_cli.opencode_install.detect_permission_format", lambda: "permissions")
+    message = (
+        "opencode debug config failed (exit 1): missing managed rule"
+        if mode == "missing-rules"
+        else "opencode debug config failed (exit 2): rejected"
+    )
+    monkeypatch.setattr(
+        "wiserec_cli.opencode_install.install_opencode_permissions",
+        lambda target, rule_format="permissions": (_ for _ in ()).throw(ValueError(message)),
+    )
+
+
+def _plant_codeagent(home: Path) -> None:
+    skill = home / ".cac" / "skills" / "wiserec-platform"
+    skill.mkdir(parents=True)
+    (skill / "SKILL.md").write_text("previous-codeagent", encoding="utf-8")
+    (skill / "notes.md").write_text("keep-note", encoding="utf-8")
+    commands = home / ".cac" / "commands"
+    commands.mkdir()
+    (commands / "ml.md").write_text("previous-ml", encoding="utf-8")
+    (commands / "custom.md").write_text("keep-command", encoding="utf-8")
+
+
+def _assert_prior_codeagent(home: Path) -> None:
+    skill = home / ".cac" / "skills" / "wiserec-platform"
+    assert (skill / "SKILL.md").read_text(encoding="utf-8") == "previous-codeagent"
+    assert (skill / "notes.md").read_text(encoding="utf-8") == "keep-note"
+    assert (home / ".cac" / "commands" / "ml.md").read_text(encoding="utf-8") == "previous-ml"
+    assert (home / ".cac" / "commands" / "custom.md").read_text(encoding="utf-8") == "keep-command"
+
+
+@pytest.mark.parametrize("mode", ["version", "debug", "missing-rules"])
+def test_permission_failure_leaves_no_new_codeagent_skill(tmp_path, monkeypatch, capsys, mode):
+    home = tmp_path / "home"
+    _use_home(monkeypatch, home)
+    monkeypatch.setenv("OPENCODE_CONFIG_DIR", str(tmp_path / "opencode"))
+    _fail_permission_setup(monkeypatch, mode)
+    assert main() == 1
+    assert not (home / ".cac" / "skills" / "wiserec-platform").exists()
+    assert not (home / ".cac" / "commands" / "ml.md").exists()
+    assert "codeagent resources installed" not in capsys.readouterr().err
+
+
+@pytest.mark.parametrize("mode", ["version", "debug", "missing-rules"])
+def test_permission_failure_restores_prior_codeagent_skill(tmp_path, monkeypatch, capsys, mode):
+    home = tmp_path / "home"
+    _use_home(monkeypatch, home)
+    _plant_codeagent(home)
+    monkeypatch.setenv("OPENCODE_CONFIG_DIR", str(tmp_path / "opencode"))
+    _fail_permission_setup(monkeypatch, mode)
+    assert main() == 1
+    _assert_prior_codeagent(home)
+    assert "codeagent resources installed" not in capsys.readouterr().err
+
+
+def test_opencode_ml_failure_restores_prior_codeagent_skill(tmp_path, monkeypatch, capsys):
+    home = tmp_path / "home"
+    opencode = tmp_path / "opencode"
+    _use_home(monkeypatch, home)
+    _plant_codeagent(home)
+    monkeypatch.setenv("OPENCODE_CONFIG_DIR", str(opencode))
+    monkeypatch.setattr("wiserec_cli.opencode_install.detect_permission_format", lambda: "permissions")
+    monkeypatch.setattr("wiserec_cli.opencode_install.validate_opencode_config", lambda target: None)
+    monkeypatch.setattr(
+        "wiserec_cli.opencode_install.preflight_opencode_permissions",
+        lambda target, rule_format="permissions": None,
+    )
+    monkeypatch.setattr(
+        "wiserec_cli.opencode_install.install_opencode_permissions",
+        lambda target, rule_format="permissions": None,
+    )
+    monkeypatch.setattr("wiserec_cli.opencode_install.rollback_opencode_permissions", lambda target: False)
+
+    def install(directory, source=None):
+        if directory == opencode:
+            raise OSError("disk full")
+        raise AssertionError("codeagent resources must not be copied when OpenCode /ml fails")
+
+    with patch("wiserec_cli.opencode_install.install_resources", side_effect=install):
+        assert main() == 1
+    _assert_prior_codeagent(home)
+    error = capsys.readouterr().err
+    assert "codeagent resources installed" not in error
+    assert "disk full" in error
