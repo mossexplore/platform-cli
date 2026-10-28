@@ -13,7 +13,7 @@ from zipfile import ZipFile
 import pytest
 
 ROOT = Path(__file__).parents[1]
-VERSION = '1.0.7.7'
+VERSION = '1.0.7.10'
 SHA = 'a' * 40
 
 
@@ -28,7 +28,7 @@ def assemble(tmp_path, *, wrong_revision=False, extra_file=False, leak=False):
         'docs/权限管理系统Docker离线导入与运行.md': 'image readme',
         'access-service/docker/service.env.example': 'placeholder',
         'docs/权限管理系统Docker安装部署与调试指南.md': 'runbook',
-        f'docs/权限管理系统1.0.7.1升级至{VERSION}指南.md': 'upgrade',
+        f'docs/权限管理系统1.0.7.7升级至{VERSION}指南.md': 'upgrade',
         'docs/WiseRec CLI 使用手册.md': 'commands',
         'scripts/windows/INSTALL.md': 'install',
         'permission-notifier/README.md': 'assistant install',

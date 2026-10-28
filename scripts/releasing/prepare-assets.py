@@ -75,11 +75,11 @@ manifest['validation'] = [
     'CLI and service unit tests', 'Browser timezone and environment disclosure tests',
     'MySQL Docker smoke, numeric dashboard JSON, directory mount and configuration restart',
     'Docker save/load round trip', 'Windows online and offline install',
-    'Windows CLI upgrade from published 1.0.7.1; selected environment preserved on upgrade and reinstall',
+    'Windows CLI upgrade from published 1.0.7.7; selected environment preserved on upgrade and reinstall',
 ]
 (out / 'manifest.json').write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + '\n')
 shutil.copyfile('docs/权限管理系统Docker安装部署与调试指南.md', out / 'Docker-runbook.md')
-shutil.copyfile(f'docs/权限管理系统1.0.7.1升级至{version}指南.md', out / f'Docker-upgrade-{version}.md')
+shutil.copyfile(f'docs/权限管理系统1.0.7.7升级至{version}指南.md', out / f'Docker-upgrade-{version}.md')
 shutil.copyfile('scripts/windows/INSTALL.md', out / 'CLI-install.md')
 shutil.copyfile('docs/WiseRec CLI 使用手册.md', out / 'CLI-reference.md')
 expected = {wheel.name, assistant.name, *(a.name for a in archives), manifest['image_file'],

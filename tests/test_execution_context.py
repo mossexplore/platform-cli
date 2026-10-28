@@ -11,13 +11,13 @@ from wiserec_cli.cli import app
 def test_context_offline_and_redacted(tmp_path):
     config = tmp_path/'config.json'
     config.write_text(json.dumps({'current': 'test', 'profiles': [{'name': 'test',
-        'api_endpoint': 'https://user:secret@example.com/dashboard?token=private#hidden'}]}))
+        'api_endpoint': 'https://user:context-password-probe@example.com/dashboard?token=context-query-probe#context-fragment-probe'}]}))
     result = CliRunner().invoke(app, ['--config', str(config), 'context', '--json'])
     assert result.exit_code == 0, result.output
     value = json.loads(result.stdout)
     assert value['运行模式'] == '真实平台'
     assert value['平台地址'] == 'https://example.com/dashboard'
-    assert not any(word in result.stdout for word in ('secret', 'private', 'hidden'))
+    assert not any(word in result.stdout for word in ('context-password-probe', 'context-query-probe', 'context-fragment-probe'))
 
 
 def test_production_ignores_demo_environment(tmp_path):

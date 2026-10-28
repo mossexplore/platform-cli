@@ -86,7 +86,7 @@ def verify(directory, release, version, revision, digest):
         'CLI-reference.md': 'docs/WiseRec CLI 使用手册.md',
         'Notifier-install.md': 'permission-notifier/README.md',
         'Docker-runbook.md': 'docs/权限管理系统Docker安装部署与调试指南.md',
-        f'Docker-upgrade-{version}.md': f'docs/权限管理系统1.0.7.1升级至{version}指南.md',
+        f'Docker-upgrade-{version}.md': f'docs/权限管理系统1.0.7.7升级至{version}指南.md',
         'service.env.example': 'access-service/docker/service.env.example',
     }
     for name, source in docs.items():

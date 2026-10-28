@@ -1,8 +1,8 @@
 # CLI 权限管理服务
 
-当前版本：1.0.7.7，数据库结构 12。
+当前版本：1.0.7.10，数据库结构 12。
 
-附件见 [v1.0.7.7 Release](https://github.com/mossexplore/platform-cli/releases/tag/v1.0.7.7)。从上一正式版 1.0.7.1 升级要求结构 11 → 12，见 [升级指南](../docs/权限管理系统1.0.7.1升级至1.0.7.7指南.md)。独立本地助手单独下载，不进入 CLI 安装包。
+附件见 [v1.0.7.10 Release](https://github.com/mossexplore/platform-cli/releases/tag/v1.0.7.10)。从上一正式版 1.0.7.7 升级结构仍为 12，无需迁移，见 [升级指南](../docs/权限管理系统1.0.7.7升级至1.0.7.10指南.md)。独立本地助手单独下载，不进入 CLI 安装包。
 
 支持 Docker Compose 部署与 GitHub Actions → GHCR 自动制作镜像，详见 [Docker 部署与发布指南](../docs/权限管理系统Docker部署与发布指南.md)。下面保留原内网离线包部署方式。
 
@@ -336,7 +336,7 @@ CLI 的 `config.json` 中每个 profile 可配置 `alias`（如“开发环境�
 
 ## 环境列表批量权限查询
 
-以下为尚未发布的源码改动，已发布的 1.0.7.1 不包含该接口。
+当前版本包含以下接口，旧版 1.0.7.1 不包含该接口。
 
 `POST /cli-permission/api/v1/access/environments` 接收当前账号 `username`（未登录时可为 null）和最多 100 项 `environments`。每项包含自身的 `username`、`environment`、`platform_origin` 和 `business_id`；环境标识不能重复。响应一次返回当前账号 `has_access`（没有账号时为 null）及逐项的账号、环境、业务 ID 和鉴权结果。
 

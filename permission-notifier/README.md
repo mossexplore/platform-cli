@@ -6,7 +6,7 @@ Windows 托盘与本地网页应用。通过权限系统领取任务，逐个调
 
 需要 Python 3.12。将本项目单独交付到用户电脑，不放入 CLI 安装包。**完整解压安装包后，双击根目录的 `install.cmd`** 即可安装；安装成功或失败都会保留窗口，按任意键关闭。无需手动执行 `.ps1` 或修改系统执行策略。
 
-已发布的 1.0.7.7 ZIP 附件保持原样。如果解压后没有 CMD 入口，可分别下载 [install.cmd](https://raw.githubusercontent.com/mossexplore/platform-cli/main/permission-notifier/install.cmd) 和 [uninstall.cmd](https://raw.githubusercontent.com/mossexplore/platform-cli/main/permission-notifier/uninstall.cmd)，保存到解压根目录，与 `pyproject.toml` 同级；保留完整的 `scripts` 目录。不要将文件保存为 `.cmd.txt`。后续源码安装包会直接包含这两个入口。
+已发布的 1.0.7.7 ZIP 附件保持原样。如果解压后没有 CMD 入口，可分别下载 [install.cmd](https://raw.githubusercontent.com/mossexplore/platform-cli/main/permission-notifier/install.cmd) 和 [uninstall.cmd](https://raw.githubusercontent.com/mossexplore/platform-cli/main/permission-notifier/uninstall.cmd)，保存到解压根目录，与 `pyproject.toml` 同级；保留完整的 `scripts` 目录。不要将文件保存为 `.cmd.txt`。1.0.7.10 源码安装包已包含这两个入口。
 
 也可以在命令提示符或 PowerShell 中运行：
 
@@ -119,7 +119,7 @@ python -m permission_notifier.main --headless --data-dir /tmp/notifier-test
 
 最后两项用于联调；跨项目测试还需安装权限服务依赖。测试使用模拟消息发送，不访问真实接口。Windows 托盘/任务计划需在实际 Windows 用户环境验收。
 
-构建私有源码包和 Wheel：`python -m build`。构建包含 Windows 安装脚本的独立 ZIP：`python scripts/build.py`。本项目随 1.0.7.7 Release 作为单独附件交付，不放入 CLI 安装包或公共 Python 包仓库。当前不含 Python 解释器和离线依赖包，联网安装所需依赖需由用户环境提供。
+构建私有源码包和 Wheel：`python -m build`。构建包含 Windows 安装脚本的独立 ZIP：`python scripts/build.py`。本项目随 1.0.7.10 Release 作为单独附件交付，不放入 CLI 安装包或公共 Python 包仓库。当前不含 Python 解释器和离线依赖包，联网安装所需依赖需由用户环境提供。
 
 页面顶部分别展示本地助手、权限系统连接及自动通知状态；权限系统连接依据当前配置绑定及最近两分钟的心跳判断。已保存配置清单显示缺失项，编辑后提示未保存。轮询间隔和超时位于高级设置中。消息接口通过主动测试验证，不能将权限系统已连接视作消息接口可用。
 
