@@ -58,7 +58,14 @@ async function refresh() {
     $('delivery-state').textContent=s.paused?'已暂停':!s.config_ready?'配置未完成':s.error?'需要处理':s.connection_state!=='connected'?'等待连接':'自动通知已开启';
     $('pause').disabled=s.paused;$('resume').disabled=!s.paused||!s.config_ready;
     $('status').textContent=`${s.worker_alive?'工作线程运行中':'工作线程尚未运行或异常'} · ${s.paused?'已暂停':'运行中'}${s.sending?' · 正在发送':''}\n最近轮询：${time(s.last_poll)}　最近连接：${time(s.last_heartbeat)}\n最近成功：${time(s.last_success_at)}　待回传：${s.pending_reports}　需处理：${s.needs_attention}\n${s.error?'提示：'+s.error:''}${s.pending_fields.length?'\n配置等待切换：'+s.pending_fields.join('、'):''}`;
-    $('test-results').textContent=s.test_results.map(r=>`${r.uid}：${labels[r.state]||r.state} ${r.error_code||''}${r.http_status?' HTTP '+r.http_status:''}`).join('；');
+    $('test-results').replaceChildren();
+    if(s.tests_waiting) $('test-results').textContent='测试排队中：'+s.tests_waiting+' 个对象';
+    for(const r of s.test_results) {
+      const box=document.createElement('div');box.className='task';
+      const d=r.diagnostic||{};
+      box.textContent=`${r.uid}：${labels[r.state]||r.state}${r.http_status?' HTTP '+r.http_status:''} ${r.error_code||''}\n测试时间：${time(r.tested_at)}\n${d.method||'POST'} ${d.target_origin||''} ${d.elapsed_ms===undefined?'':'耗时 '+d.elapsed_ms+' ms'}\n${d.reason||''}\n响应摘要：${d.response_summary||'未收到可用响应'}${r.state==='accepted'?'\nHTTP 200 已判成功。如未收到，请用 UID、测试时间和响应流水号查询消息服务投递日志。':''}`;
+      $('test-results').append(box);
+    }
     if(s.token_expires_at){const expiry=new Date(s.token_expires_at);$('status').textContent+='\n助手 Token 到期：'+expiry.toLocaleString('zh-CN',{timeZone:'Asia/Shanghai',hour12:false})+(expiry-Date.now()<7*86400000?'（即将到期，请重置）':'');}
     const tasks=await api('tasks');$('tasks').replaceChildren();
     for(const task of tasks) {
@@ -79,7 +86,7 @@ $('config-form').onsubmit=action(async()=>{const result=await api('config',form(
 $('add-receiver').onclick=()=>receiverRow();$('reload').onclick=action(load);
 $('bind').onclick=action(async()=>{await api('bind',{});notice('助手 Token 已绑定。');});
 $('check').onclick=action(async()=>{const result=await api('check',form());notice('当前表单检查：'+result.message);});
-$('test-message').onclick=action(async()=>{const body=form();body.uids=Array.from($('receivers').children).filter(tr=>tr.querySelector('[data-field=test]').checked).map(tr=>tr.querySelector('[data-field=uid]').value.trim());if(!body.uids.length)throw new Error('请勾选测试对象');if(!confirm('将使用当前表单（可能未保存）实际发送测试消息给：'+body.uids.join('、')))return;await api('test-message',body);notice('测试已排队，不会保存表单配置。');});
+$('test-message').onclick=action(async()=>{const body=form();body.uids=Array.from($('receivers').children).filter(tr=>tr.querySelector('[data-field=test]').checked).map(tr=>tr.querySelector('[data-field=uid]').value.trim());if(!body.uids.length)throw new Error('请勾选测试对象');if(!confirm('将使用当前表单（可能未保存）实际发送测试消息给：'+body.uids.join('、')))return;await api('test-message',body);notice('测试已排队，尚未确认发送；请查看下方测试结果。测试不依赖权限系统连接，不会保存表单配置。');await refresh();});
 for(const id of ['pause','resume'])$(id).onclick=action(async()=>{await api(id,{});await refresh();});
 $('shutdown').onclick=action(async()=>{if(!confirm('退出后将停止发送，本地网页也将关闭。继续？'))return;await api('shutdown',{});stopping=true;notice('正在退出助手，在途请求将收尾并保存。');});
 $('config-form').addEventListener('input',()=>{$('revision').textContent='有未保存的修改';});

@@ -216,7 +216,7 @@ class Worker:
         self.sending = True
         try:
             result = self.sender.send(config, config['message'], uid, '【测试】权限通知助手连接验证')
-            self.test_results.append({'uid': uid, **result})
+            self.test_results.append({'uid': uid, 'tested_at': time.time(), **result})
         finally:
             self.sending = False
 

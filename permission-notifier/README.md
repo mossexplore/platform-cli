@@ -122,3 +122,9 @@ python -m permission_notifier.main --headless --data-dir /tmp/notifier-test
 构建私有源码包和 Wheel：`python -m build`。构建包含 Windows 安装脚本的独立 ZIP：`python scripts/build.py`。本项目随 1.0.7.7 Release 作为单独附件交付，不放入 CLI 安装包或公共 Python 包仓库。当前不含 Python 解释器和离线依赖包，联网安装所需依赖需由用户环境提供。
 
 页面顶部分别展示本地助手、权限系统连接及自动通知状态；权限系统连接依据当前配置绑定及最近两分钟的心跳判断。已保存配置清单显示缺失项，编辑后提示未保存。轮询间隔、超时及代理位于折叠的高级设置中。消息接口通过主动测试验证，不能将权限系统已连接视作消息接口可用。
+
+### 测试消息排查
+
+测试直接请求消息接口，不经过权限系统。`queued: true` 只代表排队；等待页面刷新后查看“消息接口测试结果”。结果展示接收 UID、测试时间、HTTP 状态、目标域名、耗时及响应摘要。HTTP 200 仍按约定判为成功；若没收到消息，用 UID、测试时间以及摘要中的流水号在消息服务查询投递记录。摘要只保留常见顶层诊断字段，隐藏已配置凭据，不展示完整正文、URL 路径或查询参数；缺少摘要不代表接口没有其他字段。
+
+权限系统异常单独查看运行状态：`SERVICE_CONNECT_TIMEOUT` 是建立连接超时，`SERVICE_READ_TIMEOUT` 是等待响应超时，`SERVICE_PROXY_ERROR` 是代理异常，`SERVICE_CONNECTION_FAILED` 需检查 DNS、网络及 TLS，`SERVICE_LOCAL_NETWORK_CONFIG_ERROR` 需检查代理或 CA 文件配置。测试响应只在当前进程内保留，重启后清空。

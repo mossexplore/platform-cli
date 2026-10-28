@@ -1,4 +1,5 @@
 from .transport import client
+from .diagnostics import failure
 
 
 class ServiceError(RuntimeError):
@@ -20,8 +21,8 @@ class Service:
             with self.factory(config['service_network'], 10) as http:
                 response = http.post(base + '/api/v1/notifications/' + endpoint.lstrip('/'),
                     json=payload, headers={'Authorization': 'Bearer ' + config['assistant_token']})
-        except Exception:
-            raise ServiceError('SERVICE_UNAVAILABLE') from None
+        except Exception as exc:
+            raise ServiceError("SERVICE_" + failure(exc)) from None
         try:
             result = response.json()
         except ValueError:
