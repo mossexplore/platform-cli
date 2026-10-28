@@ -12,7 +12,7 @@ def test_summary_bounds_and_redacts():
     summary = response_summary(response, ['secret-token'])
     assert 'secret-token' not in summary and 'hidden' not in summary
     assert 'trace-123' in summary and '42' in summary
-    assert '正文未展示' in response_summary(httpx.Response(200, text='<html>secret</html>'), [])
+    assert '<html>secret</html>' == response_summary(httpx.Response(200, text='<html>secret</html>'), [])
     assert target('https://example.com/private-token?auth=secret') == 'https://example.com'
 
 
@@ -37,3 +37,21 @@ def test_service_errors_are_classified_without_exception_text(error, code):
     with pytest.raises(ServiceError) as caught:
         service.call(config, 'installation', 'check')
     assert str(caught.value) == code
+
+
+def test_nested_response_and_text_redaction():
+    response = httpx.Response(200, json={'data': [{'result': 'invalid receiver',
+        'access_token': 'unknown-token', 'nested': {'auth': 'private'}}],
+        'echo': 'configured-secret'})
+    result = response_summary(response, ['configured-secret'])
+    assert 'invalid receiver' in result
+    assert all(secret not in result for secret in ('unknown-token', 'private', 'configured-secret'))
+    assert '[已隐藏]' in result
+    result = response_summary(httpx.Response(200, text='token=private-value auth=configured-secret'), ['configured-secret'])
+    assert 'private-value' not in result and 'configured-secret' not in result
+
+
+def test_response_size_and_empty_body():
+    result = response_summary(httpx.Response(200, text='x'*9000), [])
+    assert len(result) < 8100 and '已截断' in result
+    assert response_summary(httpx.Response(204), []) == '（空响应体）'

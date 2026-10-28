@@ -1,5 +1,6 @@
 """Bounded diagnostics without request credentials or arbitrary response bodies."""
 import json
+import re
 from urllib.parse import urlsplit
 import httpx
 
@@ -25,21 +26,31 @@ def failure(exc):
 
 
 def response_summary(response, secrets):
-    """Keep known diagnostic fields only; never expose HTML or echoed payloads."""
+    """Render nested responses as bounded plain text with credential redaction."""
+    def redact(text):
+        for secret in sorted(filter(None, secrets), key=len, reverse=True):
+            text = text.replace(secret, '[已隐藏]')
+        text = re.sub(r'(?i)(bearer\s+)[^\s"<>]+', r'\1[已隐藏]', text)
+        return re.sub(
+            r'(?i)((?:auth|token|password|secret|api[_-]?key|cookie)["\']?\s*[:=]\s*["\']?)[^\s"\'<>&,}]+',
+            r'\1[已隐藏]', text)
+
+    def clean(value, depth=0):
+        if depth > 12:
+            return '[嵌套过深，已省略]'
+        if isinstance(value, dict):
+            return {redact(str(key)): '[已隐藏]' if any(
+                word in re.sub(r'[^a-z]', '', str(key).lower())
+                for word in ('auth', 'token', 'password', 'secret', 'apikey', 'cookie'))
+                else clean(item, depth+1) for key, item in list(value.items())[:100]}
+        if isinstance(value, list):
+            return [clean(item, depth+1) for item in value[:100]]
+        return redact(value) if isinstance(value, str) else value
+
     try:
-        body = response.json()
-    except ValueError:
-        return '非 JSON 响应；正文未展示，请查消息服务日志'
-    if not isinstance(body, dict):
-        return 'JSON 非对象；请查消息服务日志'
-    allowed = {'code', 'message', 'msg', 'error', 'success', 'request_id', 'trace_id', 'message_id'}
-    values = {}
-    for key in allowed:
-        value = body.get(key)
-        if value is not None and isinstance(value, (str, bool, int, float)):
-            text = str(value)
-            for secret in secrets:
-                if secret:
-                    text = text.replace(secret, '[已隐藏]')
-            values[key] = text[:400]
-    return json.dumps(values, ensure_ascii=False) if values else '无可展示的诊断字段；请查消息服务日志'
+        text = json.dumps(clean(response.json()), ensure_ascii=False, indent=2)
+    except (ValueError, RecursionError):
+        text = redact(response.text)
+    if not text:
+        return '（空响应体）'
+    return text[:8000] + ('\n[响应体超过 8000 字符，已截断]' if len(text) > 8000 else '')

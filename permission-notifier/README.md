@@ -125,6 +125,6 @@ python -m permission_notifier.main --headless --data-dir /tmp/notifier-test
 
 ### 测试消息排查
 
-测试直接请求消息接口，不经过权限系统。`queued: true` 只代表排队；等待页面刷新后查看“消息接口测试结果”。结果展示接收 UID、测试时间、HTTP 状态、目标域名、耗时及响应摘要。HTTP 200 仍按约定判为成功；若没收到消息，用 UID、测试时间以及摘要中的流水号在消息服务查询投递记录。摘要只保留常见顶层诊断字段，隐藏已配置凭据，不展示完整正文、URL 路径或查询参数；缺少摘要不代表接口没有其他字段。
+测试直接请求消息接口，不经过权限系统。`queued: true` 只代表排队；等待页面刷新后查看“消息接口测试结果”。结果展示接收 UID、测试时间、HTTP 状态、目标域名、耗时及响应摘要。HTTP 200 仍按约定判为成功；若没收到消息，用 UID、测试时间以及摘要中的流水号在消息服务查询投递记录。响应体支持嵌套 JSON、数组和普通文本，隐藏已配置凭据及敏感字段；最多展示 8000 字符，每层最多 100 项、12 层。也可在 `/api/status` 的 `test_results[].diagnostic.response_summary` 查看同一脱敏内容。
 
 权限系统异常单独查看运行状态：`SERVICE_CONNECT_TIMEOUT` 是建立连接超时，`SERVICE_READ_TIMEOUT` 是等待响应超时，`SERVICE_PROXY_ERROR` 是代理异常，`SERVICE_CONNECTION_FAILED` 需检查 DNS、网络及 TLS，`SERVICE_LOCAL_NETWORK_CONFIG_ERROR` 需检查代理或 CA 文件配置。测试响应只在当前进程内保留，重启后清空。

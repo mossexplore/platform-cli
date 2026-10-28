@@ -63,7 +63,7 @@ async function refresh() {
     for(const r of s.test_results) {
       const box=document.createElement('div');box.className='task';
       const d=r.diagnostic||{};
-      box.textContent=`${r.uid}：${labels[r.state]||r.state}${r.http_status?' HTTP '+r.http_status:''} ${r.error_code||''}\n测试时间：${time(r.tested_at)}\n${d.method||'POST'} ${d.target_origin||''} ${d.elapsed_ms===undefined?'':'耗时 '+d.elapsed_ms+' ms'}\n${d.reason||''}\n响应摘要：${d.response_summary||'未收到可用响应'}${r.state==='accepted'?'\nHTTP 200 已判成功。如未收到，请用 UID、测试时间和响应流水号查询消息服务投递日志。':''}`;
+      box.textContent=`${r.uid}：${labels[r.state]||r.state}${r.http_status?' HTTP '+r.http_status:''} ${r.error_code||''}\n测试时间：${time(r.tested_at)}\n${d.method||'POST'} ${d.target_origin||''} ${d.elapsed_ms===undefined?'':'耗时 '+d.elapsed_ms+' ms'}\n${d.reason||''}\n响应体（脱敏）：${d.response_summary||'未收到可用响应'}${r.state==='accepted'?'\nHTTP 200 已判成功。如未收到，请用 UID、测试时间和响应流水号查询消息服务投递日志。':''}`;
       $('test-results').append(box);
     }
     if(s.token_expires_at){const expiry=new Date(s.token_expires_at);$('status').textContent+='\n助手 Token 到期：'+expiry.toLocaleString('zh-CN',{timeZone:'Asia/Shanghai',hour12:false})+(expiry-Date.now()<7*86400000?'（即将到期，请重置）':'');}
