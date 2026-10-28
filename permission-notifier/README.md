@@ -66,7 +66,7 @@ Get-NetTCPConnection -LocalPort 18765 -State Listen -ErrorAction SilentlyContinu
 2. 登录权限系统“个人通知”，开启通知，输入 `reset` 生成 Token；30 分钟内在本地绑定。
 3. 本地网页填写权限系统地址和助手 Token，保存并绑定。
 4. 填写消息 URL、auth、可选 sender，添加启用的接收 UID。每个 UID 单独请求一次。
-5. 消息接口固定以 HTTP 200 判断发送成功，无需选择成功规则或配置 JSON 字段。超时及其他未知响应需先核对消息，再处理。
+5. 消息接口固定以 HTTP 2xx 且响应 JSON 顶层 status 严格等于 "ok" 判断发送成功，无需选择成功规则或配置 JSON 字段。超时及其他未知响应需先核对消息，再处理。
 6. 勾选对象，主动发送测试消息；检查逐项结果后保存配置并恢复通知。
 
 消息请求 JSON 为 `content`、`receiver`、`auth`；sender 非空才加入。auth 不放入 HTTP Authorization；助手 Token 才用于访问权限系统的 Bearer 认证。
@@ -125,6 +125,14 @@ python -m permission_notifier.main --headless --data-dir /tmp/notifier-test
 
 ### 测试消息排查
 
-测试直接请求消息接口，不经过权限系统。`queued: true` 只代表排队；等待页面刷新后查看“消息接口测试结果”。结果展示接收 UID、测试时间、HTTP 状态、目标域名、耗时及响应摘要。HTTP 200 仍按约定判为成功；若没收到消息，用 UID、测试时间以及摘要中的流水号在消息服务查询投递记录。响应体支持嵌套 JSON、数组和普通文本，隐藏已配置凭据及敏感字段；最多展示 8000 字符，每层最多 100 项、12 层。也可在 `/api/status` 的 `test_results[].diagnostic.response_summary` 查看同一脱敏内容。
+测试直接请求消息接口，不经过权限系统。`queued: true` 只代表排队；等待页面刷新后查看“消息接口测试结果”。结果展示接收 UID、测试时间、HTTP 状态、目标域名、耗时及响应摘要。仅 HTTP 2xx 且响应 JSON 顶层 `status` 严格等于 `"ok"` 才判为成功；若没收到消息，用 UID、测试时间以及摘要中的流水号在消息服务查询投递记录。响应体支持嵌套 JSON、数组和普通文本，隐藏已配置凭据及敏感字段；最多展示 8000 字符，每层最多 100 项、12 层。也可在 `/api/status` 的 `test_results[].diagnostic.response_summary` 查看同一脱敏内容。
 
 权限系统异常单独查看运行状态：`SERVICE_CONNECT_TIMEOUT` 是建立连接超时，`SERVICE_READ_TIMEOUT` 是等待响应超时，`SERVICE_PROXY_ERROR` 是代理异常，`SERVICE_CONNECTION_FAILED` 需检查 DNS、网络及 TLS，`SERVICE_LOCAL_NETWORK_CONFIG_ERROR` 需检查代理或 CA 文件配置。测试响应只在当前进程内保留，重启后清空。
+
+Token 和 auth 已保存时，输入框显示四位掩码，不回传真实凭据。保持掩码或留空会保留原值；输入新值会替换，勾选清除才删除。
+
+### 页面导航
+
+左侧菜单提供连接配置、接收对象、测试与诊断、发送记录和高级设置。连接配置分为权限系统、消息接口两个页签；各页的保存按钮保存整个当前配置。菜单及页签切换保留未保存内容，重新加载会询问是否放弃修改。
+
+消息接口右侧可选择启用的接收对象并发送测试通知，查看 HTTP 状态、耗时及脱敏响应体；也可在测试与诊断页操作。接收对象页支持添加、编辑、停用及删除，修改后保存。高级设置集中管理轮询、超时、代理、CA 及退出操作。

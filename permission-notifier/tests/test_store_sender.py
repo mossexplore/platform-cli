@@ -71,7 +71,7 @@ def test_each_post_exact_fields_and_no_automatic_retry(tmp_path):
     config=configured(Store(tmp_path/'assistant.json'));seen=[]
     def handler(request):
         seen.append(json.loads(request.content))
-        return httpx.Response(200,json={'ok':True})
+        return httpx.Response(200,json={'status':'ok'})
     sender=Sender(lambda *_:httpx.Client(transport=httpx.MockTransport(handler)))
     for uid in ('001','002'): assert sender.send(config,config['message'],uid,'hello')['state']=='accepted'
     assert seen==[{'content':'hello','receiver':uid,'auth':'auth-value'} for uid in ('001','002')]
@@ -82,10 +82,10 @@ def test_each_post_exact_fields_and_no_automatic_retry(tmp_path):
     assert sender.send(config,config['message'],'001','hello')['state']=='uncertain'
 
 
-def test_http_200_ignores_legacy_json_rule(tmp_path):
+def test_status_contract_ignores_legacy_json_rule(tmp_path):
     config=configured(Store(tmp_path/'assistant.json'))
     config['message'].update(success_mode='json_equals',success_field='data.code',success_value='0')
-    sender=Sender(lambda *_:httpx.Client(transport=httpx.MockTransport(lambda r:httpx.Response(200,json={'data':{'code':False}}))))
+    sender=Sender(lambda *_:httpx.Client(transport=httpx.MockTransport(lambda r:httpx.Response(200,json={'status':'ok','data':{'code':False}}))))
     assert sender.send(config,config['message'],'001','x')['state']=='accepted'
 
 
@@ -95,3 +95,29 @@ def test_non_200_never_accepted(tmp_path, status):
     sender = Sender(lambda *_: httpx.Client(transport=httpx.MockTransport(
         lambda r: httpx.Response(status))))
     assert sender.send(config, config['message'], '001', 'x')['state'] != 'accepted'
+
+
+@pytest.mark.parametrize('body', [{}, {'status':'error'}, {'status':'OK'},
+    {'status':True}, {'status':None}, {'data':{'status':'ok'}}, [], 'ok'])
+def test_only_top_level_exact_ok_is_success(tmp_path, body):
+    config = configured(Store(tmp_path/'assistant.json'))
+    sender = Sender(lambda *_: httpx.Client(transport=httpx.MockTransport(
+        lambda r: httpx.Response(200, json=body))))
+    result = sender.send(config, config['message'], '001', 'test')
+    assert result['state'] == 'uncertain'
+    assert result['error_code'] == 'BUSINESS_OUTCOME_UNCONFIRMED'
+
+
+@pytest.mark.parametrize('status', [200, 201, 202])
+def test_success_with_extra_response_fields(tmp_path, status):
+    config = configured(Store(tmp_path/'assistant.json'))
+    sender = Sender(lambda *_: httpx.Client(transport=httpx.MockTransport(
+        lambda r: httpx.Response(status, json={'status':'ok', 'data':{'id':'123'}}))))
+    assert sender.send(config, config['message'], '001', 'test')['state'] == 'accepted'
+
+
+def test_non_json_is_not_success(tmp_path):
+    config = configured(Store(tmp_path/'assistant.json'))
+    sender = Sender(lambda *_: httpx.Client(transport=httpx.MockTransport(
+        lambda r: httpx.Response(200, text='ok'))))
+    assert sender.send(config, config['message'], '001', 'test')['state'] == 'uncertain'

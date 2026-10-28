@@ -5,6 +5,7 @@ recursive-include scripts *.ps1
 include scripts/build.py
 include scripts/smoke.py
 recursive-include src/permission_notifier/templates *.html
-recursive-include src/permission_notifier/static *.js *.css
+recursive-include src/permission_notifier/static *.js *.css *.svg
 exclude assistant.json
 global-exclude *.log *.tmp
+include src/permission_notifier/static/icons/LICENSE

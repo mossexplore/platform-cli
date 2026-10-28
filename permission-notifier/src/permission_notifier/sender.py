@@ -1,4 +1,4 @@
-"""Exactly one POST per invocation; HTTP 200 is the agreed success contract."""
+"""Exactly one POST per invocation; success requires a 2xx JSON response with status=ok."""
 import time
 import httpx
 from .diagnostics import target, failure, response_summary
@@ -33,7 +33,11 @@ class Sender:
             return {'state': 'failed', 'error_code': 'REDIRECT_REFUSED', 'http_status': status, 'diagnostic': diagnostic}
         if not 200 <= status < 300:
             return {'state': 'uncertain', 'error_code': 'HTTP_OUTCOME_UNCONFIRMED', 'http_status': status, 'diagnostic': diagnostic}
-        accepted = status == 200
+        try:
+            body = response.json()
+            accepted = isinstance(body, dict) and body.get('status') == 'ok'
+        except ValueError:
+            accepted = False
         return {'state': 'accepted' if accepted else 'uncertain', 'http_status': status,
                 'error_code': '' if accepted else 'BUSINESS_OUTCOME_UNCONFIRMED',
                 'diagnostic': diagnostic}

@@ -17,7 +17,7 @@ permission-notifier = "permission_notifier.main:main"
 where = ["src"]
 
 [tool.setuptools.package-data]
-permission_notifier = ["static/*", "templates/*"]
+permission_notifier = ["static/*", "static/icons/*", "templates/*"]
 
 [tool.pytest.ini_options]
 pythonpath = ["src"]

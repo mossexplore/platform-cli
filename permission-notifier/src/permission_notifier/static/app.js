@@ -3,7 +3,7 @@ const $ = id => document.getElementById(id);
 const csrf = document.querySelector('meta[name="csrf-token"]').content;
 let revision = 0, current = null, stopping = false;
 const labels = {pending:'待发送',sending:'发送中',accepted:'接口已接受',retry_wait:'等待重试',failed:'失败',uncertain:'结果不确定',skipped:'已跳过'};
-const time = value => value ? new Date(value*1000).toLocaleString('zh-CN',{timeZone:'Asia/Shanghai',hour12:false}) : '—';
+const time = value => value ? new Intl.DateTimeFormat('sv-SE',{timeZone:'Asia/Shanghai',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false}).format(new Date(value*1000)) : '—';
 function notice(text) { $('notice').textContent = text; }
 async function api(path, body, method='POST') {
   const response = await fetch('/api/'+path, {method:body===undefined?'GET':method,
@@ -14,12 +14,12 @@ async function api(path, body, method='POST') {
 function action(fn) { return async event => { if(event)event.preventDefault(); try{await fn();}catch(e){notice(e.message);} }; }
 function receiverRow(r={uid:'',label:'',enabled:true}) {
   const tr=document.createElement('tr');
-  for (const [key,type] of [['enabled','checkbox'],['label','text'],['uid','text'],['test','checkbox']]) {
+  for (const [key,type] of [['enabled','checkbox'],['label','text'],['uid','text']]) {
     const td=document.createElement('td'),input=document.createElement('input');input.type=type;input.dataset.field=key;
     input.setAttribute('aria-label',key==='uid'?'接收 UID':key==='label'?'备注':key==='test'?'选中测试':'启用对象');
     if(type==='checkbox')input.checked=key==='enabled'?r.enabled:false;else input.value=r[key]||'';td.append(input);tr.append(td);
   }
-  const td=document.createElement('td'),remove=document.createElement('button');remove.type='button';remove.textContent='删除';remove.onclick=()=>tr.remove();td.append(remove);tr.append(td);$('receivers').append(tr);
+  const td=document.createElement('td'),remove=document.createElement('button');remove.type='button';remove.textContent='删除';remove.onclick=()=>{tr.remove();markDirty();updateTestReceivers();};td.append(remove);tr.append(td);$('receivers').append(tr);updateTestReceivers();
 }
 function networkFields() {
   $('network-fields').replaceChildren();
@@ -36,9 +36,18 @@ async function load() {
   const data=await api('config');current=data.config;revision=data.config_revision;
   $('service-url').value=current.permission_service_url;$('message-url').value=current.message.url;$('sender').value=current.message.sender;
   $('poll').value=current.poll_interval_seconds;$('timeout').value=current.message_timeout_seconds;
-  $('token').value='';$('auth').value='';$('clear-token').checked=false;$('clear-auth').checked=false;
+  for(const [id,key] of [['token','assistant_token'],['auth','auth']]) {
+    const input=$(id),configured=data.secrets_configured[key];
+    input.value=configured?'****':'';
+    input.dataset.masked=configured?'true':'false';
+    input.placeholder=configured?'已保存；输入新值可替换':'请输入凭据';
+  }
+  $('clear-token').checked=false;$('clear-auth').checked=false;
   $('token-state').textContent=data.secrets_configured.assistant_token?'（已配置）':'（未配置）';$('auth-state').textContent=data.secrets_configured.auth?'（已配置）':'（未配置）';
   $('receivers').replaceChildren();current.message.receivers.forEach(receiverRow);networkFields();$('revision').textContent='配置已保存';
+  $('message-config-state').textContent=current.message.url&&data.secrets_configured.auth?'已配置':'待配置';
+  $('revision').classList.remove('dirty');
+  $('message-config-state').dataset.ready=String(!!(current.message.url&&data.secrets_configured.auth));
   $('config-summary').textContent=[['权限系统地址',!!current.permission_service_url],['助手 Token',data.secrets_configured.assistant_token],['消息地址',!!current.message.url],['消息 auth',data.secrets_configured.auth],['启用接收对象',current.message.receivers.some(r=>r.enabled)]].map(([name,ok])=>name+'：'+(ok?'已配置':'未配置')).join('　 ·　 ');
 }
 function form() {
@@ -46,7 +55,7 @@ function form() {
   config.poll_interval_seconds=Number($('poll').value);config.message_timeout_seconds=Number($('timeout').value);
   config.message.receivers=Array.from($('receivers').children).map(tr=>({uid:tr.querySelector('[data-field=uid]').value,label:tr.querySelector('[data-field=label]').value,enabled:tr.querySelector('[data-field=enabled]').checked}));
   for(const key of ['service','message']) {const value={proxy:$(key+'-proxy').value,ca_file:$(key+'-ca_file').value,trust_env:$(key+'-trust_env').checked};if(key==='service')config.service_network=value;else config.message.network=value;}
-  const secret=(id,clear)=>$(clear).checked?{action:'clear'}:$(id).value?{action:'replace',value:$(id).value}:{action:'retain'};
+  const secret=(id,clear)=>$(clear).checked?{action:'clear'}:$(id).dataset.masked!=='true'&&$(id).value?{action:'replace',value:$(id).value}:{action:'retain'};
   return {config_revision:revision,config,secrets:{assistant_token:secret('token','clear-token'),auth:secret('auth','clear-auth')}};
 }
 async function refresh() {
@@ -59,11 +68,21 @@ async function refresh() {
     $('pause').disabled=s.paused;$('resume').disabled=!s.paused||!s.config_ready;
     $('status').textContent=`${s.worker_alive?'工作线程运行中':'工作线程尚未运行或异常'} · ${s.paused?'已暂停':'运行中'}${s.sending?' · 正在发送':''}\n最近轮询：${time(s.last_poll)}　最近连接：${time(s.last_heartbeat)}\n最近成功：${time(s.last_success_at)}　待回传：${s.pending_reports}　需处理：${s.needs_attention}\n${s.error?'提示：'+s.error:''}${s.pending_fields.length?'\n配置等待切换：'+s.pending_fields.join('、'):''}`;
     $('test-results').replaceChildren();
+    if(!s.test_results.length&&!s.tests_waiting)$('test-results').textContent='尚未发送测试通知';
+    $('local-state').dataset.tone=s.worker_alive?'good':'bad';$('service-state').dataset.tone=s.connection_state==='connected'?'good':'bad';
+    if(s.error==='TOKEN_EXPIRED')$('service-state').textContent='Token 已过期';
+    if(s.error==='SERVICE_PROXY_ERROR')$('service-state').textContent='代理连接异常';
     if(s.tests_waiting) $('test-results').textContent='测试排队中：'+s.tests_waiting+' 个对象';
     for(const r of s.test_results) {
       const box=document.createElement('div');box.className='task';
       const d=r.diagnostic||{};
-      box.textContent=`${r.uid}：${labels[r.state]||r.state}${r.http_status?' HTTP '+r.http_status:''} ${r.error_code||''}\n测试时间：${time(r.tested_at)}\n${d.method||'POST'} ${d.target_origin||''} ${d.elapsed_ms===undefined?'':'耗时 '+d.elapsed_ms+' ms'}\n${d.reason||''}\n响应体（脱敏）：${d.response_summary||'未收到可用响应'}${r.state==='accepted'?'\nHTTP 200 已判成功。如未收到，请用 UID、测试时间和响应流水号查询消息服务投递日志。':''}`;
+      const heading=document.createElement('strong');heading.className='result-heading '+r.state;
+      heading.textContent=`${r.uid} · ${labels[r.state]||r.state}${r.http_status?' · HTTP '+r.http_status:''}`;
+      const meta=document.createElement('p');meta.className='result-meta';
+      meta.textContent=`${time(r.tested_at)}${d.elapsed_ms===undefined?'':' · '+d.elapsed_ms+' ms'}\n${d.method||'POST'} ${d.target_origin||''} ${r.error_code||''} ${d.reason||''}`;
+      const title=document.createElement('h3');title.textContent='响应体（脱敏）';
+      const response=document.createElement('pre');response.textContent=d.response_summary||'未收到可用响应';
+      box.append(heading,meta,title,response);
       $('test-results').append(box);
     }
     if(s.token_expires_at){const expiry=new Date(s.token_expires_at);$('status').textContent+='\n助手 Token 到期：'+expiry.toLocaleString('zh-CN',{timeZone:'Asia/Shanghai',hour12:false})+(expiry-Date.now()<7*86400000?'（即将到期，请重置）':'');}
@@ -83,11 +102,44 @@ async function refresh() {
   } catch(e) { $('local-state').textContent='无法连接';$('service-state').textContent='状态未知';$('delivery-state').textContent='状态未知'; $('status').textContent='无法连接助手。请检查托盘或重新启动。'; }
 }
 $('config-form').onsubmit=action(async()=>{const result=await api('config',form(),'PUT');await load();notice(result.apply_state==='applied'?'已保存并应用；接口可用性请另行检查。':result.apply_state==='waiting_request'?'已保存，当前请求完成后应用。':'已保存，旧任务未完成，权限系统切换正在等待处理。');});
-$('add-receiver').onclick=()=>receiverRow();$('reload').onclick=action(load);
+$('add-receiver').onclick=()=>{receiverRow();markDirty();};$('reload').onclick=action(async()=>{if($('revision').classList.contains('dirty')&&!confirm('放弃未保存的修改并重新加载？'))return;await load();});
 $('bind').onclick=action(async()=>{await api('bind',{});notice('助手 Token 已绑定。');});
-$('check').onclick=action(async()=>{const result=await api('check',form());notice('当前表单检查：'+result.message);});
-$('test-message').onclick=action(async()=>{const body=form();body.uids=Array.from($('receivers').children).filter(tr=>tr.querySelector('[data-field=test]').checked).map(tr=>tr.querySelector('[data-field=uid]').value.trim());if(!body.uids.length)throw new Error('请勾选测试对象');if(!confirm('将使用当前表单（可能未保存）实际发送测试消息给：'+body.uids.join('、')))return;await api('test-message',body);notice('测试已排队，尚未确认发送；请查看下方测试结果。测试不依赖权限系统连接，不会保存表单配置。');await refresh();});
+$('check').onclick=action(async()=>{if(!$('service-url').value){$('check-result').textContent='请先填写权限系统服务地址';throw new Error('请先填写权限系统服务地址');}$('check-result').textContent='正在检查…';let result;try{result=await api('check',form());}catch(e){$('check-result').textContent=e.message;throw e;}$('check-result').textContent=result.message;notice('当前表单检查：'+result.message);});
+$('test-message').onclick=action(async()=>{const body=form();body.uids=Array.from($('test-receivers').selectedOptions).map(option=>option.value);if(!body.uids.length)throw new Error('请先在接收对象页面添加并启用对象，再选择测试接收人');if(!confirm('将使用当前表单（可能未保存）实际发送测试消息给：'+body.uids.join('、')))return;await api('test-message',body);notice('测试已排队，尚未确认发送；请查看下方测试结果。测试不依赖权限系统连接，不会保存表单配置。');await refresh();});
 for(const id of ['pause','resume'])$(id).onclick=action(async()=>{await api(id,{});await refresh();});
 $('shutdown').onclick=action(async()=>{if(!confirm('退出后将停止发送，本地网页也将关闭。继续？'))return;await api('shutdown',{});stopping=true;notice('正在退出助手，在途请求将收尾并保存。');});
-$('config-form').addEventListener('input',()=>{$('revision').textContent='有未保存的修改';});
+for(const button of document.querySelectorAll('[data-replace]'))button.onclick=()=>{const input=$(button.dataset.replace);input.value='';input.dataset.masked='false';input.focus();};
+for(const id of ['token','auth']) {
+  $(id).addEventListener('focus',()=>{if($(id).dataset.masked==='true')$(id).select();});
+  $(id).addEventListener('input',()=>{$(id).dataset.masked='false';});
+}
+function markDirty(){ $('revision').textContent='有未保存的修改，请保存配置';$('revision').classList.add('dirty'); }
+function updateTestReceivers(){
+  const selected=new Set(Array.from($('test-receivers').selectedOptions).map(o=>o.value));
+  $('test-receivers').replaceChildren();
+  for(const tr of $('receivers').children){
+    const uid=tr.querySelector('[data-field=uid]').value.trim();
+    if(!uid||!tr.querySelector('[data-field=enabled]').checked)continue;
+    const option=document.createElement('option');option.value=uid;
+    option.textContent=(tr.querySelector('[data-field=label]').value||'接收对象')+' · '+uid;
+    option.selected=selected.has(uid);$('test-receivers').append(option);
+  }
+  if(!selected.size&&$('test-receivers').options.length)$('test-receivers').options[0].selected=true;
+}
+const pageTitles={connection:['连接配置','配置与验证，一目了然'],receivers:['接收对象','管理接收通知的人员与 UID'],diagnostics:['测试与诊断','查看测试响应与助手运行状态'],records:['发送记录','查看发送结果，处理需要关注的通知'],advanced:['高级设置','按需调整网络与运行参数']};
+function showPage(page){
+  if(!pageTitles[page])page='connection';
+  document.querySelectorAll('[data-view]').forEach(node=>node.hidden=node.dataset.view!==page);
+  document.querySelectorAll('[data-page]').forEach(node=>{node.classList.toggle('active',node.dataset.page===page);if(node.dataset.page===page)node.setAttribute('aria-current','page');else node.removeAttribute('aria-current');});
+  $('page-title').textContent=pageTitles[page][0];$('page-description').textContent=pageTitles[page][1];
+  $(page==='diagnostics'?'diagnostic-test-slot':'message-test-slot').append($('test-panel'));
+  $('revision').hidden=page==='records';
+}
+for(const button of document.querySelectorAll('[data-page]'))button.onclick=()=>{location.hash=button.dataset.page;};
+window.addEventListener('hashchange',()=>showPage(location.hash.slice(1)));
+for(const kind of ['service','message'])$('tab-'+kind).onclick=()=>{
+  for(const key of ['service','message']){const selected=key===kind;$('tab-'+key).classList.toggle('active',selected);$('tab-'+key).setAttribute('aria-selected',String(selected));$(key+'-panel').hidden=!selected;}
+};
+$('config-form').addEventListener('input',event=>{if(event.target.id==='test-receivers')return;markDirty();if(event.target.closest('#receivers'))updateTestReceivers();});
+showPage(location.hash.slice(1));
 action(load)();refresh();setInterval(refresh,5000);

@@ -48,3 +48,26 @@ def test_connection_tracks_current_identity_and_heartbeat(tmp_path):
         worker.bound_signature = (values['permission_service_url'], values['assistant_token'])
         worker.error = 'AUTH_REJECTED'
         assert client.get('/api/status').json()['connection_state'] == 'disconnected'
+
+
+def test_navigation_resources_are_available_offline(tmp_path):
+    store = Store(tmp_path/'assistant.json')
+    with TestClient(create_app(store, Worker(store)), base_url='http://127.0.0.1:18765') as client:
+        page = client.get('/')
+        from html.parser import HTMLParser
+        class Resources(HTMLParser):
+            def __init__(self):
+                super().__init__()
+                self.paths = []
+            def handle_starttag(self, tag, attrs):
+                for key, value in attrs:
+                    if key in ('src', 'href') and value.startswith('/static/'):
+                        self.paths.append(value)
+        resources = Resources()
+        resources.feed(page.text)
+        assert len(resources.paths) >= 8
+        for path in resources.paths:
+            response = client.get(path)
+            assert response.status_code == 200, path
+            if path.endswith('.svg'):
+                assert '<svg' in response.text

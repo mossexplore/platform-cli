@@ -16,13 +16,13 @@ def test_summary_bounds_and_redacts():
     assert target('https://example.com/private-token?auth=secret') == 'https://example.com'
 
 
-def test_200_business_error_is_visible_without_changing_success_contract():
+def test_200_business_error_is_visible_and_not_success():
     config = Config().model_dump()
     config['message'].update(url='https://example.com/send', auth='secret')
     sender = Sender(lambda *_: httpx.Client(transport=httpx.MockTransport(
         lambda r: httpx.Response(200, json={'code': 4001, 'message': 'receiver not found'}))))
     result = sender.send(config, config['message'], '123', 'test')
-    assert result['state'] == 'accepted'
+    assert result['state'] == 'uncertain'
     assert 'receiver not found' in result['diagnostic']['response_summary']
     assert result['diagnostic']['elapsed_ms'] >= 0
 
