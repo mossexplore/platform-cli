@@ -206,7 +206,9 @@ class Worker:
                                        manual=True, error_code='MANUAL_RESOLUTION')
             self.wake.set()
 
-    def queue_test(self, config, uids):
+    def queue_test(self, config, uids, content=records.TEST_CONTENT):
+        if not isinstance(content, str) or not content.strip() or len(content)>10000:
+            raise ValueError('测试内容不能为空，且不能超过 10000 字符')
         if not uids or len(uids) > 100 or len(set(uids)) != len(uids):
             raise ValueError('请选择不重复的接收对象')
         allowed = {r['uid'] for r in config['message']['receivers'] if r['enabled']}
@@ -217,15 +219,15 @@ class Worker:
                 raise ValueError('已有测试正在等待发送')
             self.test_results = []
             task_id = str(uuid4())
-            self.tests = [(config, uid, task_id) for uid in uids]
+            self.tests = [(config, uid, task_id, content) for uid in uids]
         self.wake.set()
 
     def run_test(self):
-        config, uid, task_id = self.tests.pop(0)
-        record_id = records.begin(self.store, task_id, 'test', uid, records.TEST_CONTENT)
+        config, uid, task_id, content = self.tests.pop(0)
+        record_id = records.begin(self.store, task_id, 'test', uid, content)
         self.sending = True
         try:
-            result = self.sender.send(config, config['message'], uid, records.TEST_CONTENT)
+            result = self.sender.send(config, config['message'], uid, content)
             records.finish(self.store, record_id, result)
             self.test_results.append({'uid': uid, 'tested_at': time.time(), **result})
         except Exception:

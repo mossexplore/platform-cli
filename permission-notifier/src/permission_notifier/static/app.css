@@ -145,12 +145,12 @@ details:has(input[id^="clear-"]:checked)>summary{background:#fdecea;color:#b4231
 .records-table .send-time-column{width:174px}
 .records-table .source-column{width:100px}
 .records-table .uid-column{width:180px}
-.records-table .content-column{width:300px}
+.records-table .applicant-column{width:120px}
+.records-table .account-column{width:160px}
+.records-table .application-time-column{width:174px}
 .records-table .state-column{width:120px}
-.records-table .action-column{width:160px}
 .records-table td{vertical-align:top;overflow-wrap:anywhere;white-space:pre-wrap}
 .records-table td:first-child:not([colspan]){font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:13px;white-space:nowrap;width:36ch}
-.records-table td:last-child button{font-size:12px;margin:0 4px 6px 0;padding:0 8px;min-height:28px}
 .records-table td[colspan]{text-align:center;padding:28px}
 .record-pagination{display:flex;align-items:center;gap:12px;justify-content:flex-end;margin-top:16px;flex-wrap:wrap;font-size:13px}
 #record-notice:empty{display:none}

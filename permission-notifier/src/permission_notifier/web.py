@@ -11,7 +11,7 @@ from fastapi.templating import Jinja2Templates
 from fastapi.concurrency import run_in_threadpool
 from pydantic import ValidationError
 from .config import Config, ready
-from .records import query as query_records
+from .records import query as query_records, TEST_CONTENT
 from .service import ServiceError
 from .store import Conflict, StoreError, effective
 
@@ -141,7 +141,7 @@ def create_app(store, worker, shutdown=None, port=18765):
     @app.post('/api/test-message')
     async def test(request: Request):
         body = await request.json()
-        await run_in_threadpool(worker.queue_test, candidate(body), body['uids'])
+        await run_in_threadpool(worker.queue_test, candidate(body), body['uids'], body.get('content', TEST_CONTENT))
         return {'queued': True}
 
     @app.post('/api/pause')

@@ -3,6 +3,7 @@ import time
 import re
 from datetime import datetime, timedelta, timezone
 from uuid import uuid4
+from .record_fields import applicant_fields
 
 BEIJING = timezone(timedelta(hours=8))
 TEST_CONTENT = '【测试】权限通知助手连接验证'
@@ -94,6 +95,7 @@ def query(data, start='', end='', source='', page=1, page_size=10):
     selected = []
     for row in items[(page-1)*page_size:page*page_size]:
         entry = dict(row)
+        entry.update(applicant_fields(row['source'], row.get('content', '')))
         task = data['state']['tasks'].get(row['task_id'])
         item = task.get('deliveries', {}).get(row.get('delivery_id')) if task else None
         entry['actionable'] = bool(item and (item.get('record_id') == row['id'] or

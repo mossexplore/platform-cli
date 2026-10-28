@@ -12,7 +12,8 @@ async function api(path, body, method='POST') {
     body:body===undefined?undefined:JSON.stringify(body)});
   const data = await response.json(); if (!response.ok) throw new Error(data.detail || '操作失败'); return data;
 }
-function action(fn) { return async event => { if(event)event.preventDefault(); try{await fn();}catch(e){notice(e.message,'negative');} }; }
+function action(fn,report=notice) { return async event => { if(event)event.preventDefault(); try{await fn();}catch(e){report(e.message,'negative');} }; }
+function testNotice(text,tone='info'){ $('test-notice').textContent=text;$('test-notice').className='notice '+tone; }
 function receiverRow(r={uid:'',label:'',enabled:true}) {
   const tr=document.createElement('tr');
   for (const [key,type] of [['enabled','checkbox'],['label','text'],['uid','text']]) {
@@ -111,7 +112,7 @@ $('check').onclick=action(async()=>{
   catch(e){checkResult(e.message,'negative');throw e;}
   finally{$('check').disabled=false;}
 });
-$('test-message').onclick=action(async()=>{const body=form();body.uids=Array.from($('test-receivers').selectedOptions).map(option=>option.value);if(!body.uids.length)throw new Error('请先在测试与诊断页签添加并启用对象，再选择测试接收人');if(!confirm('将使用当前表单（可能未保存）实际发送测试消息给：'+body.uids.join('、')))return;await api('test-message',body);notice('测试已排队，尚未确认发送；请查看下方测试结果。测试不依赖权限系统连接，不会保存表单配置。');await refresh();});
+$('test-message').onclick=action(async()=>{testNotice('');const body=form();body.content=$('test-content').value;if(!body.content.trim())throw new Error('请输入测试消息内容');body.uids=Array.from($('test-receivers').selectedOptions).map(option=>option.value);if(!body.uids.length)throw new Error('请先在测试与诊断页签添加并启用对象，再选择测试接收人');if(!confirm('将使用当前表单（可能未保存）实际发送测试消息给：'+body.uids.join('、')))return;await api('test-message',body);testNotice('测试已排队，尚未确认发送；请查看下方测试结果。测试不依赖权限系统连接，不会保存表单配置。');await refresh();},testNotice);
 for(const id of ['pause','resume'])$(id).onclick=action(async()=>{await api(id,{});await refresh();});
 $('shutdown').onclick=action(async()=>{if(!confirm('退出后将停止发送，本地网页也将关闭。继续？'))return;await api('shutdown',{});stopping=true;notice('正在退出助手，在途请求将收尾并保存。');});
 for(const button of document.querySelectorAll('[data-reveal]'))button.onclick=action(async()=>{
@@ -177,7 +178,7 @@ for(const kind of ['message','diagnostics']){
   };
 }
 showReceiverTab('message');
-$('config-form').addEventListener('input',event=>{if(event.target.id==='test-receivers')return;markDirty();if(['service-url','token'].includes(event.target.id))checkResult('连接配置已修改，请重新检查');if(event.target.closest('#receivers'))updateTestReceivers();});
+$('config-form').addEventListener('input',event=>{if(['test-receivers','test-content'].includes(event.target.id))return;markDirty();if(['service-url','token'].includes(event.target.id))checkResult('连接配置已修改，请重新检查');if(event.target.closest('#receivers'))updateTestReceivers();});
 initRecords();
 showPage(location.hash.slice(1));
 action(load)();refresh();setInterval(refresh,5000);
