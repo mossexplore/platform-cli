@@ -201,7 +201,8 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     permissions:
-      contents: read
+      # GitHub requires push access to read unpublished release drafts.
+      contents: write
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
       - name: Download draft into a clean runner and verify exact attachments
