@@ -76,3 +76,14 @@ def test_migrate_config_error_is_actionable_and_does_not_connect(
     message = capsys.readouterr().err
     assert "JSON 格式错误" in message and "第 1 行" in message
     assert "secret-do-not-print" not in message
+
+
+@pytest.mark.parametrize("limit,accepted", [(200000, True), (200001, False)])
+def test_tool_output_character_limit(settings, limit, accepted):
+    data = settings.model_dump()
+    data["runtime"]["max_tool_output_chars"] = limit
+    if accepted:
+        assert Settings.model_validate(data).runtime.max_tool_output_chars == limit
+    else:
+        with pytest.raises(ValidationError):
+            Settings.model_validate(data)

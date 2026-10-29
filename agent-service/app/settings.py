@@ -100,7 +100,7 @@ class Runtime(Strict):
     run_timeout_seconds: int = Field(default=180, ge=10, le=600)
     max_page_size: int = Field(default=50, ge=1, le=100)
     max_auto_pages: int = Field(default=5, ge=1, le=20)
-    max_tool_output_chars: int = Field(default=20000, ge=1000, le=50000)
+    max_tool_output_chars: int = Field(default=20000, ge=1000, le=200000)
     max_log_lines: int = Field(default=200, ge=1, le=1000)
     max_history_messages: int = Field(default=40, ge=2, le=100)
     max_history_chars: int = Field(default=60000, ge=1000, le=200000)

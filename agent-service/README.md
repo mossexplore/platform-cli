@@ -145,3 +145,9 @@ SELECT id, status,
        JSON_EXTRACT(usage, '$.runtime') AS runtime_metrics
 FROM agent_runs ORDER BY created_at DESC LIMIT 1;
 ```
+
+## 单次工具结果大小
+
+`runtime.max_tool_output_chars` 按脱敏后的 JSON 字符数计量，默认 20000，允许范围 1000～200000，不是 token 数量。需要提高预算时，在本机 config.local.json 的 runtime 中将该字段设置为 200000，检查配置并重启 Agent。现有本机配置不会被安装脚本或代码更新覆盖；模板仍保留 20000 的默认值。
+
+放宽范围无需依赖重装或数据库迁移。较大结果可能增加模型上下文开销和响应耗时，需匹配实际模型及网关容量。此次仅放宽校验上限，没有实现列表摘要或部分记录保留；超过所配置限制时仍返回 truncated=true、data=null，并提示缩小查询范围。
