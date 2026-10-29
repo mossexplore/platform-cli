@@ -67,7 +67,7 @@ class Upstream:
 
 
 class TestEngine:
-    async def run(self, history, message, context, invoke, delta):
+    async def run(self, history, message, context, invoke, delta, progress=None):
         await invoke("list_models", {"name": "", "page": 1, "page_size": 10})
         answer = "已找到推荐模型。查询时间：2026-10-29 10:00:00"
         await delta(answer)

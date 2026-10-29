@@ -11,6 +11,7 @@ import {
   setBusy,
 } from "./api.js";
 let earliest = null;
+let progressTimer = null;
 const toolNames = {
   list_models: "查询模型列表",
   get_model: "读取模型详情",
@@ -27,6 +28,8 @@ const toolNames = {
   search_service_logs: "检索服务日志",
 };
 export function disconnect() {
+  clearInterval(progressTimer);
+  progressTimer = null;
   if (state.stream) {
     state.stream.close();
     state.stream = null;
@@ -177,7 +180,35 @@ function connectEvents(runId, body) {
     finished = false;
   const output = body.querySelector(".markdown"),
     steps = new Map();
-  $("connection-status").textContent = "正在理解问题…";
+  let phase = "等待模型响应",
+    elapsed = 0,
+    lastProgress = Date.now(),
+    checking = false,
+    ticks = 0;
+  function renderProgress() {
+    const seconds = elapsed + Math.floor((Date.now() - lastProgress) / 1000);
+    $("connection-status").textContent = phase + " · 已用时 " + seconds + " 秒";
+  }
+  renderProgress();
+  progressTimer = setInterval(async () => {
+    renderProgress();
+    if (++ticks % 5 || checking || finished) return;
+    checking = true;
+    try {
+      const run = await api("/runs/" + runId);
+      if (
+        ["completed", "failed", "cancelled", "interrupted"].includes(run.status)
+      )
+        finish({ answer: run.answer, message: run.error });
+    } catch (error) {
+      if (error.status === 401) {
+        disconnect();
+        window.dispatchEvent(new Event("agent-auth-expired"));
+      }
+    } finally {
+      checking = false;
+    }
+  }, 1000);
   const source = new EventSource("/api/runs/" + runId + "/events");
   state.stream = source;
   const on = (kind, handler) =>
@@ -202,9 +233,25 @@ function connectEvents(runId, body) {
     scrollDown();
   }
   on("run.started", () => {
-    $("connection-status").textContent = "正在查询平台数据…";
+    phase = "等待模型响应";
+    renderProgress();
+  });
+  on("run.progress", (data) => {
+    const labels = {
+      model_waiting: "等待模型响应",
+      model_output: "模型正在输出文字",
+      tool_running: "正在查询平台数据",
+    };
+    phase = labels[data.stage] || "处理中";
+    if (data.model_requests)
+      phase += "（第 " + data.model_requests + " 次模型请求）";
+    elapsed = data.elapsed_seconds;
+    lastProgress = Date.now();
+    renderProgress();
   });
   on("tool.started", (data) => {
+    phase = "正在查询平台数据";
+    renderProgress();
     const step = text("div", "", "tool-step");
     step.append(
       icon("arrow-repeat spin"),
@@ -216,6 +263,8 @@ function connectEvents(runId, body) {
     scrollDown();
   });
   on("tool.completed", (data) => {
+    phase = "工具已返回，等待模型继续处理";
+    renderProgress();
     const step = steps.get(data.tool_call_id);
     if (step) {
       step.firstChild.className =
@@ -231,7 +280,8 @@ function connectEvents(runId, body) {
   on("answer.delta", (data) => {
     answer += data.text;
     markdown(output, answer);
-    $("connection-status").textContent = "正在整理回答…";
+    phase = "模型正在输出文字";
+    renderProgress();
     scrollDown();
   });
   on("run.completed", finish);

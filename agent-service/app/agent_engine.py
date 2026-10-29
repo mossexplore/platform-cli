@@ -37,7 +37,7 @@ class AgentEngine:
     def __init__(self, config):
         self.config = config
 
-    async def run(self, history, message, context, invoke, delta):
+    async def run(self, history, message, context, invoke, delta, progress=None):
         cfg = self.config.llm
         async with (
             model_http_client(cfg) as http_client,
@@ -74,6 +74,12 @@ class AgentEngine:
             )
             try:
                 async for event in stream.stream_events():
+                    if (
+                        progress
+                        and event.type == "raw_response_event"
+                        and getattr(event.data, "type", "") == "response.created"
+                    ):
+                        await progress("model_request")
                     if (
                         event.type == "raw_response_event"
                         and getattr(event.data, "type", "")

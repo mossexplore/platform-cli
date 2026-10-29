@@ -78,6 +78,10 @@ async def test_sdk_chat_completions_tool_roundtrip(settings, monkeypatch):
     monkeypatch.setattr("app.agent_engine.AsyncOpenAI", client)
     calls = []
     deltas = []
+    phases = []
+
+    async def progress(stage):
+        phases.append(stage)
 
     async def invoke(name, args):
         calls.append((name, args))
@@ -87,10 +91,12 @@ async def test_sdk_chat_completions_tool_roundtrip(settings, monkeypatch):
         deltas.append(value)
 
     answer, history, usage = await AgentEngine(settings).run(
-        [], "查询模型", {"environment": "dev"}, invoke, delta
+        [], "查询模型", {"environment": "dev"}, invoke, delta, progress=progress
     )
     assert calls[0][0] == "list_models"
     assert answer == "已查询到推荐模型"
     assert "".join(deltas) == answer
     assert len(requests) == 2
     assert any(item.get("type") == "function_call_output" for item in history)
+
+    assert phases.count("model_request") == 2

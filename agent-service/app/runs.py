@@ -10,6 +10,7 @@ from .sessions import valid, TERMINAL
 from .sanitize import clean
 from .errors import AppError
 from .agent_engine import AgentEngine
+from .progress import RunProgress
 
 
 class RunManager:
@@ -59,15 +60,24 @@ class RunManager:
         tool_count = 0
         tool_lock = asyncio.Lock()
 
-        async def delta(text):
-            nonlocal answer, buffer, last_flush
-            self.check(run_id)
-            answer += text
-            buffer += text
-            if len(buffer) >= 120 or time.monotonic() - last_flush >= 0.15:
+        def flush():
+            nonlocal buffer, last_flush
+            if buffer:
                 self.emit(run_id, "answer.delta", {"text": buffer})
                 buffer = ""
                 last_flush = time.monotonic()
+
+        progress = RunProgress(run_id, self.emit, flush)
+
+        async def delta(text):
+            nonlocal answer, buffer, last_flush
+            self.check(run_id)
+            if progress.stage != "model_output":
+                await progress.phase("model_output")
+            answer += text
+            buffer += text
+            if len(buffer) >= 120 or time.monotonic() - last_flush >= 0.15:
+                flush()
 
         try:
             with self.db() as db:
@@ -110,6 +120,7 @@ class RunManager:
                 }
                 db.commit()
             self.emit(run_id, "run.started", context)
+            progress.start()
 
             async def invoke(name, args):
                 nonlocal tool_count
@@ -133,6 +144,8 @@ class RunManager:
                             )
                         )
                         db.commit()
+                    flush()
+                    await progress.phase("tool_running")
                     self.emit(
                         run_id, "tool.started", {"tool_call_id": call_id, "name": name}
                     )
@@ -176,13 +189,15 @@ class RunManager:
                         "tool.completed",
                         {"tool_call_id": call_id, "name": name, "status": status},
                     )
+                    await progress.phase("model_waiting")
                     return result
 
             async with asyncio.timeout(self.config.runtime.run_timeout_seconds):
                 final, items, usage = await self.engine.run(
-                    history, message, context, invoke, delta
+                    history, message, context, invoke, delta, progress=progress.phase
                 )
             self.check(run_id)
+            await progress.close()
             with self.db() as db:
                 r = db.get(Run, run_id)
                 if r.status != "running":
@@ -252,3 +267,6 @@ class RunManager:
                 "run.cancelled" if status == "cancelled" else "run.failed",
                 {"message": message, "answer": clean(answer)},
             )
+
+        finally:
+            await progress.close()

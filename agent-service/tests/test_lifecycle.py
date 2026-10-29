@@ -13,7 +13,7 @@ class WaitingEngine:
         self.started = threading.Event()
         self.stopped = threading.Event()
 
-    async def run(self, history, message, context, invoke, delta):
+    async def run(self, history, message, context, invoke, delta, progress=None):
         self.started.set()
         try:
             await asyncio.sleep(60)

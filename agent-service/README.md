@@ -123,3 +123,11 @@ Windows 等价命令将 `.venv/bin/python` 换成 `.venv\Scripts\python.exe`。�
 此次修订针对 identity_probe 的 ProxyError；更新后重新启动 Agent 并验证。若仍显示 ConnectError、ConnectTimeout 等错误，需继续检查 Python 到平台的网络及 CA 信任，不将其视为登录 Cookie 无效。
 
 模型出现 APIConnectionError / ProxyError，且配置 NO_PROXY 后恢复时，更新后的默认直连行为即可解决，无需每次手动设置 NO_PROXY。现有 config.local.json 未包含 llm.use_env_proxy 时默认 false；如果模型只能经企业代理访问，必须显式设为 true。模型 HTTP 客户端保留 SDK 默认连接池参数、配置的超时和企业 CA，并在运行结束/失败/取消时关闭。Chat Completions 和 Responses 共用该客户端策略。此次修改无需数据库迁移。
+
+## 查询进度与等待定位
+
+运行中通过 SSE 返回当前阶段、累计秒数和模型请求次数。平台工具返回后会显示等待模型继续处理；模型公开输出文字实时呈现。进度每 5 秒刷新，短文本缓冲约 200 毫秒刷新。PowerShell 日志同步打印 run、stage、elapsed_seconds 和 model_requests，不包含对话正文、凭据或工具参数。
+
+前端每 5 秒检查后台运行状态，弥补遗漏结束事件；不会重复提交问题。连接故障时仍需检查本地服务健康。进度用于定位等待发生在模型、平台工具或输出阶段，并不代表可以读取模型隐藏推理。当前没有接入厂商专属 reasoning_content 或推理摘要接口；只展示模型公开回答和可验证的执行状态。
+
+前端进度回归测试：`node --test tests/test_chat_progress.cjs`。这次优化减少客户端输出缓冲延迟，不承诺缩短模型服务器本身的推理时间。若主要耗时集中在第二次模型请求，可根据实际测量继续调整模型、结果数量或查询范围。
