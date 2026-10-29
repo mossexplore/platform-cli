@@ -169,10 +169,34 @@ async def cancel(key: str, request: Request):
 @router.get("/runs/{key}/events")
 async def events(key: str, request: Request):
     state = request.app.state
-    with state.db() as db:
-        s = request_session(request, db)
-        run_owned(db, s, key)
-        sid = s.id
+
+    def owner():
+        with state.db() as db:
+            s = request_session(request, db)
+            run_owned(db, s, key)
+            return s.id
+
+    sid = await asyncio.to_thread(owner)
+
+    def read_batch(after):
+        with state.db() as db:
+            valid(db, state.config, sid)
+            r = db.get(Run, key)
+            rows = list(
+                db.scalars(
+                    select(Event)
+                    .where(Event.run_id == key, Event.id > after)
+                    .order_by(Event.id)
+                    .limit(100)
+                )
+            )
+            return (
+                r.status,
+                r.answer,
+                r.error,
+                [(e.id, e.kind, e.payload) for e in rows],
+            )
+
     try:
         cursor = max(0, int(request.headers.get("last-event-id", "0")))
     except ValueError:
@@ -182,30 +206,22 @@ async def events(key: str, request: Request):
         nonlocal cursor
         heartbeat = 0
         while not await request.is_disconnected():
-            with state.db() as db:
-                try:
-                    valid(db, state.config, sid)
-                except AppError:
-                    yield 'event: auth.expired\ndata: {"message":"登录已失效"}\n\n'
-                    return
-                r = db.get(Run, key)
-                batch = list(
-                    db.scalars(
-                        select(Event)
-                        .where(Event.run_id == key, Event.id > cursor)
-                        .order_by(Event.id)
-                        .limit(100)
-                    )
+            try:
+                status, answer, error, batch = await asyncio.to_thread(
+                    read_batch, cursor
                 )
-                terminal, answer, error = r.status in TERMINAL, r.answer, r.error
-            for event in batch:
-                cursor = event.id
-                yield f"id: {cursor}\nevent: {event.kind}\ndata: {json.dumps(event.payload, ensure_ascii=False)}\n\n"
+            except AppError:
+                yield 'event: auth.expired\ndata: {"message":"登录已失效"}\n\n'
+                return
+            terminal = status in TERMINAL
+            for event_id, kind, payload in batch:
+                cursor = event_id
+                yield f"id: {cursor}\nevent: {kind}\ndata: {json.dumps(payload, ensure_ascii=False)}\n\n"
             if terminal and len(batch) < 100:
                 yield (
                     "event: stream.closed\ndata: "
                     + json.dumps(
-                        {"status": r.status, "answer": answer, "message": error},
+                        {"status": status, "answer": answer, "message": error},
                         ensure_ascii=False,
                     )
                     + "\n\n"

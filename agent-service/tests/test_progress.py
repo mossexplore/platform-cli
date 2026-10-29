@@ -55,10 +55,15 @@ async def test_progress_closes_heartbeat_task():
 
     events = []
     flushed = []
-    p = RunProgress(
-        "run", lambda *args: events.append(args), lambda: flushed.append(True)
-    )
-    p.start()
+
+    async def emit(*args):
+        events.append(args)
+
+    async def flush():
+        flushed.append(True)
+
+    p = RunProgress("run", emit, flush)
+    await p.start()
     await p.phase("model_request")
     await p.phase("tool_running")
     await asyncio.sleep(0.22)

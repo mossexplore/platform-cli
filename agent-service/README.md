@@ -131,3 +131,17 @@ Windows 等价命令将 `.venv/bin/python` 换成 `.venv\Scripts\python.exe`。�
 前端每 5 秒检查后台运行状态，弥补遗漏结束事件；不会重复提交问题。连接故障时仍需检查本地服务健康。进度用于定位等待发生在模型、平台工具或输出阶段，并不代表可以读取模型隐藏推理。当前没有接入厂商专属 reasoning_content 或推理摘要接口；只展示模型公开回答和可验证的执行状态。
 
 前端进度回归测试：`node --test tests/test_chat_progress.cjs`。这次优化减少客户端输出缓冲延迟，不承诺缩短模型服务器本身的推理时间。若主要耗时集中在第二次模型请求，可根据实际测量继续调整模型、结果数量或查询范围。
+
+## 流式输出数据库开销
+
+文本片段先在内存聚合，约每 200ms 或累计 4096 字符批量保存；不再逐片段查询 MySQL。输出期间约每秒检查运行及会话状态，平台工具调用前后及每次业务 HTTP 请求仍执行完整检查。输出队列主动让出事件循环，保证进度、停止和超时回调可调度。
+
+运行管理的数据库事务、进度写入和 SSE 读取在工作线程内执行，每次事务独立创建/关闭 SQLAlchemy Session；不会在线程之间共享 Session。同次运行的存储操作串行，取消时会等待正在执行的存储操作完成，以防取消后旧写入覆盖状态。已发出的数据库或平台请求不能强制撤回，存储故障本身仍可能延迟收尾。
+
+成功运行的 `agent_runs.usage.runtime` 增加安全统计：`first_output_seconds`（运行准备开始到首个公开文本片段）、`elapsed_seconds`（最终结果保存前的累计耗时）、`db_wait_ms`（运行存储操作等待时间，含线程调度，不含 SSE 客户端读取）、`output_chunks`（收到的文本片段数）。这些用于比较程序开销，不等于纯模型推理耗时，也不包含查询正文。无需数据库迁移。
+
+```sql
+SELECT id, status,
+       JSON_EXTRACT(usage, '$.runtime') AS runtime_metrics
+FROM agent_runs ORDER BY created_at DESC LIMIT 1;
+```

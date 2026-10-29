@@ -16,9 +16,9 @@ class RunProgress:
         self.model_requests = 0
         self.task = None
 
-    def report(self):
+    async def report(self):
         elapsed = int(time.monotonic() - self.started)
-        self.emit(
+        await self.emit(
             self.run_id,
             "run.progress",
             {
@@ -42,17 +42,17 @@ class RunProgress:
             stage = "model_waiting"
         if stage != self.stage or stage == "model_waiting":
             self.stage = stage
-            self.report()
+            await self.report()
 
     async def pulse(self):
         while True:
             await asyncio.sleep(0.2)
-            self.flush()
+            await self.flush()
             if time.monotonic() - self.last_report >= 5:
-                self.report()
+                await self.report()
 
-    def start(self):
-        self.report()
+    async def start(self):
+        await self.report()
         self.task = asyncio.create_task(self.pulse())
 
     async def close(self):
