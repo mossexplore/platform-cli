@@ -25,10 +25,14 @@ class BuildPy(BaseBuildPy):
         resources = Path(self.build_lib) / "wiserec_cli" / "opencode_resources"
         if resources.exists():
             rmtree(resources)
-        sources = [(Path("skill/wiserec-platform/SKILL.md"), "skills/wiserec-platform/SKILL.md"),
-                   (Path("skill/commands/ml.md"), "commands/ml.md")]
-        sources += [(path, "skills/wiserec-platform/references/" + path.name)
-                    for path in sorted(Path("skill/wiserec-platform/references").glob("*.md"))]
+        sources = [(Path("skill/commands") / name, "commands/" + name)
+                   for name in ("ml.md", "ml-lab.md")]
+        for directory in (Path("skill/wiserec-platform"),
+                          Path("skill-lab/wiserec-platform-detailed")):
+            prefix = "skills/" + directory.name + "/"
+            sources.append((directory / "SKILL.md", prefix + "SKILL.md"))
+            sources += [(path, prefix + path.relative_to(directory).as_posix())
+                        for path in sorted((directory / "references").rglob("*.md"))]
         hashes = {}
         for source, relative in sources:
             target = resources / relative

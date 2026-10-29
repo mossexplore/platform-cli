@@ -57,3 +57,17 @@ def test_every_reference_is_reachable_from_skill():
 def test_skill_name_matches_directory():
     header = (SKILL_DIR / "SKILL.md").read_text(encoding="utf-8").split("---")[1]
     assert re.search(r"^name: (\S+)$", header, re.M).group(1) == SKILL_DIR.name
+
+
+def test_detailed_skill_links_and_command_coverage():
+    import runpy
+    root = SKILL_DIR.parents[1]
+    runpy.run_path(str(root / 'skill-lab/validation/verify.py'))['audit']()
+
+
+def test_slash_commands_load_separate_skills():
+    directory = SKILL_DIR.parent / 'commands'
+    for command, skill in [('ml', 'wiserec-platform'), ('ml-lab', 'wiserec-platform-detailed')]:
+        content = (directory / f'{command}.md').read_text()
+        assert f'先通过 skill 工具加载 `{skill}`' in content
+        assert '$ARGUMENTS' in content

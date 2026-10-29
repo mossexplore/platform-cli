@@ -1,6 +1,7 @@
 """Read-only coverage, signature, evidence and link audit; no CLI callbacks run."""
 from pathlib import Path
 import hashlib
+import inspect
 import json
 import re
 import shlex
@@ -17,11 +18,16 @@ BASE = ROOT / 'skill-lab/wiserec-platform-detailed'
 
 def parameters(command):
     result = []
+    declared = inspect.signature(inspect.unwrap(command.callback)).parameters if command.callback else {}
     for p in command.params:
+        # Recent Typer stores argument help on ArgumentInfo instead of Click's parameter.
+        help_text = getattr(p, 'help', '') or ''
+        if isinstance(p, click.Argument) and not help_text and p.name in declared:
+            help_text = getattr(declared[p.name].default, 'help', '') or ''
         default = str(p.default) if isinstance(p.default, Path) else p.default
         result.append(dict(name=p.name, opts=p.opts, secondary_opts=p.secondary_opts,
             required=p.required, default=default, type=p.type.name.upper(), parser={k:getattr(p.type,k) for k in ('min','max','min_open','max_open','exists','file_okay','dir_okay','readable','writable','resolve_path','case_sensitive','choices') if hasattr(p.type,k)}, multiple=p.multiple,
-            nargs=p.nargs, envvar=p.envvar, help=getattr(p, 'help', '') or ''))
+            nargs=p.nargs, envvar=p.envvar, help=help_text))
     return json.loads(json.dumps(result))
 
 

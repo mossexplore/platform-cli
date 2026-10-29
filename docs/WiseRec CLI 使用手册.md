@@ -185,13 +185,23 @@ ml business use
 
 ### 2.2 参数与选项
 
+`/ml [任务描述]` 使用简洁版 skill；`/ml-lab [任务描述]` 使用详细版 skill。任务描述可省略，省略时检查上下文并展示用法。两者是 Agent 斜杠命令，不属于 `ml tree` 的 CLI 子命令。
+
 `NAME` 为 `ml env list` 中的环境名称。
 
 ### 2.3 说明
 
 首次安装采用包内默认环境。重装或升级后保留之前选择的环境及自动保活设置，其他配置仍由安装包更新。若原配置损坏、无效或所选环境已被新包删除、改名，配置更新会停止并保留原文件；按提示修复配置，或通过 `--config CONFIG_PATH` 指定原配置并使用 `ml env use NAME` 选择新包支持的环境后重试。
 
-完整解压管理员提供的安装包，运行 `install.cmd` 后重新打开终端。安装分两个阶段：先安装 CLI，再安装 OpenCode skill 和 `/ml` command。第二阶段失败不影响 CLI 使用，解决提示的问题后重新运行安装程序即可重试。skill 同时安装到当前用户的 `~/.config/opencode/skills/wiserec-platform` 和 `~/.cac/skills/wiserec-platform`；`/ml` command 同时安装到 `~/.config/opencode/commands/ml.md` 和 `~/.cac/commands/ml.md`。设置 `OPENCODE_CONFIG_DIR` 仅改变 OpenCode 根目录，CAC 路径保持不变。每次安装完整替换两份 skill 和两份 `/ml` command，请勿直接修改这些文件。重新打开 OpenCode 会话后，可输入 `/ml 查询当前业务下的模型`，也可输入 `/ml` 查看用法。直接安装 Wheel 不自动安装 OpenCode 资源。使用前准备好所需 Python 环境和 Microsoft Edge，依次选择环境、登录、选择业务。
+完整解压管理员提供的安装包，运行 `install.cmd` 后重新打开终端。OpenCode/codeagent 集成分两个阶段：先安装并验证 CLI，再安装简洁版 `wiserec-platform`、详细版 `wiserec-platform-detailed` 以及 `/ml`、`/ml-lab` 两个 command。第二阶段失败会显示原因，CLI 仍可正常使用；排除文件占用或目录权限问题后，重新运行安装程序即可重试。
+
+两套 skill 和两个 command 同时安装到当前用户的 `~/.config/opencode` 与 `~/.cac`：skill 位于各目录的 `skills/wiserec-platform`、`skills/wiserec-platform-detailed`，command 位于 `commands/ml.md`、`commands/ml-lab.md`。设置 `OPENCODE_CONFIG_DIR` 时仅替换 OpenCode 根目录，CAC 路径保持不变。每次安装完整替换这四项受管理资源，同版本重装也会更新并删除废弃参考文件；请勿直接修改安装副本。其他 skill、command 和 Agent 配置不受影响。已有同名实验 skill 会被替换，个人修改应提前另存；项目或兼容目录中的同名副本需自行移除，以免加载旧副本。
+
+完成后重新打开 Agent 会话，输入 `/ml 查询当前业务下的模型` 使用简洁版，输入 `/ml-lab 查询当前业务的数据集并解释分页参数和响应字段` 使用详细版；不带需求时可查看上下文和用法。详细版仍处于说明资料测试阶段，lab 不表示沙箱，命令可能影响真实平台。需要允许 Agent 加载 skill 和调用终端工具，安装程序不会修改权限。直接通过 pip 安装 Wheel 不自动安装 Agent 资源，自动安装入口为官方 Windows 安装包。
+
+降级到不支持 `/ml-lab` 的旧安装器时，实验入口和详细 skill 可能残留；确认不再使用后，仅移除各 Agent 配置目录中的 `commands/ml-lab.md` 与 `skills/wiserec-platform-detailed`，不要删除其他配置。
+
+使用前准备好所需 Python 环境和 Microsoft Edge，依次选择环境、登录、选择业务。
 
 ### 2.4 示例
 
@@ -202,6 +212,14 @@ ml login
 ml business use
 ml business show
 ml train list
+```
+
+在 OpenCode 或 codeagent 会话中输入，后面的文字为任务描述，不是 shell 参数：
+
+```text
+/ml 查询当前业务下的模型
+/ml-lab 查询当前业务的数据集并解释分页参数和响应字段
+/ml-lab 根据部署模板预览模型部署参数，暂不提交
 ```
 
 ## 3. 全局用法

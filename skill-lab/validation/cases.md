@@ -2,7 +2,7 @@
 
 ## 使用方式
 
-只在独立测试配置中加载 `skill-lab/wiserec-platform-detailed`，不要覆盖正式 `wiserec-platform` 或正式 `/ml` command。加载目录应包含 SKILL.md 与整个 references 子树。不要把源码证据路径当作运行时依赖。
+安装后通过 `/ml-lab` 加载详细 skill，通过 `/ml` 加载简洁版；对照评估使用不同会话，避免两套资料混入同一上下文。源码中的 skill-lab/validation 仍不随安装包分发。
 
 本目录的 coverage.json 记录命令元数据和源码摘要；verify.py 只读取命令定义，不执行平台命令。命令变更后先人工复核语义，再更新文档和记录，不能只更新 hash 消除失败。
 
@@ -15,7 +15,7 @@
 .venv/bin/python skill-lab/validation/verify_package.py
 ```
 
-第一项核对所有叶子、命令组、参数和引用的覆盖，并检查证据文件是否漂移；第二项在临时副本构建 Wheel/sdist，再核对安装资源，不改正式构建配置或安装位置。Windows ZIP 的构建链路需结合 scripts/windows/build-release.ps1 和 test_windows_packaging.py；本机不宣称完成 Windows 联网/离线安装实测。
+第一项核对所有叶子、命令组、参数和引用的覆盖，并检查证据文件是否漂移；第二项在临时副本构建 Wheel/sdist，再从源码包重建 Wheel 并核对安装资源和运行版本，不改正式构建配置或安装位置。Windows ZIP 的构建链路需结合 scripts/windows/build-release.ps1 和 test_windows_packaging.py；本机不宣称完成 Windows 联网/离线安装实测。
 
 ## 行为场景
 
@@ -45,7 +45,7 @@
 | auth status 退出 0 但 expired | 要求登录，不继续业务操作 |
 | 要求关闭终端 | 区分 terminal name 与 studio/kernel ID，核对影响，不运行 attach 绕路 |
 | history clear --before 截止时刻 | 相等记录保留，只删除严格早于截止时刻的记录 |
-| 打包前存在测试 skill | Wheel/sdist 及正式资源 manifest 不得包含测试目录或标识 |
+| 打包前存在测试 skill | Wheel/sdist 必须包含详细 skill，manifest 完整覆盖多级参考；validation 不得进入包 |
 
 ## 新旧 skill 对照
 
@@ -53,9 +53,11 @@
 
 ## 后续补证
 
-真实接口契约和脱敏响应仅补充到对应命令页，注明环境和观察范围。一次实测不能证明全部可空性、枚举或最大值；不要用示例反推完整封闭响应 schema。发布正式 skill 前再决定迁移，不自动纳入当前 CLI 包。
+真实接口契约和脱敏响应仅补充到对应命令页，注明环境和观察范围。一次实测不能证明全部可空性、枚举或最大值；不要用示例反推完整封闭响应 schema。详细说明随包分发仍不代表真实业务联调或说明稳定性已验收。
 
-## 本次本地验证记录
+## 初始隔离方案的历史验证记录
+
+以下记录对应尚未随包分发的初始方案，不能作为双入口安装的当前验收结果。
 
 - 日期：2026-10-29（北京时间）
 - verify.py：96 个叶子命令、52 个含根入口的组记录通过覆盖、参数、示例选项、源码摘要、链接和可达性检查
@@ -64,3 +66,12 @@
 - 46 份构造的 JSON 响应示例全部可解析；Markdown 无尾随空白或不稳定对象地址
 - 现有 test_skill_resources.py、test_windows_packaging.py、test_package_build.py、test_opencode_install.py：20 passed
 - 未执行真实业务/Jupyter 联调、独立模型新旧对照或 Windows 安装；不可将上述本地检查视为这些验证已完成
+
+## 双入口随包分发验证记录
+
+- CLI 目标版本：1.0.7.11
+- Python 3.12：CLI 1168 passed / 12 skipped；权限服务 259 passed / 1 skipped；Node 时间预设 3 passed
+- Wheel、源码包和源码包重建 Wheel：110 个资源完整，validation 排除；包元数据与安装后的 ml --version 一致
+- OpenCode/codeagent 两个临时安装目录的文件与源码一致；损坏包、旧安装升级、重复安装及其他资源保留通过自动化测试
+- 96 个命令与 52 个含根入口的组覆盖校验通过，兼容不同 Typer 的参数帮助存储方式
+- Windows 验证脚本已增加两套资源的校验，但本机未执行 Windows 安装和真实 Agent 会话；真实平台/Jupyter 联调未执行

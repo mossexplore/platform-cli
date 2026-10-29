@@ -1,4 +1,24 @@
 $ErrorActionPreference = 'Stop'
+function Assert-AgentResources([string]$Python) {
+    $check = @'
+import hashlib, json, os
+from pathlib import Path
+from wiserec_cli.opencode_install import RESOURCE_ROOT
+manifest = json.loads((RESOURCE_ROOT / 'manifest.json').read_text(encoding='utf-8'))
+required = {'commands/ml.md', 'commands/ml-lab.md', 'skills/wiserec-platform/SKILL.md',
+            'skills/wiserec-platform-detailed/SKILL.md',
+            'skills/wiserec-platform-detailed/references/commands/dataset/list.md'}
+assert required <= set(manifest), 'Missing bundled agent resources'
+for target in (Path(os.environ.get('OPENCODE_CONFIG_DIR') or Path.home() / '.config/opencode'),
+               Path.home() / '.cac'):
+    for relative, digest in manifest.items():
+        assert hashlib.sha256((target / relative).read_bytes()).hexdigest() == digest, (target, relative)
+print('Both skills and slash commands verified in OpenCode and codeagent')
+'@
+    & $Python -c $check
+    if ($LASTEXITCODE -ne 0) { throw 'Agent resource verification failed' }
+}
+
 $version = (Select-String -Path pyproject.toml -Pattern '^version = "([^"]+)"').Matches[0].Groups[1].Value
 foreach ($mode in @('online', 'offline')) {
     $zip = @(Get-ChildItem release -Filter "*-$mode.zip")
@@ -20,6 +40,7 @@ foreach ($mode in @('online', 'offline')) {
     & $exe --help
     if ($LASTEXITCODE -ne 0) { throw 'Help failed' }
     $installedPython = Join-Path $install 'venv/Scripts/python.exe'
+    Assert-AgentResources $installedPython
     $modulePath = (& $installedPython -c 'import wiserec_cli; print(wiserec_cli.__file__)' | Select-Object -Last 1).Trim()
     if ($LASTEXITCODE -ne 0 -or -not (Test-Path -LiteralPath $modulePath)) { throw 'Installed CLI package was not found' }
     & $installedPython -c "from wiserec_cli.config import ConfigManager; ConfigManager().use_profile('test')"
@@ -31,6 +52,7 @@ foreach ($mode in @('online', 'offline')) {
     }
     & $installedPython -c "from wiserec_cli.config import ConfigManager; assert ConfigManager().current_name == 'test'"
     if ($LASTEXITCODE -ne 0) { throw 'Same-version reinstall changed selected environment' }
+    Assert-AgentResources $installedPython
     if ($mode -eq 'offline') {
         Remove-Item Env:PIP_NO_INDEX, Env:PIP_INDEX_URL, Env:PIP_NO_CACHE_DIR
     }
@@ -56,3 +78,5 @@ if ($LASTEXITCODE -ne 0 -or $after -notmatch "ml $version") { throw 'Upgrade fai
 
 & $python -c "from wiserec_cli.config import ConfigManager; assert ConfigManager().current_name == 'test'"
 if ($LASTEXITCODE -ne 0) { throw 'Upgrade changed selected environment' }
+
+Assert-AgentResources $python

@@ -13,7 +13,9 @@ def resources(tmp_path):
     source = tmp_path / "bundle"
     manifest = {}
     for relative in ("skills/wiserec-platform/SKILL.md",
-                     "skills/wiserec-platform/references/session.md", "commands/ml.md"):
+                     "skills/wiserec-platform/references/session.md", "commands/ml.md",
+                     "commands/ml-lab.md", "skills/wiserec-platform-detailed/SKILL.md",
+                     "skills/wiserec-platform-detailed/references/commands/dataset/list.md"):
         path = source / relative
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(relative, encoding="utf-8")
@@ -52,6 +54,8 @@ def test_copy_failure_cleans_partial_resources(resources, tmp_path):
             install_resources(target, resources)
     assert not (target / "commands/ml.md").exists()
     assert not (target / "skills/wiserec-platform").exists()
+    assert not (target / 'skills/wiserec-platform-detailed').exists()
+    assert not (target / 'commands/ml-lab.md').exists()
 
 
 def test_failure_reports_cli_still_usable(tmp_path, monkeypatch, capsys):
@@ -117,6 +121,10 @@ def test_main_installs_both_targets_independently(
         assert (directory / "skills/wiserec-platform/SKILL.md").exists() == (
             label != failed_target
         )
+        assert (directory / "skills/wiserec-platform-detailed/SKILL.md").exists() == (
+            label != failed_target
+        )
+        assert (directory / "commands/ml-lab.md").exists() == (label != failed_target)
         command = directory / "commands/ml.md"
         assert command.exists() == (label != failed_target)
         if command.exists():
@@ -126,3 +134,46 @@ def test_main_installs_both_targets_independently(
     assert str(cac / "skills/wiserec-platform") in output
     assert str(opencode / "commands/ml.md") in output
     assert str(cac / "commands/ml.md") in output
+
+
+def test_upgrade_and_reinstall_lab_preserve_unrelated(resources, tmp_path):
+    target = tmp_path / 'config'
+    old = target / 'skills/wiserec-platform/SKILL.md'
+    old.parent.mkdir(parents=True)
+    old.write_text('old installation')
+    unrelated = target / 'commands/custom.md'
+    unrelated.parent.mkdir()
+    unrelated.write_text('keep')
+    install_resources(target, resources)
+    lab = target / 'skills/wiserec-platform-detailed'
+    (lab / 'stale.md').write_text('obsolete')
+    (target / 'commands/ml-lab.md').write_text('modified')
+    install_resources(target, resources)
+    assert not (lab / 'stale.md').exists()
+    assert (lab / 'references/commands/dataset/list.md').read_bytes() == (
+        resources / 'skills/wiserec-platform-detailed/references/commands/dataset/list.md').read_bytes()
+    assert (target / 'commands/ml-lab.md').read_text() == 'commands/ml-lab.md'
+    assert unrelated.read_text() == 'keep'
+
+
+@pytest.mark.parametrize('problem', ['missing', 'corrupt', 'traversal', 'sibling', 'validation'])
+def test_invalid_lab_bundle_preserves_both_skills(resources, tmp_path, problem):
+    target = tmp_path / 'config'
+    install_resources(target, resources)
+    before = {str(p.relative_to(target)): p.read_bytes() for p in target.rglob('*') if p.is_file()}
+    manifest_file = resources / 'manifest.json'
+    manifest = json.loads(manifest_file.read_text())
+    if problem == 'missing':
+        del manifest['commands/ml-lab.md']
+    elif problem == 'corrupt':
+        (resources / 'commands/ml-lab.md').write_text('corrupt')
+    else:
+        invalid = {'traversal': 'skills/wiserec-platform-detailed/references/../outside.md',
+                   'sibling': 'skills/wiserec-platform-detailed-other/SKILL.md',
+                   'validation': 'skills/wiserec-platform-detailed/validation/verify.py'}[problem]
+        manifest[invalid] = '0' * 64
+    manifest_file.write_text(json.dumps(manifest))
+    with pytest.raises(ValueError):
+        install_resources(target, resources)
+    after = {str(p.relative_to(target)): p.read_bytes() for p in target.rglob('*') if p.is_file()}
+    assert after == before

@@ -13,7 +13,7 @@ def test_wheel_excludes_stale_build_modules(tmp_path):
     project.mkdir()
     for name in ("setup.py", "pyproject.toml", "MANIFEST.in", "config.json"):
         shutil.copy2(root / name, project / name)
-    for name in ("src", "skill"):
+    for name in ("src", "skill", "skill-lab"):
         shutil.copytree(root / name, project / name,
                         ignore=shutil.ignore_patterns("*.egg-info", "__pycache__"))
 
@@ -40,3 +40,8 @@ def test_wheel_excludes_stale_build_modules(tmp_path):
             assert "wiserec_cli/cli.py" in names
             assert archive.read("wiserec_cli/config.json") == (root / "config.json").read_bytes()
             assert "wiserec_cli/opencode_resources/manifest.json" in names
+
+
+def test_both_skills_survive_sdist_and_installation():
+    root = Path(__file__).resolve().parents[1]
+    runpy.run_path(str(root / "skill-lab/validation/verify_package.py"))["main"]()

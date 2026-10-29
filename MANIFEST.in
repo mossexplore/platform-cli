@@ -4,6 +4,9 @@ include examples/jupyter/hello.ipynb
 include docs/Jupyter本地开发指南.md
 
 recursive-include skill *.md
+include skill-lab/wiserec-platform-detailed/SKILL.md
+recursive-include skill-lab/wiserec-platform-detailed/references *.md
+prune skill-lab/validation
 
 prune devtools
 prune scripts/demo
