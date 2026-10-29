@@ -1,3 +1,5 @@
+import { attachMessageTime } from "./message-time.js";
+import { refreshHistory } from "./history.js";
 import {
   state,
   $,
@@ -35,26 +37,7 @@ export function disconnect() {
     state.stream = null;
   }
 }
-export async function loadHistory(more = false) {
-  if (!more) {
-    state.historyOffset = 0;
-    $("history").replaceChildren();
-  }
-  const rows = await api("/conversations?offset=" + state.historyOffset);
-  state.historyOffset += rows.length;
-  rows.forEach((c) => {
-    const button = text("button", "", "history-entry");
-    button.dataset.id = c.id;
-    button.title = c.title;
-    if (c.id === state.conversation?.id) button.classList.add("active");
-    button.append(icon("chat-left"), text("span", c.title));
-    button.onclick = () => openConversation(c).catch((e) => notice(e.message));
-    $("history").append(button);
-  });
-  if (!state.historyOffset)
-    $("history").append(text("p", "你的对话将在这里保留", "history-empty"));
-  $("more-history").hidden = rows.length < 50;
-}
+export const loadHistory = (more = false) => refreshHistory(openConversation, more);
 export async function newConversation() {
   if (state.busy) return;
   disconnect();
@@ -73,6 +56,7 @@ function appendMessage(
   status = "completed",
   prepend = false,
   parts = [],
+  createdAt = null,
 ) {
   const row = text("article", "", "message " + role),
     body = text("div", "", "message-body");
@@ -95,6 +79,7 @@ function appendMessage(
       );
   } else body.textContent = content;
   row.append(body);
+  body.setTimestamp = attachMessageTime(row, createdAt);
   if (prepend) $("messages").prepend(row);
   else $("messages").append(row);
   return body;
@@ -123,7 +108,7 @@ export async function openConversation(c, resumeId = null) {
     .filter(
       (m) => !(resumeId && m.role === "assistant" && m.run_id === resumeId),
     )
-    .forEach((m) => appendMessage(m.role, m.content, m.status, false, m.parts));
+    .forEach((m) => appendMessage(m.role, m.content, m.status, false, m.parts, m.created_at));
   $("older-messages").hidden = messages.length < 50;
   $("sidebar").classList.remove("open");
   await loadHistory();
@@ -142,7 +127,7 @@ $("older-messages").onclick = async () => {
     [...rows]
       .reverse()
       .forEach((m) =>
-        appendMessage(m.role, m.content, m.status, true, m.parts),
+        appendMessage(m.role, m.content, m.status, true, m.parts, m.created_at),
       );
     $("older-messages").hidden = rows.length < 50;
   } catch (e) {
@@ -169,7 +154,7 @@ export async function sendMessage() {
       { message: value, client_message_id: clientId },
     );
     $("welcome").hidden = true;
-    appendMessage("user", value);
+    appendMessage("user", value, "completed", false, [], result.created_at);
     $("prompt").value = "";
     state.run = result.run_id;
     const body = appendMessage("assistant", "");
@@ -208,7 +193,7 @@ function connectEvents(runId, body) {
       if (
         ["completed", "failed", "cancelled", "interrupted"].includes(run.status)
       )
-        finish({ answer: run.answer, message: run.error, parts: run.parts });
+        finish({ answer: run.answer, message: run.error, parts: run.parts, created_at: run.created_at });
     } catch (error) {
       if (error.status === 401) {
         disconnect();
@@ -234,6 +219,7 @@ function connectEvents(runId, body) {
     setBusy(false);
     state.run = null;
     timeline.finish(data.answer, data.parts);
+    body.setTimestamp?.(data.created_at);
     $("connection-status").textContent = data.message || "查询完成";
     if (data.message) body.append(text("div", data.message, "message-error"));
     scrollDown();
@@ -292,7 +278,7 @@ function connectEvents(runId, body) {
       if (
         ["completed", "failed", "cancelled", "interrupted"].includes(run.status)
       ) {
-        finish({ answer: run.answer, message: run.error, parts: run.parts });
+        finish({ answer: run.answer, message: run.error, parts: run.parts, created_at: run.created_at });
         return;
       }
     } catch (e) {

@@ -105,15 +105,29 @@
     </main>
     <div id="chat-screen" class="workspace" hidden>
       <aside id="sidebar" class="sidebar">
-        <a class="wordmark" href="/"
-          ><strong>WiseRec</strong><span>Agent</span></a
-        >
-        <button id="new-chat" class="primary">
-          <i class="bi bi-plus-lg" aria-hidden="true"></i> 新建对话
-        </button>
-        <div class="history-heading">最近对话</div>
+        <div class="sidebar-top">
+          <a class="wordmark" href="/">WiseRec Agent</a>
+          <button id="new-chat" class="primary" title="新建对话" aria-label="新建对话">
+            <i class="bi bi-plus-lg" aria-hidden="true"></i>
+          </button>
+        </div>
+        <label class="history-search">
+          <i class="bi bi-search" aria-hidden="true"></i>
+          <input id="history-search" type="search" placeholder="搜索历史对话" aria-label="搜索历史对话" />
+        </label>
+        <div class="history-toolbar">
+          <span id="history-caption">对话历史</span>
+          <button id="history-archived" aria-pressed="false" title="仅此浏览器保存归档与置顶偏好">已归档</button>
+        </div>
         <nav id="history" aria-label="对话历史"></nav>
         <button id="more-history" class="history-more" hidden>加载更多</button>
+        <dialog id="rename-dialog">
+          <form id="rename-form">
+            <h2>重命名对话</h2>
+            <input id="rename-title" aria-label="对话名称" maxlength="100" required />
+            <div class="rename-actions"><button type="button" id="rename-cancel">取消</button><button class="primary" type="submit">保存</button></div>
+          </form>
+        </dialog>
         <div class="sidebar-bottom">
           <div class="avatar">
             <i class="bi bi-person-fill" aria-hidden="true"></i>
@@ -267,9 +281,7 @@
         </p>
         <p id="business-error" class="inline-error" role="alert"></p>
         <div class="dialog-actions">
-          <button id="business-logout" class="secondary" type="button">
-            退出登录</button
-          ><button id="confirm-business" class="primary" type="submit">
+          <button id="confirm-business" class="primary" type="submit">
             确认并开始
           </button>
         </div>

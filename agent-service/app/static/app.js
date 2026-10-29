@@ -224,12 +224,11 @@ $("business-form").onsubmit = async (e) => {
     $("confirm-business").disabled = false;
   }
 };
-$("business-logout").onclick = logout;
 $("logout").onclick = () => $("logout-dialog").showModal();
 $("cancel-logout").onclick = () => $("logout-dialog").close();
 $("confirm-logout").onclick = logout;
 $("new-chat").onclick = () => newConversation().catch((e) => notice(e.message));
-$("more-history").onclick = () => loadHistory(true);
+$("more-history").onclick = () => loadHistory(true).catch((e) => notice(e.message));
 $("composer").onsubmit = (e) => {
   e.preventDefault();
   sendMessage().catch((e) => notice(e.message));

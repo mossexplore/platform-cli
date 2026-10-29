@@ -1,0 +1,15 @@
+.message { flex-wrap: wrap; }
+.message-time {
+  flex-basis: 100%;
+  display: block;
+  margin-top: -5px;
+  color: #7b8798;
+  font-size: 11px;
+  line-height: 1.5;
+  font-variant-numeric: tabular-nums;
+}
+.message.user > .message-time { text-align: right; }
+.message.assistant > .message-time { padding-left: 45px; }
+@media (max-width: 720px) {
+  .message.assistant > .message-time { padding-left: 40px; }
+}

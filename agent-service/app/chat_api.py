@@ -20,11 +20,40 @@ class Input(BaseModel):
     client_message_id: UUID
 
 
+class RenameInput(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    title: str = Field(min_length=1, max_length=100)
+
+
+@router.patch("/conversations/{key}")
+def rename_conversation(key: str, body: RenameInput, request: Request):
+    title = body.title.strip()
+    if not title:
+        raise AppError("EMPTY_TITLE", "请输入对话名称")
+    with request.app.state.db() as db:
+        s = request_session(request, db)
+        protect(request, s)
+        c = conversation(db, s, key)
+        c.title = title
+        db.commit()
+        return {"id": c.id, "title": c.title}
+
+
 def conversation(db, s, key):
     c = db.get(Conversation, key)
     if not c or c.user_id != s.user_id or c.environment_id != s.environment_id:
         raise AppError("NOT_FOUND", "对话不存在", 404)
     return c
+
+
+def message_timestamp(db, run_id, role):
+    value = db.scalar(
+        select(Message.created_at)
+        .where(Message.run_id == run_id, Message.role == role)
+        .order_by(Message.id.desc())
+        .limit(1)
+    )
+    return value.isoformat() + "Z" if value else None
 
 
 def run_owned(db, s, key):
@@ -97,6 +126,7 @@ def messages(key: str, request: Request, before: int | None = Query(None, ge=1))
                 "id": m.id,
                 "role": m.role,
                 "content": m.content,
+                "created_at": m.created_at.isoformat() + "Z",
                 "status": m.status,
                 "run_id": m.run_id,
                 "parts": message_parts(db, db.get(Run, m.run_id))
@@ -126,7 +156,11 @@ async def create_run(key: str, body: Input, request: Request):
                 )
             )
             if existing:
-                return {"run_id": existing.id, "status": existing.status}
+                return {
+                    "run_id": existing.id,
+                    "status": existing.status,
+                    "created_at": message_timestamp(db, existing.id, "user"),
+                }
             if db.scalar(
                 select(Run.id).where(
                     Run.session_id == s.id, Run.status.in_(["queued", "running"])
@@ -149,7 +183,11 @@ async def create_run(key: str, body: Input, request: Request):
             c.updated_at = s.last_activity = now()
             db.commit()
             state.runs.start(r.id)
-            return {"run_id": r.id, "status": r.status}
+            return {
+                "run_id": r.id,
+                "status": r.status,
+                "created_at": message_timestamp(db, r.id, "user"),
+            }
 
 
 @router.get("/runs/{key}")
@@ -161,6 +199,7 @@ def status(key: str, request: Request):
             "id": r.id,
             "status": r.status,
             "answer": r.answer,
+            "created_at": message_timestamp(db, r.id, "assistant"),
             "error": r.error,
             "parts": message_parts(db, r) if r.status in TERMINAL else [],
         }
@@ -204,6 +243,7 @@ async def events(key: str, request: Request):
                 r.status,
                 r.answer,
                 r.error,
+                message_timestamp(db, r.id, "assistant") if r.status in TERMINAL else None,
                 message_parts(db, r) if r.status in TERMINAL else [],
                 [(e.id, e.kind, e.payload) for e in rows],
             )
@@ -218,7 +258,7 @@ async def events(key: str, request: Request):
         heartbeat = 0
         while not await request.is_disconnected():
             try:
-                status, answer, error, parts, batch = await asyncio.to_thread(
+                status, answer, error, created_at, parts, batch = await asyncio.to_thread(
                     read_batch, cursor
                 )
             except AppError:
@@ -227,6 +267,8 @@ async def events(key: str, request: Request):
             terminal = status in TERMINAL
             for event_id, kind, payload in batch:
                 cursor = event_id
+                if kind in {"run.completed", "run.failed", "run.cancelled"}:
+                    payload = {**payload, "created_at": created_at}
                 yield f"id: {cursor}\nevent: {kind}\ndata: {json.dumps(payload, ensure_ascii=False)}\n\n"
             if terminal and len(batch) < 100:
                 yield (
@@ -234,6 +276,7 @@ async def events(key: str, request: Request):
                     + json.dumps(
                         {
                             "status": status,
+                            "created_at": created_at,
                             "answer": answer,
                             "message": error,
                             "parts": parts,

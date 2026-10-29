@@ -23,7 +23,7 @@ test('progress reports elapsed time and status polling recovers a lost completio
     notice:()=>{}, text:()=>({}), icon:()=>({}), window:{dispatchEvent:()=>{}},Event:class {},
   });
   const code=fs.readFileSync(path.join(__dirname,'../app/static/chat.js'),'utf8')
-    .replace(/import[\s\S]*?from "\.\/api\.js";/,'').replace(/import .*message-parts.*;/,'').replace(/export /g,'');
+    .replace(/import[\s\S]*?from [^;]+;/g,'').replace(/export /g,'');
   vm.runInContext(code,context);
   vm.runInContext("connectEvents('r', body)",context);
   source.handlers['run.progress']({lastEventId:'1',data:JSON.stringify({stage:'model_waiting',elapsed_seconds:12,model_requests:2})});

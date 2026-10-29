@@ -3,3 +3,6 @@
 @import url("workspace.css");
 @import url("overlays.css");
 @import url("responsive.css");
+
+@import url("history.css");
+@import url("message-time.css");
