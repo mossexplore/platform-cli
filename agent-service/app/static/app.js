@@ -174,7 +174,7 @@ async function confirmBusiness(id) {
 }
 async function logout() {
   try {
-    await post("/logout");
+    const result = await post("/logout");
     disconnect();
     polling = false;
     state.conversation = null;
@@ -185,6 +185,7 @@ async function logout() {
     $("welcome").hidden = false;
     $("connection-status").textContent = "";
     await boot();
+    if (result.warning) notice("服务端登录已退出；" + result.warning);
   } catch (error) {
     notice(error.message);
   }

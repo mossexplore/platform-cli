@@ -1,7 +1,6 @@
 """Local interactive Edge authentication; all Playwright objects stay on one thread."""
 
 import asyncio
-import shutil
 import threading
 import time
 from collections import deque
@@ -11,9 +10,11 @@ from sqlalchemy import select
 from wiserec_cli.auth import BrowserAuthenticator
 from wiserec_cli.business import parse_business_list, BusinessStore
 from wiserec_cli.models import Profile
+from wiserec_cli.errors import BusinessError
 from .errors import AppError
 from .models import Attempt, Credential, User, now
 from .sessions import valid
+from .login_support import prepare_profile, profile_paths, clear_profile, login_failure
 
 
 def selections(raw):
@@ -37,9 +38,11 @@ class LocalEdge:
     def __call__(self, config, env, attempt_id, stop, status):
         from playwright.sync_api import sync_playwright
 
-        root = config.login.profile_root
-        root.mkdir(parents=True, exist_ok=True)
-        directory = root / attempt_id
+        stage = "profile"
+        try:
+            directory = prepare_profile(config, env.id)
+        except Exception as exc:
+            raise login_failure(stage, exc) from None
         profile = Profile(
             name=env.id, api_endpoint=env.api_endpoint, verify_ssl=env.verify_ssl
         )
@@ -47,6 +50,7 @@ class LocalEdge:
         headers = deque(maxlen=20)
         info_url = profile.base_url + "/ai/user/info"
         try:
+            stage = "browser_launch"
             with sync_playwright() as p:
                 context = p.chromium.launch_persistent_context(
                     str(directory),
@@ -64,10 +68,12 @@ class LocalEdge:
 
                     context.on("request", capture)
                     page = context.pages[0] if context.pages else context.new_page()
+                    stage = "navigation"
                     page.goto(
                         env.api_endpoint, wait_until="domcontentloaded", timeout=60000
                     )
                     status("awaiting_login")
+                    stage = "credential_capture"
                     deadline = time.monotonic() + config.login.timeout_seconds
                     credentials = None
                     while time.monotonic() < deadline:
@@ -92,22 +98,35 @@ class LocalEdge:
                                     != urlsplit(env.api_endpoint).netloc
                                 ):
                                     continue
+                                stage = "business_catalog"
                                 raw = current.evaluate(
                                     "localStorage.getItem('ai-businessList')"
                                 )
                                 if raw:
+                                    try:
+                                        catalog = selections(raw)
+                                    except BusinessError:
+                                        # Platform may populate the directory after user/info succeeds.
+                                        continue
                                     status("verifying")
-                                    return credentials, selections(raw)
+                                    return credentials, catalog
                         pages[-1].wait_for_timeout(250)
+                    if credentials:
+                        raise AppError(
+                            "LOGIN_CATALOG_TIMEOUT",
+                            "平台身份已确认，但等待有效业务目录超时（阶段=business_catalog），请确认平台已加载可访问的租户或团队",
+                        )
                     raise AppError(
-                        "LOGIN_TIMEOUT", "等待平台登录或业务目录超时，请重试"
+                        "LOGIN_TIMEOUT",
+                        "等待平台登录凭据超时（阶段=credential_capture），请确认平台登录已完成",
                     )
                 finally:
-                    context.close()
-        finally:
-            # Failure is visible, not silently reported as complete destruction.
-            if directory.exists():
-                shutil.rmtree(directory)
+                    try:
+                        context.close()
+                    except Exception as exc:
+                        raise login_failure("browser_close", exc) from None
+        except Exception as exc:
+            raise login_failure(stage, exc) from None
 
 
 class LoginManager:
@@ -115,6 +134,7 @@ class LoginManager:
         self.config, self.db, self.platform = config, db, platform
         self.provider = provider or LocalEdge()
         self.active = None
+        self.active_environment = None
         self.stop = threading.Event()
         self.task = None
 
@@ -123,12 +143,30 @@ class LoginManager:
 
     def start(self, attempt_id):
         self.active = attempt_id
+        with self.db() as db:
+            self.active_environment = db.get(Attempt, attempt_id).environment_id
         self.stop = threading.Event()
         self.task = asyncio.create_task(self._run(attempt_id, self.stop))
 
     def cancel(self, attempt_id):
         if self.active == attempt_id:
             self.stop.set()
+
+    async def forget_environment(self, environment_id):
+        # The marker prevents a subsequent login from reusing a cache whose deletion failed.
+        _, pending = profile_paths(self.config, environment_id)
+        self.config.login.profile_root.mkdir(parents=True, exist_ok=True)
+        pending.touch()
+        if self.busy() and self.active_environment == environment_id:
+            self.stop.set()
+            try:
+                await asyncio.wait_for(asyncio.shield(self.task), timeout=25)
+            except TimeoutError:
+                raise AppError(
+                    "PROFILE_BUSY",
+                    "登录已退出，但 Edge 仍未关闭；已禁止复用旧缓存，请关闭该登录窗口后重试",
+                ) from None
+        await asyncio.to_thread(clear_profile, self.config, environment_id)
 
     def _status(self, attempt_id, state):
         with self.db() as db:
@@ -138,6 +176,7 @@ class LoginManager:
                 db.commit()
 
     async def _run(self, attempt_id, stop):
+        stage = "provider"
         try:
             with self.db() as db:
                 a = db.get(Attempt, attempt_id)
@@ -151,7 +190,9 @@ class LoginManager:
                 lambda state: self._status(attempt_id, state),
             )
             # Verify again using the actual server HTTP client, independent of Edge request context.
+            stage = "identity_probe"
             identity = await asyncio.to_thread(self.platform.identity, env, credentials)
+            stage = "credential_save"
             with self.db() as db:
                 a = db.scalar(
                     select(Attempt).where(Attempt.id == attempt_id).with_for_update()
@@ -196,9 +237,5 @@ class LoginManager:
                 a = db.get(Attempt, attempt_id)
                 if a and a.status != "cancelled":
                     a.status = "failed"
-                    a.error = (
-                        exc.message
-                        if isinstance(exc, AppError)
-                        else "登录未完成，请确认 Edge 已安装、平台可访问，并重试"
-                    )
+                    a.error = login_failure(stage, exc).message
                     db.commit()

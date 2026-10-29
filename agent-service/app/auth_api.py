@@ -14,6 +14,7 @@ from .sessions import (
     revoke,
 )
 from .errors import AppError
+from .login_support import login_failure
 
 router = APIRouter(prefix="/api")
 
@@ -165,6 +166,11 @@ async def select_business(body: BusinessBody, request: Request):
 
 @router.post("/logout")
 async def logout(request: Request, response: Response):
+    async with request.app.state.login_lock:
+        return await _logout_locked(request, response)
+
+
+async def _logout_locked(request: Request, response: Response):
     state = request.app.state
     with state.db() as db:
         try:
@@ -183,11 +189,22 @@ async def logout(request: Request, response: Response):
                 )
             )
         )
+        environments = set(
+            db.scalars(select(Attempt.environment_id).where(Attempt.session_id == s.id))
+        )
+        if s.environment_id:
+            environments.add(s.environment_id)
         revoke(db, s)
         db.commit()
     for a in attempts:
         state.login.cancel(a)
     for r in runs:
         await state.runs.stop(r)
+    warnings = []
+    for environment in environments:
+        try:
+            await state.login.forget_environment(environment)
+        except Exception as exc:
+            warnings.append(login_failure("profile_cleanup", exc).message)
     response.delete_cookie(state.config.session.cookie_name, path="/")
-    return {"ok": True}
+    return {"ok": True, "warning": "；".join(warnings)}
