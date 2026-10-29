@@ -77,6 +77,8 @@
     "platform_timeout_seconds": 30,
     "max_turns": 12,
     "max_tool_calls": 20,
+    "max_discovery_calls": 4,
+    "max_loaded_tools": 16,
     "run_timeout_seconds": 180,
     "max_page_size": 50,
     "max_auto_pages": 5,

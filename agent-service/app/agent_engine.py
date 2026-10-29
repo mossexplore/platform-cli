@@ -12,6 +12,7 @@ from agents import (
     OpenAIResponsesModel,
 )
 from .tools import build_tools
+from .tool_catalog import ToolSelection
 
 INSTRUCTIONS = """你是 WiseRec 平台查询助手，用中文帮助用户查询模型、训练任务、服务与日志。
 只能使用提供的只读工具，不执行写操作、任意网络请求或代码。业务事实必须来自本轮或明确标注时间的工具结果。
@@ -20,6 +21,8 @@ INSTRUCTIONS = """你是 WiseRec 平台查询助手，用中文帮助用户查�
 ID 类型不可互换，展示完整 ID。时间转为北京时间 YYYY-MM-DD HH:mm:ss；不对无时区值猜测转换。
 解释结论与证据，并区分已观察事实和可能原因。认证/权限失败时停止查询，明确提示用户处理。
 服务日志只支持尾部行数与关键词，不声称覆盖精确时间区间。不要编造未返回的健康指标。
+工具按领域渐进加载。缺少能力时调用 discover_tools，再在下一轮调用已加载工具；不要声称未加载的工具不存在。
+发现目录仅含当前已实现的只读能力，不支持写操作。发现失败或达到上限时说明限制，不编造结果。
 当前环境和业务固定，切换环境须退出登录，切换业务须新建对话。不要询问密码、Cookie 或 Token。
 """
 
@@ -60,7 +63,9 @@ class AgentEngine:
                 + "\n当前上下文："
                 + json.dumps(context, ensure_ascii=False),
                 model=model_cls(model=cfg.model, openai_client=client),
-                tools=build_tools(invoke),
+                tools=build_tools(invoke, ToolSelection(
+                    message, self.config.runtime.max_loaded_tools
+                )),
                 model_settings=ModelSettings(parallel_tool_calls=False),
             )
             inputs = history + [{"role": "user", "content": message}]

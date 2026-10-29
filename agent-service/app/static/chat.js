@@ -15,6 +15,7 @@ import { createTimeline } from "./message-parts.js";
 let earliest = null;
 let progressTimer = null;
 const toolNames = {
+  discover_tools: "查找业务工具",
   list_models: "查询模型列表",
   get_model: "读取模型详情",
   get_model_source: "追溯模型来源",

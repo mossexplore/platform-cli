@@ -86,13 +86,15 @@ REGISTRY = {
 }
 
 
-def build_tools(invoke: Callable):
+def build_tools(invoke: Callable, selection=None):
     from agents import FunctionTool
 
     tools = []
     for name, (schema, description) in REGISTRY.items():
 
         async def call(ctx, raw, tool_name=name, params=schema):
+            if selection is not None and tool_name not in selection.loaded:
+                raise ValueError("工具尚未加载")
             validated = params.model_validate_json(raw)
             return await invoke(tool_name, validated.model_dump())
 
@@ -105,6 +107,25 @@ def build_tools(invoke: Callable):
                 params_json_schema=schema.model_json_schema(),
                 on_invoke_tool=call,
                 strict_json_schema=False,
+                is_enabled=(lambda ctx, agent, key=name: key in selection.loaded)
+                if selection is not None else True,
             )
         )
+    if selection is not None:
+        from .tool_catalog import DISCOVERY_NAME, Discovery
+
+        async def discover_call(ctx, raw):
+            params = Discovery.model_validate_json(raw)
+            result = await invoke(DISCOVERY_NAME, params.model_dump())
+            return selection.apply(result)
+
+        tools.append(FunctionTool(
+            name=DISCOVERY_NAME,
+            description="查找并加载只读工具；按 query 或 domain 查询，每次最多一个领域。"
+                        "domain: models 模型、training 训练、services 服务主机、logs 日志。"
+                        "无匹配时返回目录；query 也可以填写精确工具名。不授予业务访问权限",
+            params_json_schema=Discovery.model_json_schema(),
+            on_invoke_tool=discover_call,
+            strict_json_schema=False,
+        ))
     return tools

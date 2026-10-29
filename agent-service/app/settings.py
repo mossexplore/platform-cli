@@ -110,6 +110,8 @@ class Runtime(Strict):
     platform_timeout_seconds: int = Field(default=30, ge=1, le=120)
     max_turns: int = Field(default=12, ge=1, le=30)
     max_tool_calls: int = Field(default=20, ge=1, le=50)
+    max_discovery_calls: int = Field(default=4, ge=1, le=10)
+    max_loaded_tools: int = Field(default=16, ge=4, le=100)
     run_timeout_seconds: int = Field(default=180, ge=10, le=600)
     max_page_size: int = Field(default=50, ge=1, le=100)
     max_auto_pages: int = Field(default=5, ge=1, le=20)

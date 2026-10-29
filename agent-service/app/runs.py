@@ -7,6 +7,7 @@ from .errors import AppError
 from .agent_engine import AgentEngine
 from .progress import RunProgress
 from .run_store import RunStore
+from .tool_catalog import DISCOVERY_NAME, discover
 
 
 class RunManager:
@@ -47,6 +48,7 @@ class RunManager:
         chunks = 0
         db_wait_ms = 0.0
         tool_count = 0
+        discovery_count = 0
         tool_lock, io_lock, flush_lock = asyncio.Lock(), asyncio.Lock(), asyncio.Lock()
 
         async def io(function, *args):
@@ -108,7 +110,7 @@ class RunManager:
             await progress.start()
 
             async def invoke(name, args):
-                nonlocal tool_count
+                nonlocal tool_count, discovery_count
                 async with tool_lock:
                     await io(self.check, run_id)
                     tool_count += 1
@@ -123,15 +125,24 @@ class RunManager:
                     await emit("tool.started", {"tool_call_id": call_id, "name": name})
                     status = "completed"
                     try:
-                        result = await asyncio.to_thread(
-                            self.platform.execute,
-                            sid,
-                            run_id,
-                            business,
-                            name,
-                            args,
-                            call_id,
-                        )
+                        if name == DISCOVERY_NAME:
+                            discovery_count += 1
+                            if discovery_count > self.config.runtime.max_discovery_calls:
+                                status = "failed"
+                                result = {"ok": False, "error": "DISCOVERY_LIMIT",
+                                          "message": "工具发现次数已达上限，请使用已加载工具或拆分问题"}
+                            else:
+                                result = discover(args)
+                        else:
+                            result = await asyncio.to_thread(
+                                self.platform.execute,
+                                sid,
+                                run_id,
+                                business,
+                                name,
+                                args,
+                                call_id,
+                            )
                         await io(self.check, run_id)
                     except asyncio.CancelledError:
                         status = "cancelled"
