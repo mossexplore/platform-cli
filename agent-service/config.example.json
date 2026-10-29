@@ -64,6 +64,9 @@
     "profile_root": "./var/browser-profiles"
   },
   "session": {
+    "keepalive_enabled": true,
+    "keepalive_interval_seconds": 600,
+    "browser_cookie_max_age_seconds": 31536000,
     "idle_timeout_seconds": 1800,
     "absolute_timeout_seconds": 28800,
     "credential_ttl_seconds": 1800,

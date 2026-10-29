@@ -1,7 +1,7 @@
 import pytest
 from sqlalchemy import create_engine, event, inspect, select, text
 from sqlalchemy.orm import sessionmaker
-from app.db import migrate, verify_schema, SchemaError
+from app.db import migrate, verify_schema, SchemaError, SCHEMA_VERSION
 from app.models import Base, SchemaVersion, User
 
 
@@ -28,7 +28,9 @@ def test_fresh_initialization_creates_version_last_and_is_repeatable(engine):
         assert len(created) == len(Base.metadata.tables)
         verify_schema(sessionmaker(engine))
         with engine.connect() as connection:
-            assert list(connection.execute(select(SchemaVersion.id)).scalars()) == [1]
+            assert list(connection.execute(select(SchemaVersion.id)).scalars()) == [
+                SCHEMA_VERSION
+            ]
     finally:
         for table in Base.metadata.tables.values():
             event.remove(table, "after_create", record)
@@ -65,7 +67,7 @@ def test_legacy_two_empty_tables_are_not_silently_repaired(engine):
 def test_version_marker_alone_cannot_pass_validation(engine):
     SchemaVersion.__table__.create(engine)
     with engine.begin() as connection:
-        connection.execute(SchemaVersion.__table__.insert().values(id=1))
+        connection.execute(SchemaVersion.__table__.insert().values(id=SCHEMA_VERSION))
     with pytest.raises(SchemaError, match="缺少 Agent 表"):
         migrate(engine)
     with pytest.raises(SchemaError, match="缺少 Agent 表"):
@@ -81,3 +83,53 @@ def test_unrelated_database_is_not_modified(engine):
     with engine.connect() as connection:
         assert connection.scalar(text("SELECT id FROM important_data")) == 7
     assert inspect(engine).get_table_names() == ["important_data"]
+
+
+def test_v1_upgrade_preserves_users_and_can_be_repeated(engine):
+    from app.models import UserPreference
+
+    for table in Base.metadata.sorted_tables:
+        if table is not UserPreference.__table__:
+            table.create(engine)
+    with engine.begin() as connection:
+        connection.execute(SchemaVersion.__table__.insert().values(id=1))
+        connection.execute(
+            User.__table__.insert().values(
+                id="kept-user", environment_id="dev", username="kept"
+            )
+        )
+    migrate(engine)
+    migrate(engine)
+    with engine.connect() as connection:
+        assert (
+            connection.scalar(select(User.username).where(User.id == "kept-user"))
+            == "kept"
+        )
+        assert list(connection.execute(select(SchemaVersion.id)).scalars()) == [
+            SCHEMA_VERSION
+        ]
+    verify_schema(sessionmaker(engine))
+
+
+def test_v1_upgrade_recovers_after_additive_ddl_interruption(engine):
+    from app.models import UserPreference
+
+    for table in Base.metadata.sorted_tables:
+        if table is not UserPreference.__table__:
+            table.create(engine)
+    with engine.begin() as connection:
+        connection.execute(SchemaVersion.__table__.insert().values(id=1))
+
+    def fail(*args, **kwargs):
+        raise RuntimeError("simulate interruption")
+
+    event.listen(UserPreference.__table__, "after_create", fail)
+    try:
+        with pytest.raises(RuntimeError, match="simulate"):
+            migrate(engine)
+    finally:
+        event.remove(UserPreference.__table__, "after_create", fail)
+    with engine.connect() as connection:
+        assert list(connection.execute(select(SchemaVersion.id)).scalars()) == [1]
+    migrate(engine)
+    verify_schema(sessionmaker(engine))

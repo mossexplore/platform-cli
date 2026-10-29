@@ -12,9 +12,11 @@ from .sessions import (
     protect,
     digest,
     revoke,
+    login_pending,
 )
 from .errors import AppError
 from .login_support import login_failure
+from .business_preferences import business_key, remember
 
 router = APIRouter(prefix="/api")
 
@@ -27,6 +29,7 @@ class LoginBody(BaseModel):
 class BusinessBody(BaseModel):
     model_config = ConfigDict(extra="forbid")
     business_id: str = Field(min_length=1, max_length=256)
+    selection_key: str | None = Field(default=None, max_length=2048)
 
 
 def set_cookie(response, config, token):
@@ -37,7 +40,9 @@ def set_cookie(response, config, token):
         secure=False,
         samesite="lax",
         path="/",
-        max_age=config.session.absolute_timeout_seconds,
+        max_age=config.session.browser_cookie_max_age_seconds
+        if config.session.keepalive_enabled
+        else config.session.absolute_timeout_seconds,
     )
 
 
@@ -57,7 +62,23 @@ def session(request: Request, response: Response):
         try:
             s = request_session(request, db, False)
             if s.user_id:
+                if login_pending(db, s.id):
+                    return {
+                        "active_run": None,
+                        "status": "anonymous",
+                        "csrf_token": s.csrf,
+                        "environment_id": None,
+                        "business": None,
+                        "user": None,
+                        "login_pending": True,
+                    }
                 s = request_session(request, db, True)
+                if state.config.session.keepalive_enabled:
+                    set_cookie(
+                        response,
+                        state.config,
+                        request.cookies[state.config.session.cookie_name],
+                    )
         except AppError:
             s, token = new_session(db, state.config)
             set_cookie(response, state.config, token)
@@ -121,6 +142,7 @@ def cancel_login(attempt_id: str, request: Request):
             raise AppError("NOT_FOUND", "登录任务不存在", 404)
         if a.status not in ("succeeded", "consumed", "failed", "cancelled"):
             a.status = "cancelled"
+            state.login.clear_partial(db, a)
         db.commit()
         state.login.cancel(a.id)
     return {"ok": True}
@@ -130,7 +152,7 @@ def cancel_login(attempt_id: str, request: Request):
 def businesses(request: Request):
     with request.app.state.db() as db:
         s = request_session(request, db)
-        return s.catalog
+        return [{**b, "selection_key": business_key(b)} for b in s.catalog]
 
 
 @router.post("/business-selection")
@@ -146,7 +168,20 @@ async def select_business(body: BusinessBody, request: Request):
                 )
             ):
                 raise AppError("RUN_ACTIVE", "请等待当前运行结束再选择业务", 409)
-            matches = [b for b in s.catalog if b["businessId"] == body.business_id]
+            matches = [
+                b
+                for b in s.catalog
+                if b["businessId"] == body.business_id
+                and (
+                    body.selection_key is None or business_key(b) == body.selection_key
+                )
+            ]
+            if len(matches) > 1:
+                raise AppError(
+                    "BUSINESS_AMBIGUOUS",
+                    "存在同业务ID的租户或团队，请刷新后选择具体条目",
+                    409,
+                )
             if not matches:
                 raise AppError("BUSINESS_DENIED", "业务不可用", 403)
             business, sid = matches[0], s.id
@@ -160,6 +195,7 @@ async def select_business(body: BusinessBody, request: Request):
         with state.db() as db:
             s = request_session(request, db)
             s.business, s.status, s.last_activity = business, "ready", now()
+            remember(db, s.user_id, business)
             db.commit()
             return public_session(db, s)
 

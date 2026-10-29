@@ -1,6 +1,9 @@
 """Per-operation clients. Every business HTTP call checks session and gateway first."""
 
+from datetime import timezone
 import json
+import threading
+from collections import defaultdict
 import time
 from uuid import uuid4
 import httpx
@@ -14,12 +17,14 @@ from wiserec_cli.errors import AuthenticationError
 from wiserec_cli.services.model import ModelService
 from wiserec_cli.services.train import TrainService
 from wiserec_cli.services.service import ServiceCatalog
-from .models import Session, Credential, User, Run, now
-from .sessions import valid, revoke
+from .models import Credential, User, Run, now
+from .sessions import valid
 from .errors import AppError
 from .sanitize import clean
+from .credential_activity import confirm_activity, response_credentials, expire_snapshot
 
 COMMANDS = {
+    "keepalive": "ml auth ping start",
     "list_models": "ml model list",
     "get_model": "ml model detail",
     "get_model_source": "ml model source",
@@ -65,8 +70,9 @@ LOG_TYPES = {
 class Platform:
     def __init__(self, config, db, transport=None):
         self.config, self.db, self.transport = config, db, transport
+        self.credential_locks = defaultdict(threading.RLock)
 
-    def identity(self, env, cred):
+    def identity(self, env, cred, *, return_response=False):
         with httpx.Client(
             transport=self.transport,
             verify=tls_verify() if env.verify_ssl else False,
@@ -82,6 +88,8 @@ class Platform:
                     "referer": env.api_endpoint,
                 },
             )
+        if r.status_code >= 500:
+            raise AppError("PLATFORM_UNAVAILABLE", "平台身份服务暂时不可用", 503)
         try:
             result = r.json()["result"]
         except (ValueError, KeyError, TypeError):
@@ -95,7 +103,7 @@ class Platform:
             raise AppError(
                 "PLATFORM_AUTH_REJECTED", "平台登录验证失败，请重新登录", 401
             )
-        return result
+        return (result, r) if return_response else result
 
     def context(self, session_id, run_id=None):
         with self.db() as db:
@@ -110,8 +118,8 @@ class Platform:
                 username=u.username,
                 cookie=c.cookie,
                 csrftoken=c.csrftoken,
-                acquired_at=c.acquired_at.timestamp(),
-                expires_at=c.expires_at.timestamp(),
+                acquired_at=c.acquired_at.replace(tzinfo=timezone.utc).timestamp(),
+                expires_at=c.expires_at.replace(tzinfo=timezone.utc).timestamp(),
             )
             return s, self.config.env(s.environment_id), cred
 
@@ -161,27 +169,53 @@ class Platform:
         return request_id
 
     def execute(self, session_id, run_id, business, name, args, invocation):
-        if name not in COMMANDS or name == "business_selection":
+        with self.credential_locks[session_id]:
+            return self._execute(session_id, run_id, business, name, args, invocation)
+
+    def _execute(self, session_id, run_id, business, name, args, invocation):
+        if name not in COMMANDS or name in ("business_selection", "keepalive"):
             raise AppError("TOOL_DENIED", "不支持该操作", 403)
         s, env, cred = self.context(session_id, run_id)
         try:
-            identity = self.identity(env, cred)
+            identity, response = self.identity(env, cred, return_response=True)
             if identity["username"] != cred.username:
                 raise AppError("IDENTITY_CHANGED", "平台账号已变化，请重新登录", 401)
-        except AppError:
-            with self.db() as db:
-                revoke(db, db.get(Session, session_id), "expired")
-                db.commit()
+            cred = confirm_activity(
+                self.db,
+                self.config,
+                session_id,
+                cred,
+                response_credentials(cred, response),
+            )
+        except AppError as exc:
+            if exc.status == 401:
+                expire_snapshot(self.db, session_id, cred)
             raise
         owner = self
         deadline = time.monotonic() + self.config.runtime.run_timeout_seconds
 
+        latest_response = []
+
         class GuardedClient(PlatformClient):
             def request(inner, *a, **kw):
+                nonlocal cred
                 if time.monotonic() >= deadline:
                     raise AppError("TOOL_TIMEOUT", "查询时间已超限", 504)
                 owner.gateway(session_id, business, name, invocation, run_id)
                 result = super().request(*a, **kw)
+                payload = result.get("result", {}) if isinstance(result, dict) else {}
+                if (
+                    latest_response
+                    and type(payload.get("code")) is int
+                    and payload["code"] == 0
+                ):
+                    updated = response_credentials(cred, latest_response[-1])
+                    cred = confirm_activity(
+                        owner.db, owner.config, session_id, cred, updated
+                    )
+                    inner._client.headers.update(
+                        {"cookie": cred.cookie, "csrftoken": cred.csrftoken}
+                    )
                 owner.context(session_id, run_id)
                 return result
 
@@ -195,27 +229,25 @@ class Platform:
             transport=self.transport,
             business_selection=BusinessSelection.from_dict(business),
         ) as client:
+            client._client.event_hooks["response"].append(
+                lambda response: latest_response.__setitem__(slice(None), [response])
+            )
             try:
                 result = self.dispatch(client, name, args)
             except AuthenticationError:
                 try:
                     self.identity(env, cred)
-                except AppError:
-                    with self.db() as db:
-                        revoke(db, db.get(Session, session_id), "expired")
-                        db.commit()
-                    raise AppError(
-                        "AUTH_REQUIRED", "平台登录已失效，请重新登录", 401
-                    ) from None
+                except AppError as exc:
+                    if exc.status == 401:
+                        expire_snapshot(self.db, session_id, cred)
+                        raise AppError(
+                            "AUTH_REQUIRED", "平台登录已失效，请重新登录", 401
+                        ) from None
+                    raise
                 raise AppError("RESOURCE_DENIED", "平台拒绝访问该资源", 403) from None
-        cookie_values = tuple(
-            part.split("=", 1)[1].strip()
-            for part in cred.cookie.split(";")
-            if "=" in part
-        )
-        safe = clean(result, (cred.cookie, cred.csrftoken, *cookie_values))
+        normalized = clean(result)
         if (
-            len(json.dumps(safe, ensure_ascii=False))
+            len(json.dumps(normalized, ensure_ascii=False))
             > self.config.runtime.max_tool_output_chars
         ):
             # Keep valid structured output; never slice JSON or resource identifiers.
@@ -227,7 +259,7 @@ class Platform:
             }
         return {
             "ok": True,
-            "data": safe,
+            "data": normalized,
             "truncated": False,
             "fetched_at": now().isoformat() + "Z",
         }

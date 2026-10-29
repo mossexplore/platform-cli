@@ -19,6 +19,7 @@ from .models import Session, Attempt, Run, Event, Message, Conversation, ToolCal
 from .sessions import revoke
 from .platform import Platform
 from .login import LoginManager
+from .keepalive import KeepaliveManager
 from .runs import RunManager
 from .errors import AppError
 from . import auth_api, chat_api
@@ -141,9 +142,11 @@ def create_app(
             app.state.platform = platform
             app.state.login = LoginManager(cfg, db, platform, login_provider)
             app.state.runs = RunManager(cfg, db, platform, agent_engine)
+            app.state.keepalive = KeepaliveManager(cfg, db, platform)
             app.state.login_lock = asyncio.Lock()
             app.state.ready = True
             cleanup = asyncio.create_task(cleanup_loop(app.state))
+            app.state.keepalive.start()
         except Exception:
             app.state.config_error = "服务尚未就绪，请填写 config.local.json，检查数据库连接并执行数据库迁移后重启"
             log.error(
@@ -151,6 +154,7 @@ def create_app(
             )
         yield
         if app.state.ready:
+            await app.state.keepalive.close()
             cleanup.cancel()
             await asyncio.gather(cleanup, return_exceptions=True)
             app.state.login.stop.set()

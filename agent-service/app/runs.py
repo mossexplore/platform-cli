@@ -200,8 +200,13 @@ class RunManager:
                 "db_wait_ms": round(db_wait_ms, 1),
                 "output_chunks": chunks,
             }
-            await io(self.store.complete, run_id, cid, final, items, usage)
-            await emit("run.completed", {"answer": final, "usage": usage})
+            presentation = await io(
+                self.store.complete, run_id, cid, final, items, usage
+            )
+            await emit(
+                "run.completed",
+                {"answer": final, "usage": usage, "parts": presentation},
+            )
         except BaseException as exc:
             if not isinstance(exc, (Exception, asyncio.CancelledError)):
                 raise
@@ -222,10 +227,12 @@ class RunManager:
                 else "Agent 请求失败，请检查模型配置、接口兼容性和网络"
             )
             answer = "".join(parts)
-            status, message = await io(self.store.fail, run_id, status, message, answer)
+            status, message, presentation = await io(
+                self.store.fail, run_id, status, message, answer
+            )
             await emit(
                 "run.cancelled" if status == "cancelled" else "run.failed",
-                {"message": message, "answer": answer},
+                {"message": message, "answer": answer, "parts": presentation},
             )
         finally:
             await progress.close()

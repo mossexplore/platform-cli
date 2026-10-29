@@ -9,6 +9,7 @@ from .models import Conversation, Message, Run, Event, now
 from .sessions import request_session, valid, protect, TERMINAL
 from .errors import AppError
 from .sanitize import clean
+from .presentation import message_parts
 
 router = APIRouter(prefix="/api")
 
@@ -98,6 +99,9 @@ def messages(key: str, request: Request, before: int | None = Query(None, ge=1))
                 "content": m.content,
                 "status": m.status,
                 "run_id": m.run_id,
+                "parts": message_parts(db, db.get(Run, m.run_id))
+                if m.role == "assistant"
+                else [],
             }
             for m in reversed(rows)
         ]
@@ -153,7 +157,13 @@ def status(key: str, request: Request):
     with request.app.state.db() as db:
         s = request_session(request, db)
         r = run_owned(db, s, key)
-        return {"id": r.id, "status": r.status, "answer": r.answer, "error": r.error}
+        return {
+            "id": r.id,
+            "status": r.status,
+            "answer": r.answer,
+            "error": r.error,
+            "parts": message_parts(db, r) if r.status in TERMINAL else [],
+        }
 
 
 @router.post("/runs/{key}/cancel")
@@ -194,6 +204,7 @@ async def events(key: str, request: Request):
                 r.status,
                 r.answer,
                 r.error,
+                message_parts(db, r) if r.status in TERMINAL else [],
                 [(e.id, e.kind, e.payload) for e in rows],
             )
 
@@ -207,7 +218,7 @@ async def events(key: str, request: Request):
         heartbeat = 0
         while not await request.is_disconnected():
             try:
-                status, answer, error, batch = await asyncio.to_thread(
+                status, answer, error, parts, batch = await asyncio.to_thread(
                     read_batch, cursor
                 )
             except AppError:
@@ -221,7 +232,12 @@ async def events(key: str, request: Request):
                 yield (
                     "event: stream.closed\ndata: "
                     + json.dumps(
-                        {"status": status, "answer": answer, "message": error},
+                        {
+                            "status": status,
+                            "answer": answer,
+                            "message": error,
+                            "parts": parts,
+                        },
                         ensure_ascii=False,
                     )
                     + "\n\n"

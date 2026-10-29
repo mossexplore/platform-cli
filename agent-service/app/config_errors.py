@@ -48,6 +48,9 @@ def describe_config_error(exc):
                 )
                 or "配置整体"
             )
+            if error["loc"] == ("session",) and error["type"] == "value_error":
+                lines.append("session：保活间隔必须小于空闲、会话及凭据超时")
+                continue
             lines.append(
                 f"{path}：{tips.get(error['type'], '字段类型或取值不正确，请对照配置模板')}"
             )

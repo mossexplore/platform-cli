@@ -60,6 +60,18 @@ def valid(db, config, session_id, authenticated=True):
     return s
 
 
+def login_pending(db, session_id):
+    return (
+        db.scalar(
+            select(Attempt.id).where(
+                Attempt.session_id == session_id,
+                Attempt.status.in_(["pending", "awaiting_login", "verifying"]),
+            )
+        )
+        is not None
+    )
+
+
 def request_session(request, db, authenticated=True):
     config = request.app.state.config
     token = request.cookies.get(config.session.cookie_name, "")
@@ -70,7 +82,10 @@ def request_session(request, db, authenticated=True):
     )
     if not s:
         raise AppError("AUTH_REQUIRED", "请先登录", 401)
-    return valid(db, config, s.id, authenticated)
+    session = valid(db, config, s.id, authenticated)
+    if authenticated and login_pending(db, s.id):
+        raise AppError("LOGIN_PENDING", "平台登录正在完成，请稍候", 409)
+    return session
 
 
 def protect(request, session):

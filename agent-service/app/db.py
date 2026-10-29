@@ -3,9 +3,9 @@
 import hashlib
 from sqlalchemy import create_engine, select, inspect, text
 from sqlalchemy.orm import sessionmaker
-from .models import Base, SchemaVersion
+from .models import Base, SchemaVersion, UserPreference
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 
 
 class SchemaError(RuntimeError):
@@ -25,13 +25,15 @@ def connect(config, test_url=None):
     return engine, sessionmaker(engine, expire_on_commit=False)
 
 
-def verify_tables(connection):
+def verify_tables(connection, exclude=()):
     inspector = inspect(connection)
     existing = set(inspector.get_table_names())
-    missing = set(Base.metadata.tables) - existing
+    missing = set(Base.metadata.tables) - set(exclude) - existing
     if missing:
         raise SchemaError("数据库缺少 Agent 表：" + ", ".join(sorted(missing)))
     for name, table in Base.metadata.tables.items():
+        if name in exclude:
+            continue
         columns = {c["name"] for c in inspector.get_columns(name)}
         if columns != set(table.columns.keys()):
             raise SchemaError(f"表 {name} 的字段与当前结构不一致，禁止自动覆盖")
@@ -55,6 +57,18 @@ def _initialize(connection):
     existing = set(inspect(connection).get_table_names())
     if SchemaVersion.__tablename__ in existing:
         versions = list(connection.execute(select(SchemaVersion.id)).scalars())
+        if versions == [1]:
+            # Additive migration. MySQL may commit CREATE TABLE before the version
+            # transaction; a retry validates the existing table before updating.
+            verify_tables(connection, exclude={UserPreference.__tablename__})
+            UserPreference.__table__.create(connection, checkfirst=True)
+            verify_tables(connection)
+            connection.execute(
+                SchemaVersion.__table__.update()
+                .where(SchemaVersion.id == 1)
+                .values(id=SCHEMA_VERSION)
+            )
+            return
         if versions != [SCHEMA_VERSION]:
             raise SchemaError(
                 "结构版本为空或不匹配，可能存在未完成初始化；请核查，禁止手动写入版本号"

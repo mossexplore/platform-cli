@@ -36,7 +36,7 @@ bash agent-service/scripts/setup.sh
 | environments | 每个环境的 id、显示名、api_endpoint 和 enabled；示例地址必须替换；不使用的环境设为 false |
 | access_control | 沿用现有 CLI 配置中的服务根 URL（例如含 /cli-permission 的部署前缀）；程序追加 /api/v1/gateway/check；gateway_token 至少 32 字符；use_env_proxy 默认 false，权限服务直连，确需环境代理时显式改为 true |
 | login | 本机 msedge；持久化 Edge 登录缓存目录，路径相对本配置文件解析 |
-| session | 空闲、绝对和平台凭据过期时间；凭据默认 30 分钟过期，届时重新登录 |
+| session | 空闲、会话及凭据期限；keepalive_enabled 默认 true，每 600 秒确认平台登录并滚动续期；失败时不延长期限 |
 | runtime | 最大轮数、调用数、分页、输出与日志行数、超时、事件及历史保留期 |
 
 模型必须支持流式响应及 function calling。仅提供普通文本聊天的兼容服务不能满足工具查询。默认禁用 Agents tracing，不发送 tracing 数据。TLS 默认校验；企业 CA 应加入本机信任链。
@@ -70,7 +70,7 @@ macOS，在 agent-service 目录执行：
 bash scripts/start.sh
 ```
 
-打开 http://127.0.0.1:8000 。`check` 仅检查配置及数据库结构，不宣称模型或业务联调成功。迁移为显式初始版本 1：仅在空库创建 Agent 表，按外键依赖顺序创建业务表，最后创建版本表并核对表、字段与外键后写入版本号。重复执行会验证已有结构；未知版本、不完整结构或未初始化的非空库均拒绝操作。MySQL 使用同一连接的命名锁阻止同时初始化；启动不自动迁移。未来结构变化须新增有序迁移后再升级，不允许手改结构版本。
+打开 http://127.0.0.1:8000 。`check` 仅检查配置及数据库结构，不宣称模型或业务联调成功。当前数据库结构版本为 2。空库初始化时创建 Agent 表，按外键依赖顺序创建业务表，最后创建版本表并核对表、字段与外键后写入版本号。重复执行会验证已有结构；未知版本、不完整结构或未初始化的非空库均拒绝操作。MySQL 使用同一连接的命名锁阻止同时初始化；启动不自动迁移。已有结构版本1支持显式升级至2，新增账号租户偏好表，保留已有业务数据；操作步骤见下文。不允许手改结构版本。
 
 选环境 → 在本机独立 Edge 窗口完成平台登录（已有有效缓存时可复用） → 回到当前网页 → 选择可用业务 → 提问。账号来自平台 `/ai/user/info`，不会要求额外注册 Agent 账号。只有一个业务时自动选择。平台页面需提供 `ai-businessList` 目录；如果平台更新了该机制，需要适配后再上线。
 
@@ -84,7 +84,7 @@ bash scripts/start.sh
 
 每个业务 HTTP 请求先检查会话状态与 access-service 授权，再由原 CLI Service 调用平台。businessid 来自本次登录选中的业务；用户名、环境、业务、Cookie 均由服务端确定，模型不能指定。权限服务异常或拒绝时停止查询。CLI 版本准入使用当前安装的 CLI 包版本；管理员需授权对应命令（见 app/platform.py 的 COMMANDS）。同一次工具执行以 X-CLI-Invocation-ID 关联权限请求，单个权限请求另有独立 X-Request-ID。
 
-会话使用随机 HttpOnly/SameSite Cookie，数据库保存其 SHA-256；写接口校验 Origin 和 CSRF。平台凭据不返回网页，不放入模型上下文。工具结果先清理敏感字段、凭据值和 URL 参数；Markdown 经 DOMPurify 清理，CSP 禁止外部脚本。非通用 DLP：业务日志中的未知格式秘密仍需平台在源头脱敏。
+会话使用随机 HttpOnly/SameSite Cookie，数据库保存其 SHA-256；写接口校验 Origin 和 CSRF。Agent 的认证配置不会自动作为工具参数或会话响应返回。按当前要求，平台业务结果与文本不做字段删除、凭据值替换或 URL 参数脱敏；保留完整 ID 和接口内容，仅转换时间与数值类型。Markdown 仍经 DOMPurify 清理，CSP 禁止外部脚本。
 
 当前实现针对本地使用，不能直接当作云端多人生产部署：远程浏览器认证代理、HTTPS、密钥加密/轮换、集中任务队列、分布式锁、审计留存与容量测试须在下一阶段设计。不要简单改监听地址暴露此服务。
 
@@ -148,6 +148,56 @@ FROM agent_runs ORDER BY created_at DESC LIMIT 1;
 
 ## 单次工具结果大小
 
-`runtime.max_tool_output_chars` 按脱敏后的 JSON 字符数计量，默认 20000，允许范围 1000～200000，不是 token 数量。需要提高预算时，在本机 config.local.json 的 runtime 中将该字段设置为 200000，检查配置并重启 Agent。现有本机配置不会被安装脚本或代码更新覆盖；模板仍保留 20000 的默认值。
+`runtime.max_tool_output_chars` 按规范化后的 JSON 字符数计量，默认 20000，允许范围 1000～200000，不是 token 数量。需要提高预算时，在本机 config.local.json 的 runtime 中将该字段设置为 200000，检查配置并重启 Agent。现有本机配置不会被安装脚本或代码更新覆盖；模板仍保留 20000 的默认值。
 
 放宽范围无需依赖重装或数据库迁移。较大结果可能增加模型上下文开销和响应耗时，需匹配实际模型及网关容量。此次仅放宽校验上限，没有实现列表摘要或部分记录保留；超过所配置限制时仍返回 truncated=true、data=null，并提示缩小查询范围。
+
+## 自动保活与滚动会话
+
+登录并选择业务后，默认每10分钟后台保活。普通业务请求成功会更新活动时间，因此距离上次成功平台活动不足10分钟时不额外保活。后台先验证平台身份，再经过 access-service 网关授权，请求与 CLI 相同的 `/ai/backend/mep/tenant/queryTeamList`；不调用模型或执行 CLI 命令。权限命令标识为 `ml auth ping start`。网络直连并保留企业CA。
+
+在 config.local.json 的 session 中可以配置：
+
+```json
+"keepalive_enabled": true,
+"keepalive_interval_seconds": 600,
+"browser_cookie_max_age_seconds": 31536000
+```
+
+这些是 session 对象中的字段，示例片段不能单独作为完整JSON文件。省略时使用上述默认值。保活间隔必须小于 idle_timeout_seconds、absolute_timeout_seconds 和 credential_ttl_seconds。默认保留30分钟凭据/空闲窗口及8小时会话窗口，但成功活动会将这些期限从当前时刻向后滚动，不再按最初登录时间固定8小时退出。设 keepalive_enabled=false 可恢复固定超时策略。
+
+平台明确确认成功后才续期，并合并 Set-Cookie 及更新的 csrftoken（包括身份接口响应中的轮换值）。保持网页打开时每分钟续发 Agent 的 HttpOnly/SameSite Cookie；浏览器Cookie本身默认保存1年，不会因为网页请求就假装平台登录成功。没有人工操作、甚至关闭网页时，已选择业务的会话仍会在 Agent 进程运行期间后台保活。Agent 停止时不再发请求；停机超过有效期、平台绝对登录期限、管理员注销或认证失效仍需重新登录。浏览器有自己的Cookie存储限制，不保证永久登录。
+
+网络错误和平台5xx不删除凭据、不续期，最多每60秒重试；超过现有期限仍会正常失效。平台明确认证拒绝则删除凭据、结束会话并停止后续保活。每个会话的保活与业务调用串行处理，保存时核对会话状态和原凭据快照，退出/重登后的在途返回不能恢复或覆盖凭据。主动退出仍清除专用Edge缓存；后台轮换的Cookie保存于服务端，未在关闭的Edge配置目录中同步写入。
+
+保活任务生命周期绑定本地单进程服务，重启后从仍有效的数据库会话恢复调度，不对匿名、未选业务或已退出会话发送保活。相关日志仅打印会话ID、成功/失败状态和错误分类，不输出Cookie或密钥。本次不新增表或字段，无需数据库迁移。
+
+## 模型文字和工具块的展示顺序
+
+同一轮回答按事件顺序显示独立片段：模型文字 → 工具块 → 后续模型文字，支持多次工具调用。连续的文本片段只在同一文字块内合并，工具块出现后会开始新的文字块；结束事件不再把整轮内容覆盖为一个Markdown块。
+
+展示结构保存在既有 agent_runs.usage.presentation JSON 中，历史消息、运行完成事件和状态恢复使用同一结构。即使24小时后清理SSE事件，新的历史回答仍保留片段顺序。旧回答优先从尚存事件重建；若旧事件已经清理且没有展示快照，只能显示原来保存的回答，无法恢复丢失的过程文字。此次不新增数据库字段，无需迁移。
+
+前端顺序测试：`node --test tests/test_message_parts.cjs tests/test_chat_progress.cjs`。本次仅调整公开文字和工具状态的呈现，不改变模型的业务工具或历史上下文。
+
+## 记住上次租户及搜索
+
+每次成功选择租户/团队后，按平台账号（账号本身按环境隔离）保存偏好。重新登录时优先从本次新目录中解析同一租户/团队并重新校验gateway权限，通过后直接进入对话；目录已移除或权限不可用时退回选择弹窗。退出只销毁登录凭据，不删除租户偏好。既有账号升级后若尚无偏好，会尝试最近对话所用业务并重新检查目录和权限；首次使用且没有偏好和历史对话时，仍按可用目录选择，只有一个条目时可自动进入。
+
+选择弹窗支持按租户、团队、部门名称或ID过滤，英文不区分大小写，多个词用空格分隔。显示匹配数，无结果时禁用确认。租户与团队即使共用businessId，也通过独立selection_key选择，防止恢复错误条目。
+
+### 结构版本1升级至2
+
+本次需要显式迁移。先停止Agent，使用现有数据库备份工具备份整个Agent库及config.local.json，并确认备份可恢复，再在agent-service目录执行：
+
+```powershell
+.\.venv\Scripts\python.exe -m app.manage migrate --config config.local.json
+.\.venv\Scripts\python.exe -m app.manage check --config config.local.json
+.\scripts\start.ps1
+```
+
+迁移只增加agent_user_preferences表，包含用户外键、最近选择的业务JSON及更新时间；不修改或删除原有用户、会话、凭据和对话。完整核对原有结构及新增表后，程序将版本1更新为2。初次空库安装直接创建版本2。迁移不接触access-service数据库。
+
+MySQL DDL有隐式提交：中断后可能已建偏好表但仍为版本1，再次执行会核对表结构后继续；不覆盖已有数据。没有降级迁移，旧Agent代码要求结构1，不能直接回滚代码使用结构2。若必须回滚，应停止Agent并恢复升级前数据库和配置备份；恢复会丢失备份后的新增数据。禁止手动修改agent_schema_version或删除表伪造回滚。
+
+当前开发环境已验证SQLite上的升级、幂等、DDL中断重试和原用户保留；真实MySQL及Windows界面验收仍待执行。应先更新完整代码，再执行迁移，避免在Windows仅更新部分文件造成结构与代码不一致。

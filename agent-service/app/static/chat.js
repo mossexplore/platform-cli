@@ -7,9 +7,9 @@ import {
   text,
   icon,
   businessName,
-  markdown,
   setBusy,
 } from "./api.js";
+import { createTimeline } from "./message-parts.js";
 let earliest = null;
 let progressTimer = null;
 const toolNames = {
@@ -67,7 +67,13 @@ export async function newConversation() {
   await loadHistory();
   $("prompt").focus();
 }
-function appendMessage(role, content, status = "completed", prepend = false) {
+function appendMessage(
+  role,
+  content,
+  status = "completed",
+  prepend = false,
+  parts = [],
+) {
   const row = text("article", "", "message " + role),
     body = text("div", "", "message-body");
   if (role === "assistant") {
@@ -75,9 +81,8 @@ function appendMessage(role, content, status = "completed", prepend = false) {
     avatar.append(icon("stars"));
     row.append(avatar);
     body.append(text("div", "WiseRec Agent", "message-label"));
-    const result = text("div", "", "markdown");
-    markdown(result, content);
-    body.append(result);
+    body.timeline = createTimeline(body, toolNames);
+    body.timeline.finish(content, parts);
     if (status !== "completed")
       body.append(
         text(
@@ -94,7 +99,7 @@ function appendMessage(role, content, status = "completed", prepend = false) {
   else $("messages").append(row);
   return body;
 }
-export async function openConversation(c) {
+export async function openConversation(c, resumeId = null) {
   if (state.busy) {
     notice("请等待当前查询结束或先停止");
     return;
@@ -114,7 +119,11 @@ export async function openConversation(c) {
   $("welcome").hidden = true;
   const messages = await api("/conversations/" + c.id + "/messages");
   earliest = messages[0]?.id;
-  messages.forEach((m) => appendMessage(m.role, m.content, m.status));
+  messages
+    .filter(
+      (m) => !(resumeId && m.role === "assistant" && m.run_id === resumeId),
+    )
+    .forEach((m) => appendMessage(m.role, m.content, m.status, false, m.parts));
   $("older-messages").hidden = messages.length < 50;
   $("sidebar").classList.remove("open");
   await loadHistory();
@@ -132,7 +141,9 @@ $("older-messages").onclick = async () => {
     earliest = rows[0]?.id;
     [...rows]
       .reverse()
-      .forEach((m) => appendMessage(m.role, m.content, m.status, true));
+      .forEach((m) =>
+        appendMessage(m.role, m.content, m.status, true, m.parts),
+      );
     $("older-messages").hidden = rows.length < 50;
   } catch (e) {
     notice(e.message);
@@ -174,12 +185,10 @@ export async function sendMessage() {
 }
 function connectEvents(runId, body) {
   disconnect();
-  let answer = "",
-    lastId = 0,
+  let lastId = 0,
     retries = 0,
     finished = false;
-  const output = body.querySelector(".markdown"),
-    steps = new Map();
+  const timeline = body.timeline;
   let phase = "等待模型响应",
     elapsed = 0,
     lastProgress = Date.now(),
@@ -199,7 +208,7 @@ function connectEvents(runId, body) {
       if (
         ["completed", "failed", "cancelled", "interrupted"].includes(run.status)
       )
-        finish({ answer: run.answer, message: run.error });
+        finish({ answer: run.answer, message: run.error, parts: run.parts });
     } catch (error) {
       if (error.status === 401) {
         disconnect();
@@ -224,10 +233,7 @@ function connectEvents(runId, body) {
     disconnect();
     setBusy(false);
     state.run = null;
-    if (data.answer !== undefined) {
-      answer = data.answer;
-      markdown(output, answer);
-    }
+    timeline.finish(data.answer, data.parts);
     $("connection-status").textContent = data.message || "查询完成";
     if (data.message) body.append(text("div", data.message, "message-error"));
     scrollDown();
@@ -252,34 +258,16 @@ function connectEvents(runId, body) {
   on("tool.started", (data) => {
     phase = "正在查询平台数据";
     renderProgress();
-    const step = text("div", "", "tool-step");
-    step.append(
-      icon("arrow-repeat spin"),
-      text("span", toolNames[data.name] || data.name),
-      text("small", "执行中"),
-    );
-    body.insertBefore(step, output);
-    steps.set(data.tool_call_id, step);
+    timeline.startTool(data);
     scrollDown();
   });
   on("tool.completed", (data) => {
     phase = "工具已返回，等待模型继续处理";
     renderProgress();
-    const step = steps.get(data.tool_call_id);
-    if (step) {
-      step.firstChild.className =
-        "bi bi-" +
-        (data.status === "completed"
-          ? "check-circle-fill"
-          : "exclamation-circle");
-      step.lastChild.textContent =
-        data.status === "completed" ? "已完成" : "未完成";
-      if (data.status !== "completed") step.classList.add("failed");
-    }
+    timeline.completeTool(data);
   });
   on("answer.delta", (data) => {
-    answer += data.text;
-    markdown(output, answer);
+    timeline.delta(data.text);
     phase = "模型正在输出文字";
     renderProgress();
     scrollDown();
@@ -304,7 +292,7 @@ function connectEvents(runId, body) {
       if (
         ["completed", "failed", "cancelled", "interrupted"].includes(run.status)
       ) {
-        finish({ answer: run.answer, message: run.error });
+        finish({ answer: run.answer, message: run.error, parts: run.parts });
         return;
       }
     } catch (e) {
@@ -333,7 +321,7 @@ export async function stopRun() {
 
 export async function resumeRun(active) {
   const c = await api("/conversations/" + active.conversation_id);
-  await openConversation(c);
+  await openConversation(c, active.id);
   state.run = active.id;
   setBusy(true);
   connectEvents(active.id, appendMessage("assistant", ""));

@@ -152,3 +152,10 @@ class ToolCall(Base):
     status: Mapped[str] = mapped_column(String(24))
     duration_ms: Mapped[int] = mapped_column(Integer, default=0)
     request_id: Mapped[str] = mapped_column(String(36), default="")
+
+
+class UserPreference(Base):
+    __tablename__ = "agent_user_preferences"
+    user_id: Mapped[str] = mapped_column(ForeignKey("agent_users.id"), primary_key=True)
+    business: Mapped[dict] = mapped_column(JSON)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=now)

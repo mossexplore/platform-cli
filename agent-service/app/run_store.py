@@ -6,6 +6,7 @@ from .models import Run, Event, Message, Conversation, ToolCall, now
 from .sessions import valid, TERMINAL
 from .sanitize import clean
 from .errors import AppError
+from .presentation import message_parts
 
 
 class RunStore:
@@ -76,8 +77,9 @@ class RunStore:
                 "completed",
                 clean(final),
                 clean(items),
-                usage,
+                dict(usage),
             )
+            r.usage = {**r.usage, "presentation": message_parts(db, r, clean(final))}
             db.add(
                 Message(
                     conversation_id=cid,
@@ -88,6 +90,7 @@ class RunStore:
             )
             db.get(Conversation, cid).updated_at = now()
             db.commit()
+            return r.usage["presentation"]
 
     def fail(self, run_id, status, message, answer):
         with self.db() as db:
@@ -110,8 +113,14 @@ class RunStore:
                     .where(ToolCall.run_id == run_id, ToolCall.status == "running")
                     .values(status=status)
                 )
+                db.flush()
+                r.usage = {
+                    **r.usage,
+                    "presentation": message_parts(db, r, clean(answer)),
+                }
                 db.commit()
-        return status, message
+                return status, message, r.usage["presentation"]
+        return status, message, []
 
     def start_tool(self, call_id, run_id, name, args):
         with self.db() as db:

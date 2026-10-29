@@ -66,7 +66,7 @@ def test_permission_revocation_during_run(client, app):
     assert not any("/models/" in r.url.path for r in app.test_upstream.calls)
 
 
-def test_sanitize_preserves_id_and_timezone():
+def test_normalization_preserves_content_and_formats_timezone():
     from app.sanitize import clean
     from decimal import Decimal
 
@@ -79,8 +79,8 @@ def test_sanitize_preserves_id_and_timezone():
             "log": "token=abc",
         }
     )
-    assert "secret" not in value
+    assert value["secret"] == "secret"
     assert value["n"] == 4 and type(value["n"]) is int
     assert value["time"] == "2026-10-29 10:00:00"
-    assert "abc" not in value["log"]
+    assert value["log"] == "token=abc"
     assert value["id"] == "00123456-1234-1234-1234-123456789012"

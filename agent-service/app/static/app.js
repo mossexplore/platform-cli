@@ -19,6 +19,8 @@ import {
   disconnect,
   resumeRun,
 } from "./chat.js";
+import { bindBusinessPicker, selectionKey } from "./business-picker.js";
+let availableBusinesses = [];
 const environmentDescriptions = {
   dev: "用于日常开发与测试",
   mirror: "在镜像环境中查询平台资源",
@@ -111,6 +113,7 @@ async function login(event) {
         polling = false;
         state.session = await api("/session");
         await showSession();
+        if (result.message) notice(result.message);
         break;
       }
       if (["failed", "cancelled"].includes(result.status)) {
@@ -141,32 +144,40 @@ async function chooseBusiness(auto = false) {
   $("business-error").textContent = "";
   try {
     const list = await api("/businesses");
-    $("business-select").replaceChildren();
-    list.forEach((b) => {
-      const option = text("option", businessName(b));
-      option.value = b.businessId;
-      option.selected = b.businessId === state.session.business?.businessId;
-      $("business-select").append(option);
+    availableBusinesses = list;
+    bindBusinessPicker(list, state.session.business, {
+      search: $("business-search"),
+      select: $("business-select"),
+      count: $("business-count"),
+      empty: $("business-empty"),
+      confirm: $("confirm-business"),
     });
-    $("confirm-business").disabled = !list.length;
     if (!list.length)
       $("business-error").textContent =
         "当前账号没有可选择业务，请联系平台管理员或退出重试。";
     if (auto && list.length === 1) {
       try {
-        await confirmBusiness(list[0].businessId);
+        await confirmBusiness(list[0].selection_key || selectionKey(list[0]));
         return;
       } catch (error) {
         $("business-error").textContent = error.message;
       }
     }
     $("business-dialog").showModal();
+    $("business-search").focus();
   } catch (error) {
     notice(error.message);
   }
 }
-async function confirmBusiness(id) {
-  state.session = await post("/business-selection", { business_id: id });
+async function confirmBusiness(key) {
+  const business = availableBusinesses.find(
+    (b) => (b.selection_key || selectionKey(b)) === key,
+  );
+  if (!business) throw new Error("请选择一个有效的租户或团队");
+  state.session = await post("/business-selection", {
+    business_id: business.businessId,
+    selection_key: key,
+  });
   $("business-name").textContent = businessName(state.session.business);
   $("business-dialog").close();
   setBusy(false);
@@ -244,3 +255,16 @@ window.addEventListener("agent-auth-expired", async () => {
   await boot();
 });
 boot();
+
+// Renew the browser's Agent session cookie while the page is open.
+// This does not extend platform credentials; only confirmed platform activity does.
+setInterval(async () => {
+  if (!state.session?.user) return;
+  try {
+    const session = await api("/session");
+    if (!session.user) window.dispatchEvent(new Event("agent-auth-expired"));
+  } catch (error) {
+    if (error.status === 401)
+      window.dispatchEvent(new Event("agent-auth-expired"));
+  }
+}, 60000);

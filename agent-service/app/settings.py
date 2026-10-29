@@ -86,10 +86,23 @@ class Login(Strict):
 
 
 class SessionConfig(Strict):
+    keepalive_enabled: bool = True
+    keepalive_interval_seconds: int = Field(default=600, ge=60, le=3600)
+    browser_cookie_max_age_seconds: int = Field(default=31536000, ge=3600, le=31536000)
     idle_timeout_seconds: int = Field(default=1800, ge=60)
     absolute_timeout_seconds: int = Field(default=28800, ge=60)
     credential_ttl_seconds: int = Field(default=1800, ge=60)
     cookie_name: str = "wiserec_agent_session"
+
+    @model_validator(mode="after")
+    def keepalive_before_expiry(self):
+        if self.keepalive_enabled and self.keepalive_interval_seconds >= min(
+            self.idle_timeout_seconds,
+            self.absolute_timeout_seconds,
+            self.credential_ttl_seconds,
+        ):
+            raise ValueError("保活间隔必须小于空闲、会话及凭据超时")
+        return self
 
 
 class Runtime(Strict):

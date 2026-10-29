@@ -65,3 +65,47 @@ dialog select {
     transform: rotate(360deg);
   }
 }
+
+.business-search-box {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid #dce4ef;
+  border-radius: 7px;
+  padding: 10px 12px;
+  margin-top: 20px;
+}
+.business-search-box:focus-within {
+  border-color: var(--blue);
+}
+.business-search-box i {
+  color: #7a8aa2;
+}
+.business-search-box input {
+  width: 100%;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--ink);
+}
+.business-count {
+  color: #7a8595;
+  font-size: 12px;
+  margin: 8px 0;
+}
+#business-select {
+  margin-top: 0;
+  padding: 5px;
+}
+#business-select option {
+  padding: 9px 8px;
+  border-radius: 4px;
+}
+.business-empty {
+  min-height: 140px;
+  display: grid;
+  place-items: center;
+  color: #7a8595;
+  text-align: center;
+}

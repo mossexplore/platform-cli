@@ -233,7 +233,7 @@
         <div class="dialog-heading">
           <div>
             <span class="eyebrow">工作上下文</span>
-            <h2>选择业务</h2>
+            <h2>选择租户或团队</h2>
           </div>
           <button
             id="close-business"
@@ -247,8 +247,24 @@
         <p class="muted">
           仅显示本次平台登录提供的业务。切换业务会开始新对话。
         </p>
-        <label class="sr-only" for="business-select">业务</label
-        ><select id="business-select" required></select>
+        <label class="sr-only" for="business-search"
+          >搜索租户、团队或部门</label
+        >
+        <div class="business-search-box">
+          <i class="bi bi-search" aria-hidden="true"></i
+          ><input
+            id="business-search"
+            type="search"
+            placeholder="搜索租户、团队、部门或 ID"
+            autocomplete="off"
+          />
+        </div>
+        <p id="business-count" class="business-count" aria-live="polite"></p>
+        <label class="sr-only" for="business-select">租户或团队</label>
+        <select id="business-select" size="6" required></select>
+        <p id="business-empty" class="business-empty" hidden>
+          没有匹配的租户或团队，请修改搜索条件
+        </p>
         <p id="business-error" class="inline-error" role="alert"></p>
         <div class="dialog-actions">
           <button id="business-logout" class="secondary" type="button">
@@ -262,7 +278,8 @@
     <dialog id="logout-dialog">
       <h2>退出当前环境？</h2>
       <p class="muted">
-        平台凭据与当前环境的 Edge 登录缓存将清除，进行中的查询会停止。历史对话将保留。
+        平台凭据与当前环境的 Edge
+        登录缓存将清除，进行中的查询会停止。历史对话将保留。
       </p>
       <div class="dialog-actions">
         <button id="cancel-logout" class="secondary">继续使用</button

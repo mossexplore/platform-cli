@@ -12,8 +12,9 @@ from wiserec_cli.business import parse_business_list, BusinessStore
 from wiserec_cli.models import Profile
 from wiserec_cli.errors import BusinessError
 from .errors import AppError
-from .models import Attempt, Credential, User, now
+from .models import Attempt, Session, Credential, User, UserPreference, now
 from .sessions import valid
+from .business_preferences import preferred, remember
 from .login_support import prepare_profile, profile_paths, clear_profile, login_failure
 
 
@@ -168,6 +169,19 @@ class LoginManager:
                 ) from None
         await asyncio.to_thread(clear_profile, self.config, environment_id)
 
+    @staticmethod
+    def clear_partial(db, attempt):
+        if attempt.status in ("succeeded", "consumed"):
+            return
+        session = db.get(Session, attempt.session_id)
+        if session and session.status not in ("revoked", "expired"):
+            credential = db.get(Credential, session.id)
+            if credential:
+                db.delete(credential)
+            session.user_id = session.environment_id = session.business = None
+            session.catalog = []
+            session.status = "anonymous"
+
     def _status(self, attempt_id, state):
         with self.db() as db:
             a = db.get(Attempt, attempt_id)
@@ -230,12 +244,55 @@ class LoginManager:
                         + timedelta(seconds=self.config.session.credential_ttl_seconds),
                     )
                 )
-                a.status = "succeeded"
+                restore = preferred(db, u.id, catalog)
+                missing_preference = (
+                    db.get(UserPreference, u.id) is not None and restore is None
+                )
+                sid = s.id
+                db.commit()
+            notice = (
+                "上次使用的租户已不在本次可用目录中，请重新选择"
+                if missing_preference
+                else ""
+            )
+            if restore:
+                stage = "business_restore"
+                try:
+                    await asyncio.to_thread(
+                        self.platform.gateway,
+                        sid,
+                        restore,
+                        "business_selection",
+                        attempt_id,
+                    )
+                    with self.db() as db:
+                        a = db.get(Attempt, attempt_id)
+                        if stop.is_set() or a.status == "cancelled":
+                            self.clear_partial(db, a)
+                            db.commit()
+                            return
+                        s = valid(db, self.config, sid)
+                        s.business, s.status, s.last_activity = restore, "ready", now()
+                        remember(db, s.user_id, restore)
+                        db.commit()
+                except AppError as exc:
+                    if exc.status == 401:
+                        raise
+                    notice = "上次使用的租户暂时无法通过权限校验，请重新选择"
+            with self.db() as db:
+                a = db.get(Attempt, attempt_id)
+                if stop.is_set() or a.status == "cancelled":
+                    self.clear_partial(db, a)
+                    db.commit()
+                    return
+                valid(db, self.config, sid)
+                a.status, a.error = "succeeded", notice
                 db.commit()
         except Exception as exc:
             with self.db() as db:
                 a = db.get(Attempt, attempt_id)
                 if a and a.status != "cancelled":
                     a.status = "failed"
+                    self.clear_partial(db, a)
                     a.error = login_failure(stage, exc).message
                     db.commit()
