@@ -3,7 +3,8 @@
 import argparse
 import sys
 from .settings import load_settings
-from .db import connect, migrate, verify_schema
+from .config_errors import describe_config_error
+from .db import connect, migrate, verify_schema, SchemaError
 
 
 def main():
@@ -19,11 +20,8 @@ def main():
         )
     try:
         cfg = load_settings()
-    except Exception:
-        print(
-            "配置读取失败：请检查配置文件位置、JSON 字段、服务地址及 gateway_token（至少32字符）。不会输出配置中的秘密。",
-            file=sys.stderr,
-        )
+    except Exception as exc:
+        print("配置读取失败：\n" + describe_config_error(exc), file=sys.stderr)
         return 1
     if args.command == "serve":
         import uvicorn
@@ -38,8 +36,9 @@ def main():
             log_level="info",
         )
         return 0
-    engine, db = connect(cfg)
+    engine = None
     try:
+        engine, db = connect(cfg)
         if args.command == "migrate":
             migrate(engine)
             print("Agent 数据库结构已就绪")
@@ -48,14 +47,21 @@ def main():
             print(
                 "配置与 Agent 数据库结构检查通过；模型、平台登录及权限服务仍需实际联调"
             )
+    except SchemaError as exc:
+        print("数据库结构检查未通过：" + str(exc), file=sys.stderr)
+        return 1
     except Exception as exc:
+        args = getattr(getattr(exc, "orig", None), "args", ())
+        code = args[0] if args and type(args[0]) is int else None
+        detail = f"，MySQL 错误编号 {code}" if code is not None else ""
         print(
-            f"数据库检查未通过（{type(exc).__name__}）。请核对连接、数据库创建及迁移状态。",
+            f"数据库检查未通过（{type(exc).__name__}{detail}）。请核对连接、权限与表结构；未输出连接串或 SQL 参数。",
             file=sys.stderr,
         )
         return 1
     finally:
-        engine.dispose()
+        if engine is not None:
+            engine.dispose()
     return 0
 
 

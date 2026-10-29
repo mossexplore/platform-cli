@@ -46,3 +46,33 @@ def test_missing_configuration_exposes_setup_state_without_mock(monkeypatch, tmp
         assert result.status_code == 503
         assert result.json()["error"]["code"] == "SETUP_REQUIRED"
         assert client.get("/").status_code == 200
+
+
+def test_config_diagnostics_hide_secrets(settings):
+    from app.config_errors import describe_config_error
+
+    data = settings.model_dump()
+    data["access_control"]["gateway_token"] = "SECRET_VALUE"
+    data["server"]["host"] = "SECRET_HOST"
+    data["SECRET_FIELD_NAME"] = "SECRET_INPUT"
+    with pytest.raises(ValidationError) as caught:
+        Settings.model_validate(data)
+    message = describe_config_error(caught.value)
+    assert "access_control.gateway_token" in message and "server.host" in message
+    assert "SECRET" not in message
+    assert "32" in message
+
+
+def test_migrate_config_error_is_actionable_and_does_not_connect(
+    monkeypatch, tmp_path, capsys
+):
+    from app import manage
+
+    config = tmp_path / "bad.json"
+    config.write_text('{"password":"secret-do-not-print",}', encoding="utf-8")
+    monkeypatch.setattr("sys.argv", ["manage", "migrate", "--config", str(config)])
+    monkeypatch.setattr(manage, "connect", lambda *_: pytest.fail("must not connect"))
+    assert manage.main() == 1
+    message = capsys.readouterr().err
+    assert "JSON 格式错误" in message and "第 1 行" in message
+    assert "secret-do-not-print" not in message

@@ -45,7 +45,14 @@ bash agent-service/scripts/setup.sh
 
 ## 初始化与启动
 
-先由数据库管理员创建独立库，例如 `wiserec_agent`（utf8mb4），为配置的账号授予该库运行权限。初始化时需建表权限；不要连接现有 access-service 数据库执行迁移。
+先由数据库管理员创建独立空库，为配置的账号授予该库运行权限。初始化时需建表权限；不要连接现有 access-service 数据库执行迁移。
+
+```sql
+CREATE DATABASE IF NOT EXISTS `wiserec_agent`
+  CHARACTER SET utf8mb4 COLLATE utf8mb4_bin;
+```
+
+所有 Agent 表显式指定 InnoDB、utf8mb4、utf8mb4_bin，字符串外键两端一致，不依赖数据库默认排序规则。若此前按旧说明创建了空库，可执行 `ALTER DATABASE wiserec_agent CHARACTER SET utf8mb4 COLLATE utf8mb4_bin;` 统一默认值；这不会修改已有表。不要删除有数据的表或手动写入结构版本。
 
 Windows，在 agent-service 目录执行：
 
@@ -63,7 +70,7 @@ macOS，在 agent-service 目录执行：
 bash scripts/start.sh
 ```
 
-打开 http://127.0.0.1:8000 。`check` 仅检查配置及数据库结构，不宣称模型或业务联调成功。迁移为显式初始版本 1：仅创建 Agent 表，拒绝未知结构版本及不完整的既有 Agent 表；启动不自动迁移。未来结构变化须新增有序迁移后再升级，不允许手改结构版本。
+打开 http://127.0.0.1:8000 。`check` 仅检查配置及数据库结构，不宣称模型或业务联调成功。迁移为显式初始版本 1：仅在空库创建 Agent 表，按外键依赖顺序创建业务表，最后创建版本表并核对表、字段与外键后写入版本号。重复执行会验证已有结构；未知版本、不完整结构或未初始化的非空库均拒绝操作。MySQL 使用同一连接的命名锁阻止同时初始化；启动不自动迁移。未来结构变化须新增有序迁移后再升级，不允许手改结构版本。
 
 选环境 → 在本机独立 Edge 窗口完成平台登录 → 回到当前网页 → 选择可用业务 → 提问。账号来自平台 `/ai/user/info`，不会要求额外注册 Agent 账号。只有一个业务时自动选择。平台页面需提供 `ai-businessList` 目录；如果平台更新了该机制，需要适配后再上线。
 

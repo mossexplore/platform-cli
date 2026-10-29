@@ -106,3 +106,20 @@ def test_mysql_ddl_preserves_long_text_and_identity_uniqueness():
     assert "MEDIUMTEXT" in compiled["agent_runs"]
     assert "utf8mb4_bin" in compiled["agent_users"]
     assert "UNIQUE (conversation_id, client_message_id)" in compiled["agent_runs"]
+
+
+def test_mysql_all_foreign_keys_share_explicit_table_collation():
+    from sqlalchemy.schema import CreateTable
+    from sqlalchemy.dialects import mysql
+    from app.models import Base
+
+    for table in Base.metadata.sorted_tables:
+        ddl = str(CreateTable(table).compile(dialect=mysql.dialect()))
+        assert "COLLATE utf8mb4_bin" in ddl
+        assert "CHARSET=utf8mb4" in ddl
+        assert "ENGINE=InnoDB" in ddl
+        for fk in table.foreign_keys:
+            assert (
+                table.dialect_options["mysql"]["collate"]
+                == fk.column.table.dialect_options["mysql"]["collate"]
+            )

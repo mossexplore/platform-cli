@@ -102,7 +102,7 @@ mdurl==0.1.2
     # via markdown-it-py
 nbformat==5.11.1
     # via wiserec-cli (pyproject.toml)
-openai==3.41.0
+openai==3.40.0
     # via openai-agents
 openai-agents==0.24.0
     # via wiserec-agent (agent-service/pyproject.toml)

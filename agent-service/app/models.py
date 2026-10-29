@@ -25,8 +25,16 @@ def uid():
     return str(uuid4())
 
 
+MYSQL_TABLE_OPTIONS = {
+    "mysql_engine": "InnoDB",
+    "mysql_charset": "utf8mb4",
+    "mysql_collate": "utf8mb4_bin",
+}
+
+
 class Base(DeclarativeBase):
-    pass
+    # String foreign keys must use the same charset/collation on both sides.
+    __table_args__ = MYSQL_TABLE_OPTIONS
 
 
 class SchemaVersion(Base):
@@ -43,7 +51,7 @@ class User(Base):
     department: Mapped[str] = mapped_column(String(256), default="")
     __table_args__ = (
         UniqueConstraint("environment_id", "username"),
-        {"mysql_collate": "utf8mb4_bin"},
+        MYSQL_TABLE_OPTIONS,
     )
 
 
@@ -107,7 +115,10 @@ class Run(Base):
     history: Mapped[list] = mapped_column(JSON, default=list)
     usage: Mapped[dict] = mapped_column(JSON, default=dict)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=now)
-    __table_args__ = (UniqueConstraint("conversation_id", "client_message_id"),)
+    __table_args__ = (
+        UniqueConstraint("conversation_id", "client_message_id"),
+        MYSQL_TABLE_OPTIONS,
+    )
 
 
 class Message(Base):
