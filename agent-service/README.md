@@ -34,7 +34,7 @@ bash agent-service/scripts/setup.sh
 | database | 独立 Agent MySQL 数据库、用户名、密码，字符集 utf8mb4 |
 | llm | OpenAI 兼容 base_url、model、api_key；Chat Completions 使用 chat_completions；支持 Responses 的服务可显式改为 responses |
 | environments | 每个环境的 id、显示名、api_endpoint 和 enabled；示例地址必须替换；不使用的环境设为 false |
-| access_control | 沿用现有 CLI 配置中的服务根 URL（例如含 /cli-permission 的部署前缀）；程序追加 /api/v1/gateway/check；gateway_token 至少 32 字符 |
+| access_control | 沿用现有 CLI 配置中的服务根 URL（例如含 /cli-permission 的部署前缀）；程序追加 /api/v1/gateway/check；gateway_token 至少 32 字符；use_env_proxy 默认 false，权限服务直连，确需环境代理时显式改为 true |
 | login | 本机 msedge；持久化 Edge 登录缓存目录，路径相对本配置文件解析 |
 | session | 空闲、绝对和平台凭据过期时间；凭据默认 30 分钟过期，届时重新登录 |
 | runtime | 最大轮数、调用数、分页、输出与日志行数、超时、事件及历史保留期 |
@@ -113,3 +113,11 @@ Windows 等价命令将 `.venv/bin/python` 换成 `.venv\Scripts\python.exe`。�
 平台页面能登录不代表后端已完成验证与落库。失败提示包含阶段和异常类型：`business_catalog` 为业务目录解析，`browser_close` 为浏览器关闭，`identity_probe` 为 Python 后端再次访问平台，`credential_save` 为 MySQL 保存，`profile_cleanup` 为本机浏览器缓存清理。MySQL 异常同时显示数字错误码；日志不输出原始异常文本、Cookie、Token、SQL 参数或完整 URL。
 
 请向维护者提供页面阶段、异常类型和错误编号，不提交配置或浏览器缓存。`identity_probe / ConnectError` 需核对 Python 进程的网络、代理与企业 CA 信任；不要仅因 Edge 可访问就关闭 TLS 校验。`credential_save` 应检查数据库字段/权限与返回身份字段。缓存并不能替代这两步校验。当前真实 Windows 登录故障尚待新诊断信息确认根因。
+
+## 平台与权限服务代理
+
+平台身份验证固定直连，忽略 HTTP_PROXY、HTTPS_PROXY、ALL_PROXY；业务 Service 沿用 CLI 的显式直连 transport。无需在启动窗口临时设置 NO_PROXY。权限服务默认直连，仅在 `access_control.use_env_proxy: true` 时读取环境代理。旧 config.local.json 未填写此字段时默认为 false。
+
+大模型客户端的代理行为保持原样，仍可使用环境代理访问模型。平台身份验证保留环境 verify_ssl 设置，权限服务始终校验证书；直连时仍加载 SSL_CERT_FILE 或 SSL_CERT_DIR 指定的企业 CA，不通过关闭 TLS 校验解决代理故障。
+
+此次修订针对 identity_probe 的 ProxyError；更新后重新启动 Agent 并验证。若仍显示 ConnectError、ConnectTimeout 等错误，需继续检查 Python 到平台的网络及 CA 信任，不将其视为登录 Cookie 无效。

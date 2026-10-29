@@ -51,6 +51,7 @@
     }
   ],
   "access_control": {
+    "use_env_proxy": false,
     "url": "https://ACCESS_HOST/cli-permission",
     "gateway_token": "REPLACE_WITH_GATEWAY_TOKEN_AT_LEAST_32_CHARACTERS",
     "timeout_seconds": 15

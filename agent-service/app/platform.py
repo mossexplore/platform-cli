@@ -5,6 +5,7 @@ import time
 from uuid import uuid4
 import httpx
 from wiserec_cli import __version__
+from wiserec_cli.access_transport import tls_verify
 from wiserec_cli.models import Profile, Credentials
 from wiserec_cli.business import BusinessSelection
 from wiserec_cli.client import PlatformClient
@@ -68,7 +69,8 @@ class Platform:
     def identity(self, env, cred):
         with httpx.Client(
             transport=self.transport,
-            verify=env.verify_ssl,
+            verify=tls_verify() if env.verify_ssl else False,
+            trust_env=False,
             timeout=15,
             follow_redirects=False,
         ) as client:
@@ -130,6 +132,8 @@ class Platform:
         try:
             with httpx.Client(
                 transport=self.transport,
+                verify=tls_verify(),
+                trust_env=self.config.access_control.use_env_proxy,
                 timeout=self.config.access_control.timeout_seconds,
                 follow_redirects=False,
             ) as client:

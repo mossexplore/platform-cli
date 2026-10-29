@@ -71,6 +71,7 @@ class LLM(Strict):
 
 
 class Access(Strict):
+    use_env_proxy: bool = False
     url: str
     gateway_token: SecretStr = Field(min_length=32)
     timeout_seconds: int = Field(default=15, ge=1, le=60)
