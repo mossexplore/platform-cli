@@ -75,3 +75,9 @@ Agent 39 项测试通过，包含模拟 Playwright 完整成功路径、先空�
 用户现场明确返回 identity_probe / ProxyError。CLI 业务请求使用显式 HTTPTransport，默认绕过环境代理；Agent 新增身份验证原先使用默认 HTTPX Client，会读取环境代理。现统一平台身份验证直连，权限请求默认直连并新增 access_control.use_env_proxy（默认 false）以显式启用环境代理。模型代理策略保持原样。直连路径继续加载 SSL_CERT_FILE / SSL_CERT_DIR 企业 CA，不关闭证书验证。
 
 Agent 42 项测试通过：通过实际 HTTPX 客户端的代理选择逻辑及替换底层发送函数，验证不可用 HTTPS_PROXY 不影响平台直连、权限默认直连、显式启用代理后会选择代理，以及直连仍加载自定义 CA。CLI 1159 项、权限服务 259 项及时区 3 项测试通过，分别跳过 12/1 项。用户 Windows 平台更新后的实际重试仍待确认。
+
+## 模型请求环境代理故障修订（2026-10-29）
+
+用户现场返回 APIConnectionError / ProxyError，并确认对模型主机设置 NO_PROXY 后请求正常。模型客户端现默认直连，新增 llm.use_env_proxy（默认 false）支持显式启用环境代理；旧配置缺省即直连。平台及权限服务的独立设置不变。Chat Completions / Responses 共用此 HTTP 客户端，保留 SDK 连接池、配置超时和 SSL_CERT_FILE / SSL_CERT_DIR 企业 CA。
+
+Agent 45 项测试通过。新增测试通过 OpenAI SDK 实际使用的 HTTPX2 transport 选择逻辑验证环境存在坏代理时默认直连成功，显式启用时选择代理；另验证自定义 CA、超时及客户端关闭。现有 SDK 流式工具闭环通过。CLI 1159 项、权限服务 259 项、时区 3 项通过，分别跳过 12/1 项。用户现场更新代码后仍需重试确认；本次没有数据库变更。

@@ -62,6 +62,7 @@ class Database(Strict):
 
 
 class LLM(Strict):
+    use_env_proxy: bool = False
     base_url: str
     model: str
     api_key: SecretStr

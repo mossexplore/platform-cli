@@ -13,6 +13,7 @@
     "charset": "utf8mb4"
   },
   "llm": {
+    "use_env_proxy": false,
     "base_url": "https://MODEL_API_HOST/v1",
     "model": "MODEL_NAME",
     "api_key": "MODEL_API_KEY",

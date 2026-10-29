@@ -32,7 +32,7 @@ bash agent-service/scripts/setup.sh
 | --- | --- |
 | server | 默认 127.0.0.1:8000，workers 固定为 1；不要改为公网监听 |
 | database | 独立 Agent MySQL 数据库、用户名、密码，字符集 utf8mb4 |
-| llm | OpenAI 兼容 base_url、model、api_key；Chat Completions 使用 chat_completions；支持 Responses 的服务可显式改为 responses |
+| llm | OpenAI 兼容 base_url、model、api_key；Chat Completions 使用 chat_completions；支持 Responses 的服务可显式改为 responses；use_env_proxy 默认 false，模型直连，需要环境代理时改为 true |
 | environments | 每个环境的 id、显示名、api_endpoint 和 enabled；示例地址必须替换；不使用的环境设为 false |
 | access_control | 沿用现有 CLI 配置中的服务根 URL（例如含 /cli-permission 的部署前缀）；程序追加 /api/v1/gateway/check；gateway_token 至少 32 字符；use_env_proxy 默认 false，权限服务直连，确需环境代理时显式改为 true |
 | login | 本机 msedge；持久化 Edge 登录缓存目录，路径相对本配置文件解析 |
@@ -118,6 +118,8 @@ Windows 等价命令将 `.venv/bin/python` 换成 `.venv\Scripts\python.exe`。�
 
 平台身份验证固定直连，忽略 HTTP_PROXY、HTTPS_PROXY、ALL_PROXY；业务 Service 沿用 CLI 的显式直连 transport。无需在启动窗口临时设置 NO_PROXY。权限服务默认直连，仅在 `access_control.use_env_proxy: true` 时读取环境代理。旧 config.local.json 未填写此字段时默认为 false。
 
-大模型客户端的代理行为保持原样，仍可使用环境代理访问模型。平台身份验证保留环境 verify_ssl 设置，权限服务始终校验证书；直连时仍加载 SSL_CERT_FILE 或 SSL_CERT_DIR 指定的企业 CA，不通过关闭 TLS 校验解决代理故障。
+大模型客户端默认直连；需要使用环境代理访问模型时，将 `llm.use_env_proxy` 设为 `true`。该设置与权限服务独立。平台身份验证保留环境 verify_ssl 设置，权限服务始终校验证书；直连时仍加载 SSL_CERT_FILE 或 SSL_CERT_DIR 指定的企业 CA，不通过关闭 TLS 校验解决代理故障。
 
 此次修订针对 identity_probe 的 ProxyError；更新后重新启动 Agent 并验证。若仍显示 ConnectError、ConnectTimeout 等错误，需继续检查 Python 到平台的网络及 CA 信任，不将其视为登录 Cookie 无效。
+
+模型出现 APIConnectionError / ProxyError，且配置 NO_PROXY 后恢复时，更新后的默认直连行为即可解决，无需每次手动设置 NO_PROXY。现有 config.local.json 未包含 llm.use_env_proxy 时默认 false；如果模型只能经企业代理访问，必须显式设为 true。模型 HTTP 客户端保留 SDK 默认连接池参数、配置的超时和企业 CA，并在运行结束/失败/取消时关闭。Chat Completions 和 Responses 共用该客户端策略。此次修改无需数据库迁移。

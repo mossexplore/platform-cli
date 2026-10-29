@@ -69,6 +69,7 @@ async def test_sdk_chat_completions_tool_roundtrip(settings, monkeypatch):
         )
 
     def client(**kwargs):
+        kwargs.pop("http_client")
         return AsyncOpenAI(
             **kwargs,
             http_client=httpx.AsyncClient(transport=httpx.MockTransport(handle)),

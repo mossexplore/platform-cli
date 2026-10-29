@@ -1,7 +1,8 @@
 """Real OpenAI Agents SDK execution; provider-specific behavior is configuration driven."""
 
 import json
-from openai import AsyncOpenAI
+from openai import AsyncOpenAI, DefaultAsyncHttpxClient
+from wiserec_cli.access_transport import tls_verify
 from agents import (
     Agent,
     Runner,
@@ -23,18 +24,31 @@ ID 类型不可互换，展示完整 ID。时间转为北京时间 YYYY-MM-DD HH
 """
 
 
+def model_http_client(config):
+    # Keep SDK connection limits and explicit timeout; proxy and CA policies are independent.
+    return DefaultAsyncHttpxClient(
+        trust_env=config.use_env_proxy,
+        verify=tls_verify(),
+        timeout=config.timeout_seconds,
+    )
+
+
 class AgentEngine:
     def __init__(self, config):
         self.config = config
 
     async def run(self, history, message, context, invoke, delta):
         cfg = self.config.llm
-        async with AsyncOpenAI(
-            base_url=cfg.base_url,
-            api_key=cfg.api_key.get_secret_value(),
-            timeout=cfg.timeout_seconds,
-            max_retries=0,
-        ) as client:
+        async with (
+            model_http_client(cfg) as http_client,
+            AsyncOpenAI(
+                base_url=cfg.base_url,
+                api_key=cfg.api_key.get_secret_value(),
+                timeout=cfg.timeout_seconds,
+                max_retries=0,
+                http_client=http_client,
+            ) as client,
+        ):
             model_cls = (
                 OpenAIChatCompletionsModel
                 if cfg.api_mode == "chat_completions"
