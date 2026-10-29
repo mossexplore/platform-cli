@@ -19,3 +19,9 @@ access-service/docker/certs/
 history.jsonl
 history.lock
 history.seq
+
+# Local Agent configuration and runtime state
+agent-service/config.local.json
+agent-service/var/
+agent-service/.env
+agent-service/test-results/

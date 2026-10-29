@@ -1,0 +1,235 @@
+@media (min-width: 1550px) {
+  .brand-panel {
+    padding-left: 72px;
+  }
+  .hero-copy {
+    margin-top: 120px;
+  }
+  .hero-copy h1 {
+    font-size: 54px;
+  }
+  .hero-art {
+    max-height: 650px;
+  }
+  .login-content {
+    max-width: 450px;
+  }
+  .brand-footer {
+    left: 72px;
+  }
+}
+@media (max-width: 1100px) {
+  .brand-panel {
+    padding: 30px;
+  }
+  .hero-copy h1 {
+    font-size: 38px;
+  }
+  .login-panel {
+    padding: 30px;
+  }
+  .workspace {
+    grid-template-columns: 215px minmax(0, 1fr);
+  }
+  .workspace-header {
+    padding: 0 22px;
+    gap: 18px;
+  }
+  .context-item {
+    gap: 8px;
+  }
+  .readonly {
+    display: none;
+  }
+  .message-scroll {
+    padding: 25px;
+  }
+  .composer-area {
+    padding: 10px 25px 18px;
+  }
+  .suggestions {
+    gap: 9px;
+  }
+  .suggestions button {
+    padding: 16px 13px;
+  }
+  .welcome {
+    margin-top: 50px;
+  }
+}
+@media (max-width: 720px) {
+  .login-shell {
+    display: block;
+  }
+  .brand-panel {
+    min-height: auto;
+    padding: 24px;
+  }
+  .hero-copy {
+    margin-top: 28px;
+  }
+  .hero-copy h1 {
+    font-size: 28px;
+  }
+  .hero-copy h1 br {
+    display: none;
+  }
+  .hero-copy p,
+  .hero-domains,
+  .hero-art,
+  .brand-footer {
+    display: none;
+  }
+  .login-panel {
+    min-height: auto;
+    padding: 25px;
+  }
+  .login-top {
+    display: none;
+  }
+  .login-content {
+    padding: 10px 0 25px;
+  }
+  .login-content h2 {
+    font-size: 26px;
+  }
+  .workspace {
+    display: block;
+  }
+  .sidebar {
+    display: none;
+    position: fixed;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 248px;
+    z-index: 20;
+    box-shadow: 8px 0 40px #00122930;
+  }
+  .sidebar.open {
+    display: flex;
+  }
+  .chat-main {
+    height: 100dvh;
+  }
+  .mobile-only {
+    display: block;
+  }
+  .workspace-header {
+    height: 65px;
+    padding: 0 12px;
+    gap: 12px;
+  }
+  .context-item > span {
+    display: none;
+  }
+  .business-button {
+    max-width: 160px;
+  }
+  .message-scroll {
+    padding: 20px 16px;
+  }
+  .composer-area {
+    padding: 8px 15px 14px;
+  }
+  .welcome {
+    margin-top: 30px;
+  }
+  .welcome h1 {
+    font-size: 25px;
+  }
+  .welcome > p {
+    font-size: 12px;
+  }
+  .suggestions {
+    grid-template-columns: 1fr;
+    margin-top: 25px;
+  }
+  .suggestions button {
+    padding: 12px 16px 12px 50px;
+  }
+  .suggestions button > i:first-child {
+    position: absolute;
+    left: 17px;
+    top: 14px;
+  }
+  .suggestions .bi-arrow-up-right {
+    top: 22px;
+  }
+  .message {
+    gap: 8px;
+  }
+  .message.user .message-body {
+    max-width: 90%;
+  }
+  .composer-footer > span {
+    font-size: 9px;
+  }
+  .composer-note {
+    font-size: 9px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  * {
+    scroll-behavior: auto !important;
+    transition: none !important;
+  }
+  .spin {
+    animation: none;
+  }
+}
+
+/* Keep the full login action and guidance visible on standard laptop screens. */
+@media (min-width: 721px) and (max-height: 780px) {
+  .brand-panel {
+    min-height: 650px;
+    padding-top: 24px;
+  }
+  .hero-copy {
+    margin-top: 70px;
+  }
+  .hero-copy h1 {
+    font-size: 30px;
+    letter-spacing: -1px;
+  }
+  .hero-copy h1 br {
+    display: none;
+  }
+  .hero-copy p {
+    font-size: 14px;
+    margin: 10px 0;
+  }
+  .hero-domains {
+    margin-top: 14px;
+  }
+  .hero-art {
+    max-height: 370px;
+    bottom: 0;
+  }
+  .login-panel {
+    min-height: 650px;
+    padding-top: 24px;
+    padding-bottom: 20px;
+  }
+  .login-content {
+    padding: 0;
+    margin: 18px auto;
+  }
+  .login-content h2 {
+    font-size: 28px;
+  }
+  .intro {
+    margin-bottom: 12px;
+  }
+  .environment-option {
+    min-height: 56px;
+    padding-top: 10px;
+    padding-bottom: 10px;
+  }
+  .login-button {
+    margin-top: 20px;
+  }
+  .login-helper {
+    margin-top: 16px;
+  }
+}

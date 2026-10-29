@@ -1,0 +1,273 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>WiseRec Agent · 平台智能助手</title>
+    <link rel="stylesheet" href="/static/vendor/bootstrap-icons.min.css" />
+    <link rel="stylesheet" href="/static/style.css" />
+    <script defer src="/static/vendor/marked.min.js"></script>
+    <script defer src="/static/vendor/purify.min.js"></script>
+    <script type="module" src="/static/app.js"></script>
+  </head>
+  <body>
+    <div id="notice" role="alert" hidden></div>
+    <main id="login-screen" class="login-shell">
+      <section class="brand-panel" aria-label="WiseRec 平台助手">
+        <a class="wordmark" href="/" aria-label="WiseRec Agent 首页"
+          ><strong>WiseRec</strong><span>Agent</span></a
+        >
+        <div class="hero-copy">
+          <div class="eyebrow">WISEREC 平台智能助手</div>
+          <h1>用对话，<br />连接平台数据</h1>
+          <p>让模型、训练与服务的信息，<br />在一次对话中清晰呈现。</p>
+          <div class="hero-domains">
+            <span>模型查询</span><span>训练溯源</span><span>服务诊断</span>
+          </div>
+        </div>
+        <img
+          class="hero-art"
+          src="/static/assets/login-hero.png"
+          alt="蓝色玻璃立方体与数据面板"
+          width="1024"
+          height="1024"
+        />
+        <div class="brand-footer">
+          <i class="bi bi-shield-check" aria-hidden="true"></i>
+          沿用平台身份与访问权限
+        </div>
+      </section>
+      <section class="login-panel">
+        <div class="login-top">
+          <span class="local-label"
+            ><i class="bi bi-pc-display" aria-hidden="true"></i>
+            本地工作空间</span
+          ><span class="step-label">01 / 02</span>
+        </div>
+        <div class="login-content">
+          <div class="eyebrow">开始使用</div>
+          <h2>登录工作环境</h2>
+          <p class="muted intro">选择一个环境，使用你的平台账号开始对话。</p>
+          <form id="login-form">
+            <fieldset id="environments">
+              <legend class="sr-only">选择工作环境</legend>
+              <div class="loading-placeholder">正在读取环境配置…</div>
+            </fieldset>
+            <button
+              id="login-button"
+              class="primary login-button"
+              type="submit"
+              disabled
+            >
+              <i class="bi bi-browser-edge" aria-hidden="true"></i
+              ><span>在 Edge 中登录</span
+              ><i class="bi bi-arrow-right" aria-hidden="true"></i>
+            </button>
+          </form>
+          <div class="login-helper">
+            <i class="bi bi-info-circle" aria-hidden="true"></i>
+            <p>
+              将打开本机 Edge，完成平台登录后此页面自动更新。<br /><span
+                >无需在此输入账号密码，当前浏览器可保持打开。</span
+              >
+            </p>
+          </div>
+          <div
+            id="login-progress"
+            class="login-progress"
+            hidden
+            aria-live="polite"
+          >
+            <div class="progress-line">
+              <i class="bi bi-arrow-repeat spin" aria-hidden="true"></i
+              ><strong id="login-status">正在打开 Edge…</strong>
+            </div>
+            <p>请在弹出的浏览器中完成平台登录。</p>
+            <button id="cancel-login" class="text-button" type="button">
+              取消登录
+            </button>
+          </div>
+          <div id="setup-error" class="setup-error" hidden>
+            <i class="bi bi-exclamation-circle" aria-hidden="true"></i>
+            <div>
+              <strong>服务尚未配置完成</strong>
+              <p id="setup-message"></p>
+              <button id="retry-setup" class="text-button" type="button">
+                重新检查
+              </button>
+            </div>
+          </div>
+        </div>
+        <footer class="login-footer">
+          每次登录固定一个环境，退出后可重新选择
+        </footer>
+      </section>
+    </main>
+    <div id="chat-screen" class="workspace" hidden>
+      <aside id="sidebar" class="sidebar">
+        <a class="wordmark" href="/"
+          ><strong>WiseRec</strong><span>Agent</span></a
+        >
+        <button id="new-chat" class="primary">
+          <i class="bi bi-plus-lg" aria-hidden="true"></i> 新建对话
+        </button>
+        <div class="history-heading">最近对话</div>
+        <nav id="history" aria-label="对话历史"></nav>
+        <button id="more-history" class="history-more" hidden>加载更多</button>
+        <div class="sidebar-bottom">
+          <div class="avatar">
+            <i class="bi bi-person-fill" aria-hidden="true"></i>
+          </div>
+          <div class="account">
+            <strong id="account-name"></strong><small id="account-id"></small>
+          </div>
+          <button
+            id="logout"
+            class="icon-button"
+            title="退出登录"
+            aria-label="退出登录"
+          >
+            <i class="bi bi-box-arrow-right" aria-hidden="true"></i>
+          </button>
+        </div>
+      </aside>
+      <main class="chat-main">
+        <header class="workspace-header">
+          <button
+            id="menu-button"
+            class="icon-button mobile-only"
+            aria-label="显示会话列表"
+          >
+            <i class="bi bi-layout-sidebar" aria-hidden="true"></i>
+          </button>
+          <div class="context-item">
+            <span>当前环境</span
+            ><strong id="env-name" class="environment-badge"></strong>
+          </div>
+          <div class="context-item">
+            <span>当前业务</span
+            ><button id="business-button" class="business-button">
+              <i class="bi bi-grid" aria-hidden="true"></i
+              ><strong id="business-name">选择业务</strong
+              ><i class="bi bi-chevron-down" aria-hidden="true"></i>
+            </button>
+          </div>
+          <span class="readonly"
+            ><i class="bi bi-shield-check" aria-hidden="true"></i>
+            只读查询</span
+          >
+        </header>
+        <div id="message-scroll" class="message-scroll">
+          <div id="welcome" class="welcome">
+            <div class="assistant-emblem">
+              <i class="bi bi-stars" aria-hidden="true"></i>
+            </div>
+            <span class="eyebrow">你的平台查询助手</span>
+            <h1>今天，想了解什么？</h1>
+            <p>查询模型、追溯训练来源，或一起排查服务状态。</p>
+            <div class="suggestions">
+              <button data-prompt="查询当前业务下的模型列表">
+                <i class="bi bi-box" aria-hidden="true"></i
+                ><strong>查找业务模型</strong><span>查看模型列表与详情</span
+                ><i class="bi bi-arrow-up-right" aria-hidden="true"></i></button
+              ><button data-prompt="查询当前业务最近的训练任务">
+                <i class="bi bi-diagram-3" aria-hidden="true"></i
+                ><strong>了解训练任务</strong><span>追溯任务与执行记录</span
+                ><i class="bi bi-arrow-up-right" aria-hidden="true"></i></button
+              ><button data-prompt="查询当前业务的服务及运行状态">
+                <i class="bi bi-hdd-network" aria-hidden="true"></i
+                ><strong>检查服务状态</strong><span>查看主机与运行日志</span
+                ><i class="bi bi-arrow-up-right" aria-hidden="true"></i>
+              </button>
+            </div>
+          </div>
+          <button id="older-messages" class="text-button older" hidden>
+            加载更早消息
+          </button>
+          <div
+            id="messages"
+            class="messages"
+            aria-live="polite"
+            aria-relevant="additions"
+          ></div>
+        </div>
+        <div class="composer-area">
+          <div
+            id="connection-status"
+            class="connection-status"
+            aria-live="polite"
+          ></div>
+          <form id="composer" class="composer">
+            <label class="sr-only" for="prompt">输入问题</label
+            ><textarea
+              id="prompt"
+              rows="2"
+              maxlength="16000"
+              placeholder="输入问题，例如：查看推荐模型的训练来源"
+            ></textarea>
+            <div class="composer-footer">
+              <span
+                ><i class="bi bi-chat-left-text" aria-hidden="true"></i> Enter
+                发送 · Shift + Enter 换行</span
+              ><button id="stop-run" class="stop-button" type="button" hidden>
+                <i class="bi bi-stop-circle" aria-hidden="true"></i>
+                停止</button
+              ><button
+                id="send-button"
+                class="primary send-button"
+                type="submit"
+                aria-label="发送消息"
+              >
+                <i class="bi bi-send-fill" aria-hidden="true"></i>
+              </button>
+            </div>
+          </form>
+          <div class="composer-note">
+            回答基于当前账号可访问的数据，请结合查询时间与范围判断
+          </div>
+        </div>
+      </main>
+    </div>
+    <dialog id="business-dialog">
+      <form id="business-form">
+        <div class="dialog-heading">
+          <div>
+            <span class="eyebrow">工作上下文</span>
+            <h2>选择业务</h2>
+          </div>
+          <button
+            id="close-business"
+            class="icon-button"
+            type="button"
+            aria-label="关闭"
+          >
+            <i class="bi bi-x-lg" aria-hidden="true"></i>
+          </button>
+        </div>
+        <p class="muted">
+          仅显示本次平台登录提供的业务。切换业务会开始新对话。
+        </p>
+        <label class="sr-only" for="business-select">业务</label
+        ><select id="business-select" required></select>
+        <p id="business-error" class="inline-error" role="alert"></p>
+        <div class="dialog-actions">
+          <button id="business-logout" class="secondary" type="button">
+            退出登录</button
+          ><button id="confirm-business" class="primary" type="submit">
+            确认并开始
+          </button>
+        </div>
+      </form>
+    </dialog>
+    <dialog id="logout-dialog">
+      <h2>退出当前环境？</h2>
+      <p class="muted">
+        平台凭据将从 Agent 中删除，进行中的查询会停止。历史对话将保留。
+      </p>
+      <div class="dialog-actions">
+        <button id="cancel-logout" class="secondary">继续使用</button
+        ><button id="confirm-logout" class="primary">退出登录</button>
+      </div>
+    </dialog>
+  </body>
+</html>

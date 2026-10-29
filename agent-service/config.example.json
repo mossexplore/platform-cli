@@ -1,0 +1,85 @@
+{
+  "server": {
+    "host": "127.0.0.1",
+    "port": 8000,
+    "workers": 1
+  },
+  "database": {
+    "host": "MYSQL_HOST",
+    "port": 3306,
+    "database": "wiserec_agent",
+    "username": "AGENT_DB_USER",
+    "password": "MYSQL_PASSWORD",
+    "charset": "utf8mb4"
+  },
+  "llm": {
+    "base_url": "https://MODEL_API_HOST/v1",
+    "model": "MODEL_NAME",
+    "api_key": "MODEL_API_KEY",
+    "api_mode": "chat_completions",
+    "timeout_seconds": 120,
+    "tracing_enabled": false
+  },
+  "environments": [
+    {
+      "id": "dev",
+      "name": "开发环境",
+      "enabled": true,
+      "api_endpoint": "https://dev.PLATFORM_HOST/ai/",
+      "verify_ssl": true
+    },
+    {
+      "id": "mirror",
+      "name": "镜像环境",
+      "enabled": true,
+      "api_endpoint": "https://mirror.PLATFORM_HOST/ai/",
+      "verify_ssl": true
+    },
+    {
+      "id": "explore",
+      "name": "探索环境",
+      "enabled": true,
+      "api_endpoint": "https://explore.PLATFORM_HOST/ai/",
+      "verify_ssl": true
+    },
+    {
+      "id": "product",
+      "name": "生产环境",
+      "enabled": true,
+      "api_endpoint": "https://product.PLATFORM_HOST/ai/",
+      "verify_ssl": true
+    }
+  ],
+  "access_control": {
+    "url": "https://ACCESS_HOST/cli-permission",
+    "gateway_token": "REPLACE_WITH_GATEWAY_TOKEN_AT_LEAST_32_CHARACTERS",
+    "timeout_seconds": 15
+  },
+  "login": {
+    "provider": "local_edge",
+    "browser_channel": "msedge",
+    "timeout_seconds": 600,
+    "profile_root": "./var/browser-profiles"
+  },
+  "session": {
+    "idle_timeout_seconds": 1800,
+    "absolute_timeout_seconds": 28800,
+    "credential_ttl_seconds": 1800,
+    "cookie_name": "wiserec_agent_session"
+  },
+  "runtime": {
+    "state_dir": "./var/state",
+    "platform_timeout_seconds": 30,
+    "max_turns": 12,
+    "max_tool_calls": 20,
+    "run_timeout_seconds": 180,
+    "max_page_size": 50,
+    "max_auto_pages": 5,
+    "max_tool_output_chars": 20000,
+    "max_log_lines": 200,
+    "max_history_messages": 40,
+    "max_history_chars": 60000,
+    "event_retention_hours": 24,
+    "history_retention_days": 30
+  }
+}

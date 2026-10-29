@@ -122,3 +122,7 @@ scripts\build-install.cmd -OutputDirectory "D:\Builds\WiseRecCLI"
 ```
 
 `-Force` 会按原安装器规则重建安装虚拟环境，日常同版本覆盖无需指定；`-SkipEdgeCheck` 仅跳过安装时的 Edge 检查。打包和安装阶段共用 `-IndexUrl`；企业证书等 pip 环境配置继续沿用现有脚本行为。执行失败时返回非零退出码。
+
+## 本地 Agent 工作台
+
+新增独立的 [WiseRec Agent 本地工作台](agent-service/README.md)，通过环境登录与对话查询平台数据。配置模板位于 [agent-service/config.example.json](agent-service/config.example.json)。当前需完成真实平台、MySQL、模型及 Windows 联调后再验收放行；未纳入现有 CLI 正式发布附件。
