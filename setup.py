@@ -4,9 +4,13 @@ from pathlib import Path
 from shutil import copyfile, rmtree
 import hashlib
 import json
+import runpy
 
 from setuptools import setup
 from setuptools.command.build_py import build_py as BaseBuildPy
+
+root = Path(__file__).resolve().parent
+runpy.run_path(str(root / 'scripts/sync_versions.py'))['sync'](root)
 
 
 class BuildPy(BaseBuildPy):

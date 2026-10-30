@@ -1,4 +1,6 @@
 include config.json
+include versions.toml
+include scripts/sync_versions.py
 include scripts/jupyter_local.py
 include examples/jupyter/hello.ipynb
 include docs/Jupyter本地开发指南.md

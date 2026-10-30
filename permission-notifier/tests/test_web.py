@@ -102,3 +102,15 @@ def test_record_api_filters_and_invalid_times(tmp_path):
         assert client.get('/api/records?source=permission').json()['total']==0
         assert client.get('/api/records?start=invalid').status_code==400
         assert client.get('/api/records?page=0').status_code==400
+
+
+def test_own_version_is_displayed_at_bottom_of_sidebar(tmp_path):
+    from permission_notifier import __version__
+    store = Store(tmp_path/'assistant.json')
+    with TestClient(create_app(store, Worker(store)), base_url='http://127.0.0.1:18765') as client:
+        page = client.get('/')
+        assert page.status_code == 200
+        sidebar = page.text.split('<aside class="sidebar">', 1)[1].split('</aside>', 1)[0]
+        advanced = re.search(r'<button[^>]*data-page="advanced"[^>]*>(.*?)</button>', sidebar).group(1)
+        assert f'v{__version__}</span>' in advanced
+        assert advanced.index('高级设置') < advanced.index('app-version')

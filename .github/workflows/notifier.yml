@@ -4,6 +4,8 @@ on:
     branches: [main]
     paths:
       - 'permission-notifier/**'
+      - 'versions.toml'
+      - 'scripts/sync_versions.py'
       - 'scripts/releasing/verify-notifier-windows.ps1'
       - '.github/workflows/notifier.yml'
   workflow_dispatch:
@@ -19,6 +21,7 @@ jobs:
         with:
           python-version: '3.12'
           architecture: x64
+      - run: python scripts/sync_versions.py --check
       - run: python permission-notifier/scripts/build.py
       - name: Verify CMD install, reinstall, HTTP startup and uninstall preserving data
         shell: powershell

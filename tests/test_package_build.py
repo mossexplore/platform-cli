@@ -11,8 +11,10 @@ def test_wheel_excludes_stale_build_modules(tmp_path):
     root = Path(__file__).resolve().parents[1]
     project = tmp_path / "project"
     project.mkdir()
-    for name in ("setup.py", "pyproject.toml", "MANIFEST.in", "config.json"):
+    for name in ("setup.py", "pyproject.toml", "MANIFEST.in", "config.json", "versions.toml"):
         shutil.copy2(root / name, project / name)
+    (project / 'scripts').mkdir()
+    shutil.copy2(root / 'scripts/sync_versions.py', project / 'scripts/sync_versions.py')
     for name in ("src", "skill", "skill-lab"):
         shutil.copytree(root / name, project / name,
                         ignore=shutil.ignore_patterns("*.egg-info", "__pycache__"))

@@ -4,6 +4,8 @@
 
 **本次交付尚未完成真实环境验收**：没有模型、MySQL、平台或 access-service 配置。自动化测试使用可注入的 HTTP 测试桩与 SQLite；生产启动路径必须连接 MySQL 和真实模型，不会回退为演示数据。Windows 与真实 Edge 登录需按下方验收清单验证。
 
+当前源码版本为 **1.0.7.12**，由根目录 `versions.toml` 的 `components.agent` 维护；`agent-service/pyproject.toml` 和 `app/_version.py` 由脚本同步。运行时只读取自身包内版本，不读取 CLI 版本作为页面版本。修改方法见 [版本号管理说明](../docs/版本号管理说明.md)。
+
 ## 环境与安装
 
 需要完整检出本仓库、Python 3.12、已安装的 Microsoft Edge，以及可访问的 MySQL 8。CLI Service 从仓库根目录以 editable 包安装；不执行 CLI 子进程，不读取用户 CLI 的 config.json、business.json 或登录缓存。Agent 仅支持本机单进程、单 worker、回环地址访问。Chrome 打开 Agent 页面，Edge 完成登录，两者无需共享 Cookie。
@@ -78,7 +80,7 @@ bash scripts/start.sh
 
 主动退出后删除该会话的服务端凭据、停止后续查询，保留涉及环境的专用 Edge 登录缓存，便于下次登录复用；历史按环境与平台用户名保留。退出 Agent 不等于注销平台所有其他浏览器的登录。切换环境先退出再重新登录；切换业务后新建对话。历史默认保留 30 天，事件 24 小时，清理每分钟执行。停止运行会中止模型流并阻止后续平台请求；已经发出的请求不能撤回，其返回值不会继续交给模型；写入或执行结果可能未知，需要先查询远端状态。
 
-工作台右上角显示当前 CLI 包版本，左侧为弱化版本文字，右侧为带图标的“退出登录”。左下角仅显示账号信息；退出仍使用原确认弹窗。版本来自 `/api/health` 的 `version`，随实际安装包更新。
+工作台右上角显示 Agent 自身版本，左侧为弱化版本文字，右侧为带图标的“退出登录”。左下角仅显示账号信息；退出仍使用原确认弹窗。版本来自 `/api/health` 的 `version`，随 Agent 安装包更新；`cli_version` 是实际依赖的 CLI 版本，`tested_cli_version` 是已记录的测试搭配版本。
 
 ## 能力与边界
 

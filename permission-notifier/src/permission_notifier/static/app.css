@@ -3,6 +3,7 @@
 body{margin:0}
 [hidden]{display:none!important}
 .sidebar{width:232px;background:#101b31;color:#d9e2f1;position:fixed;inset:0 auto 0 0;padding:20px 12px;display:flex;flex-direction:column}
+.sidebar .app-version{margin-left:auto;color:#92a1b7;font-size:12px;font-weight:400;white-space:nowrap;font-variant-numeric:tabular-nums}
 .brand{display:flex;gap:10px;align-items:center;padding:4px 8px 36px}
 .brand>img{width:34px;height:34px;background:#0052d9;padding:7px;border-radius:9px}
 .brand strong{font-size:15px;color:#fff}

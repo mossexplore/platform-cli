@@ -14,6 +14,7 @@ RUN python -m pip install --no-cache-dir --only-binary=:all: -r requirements.loc
     && groupadd --gid 10001 cli-access \
     && useradd --uid 10001 --gid 10001 --no-create-home --shell /usr/sbin/nologin cli-access
 COPY app ./app
+RUN python -c "import os; from app._version import __version__; assert os.environ['WISEREC_APP_VERSION'] in ('development', __version__), 'Image VERSION differs from packaged access version'"
 USER 10001:10001
 EXPOSE 8008
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \

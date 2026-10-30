@@ -14,6 +14,8 @@ jobs:
       cli_version: ${{ steps.version.outputs.cli_version }}
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+      - name: Check component version sources
+        run: python scripts/sync_versions.py --check
       - id: version
         env:
           REF: ${{ github.ref }}

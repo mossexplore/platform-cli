@@ -58,12 +58,12 @@ def main():
         temporary = Path(temporary)
         project = temporary / 'project'
         project.mkdir()
-        for name in ('setup.py', 'pyproject.toml', 'MANIFEST.in', 'config.json'):
+        for name in ('setup.py', 'pyproject.toml', 'MANIFEST.in', 'config.json', 'versions.toml'):
             shutil.copy2(ROOT / name, project / name)
         for name in ('src', 'skill', 'skill-lab'):
             shutil.copytree(ROOT / name, project / name,
                 ignore=shutil.ignore_patterns('__pycache__', '*.egg-info', '.DS_Store'))
-        for name in ('scripts/jupyter_local.py', 'examples/jupyter/hello.ipynb',
+        for name in ('scripts/jupyter_local.py', 'scripts/sync_versions.py', 'examples/jupyter/hello.ipynb',
                      'docs/Jupyter本地开发指南.md'):
             target = project / name
             target.parent.mkdir(parents=True, exist_ok=True)

@@ -8,6 +8,7 @@ from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
+from . import __version__
 from fastapi.concurrency import run_in_threadpool
 from pydantic import ValidationError
 from .config import Config, ready
@@ -62,7 +63,7 @@ def create_app(store, worker, shutdown=None, port=18765):
 
     @app.get('/')
     def home(request: Request):
-        response = templates.TemplateResponse(request=request, name='index.html', context={'csrf': csrf})
+        response = templates.TemplateResponse(request=request, name='index.html', context={'csrf': csrf, 'app_version': __version__})
         response.set_cookie('notifier_session', session, httponly=True, samesite='strict', path='/')
         return response
 

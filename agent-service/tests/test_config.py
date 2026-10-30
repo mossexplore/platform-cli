@@ -87,8 +87,11 @@ def test_tool_output_character_limit(settings, limit, accepted):
             Settings.model_validate(data)
 
 
-def test_health_reports_installed_cli_version(client):
-    from wiserec_cli import __version__
+def test_health_reports_own_and_cli_versions(client, monkeypatch):
+    from app._version import __version__, TESTED_CLI_VERSION
+    monkeypatch.setattr('app.main.cli_version', '9.8.7')
     response = client.get('/api/health')
     assert response.status_code == 200
     assert response.json()['version'] == __version__
+    assert response.json()['cli_version'] == '9.8.7'
+    assert response.json()['tested_cli_version'] == TESTED_CLI_VERSION
