@@ -51,3 +51,16 @@ ml featureset model export SET_ID --lang en_us --file 'D:\data\model.csv' -o jso
 ```
 
 `--lang` 支持 `zh_cn` 和 `en_us`，默认中文。`--file` 可省略；命令会生成保存路径，重名自动编号。默认输出文本摘要，`-o json` 输出导出结果；按返回的实际路径查找文件，不假定指定的文件名就是最终文件名。导出会写入本地文件。
+
+## 质量监控报告
+
+```powershell
+ml quality feature list --name FEATURE_NAME --table-name TABLE_NAME -o json
+ml quality feature list --feature-value-type DISCRETE --indicator-type VECTOR --page 1 --page-size 100 -o json
+ml quality wide-featureset list --name SET_NAME --page 1 --page-size 10 -o json
+```
+
+- 对应质量监控报告的“特征列表”和“宽表特征集”，查询当前环境已选业务。宽表查询与 `ml featureset wide list` 的入口和列不同。
+- 默认第 1 页、每页 10 条；`--page` ≥ 1，`--page-size` 为 1～100，每次只取一页。名称、表名默认空字符串；两个类型筛选默认省略。
+- 特征值类型与指标类型独立筛选，均接受连续/CONTINUOUS、离散/DISCRETE、有序/ORDINAL、分类/CATEGORICAL、序列/SEQUENCE、长序列/LONG_SEQUENCE、向量/VECTOR，英文忽略大小写。
+- JSON 为 `items`、`count`、`pageIndex`、`pageSize`，保留记录的全部原始字段和值；分页优先采用响应值，缺失时采用请求值。表格显示中文类型、百分比空值率，特征周期保留原值，时效性不拼接单位；不要从表格反向重建原始数据。

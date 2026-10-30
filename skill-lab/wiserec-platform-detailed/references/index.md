@@ -1,6 +1,6 @@
 # 命令索引
 
-共 96 个叶子命令。全局选项及命令组入口见 [全局与命令组](global.md)。
+共 98 个叶子命令。全局选项及命令组入口见 [全局与命令组](global.md)。
 
 | 命令 | 用途 | 详解 |
 | --- | --- | --- |
@@ -100,3 +100,5 @@
 | `ml webstudio show` | 显示当前环境、账号与业务绑定的选择（不代表实例实时状态）。 | [详情](commands/webstudio/show.md) |
 | `ml webstudio start` | 启动指定 Web Studio；接口可能需要约 15 秒才返回。 | [详情](commands/webstudio/start.md) |
 | `ml webstudio stop` | 停止指定 Web Studio。 | [详情](commands/webstudio/stop.md) |
+| `ml quality feature list` | 特征质量分页查询 | [详情](commands/quality/feature/list.md) |
+| `ml quality wide-featureset list` | 宽表特征集质量分页查询 | [详情](commands/quality/wide-featureset/list.md) |

@@ -2,8 +2,9 @@
 from dataclasses import dataclass
 from importlib import import_module
 from inspect import signature, Parameter
-from typing import get_type_hints, Literal
-from pydantic import BaseModel, ConfigDict, Field, create_model
+from typing import get_type_hints, Literal, Annotated
+from pydantic import BaseModel, ConfigDict, Field, create_model, BeforeValidator
+from wiserec_cli.services.quality import normalize_type
 
 
 class Arguments(BaseModel):
@@ -74,6 +75,22 @@ service('get_current_user', 'user', 'UserService', 'info', 'user info', 'account
 service('list_feature_tasks', 'feature_task', 'FeatureTaskService', 'list_tasks', 'feature-task list', 'feature_tasks', '查询特征任务')
 service('list_feature_executions', 'feature_execution', 'FeatureExecutionService', 'list_executions', 'feature-task execution list', 'feature_tasks', '查询特征执行记录')
 service('search_feature_logs', 'feature_execution', 'FeatureExecutionService', 'search_logs', 'feature-task execution logs search', 'feature_tasks', '检索特征执行日志', overrides={'keywords': (list[str] | None, None), 'scope_lines': (int | None, Field(default=None, ge=1, le=1000))})
+
+# Keep enum schemas bounded while accepting the same Chinese/case-insensitive inputs as CLI.
+QualityType = Annotated[Literal['CONTINUOUS', 'DISCRETE', 'ORDINAL', 'CATEGORICAL',
+    'SEQUENCE', 'LONG_SEQUENCE', 'VECTOR'], BeforeValidator(normalize_type)]
+QUALITY_PAGING = {
+    'page': (int, Field(default=1, ge=1, le=10000, strict=True)),
+    'page_size': (int, Field(default=10, ge=1, le=100, strict=True)),
+}
+service('list_quality_features', 'quality', 'QualityService', 'list_features',
+    'quality feature list', 'quality', '查询质量监控特征列表，支持名称、表名、特征值类型和指标类型；返回原始数值与周期',
+    overrides={**QUALITY_PAGING, 'feature_value_type': (QualityType | None, None),
+               'indicator_type': (QualityType | None, None)})
+service('list_quality_wide_featuresets', 'quality', 'QualityService', 'list_wide_featuresets',
+    'quality wide-featureset list', 'quality', '查询质量监控宽表特征集，支持名称筛选；不同于普通宽表特征集列表',
+    overrides=QUALITY_PAGING)
+
 service('list_sample_tasks', 'sample_task', 'SampleTaskService', 'list_tasks', 'sample-task list', 'samples', '查询样本任务', overrides={'types': (list[str] | None, None), 'status': (Literal['all', 'stopped', 'started'] | None, None), 'sort': (str | None, None)})
 service('list_sample_periods', 'sample_execution', 'SampleExecutionService', 'list_periods', 'sample-task period list', 'samples', '查询样本执行周期', overrides={'states': (list[str] | None, None)})
 service('list_sample_executions', 'sample_execution', 'SampleExecutionService', 'list_executions', 'sample-task execution list', 'samples', '查询样本执行记录')

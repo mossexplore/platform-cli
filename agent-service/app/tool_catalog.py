@@ -33,6 +33,7 @@ KEYWORDS = {'algorithms': ('算法', 'algorithm'), 'datasets': ('数据集', 'da
     'templates': ('部署模板',), 'resources': ('资源模板',), 'offline': ('离线实验', 'offline'),
     'featuresets': ('特征集', 'featureset'), 'mep': ('mep',), 'account': ('用户信息',),
     'feature_tasks': ('特征任务',), 'samples': ('样本', 'sample'), 'swanboard': ('swanboard', '训练看板'),
+    'quality': ('质量', '质量监控', '质量报告', '特征质量', '特征集质量', '特征列表', '空值率', '时效性', 'quality'),
     'webstudio': ('webstudio', '开发环境'), 'inference': ('推理测试',),
     'training_write': ('启动训练', '取消训练', '删除训练', '克隆训练'),
     'training_files': ('训练配置', '训练日志下载'), 'deployment': ('发布模型', '部署模型'),

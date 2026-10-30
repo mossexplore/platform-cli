@@ -6,7 +6,22 @@
 
 复用 `wiserec_cli.services`、文件协议与 Jupyter 协议实现，不执行拼接的本机 Shell 命令，不向模型开放任意 HTTP 请求入口。业务工具注册、参数 Schema、CLI 权限命令、操作类型集中管理。后续新增 CLI 业务命令时，独立命令树覆盖测试会检查是否遗漏 Agent 映射。
 
-当前实现为本地单进程 Agent 工作台；没有将其改成可直接公网部署的多人云服务。原有登录、数据库和模型配置方式继续使用。本次没有修改 CLI 命令、CLI 版本、数据库表结构或正式 CLI 打包脚本。
+当前实现为本地单进程 Agent 工作台；没有将其改成可直接公网部署的多人云服务。原有登录、数据库和模型配置方式继续使用。新增 CLI 业务命令须同步工具注册、发现目录、参数 Schema 和权限映射。本次增加质量监控查询工具，不改变 Agent 数据库表结构或正式发布流程。
+
+## 质量监控报告
+
+通过“质量监控”“质量报告”“特征质量”“特征列表”“空值率”“时效性”或领域 `quality` 发现工具，也可按精确工具名加载。
+
+| 工具 | CLI 权限命令 | 参数 |
+| --- | --- | --- |
+| `list_quality_features` | `ml quality feature list` | `name`、`table_name`、`feature_value_type`、`indicator_type`、`page`、`page_size` |
+| `list_quality_wide_featuresets` | `ml quality wide-featureset list` | `name`、`page`、`page_size` |
+
+名称和表名默认空字符串；类型默认 null，在实际请求体中省略。两个类型参数独立筛选，均接受连续/CONTINUOUS、离散/DISCRETE、有序/ORDINAL、分类/CATEGORICAL、序列/SEQUENCE、长序列/LONG_SEQUENCE、向量/VECTOR，英文忽略大小写。
+
+默认第 1 页、每页 10 条；页码范围为 1～10000，每页条数为 1～100，并继续受管理员 `runtime.max_page_size` 限制。每次只取一页，返回 `items`、`count`、`pageIndex`、`pageSize`，分页优先采用响应值。完整保留记录的原始字段及数值，例如空值率 0.125，不把 CLI 表格的百分比文本写入工具数据。特征周期原值保留；Agent 公共输出边界继续沿用现有的时间规范化规则。
+
+两个工具均为只读，无新增网页确认。身份、环境、业务与凭据由会话确定，不允许模型传入业务 ID 或接口 URL。权限拒绝时不调用质量监控接口。宽表质量查询与 `list_featuresets` 的普通宽表列表用途不同。
 
 ## 工具发现与渐进加载
 
@@ -125,7 +140,7 @@ CLI 的本地登录/退出、环境、业务选择、认证状态、保活、命
 
 以下表由当前注册表生成。多个工具可以共同覆盖一个交互式 CLI 命令；“需确认”指网页人工确认，不表示权限已放行。
 
-当前共有 **87 个业务工具 + 1 个发现工具**，覆盖 **78 个 CLI 业务叶子命令**。其中 25 个工具需要网页确认。
+当前共有 **89 个业务工具 + 1 个发现工具**，覆盖 **80 个 CLI 业务叶子命令**。其中 25 个工具需要网页确认。
 
 | CLI 命令 | Agent 工具 | 领域 | 需确认 |
 | --- | --- | --- | --- |
@@ -147,6 +162,8 @@ CLI 的本地登录/退出、环境、业务选择、认证状态、保活、命
 | `ml featureset wide config` | `get_featureset_config` | `featuresets` | 否 |
 | `ml featureset wide export` | `export_featureset` | `featuresets` | 否 |
 | `ml featureset wide list` | `list_featuresets` | `featuresets` | 否 |
+| `ml quality feature list` | `list_quality_features` | `quality` | 否 |
+| `ml quality wide-featureset list` | `list_quality_wide_featuresets` | `quality` | 否 |
 | `ml jupyter doctor` | `jupyter_doctor` | `jupyter` | 否 |
 | `ml jupyter exec` | `jupyter_exec` | `jupyter` | 是 |
 | `ml jupyter files copy` | `jupyter_files_copy` | `jupyter_files` | 是 |

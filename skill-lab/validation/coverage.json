@@ -7122,6 +7122,217 @@
       ],
       "callback_line": 94,
       "evidence": "source-reviewed; not live verified"
+    },
+    "quality feature list": {
+      "document": "references/commands/quality/feature/list.md",
+      "parameters": [
+        {
+          "name": "name",
+          "opts": [
+            "--name"
+          ],
+          "secondary_opts": [],
+          "required": false,
+          "default": "",
+          "type": "TEXT",
+          "parser": {},
+          "multiple": false,
+          "nargs": 1,
+          "envvar": null,
+          "help": "特征名称"
+        },
+        {
+          "name": "table_name",
+          "opts": [
+            "--table-name"
+          ],
+          "secondary_opts": [],
+          "required": false,
+          "default": "",
+          "type": "TEXT",
+          "parser": {},
+          "multiple": false,
+          "nargs": 1,
+          "envvar": null,
+          "help": "特征表名"
+        },
+        {
+          "name": "feature_value_type",
+          "opts": [
+            "--feature-value-type"
+          ],
+          "secondary_opts": [],
+          "required": false,
+          "default": null,
+          "type": "TEXT",
+          "parser": {},
+          "multiple": false,
+          "nargs": 1,
+          "envvar": null,
+          "help": "连续/CONTINUOUS、离散/DISCRETE、有序/ORDINAL、分类/CATEGORICAL、序列/SEQUENCE、长序列/LONG_SEQUENCE、向量/VECTOR"
+        },
+        {
+          "name": "indicator_type",
+          "opts": [
+            "--indicator-type"
+          ],
+          "secondary_opts": [],
+          "required": false,
+          "default": null,
+          "type": "TEXT",
+          "parser": {},
+          "multiple": false,
+          "nargs": 1,
+          "envvar": null,
+          "help": "连续/CONTINUOUS、离散/DISCRETE、有序/ORDINAL、分类/CATEGORICAL、序列/SEQUENCE、长序列/LONG_SEQUENCE、向量/VECTOR"
+        },
+        {
+          "name": "page",
+          "opts": [
+            "--page"
+          ],
+          "secondary_opts": [],
+          "required": false,
+          "default": 1,
+          "type": "INTEGER RANGE",
+          "parser": {
+            "min": 1,
+            "max": null,
+            "min_open": false,
+            "max_open": false
+          },
+          "multiple": false,
+          "nargs": 1,
+          "envvar": null,
+          "help": "开始页码"
+        },
+        {
+          "name": "page_size",
+          "opts": [
+            "--page-size"
+          ],
+          "secondary_opts": [],
+          "required": false,
+          "default": 10,
+          "type": "INTEGER RANGE",
+          "parser": {
+            "min": 1,
+            "max": 100,
+            "min_open": false,
+            "max_open": false
+          },
+          "multiple": false,
+          "nargs": 1,
+          "envvar": null,
+          "help": "每页条数，最多 100"
+        },
+        {
+          "name": "output",
+          "opts": [
+            "--output",
+            "-o"
+          ],
+          "secondary_opts": [],
+          "required": false,
+          "default": null,
+          "type": "TEXT",
+          "parser": {},
+          "multiple": false,
+          "nargs": 1,
+          "envvar": null,
+          "help": "输出格式: table 或 json"
+        }
+      ],
+      "sources": [
+        "src/wiserec_cli/commands/quality.py",
+        "src/wiserec_cli/commands/quality_display.py",
+        "src/wiserec_cli/services/quality.py"
+      ],
+      "callback_line": 43,
+      "evidence": "source-reviewed and mock-tested; not live verified"
+    },
+    "quality wide-featureset list": {
+      "document": "references/commands/quality/wide-featureset/list.md",
+      "parameters": [
+        {
+          "name": "name",
+          "opts": [
+            "--name"
+          ],
+          "secondary_opts": [],
+          "required": false,
+          "default": "",
+          "type": "TEXT",
+          "parser": {},
+          "multiple": false,
+          "nargs": 1,
+          "envvar": null,
+          "help": "特征集名称"
+        },
+        {
+          "name": "page",
+          "opts": [
+            "--page"
+          ],
+          "secondary_opts": [],
+          "required": false,
+          "default": 1,
+          "type": "INTEGER RANGE",
+          "parser": {
+            "min": 1,
+            "max": null,
+            "min_open": false,
+            "max_open": false
+          },
+          "multiple": false,
+          "nargs": 1,
+          "envvar": null,
+          "help": "开始页码"
+        },
+        {
+          "name": "page_size",
+          "opts": [
+            "--page-size"
+          ],
+          "secondary_opts": [],
+          "required": false,
+          "default": 10,
+          "type": "INTEGER RANGE",
+          "parser": {
+            "min": 1,
+            "max": 100,
+            "min_open": false,
+            "max_open": false
+          },
+          "multiple": false,
+          "nargs": 1,
+          "envvar": null,
+          "help": "每页条数，最多 100"
+        },
+        {
+          "name": "output",
+          "opts": [
+            "--output",
+            "-o"
+          ],
+          "secondary_opts": [],
+          "required": false,
+          "default": null,
+          "type": "TEXT",
+          "parser": {},
+          "multiple": false,
+          "nargs": 1,
+          "envvar": null,
+          "help": "输出格式: table 或 json"
+        }
+      ],
+      "sources": [
+        "src/wiserec_cli/commands/quality.py",
+        "src/wiserec_cli/commands/quality_display.py",
+        "src/wiserec_cli/services/quality.py"
+      ],
+      "callback_line": 65,
+      "evidence": "source-reviewed and mock-tested; not live verified"
     }
   },
   "groups": {
@@ -7485,6 +7696,21 @@
       "parameters": [],
       "invoke_without_command": false,
       "no_args_is_help": true
+    },
+    "quality": {
+      "parameters": [],
+      "invoke_without_command": false,
+      "no_args_is_help": true
+    },
+    "quality feature": {
+      "parameters": [],
+      "invoke_without_command": false,
+      "no_args_is_help": true
+    },
+    "quality wide-featureset": {
+      "parameters": [],
+      "invoke_without_command": false,
+      "no_args_is_help": true
     }
   },
   "unverified": [
@@ -7562,6 +7788,9 @@
     "src/wiserec_cli/commands/webstudio.py": "7bd14151a7c72348cef63ac4a7ba42d421aad88090fe9d964d55cc70e8300389",
     "src/wiserec_cli/services/webstudio.py": "0c64a45a2e1e5ae37f3a15384df98bdc432c4a1719c4eec241d675123d76b03f",
     "src/wiserec_cli/webstudio/resolve.py": "290b496b3ec2648d87de42587dd9e426eb1db46b1b91720cb0a1d95f714ab088",
-    "src/wiserec_cli/webstudio/store.py": "7f3c0dc15f8eefe9eba8ca1c4b89a1539d8284b1673bcc1df027ab26a5d8ee48"
+    "src/wiserec_cli/webstudio/store.py": "7f3c0dc15f8eefe9eba8ca1c4b89a1539d8284b1673bcc1df027ab26a5d8ee48",
+    "src/wiserec_cli/commands/quality.py": "52c00339e880d49b99227d6e5f8190d8a04ae25fb72f8e39a7b702cac2b3d9fb",
+    "src/wiserec_cli/commands/quality_display.py": "735e00227c68aeaef8734ffb2b2e0ae7452b48ab75b4a2e796c9342f7661af94",
+    "src/wiserec_cli/services/quality.py": "9a732f2ef378041d65c67c3d02176bfe22113394d0396f65fced338cbfe88950"
   }
 }

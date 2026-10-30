@@ -95,6 +95,15 @@
 | `ml featureset wide config SET_ID` / `ml featureset model config SET_ID` | 特征集配置 | | |
 | `ml featureset wide export SET_ID` / `ml featureset model export SET_ID` | 导出特征 CSV，重名自动编号；支持 `--lang zh_cn\|en_us`、`--file PATH`、`--output text\|json` | | 本地文件 |
 
+## 质量监控报告
+
+详见 [data.md](data.md)。
+
+| 命令 | 用途 | 确认 | 副作用 |
+| --- | --- | --- | --- |
+| `ml quality feature list` | 特征质量分页查询，支持名称、表名、特征值类型、指标类型筛选 | | |
+| `ml quality wide-featureset list` | 质量监控宽表特征集分页查询，支持名称筛选 | | |
+
 ## Web Studio 与 Jupyter
 
 详见 [jupyter.md](jupyter.md)。

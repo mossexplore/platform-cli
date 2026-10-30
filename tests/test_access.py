@@ -36,7 +36,7 @@ def test_authorization_headers_and_environment(inputs):
     args, kwargs = manager.__enter__().post.call_args
     assert args[0] == 'https://access.example.com/cli-permission/api/v1/access/check'
     assert kwargs['headers']['businessid'] == 'current-business'
-    assert kwargs['headers']['X-CLI-Version'] == '1.0.7.11'
+    assert kwargs['headers']['X-CLI-Version'] == '1.0.7.12'
     assert kwargs['json'] == {'username': 'alice', 'environment': 'dev', 'platform_origin': 'https://platform.example.com', 'command': 'unknown', 'full_command': ''}
     import ssl
     verify = ctor.call_args.kwargs['verify']

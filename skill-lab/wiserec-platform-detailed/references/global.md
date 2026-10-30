@@ -75,3 +75,6 @@ ml [GLOBAL_OPTIONS] COMMAND [ARGS]
 | `ml train instance` | 训练任务执行实例查询 | 命令分组/帮助 |
 | `ml user` | 用户信息 | 命令分组/帮助 |
 | `ml webstudio` | Web Studio 查询、启动、停止与 Jupyter 动态登录 | 命令分组/帮助 |
+| `ml quality` | 质量监控报告 | 命令分组/帮助 |
+| `ml quality feature` | 特征列表 | 命令分组/帮助 |
+| `ml quality wide-featureset` | 宽表特征集 | 命令分组/帮助 |

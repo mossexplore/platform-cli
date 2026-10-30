@@ -1,6 +1,6 @@
 # WiseRec CLI 使用手册
 
-`ml` 用于管理 WiseRec 平台的环境、业务、训练任务、样本任务、特征任务、算法仓、服务、数据集、特征集和开发工作空间。本手册面向命令使用者。示例中的 `TASK_ID`、`JOB_ID`、`PROJECT_ID`、`EXPERIMENT_ID`、`SET_ID`、`SERVICE_ID`、`DATASET_ID` 等占位符，需要替换成列表查询得到的实际 ID。
+`ml` 用于管理 WiseRec 平台的环境、业务、训练任务、样本任务、特征任务、算法仓、服务、数据集、特征集、质量监控报告和开发工作空间。本手册面向命令使用者。示例中的 `TASK_ID`、`JOB_ID`、`PROJECT_ID`、`EXPERIMENT_ID`、`SET_ID`、`SERVICE_ID`、`DATASET_ID` 等占位符，需要替换成列表查询得到的实际 ID。
 
 ## 1. 命令树
 
@@ -128,6 +128,11 @@ ml                                              WiseRec 命令行工具
 │       ├── list                                查看列表
 │       ├── config                              查看配置
 │       └── export                              导出特征集中的特征为 CSV 文件
+├── quality                                     质量监控报告
+│   ├── feature                                 特征列表
+│   │   └── list                                分页查询当前业务下的特征质量信息
+│   └── wide-featureset                          宽表特征集
+│       └── list                                分页查询当前业务下的宽表特征集质量信息
 ├── jupyter                                     文件、非交互执行、Notebook 与终端
 │   ├── doctor                                  检查连接状态
 │   ├── exec                                    非交互执行远端程序
@@ -1505,4 +1510,87 @@ ml sample-task execution list TASK_ID
 ml sample-task execution list TASK_ID --include-history
 ml sample-task execution list TASK_ID --page 2 --page-size 20
 ml sample-task execution list TASK_ID -o json
+```
+
+
+## 质量监控特征列表
+
+### 命令格式
+
+```bash
+ml quality feature list [--name TEXT] [--table-name TEXT] [--feature-value-type TYPE] [--indicator-type TYPE] [--page PAGE] [--page-size SIZE] [--output table|json]
+```
+
+### 参数与选项
+
+| 选项 | 默认值 | 说明 |
+| --- | --- | --- |
+| `--name TEXT` | 空字符串 | 特征名称 |
+| `--table-name TEXT` | 空字符串 | 特征表名 |
+| `--feature-value-type TYPE` | 不限 | 特征值类型，未指定时不发送此筛选字段 |
+| `--indicator-type TYPE` | 不限 | 指标类型，未指定时不发送此筛选字段 |
+| `--page PAGE` | `1` | 页码，必须为正整数 |
+| `--page-size SIZE` | `10` | 每页条数，范围 1～100 |
+| `--output` / `-o` | 当前环境配置 | `table` 或 `json` |
+
+### 说明
+
+先选择环境、登录并通过 `ml business use` 选择业务。对应 Web 管理台“质量监控报告 → 特征列表”，查询当前环境已选业务，每次仅查询指定的一页。名称与表名默认为空字符串；两个类型条件独立生效，可组合使用，接受中文或英文枚举，英文忽略大小写。
+
+| 中文名称 | 英文枚举 |
+| --- | --- |
+| 连续 | `CONTINUOUS` |
+| 离散 | `DISCRETE` |
+| 有序 | `ORDINAL` |
+| 分类 | `CATEGORICAL` |
+| 序列 | `SEQUENCE` |
+| 长序列 | `LONG_SEQUENCE` |
+| 向量 | `VECTOR` |
+
+表格依次展示特征id、特征名、特征表名、特征类型、特征值类型、指标类型、创建人、特征产出时间、时效性、空值率。首列固定宽度 36，完整展示 ID；其他长字段换行。两个类型字段显示中文，未知类型保留原值。特征产出时间保留原周期标识，如 `2026102800`；时效性仅显示原始数值，不拼接单位。空值率乘以 100 并加百分号，如 `0.125` 显示为 `12.5%`，`0` 显示为 `0%`。缺失、null 和空字符串显示为 `-`，数值 0 保留。
+
+分页摘要优先使用服务端返回的页码和每页条数，缺失时使用请求值。空列表显示“暂无特征质量记录”。JSON 包含 `items`、`count`、`pageIndex`、`pageSize`，保留记录中的全部原始字段和值，不转换类型名称、百分比或空值。非法参数、业务未选择及接口失败返回非零退出码。
+
+### 示例
+
+```bash
+ml quality feature list
+ml quality feature list --name FEATURE_NAME --table-name TABLE_NAME
+ml quality feature list --feature-value-type 离散 --indicator-type 向量
+ml quality feature list --feature-value-type DISCRETE --indicator-type VECTOR
+ml quality feature list --page 2 --page-size 100 -o json
+```
+
+## 质量监控宽表特征集
+
+### 命令格式
+
+```bash
+ml quality wide-featureset list [--name TEXT] [--page PAGE] [--page-size SIZE] [--output table|json]
+```
+
+### 参数与选项
+
+| 选项 | 默认值 | 说明 |
+| --- | --- | --- |
+| `--name TEXT` | 空字符串 | 特征集名称 |
+| `--page PAGE` | `1` | 页码，必须为正整数 |
+| `--page-size SIZE` | `10` | 每页条数，范围 1～100 |
+| `--output` / `-o` | 当前环境配置 | `table` 或 `json` |
+
+### 说明
+
+先选择环境、登录并通过 `ml business use` 选择业务。对应 Web 管理台“质量监控报告 → 宽表特征集”，每次只查询当前环境已选业务的指定页。与 `ml featureset wide list` 的查询入口和输出内容不同。
+
+表格依次展示特征集id、特征集名称、版本、特征装配输出表名、场景、创建时间、更新时间、创建人、更新人。首列固定宽度 36，完整展示 ID；其他长字段换行。字段按原值展示，缺失、null 和空字符串显示为 `-`。带时区的创建和更新时间转换为北京时间 `YYYY-MM-DD HH:mm:ss`；不带时区且已格式化的时间保持原值。
+
+分页摘要优先使用服务端返回的页码和每页条数，缺失时使用请求值。空列表显示“暂无宽表特征集质量记录”。JSON 包含 `items`、`count`、`pageIndex`、`pageSize`，保留记录中的全部原始字段和值，时间不进行展示转换。非法参数、业务未选择及接口失败返回非零退出码。
+
+### 示例
+
+```bash
+ml quality wide-featureset list
+ml quality wide-featureset list --name SET_NAME
+ml quality wide-featureset list --page 2 --page-size 20
+ml quality wide-featureset list --name SET_NAME -o json
 ```
