@@ -158,6 +158,9 @@ for action in ('list', 'create', 'stop', 'attach'):
 add('login_webstudio', 'webstudio login', 'webstudio', '验证指定 Web Studio 连接；后续工具显式传 studio_id，无全局默认实例', STUDIO)
 
 from dataclasses import replace
+OPERATIONS['list_feature_null_rates'] = replace(OPERATIONS['list_quality_features'],
+    description='仅查询每条特征的空值率，用于分布、占比统计；返回 nullValueRates 数值数组与分页信息，'
+                '原始比例 0～1，null 表示未知，不能当作 0；仅当前页，跨页统计须翻页，不返回其他特征字段')
 for original, alias in [('list_featuresets', 'list_model_featuresets'), ('get_featureset_config', 'get_model_featureset_config'), ('export_featureset', 'export_model_featureset')]:
     old = OPERATIONS[original]
     OPERATIONS[alias] = replace(old, command=old.command.replace('wide', 'model'), description=old.description + '（模型特征集）')

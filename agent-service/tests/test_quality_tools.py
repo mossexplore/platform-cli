@@ -17,6 +17,7 @@ from wiserec_cli.services.quality import PREFIX, TYPES
 TOOLS = {
     'list_quality_features': ('ml quality feature list', '', 'featureList'),
     'list_quality_wide_featuresets': ('ml quality wide-featureset list', '/wide-feature-sets', 'featureSetList'),
+    'list_feature_null_rates': ('ml quality feature list', '', 'featureList'),
 }
 
 
@@ -47,10 +48,10 @@ async def test_sdk_function_tool_receives_normalized_arguments():
         return {'ok': True}
     selection = ToolSelection('质量监控')
     tools = {tool.name: tool for tool in build_tools(invoke, selection)}
-    result = await tools['list_quality_features'].on_invoke_tool(None,
+    result = await tools['list_feature_null_rates'].on_invoke_tool(None,
         json.dumps({'feature_value_type': '离散', 'indicator_type': 'vector'}))
     assert result == {'ok': True}
-    assert calls == [('list_quality_features', {'page': 1, 'page_size': 10, 'name': '',
+    assert calls == [('list_feature_null_rates', {'page': 1, 'page_size': 10, 'name': '',
         'table_name': '', 'feature_value_type': 'DISCRETE', 'indicator_type': 'VECTOR'})]
 
 
@@ -118,7 +119,9 @@ def test_full_permission_chain_and_service_contract(client, app, name, filtered)
     result = app.state.platform.execute(session_id, None, BUSINESS, name, args, 'quality-call')
     assert len(queries) == 1
     assert result['ok'] and not result['truncated']
-    assert result['data'] == {'items': [item], 'count': 30, 'pageIndex': 1, 'pageSize': 1}
+    expected_data = ({'nullValueRates': [0.125]} if name == 'list_feature_null_rates'
+                     else {'items': [item]})
+    assert result['data'] == {**expected_data, 'count': 30, 'pageIndex': 1, 'pageSize': 1}
     app.test_upstream.allow = False
     with pytest.raises(AppError, match='权限'):
         app.state.platform.execute(session_id, None, BUSINESS, name, args, 'denied-call')

@@ -16,6 +16,7 @@ from wiserec_cli.access_transport import tls_verify
 from .business_tools import OPERATIONS
 from .artifacts import MAX_BYTES
 from .errors import AppError
+from .quality_tools import null_rates_page
 
 
 def dispatch(owner, client, name, args):
@@ -30,7 +31,8 @@ def dispatch(owner, client, name, args):
     if name in ('list_featuresets', 'list_model_featuresets'):
         a['set_type'] = 'model' if name == 'list_model_featuresets' else 'wide'
     if spec.service:
-        return getattr(spec.service(client), spec.method)(**a)
+        result = getattr(spec.service(client), spec.method)(**a)
+        return null_rates_page(result) if name == 'list_feature_null_rates' else result
     if name == 'export_model_featureset': name = 'export_featureset'
     store = client.agent_artifacts
     if name.startswith('jupyter_') or name == 'login_webstudio':

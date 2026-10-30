@@ -16,12 +16,31 @@
 | --- | --- | --- |
 | `list_quality_features` | `ml quality feature list` | `name`、`table_name`、`feature_value_type`、`indicator_type`、`page`、`page_size` |
 | `list_quality_wide_featuresets` | `ml quality wide-featureset list` | `name`、`page`、`page_size` |
+| `list_feature_null_rates` | `ml quality feature list` | 与 `list_quality_features` 相同，只返回空值率 |
 
 名称和表名默认空字符串；类型默认 null，在实际请求体中省略。两个类型参数独立筛选，均接受连续/CONTINUOUS、离散/DISCRETE、有序/ORDINAL、分类/CATEGORICAL、序列/SEQUENCE、长序列/LONG_SEQUENCE、向量/VECTOR，英文忽略大小写。
 
 默认第 1 页、每页 10 条；页码范围为 1～10000，每页条数为 1～100，并继续受管理员 `runtime.max_page_size` 限制。每次只取一页，返回 `items`、`count`、`pageIndex`、`pageSize`，分页优先采用响应值。完整保留记录的原始字段及数值，例如空值率 0.125，不把 CLI 表格的百分比文本写入工具数据。特征周期原值保留；Agent 公共输出边界继续沿用现有的时间规范化规则。
 
-两个工具均为只读，无新增网页确认。身份、环境、业务与凭据由会话确定，不允许模型传入业务 ID 或接口 URL。权限拒绝时不调用质量监控接口。宽表质量查询与 `list_featuresets` 的普通宽表列表用途不同。
+三个工具均为只读，无新增网页确认。身份、环境、业务与凭据由会话确定，不允许模型传入业务 ID 或接口 URL。权限拒绝时不调用质量监控接口。宽表质量查询与 `list_featuresets` 的普通宽表列表用途不同。
+
+### 只查询空值率
+
+需要统计空值率分布、阈值占比时，优先使用 `list_feature_null_rates`，避免完整特征记录占用工具输出预算。它复用特征质量接口和权限，不接受模型指定业务、身份或 URL。
+
+```json
+{"name":"list_feature_null_rates","arguments":{"page":1,"page_size":10,"table_name":"TABLE_NAME"}}
+```
+
+工具结果的 `data` 示例：
+
+```json
+{"nullValueRates":[0,0.125,1,null],"count":300,"pageIndex":1,"pageSize":10}
+```
+
+`nullValueRates` 中每个元素对应本页一条特征，保留服务端顺序和重复值，不附带 ID、名称或其他特征字段。0～1 数值直接参与统计，0.125 表示 12.5%；缺失或 null 保留为 null，不当作 0，也不直接丢弃。字符串、布尔值、非有限数值或超出 0～1 的值报错，不静默修正。提取发生在 Agent 输出预算检查之前。
+
+`count` 是筛选后的全部特征数，数组长度是本页记录数，`pageIndex` 和 `pageSize` 优先采用响应值。一次只取一页，不自动宣称全量；全量占比须按相同筛选条件翻页收集，统计有效空值率分布时排除 null，并单独报告未知数量。该工具仅提供数值，不预先计算占比或平均值。
 
 ## 工具发现与渐进加载
 
@@ -140,7 +159,7 @@ CLI 的本地登录/退出、环境、业务选择、认证状态、保活、命
 
 以下表由当前注册表生成。多个工具可以共同覆盖一个交互式 CLI 命令；“需确认”指网页人工确认，不表示权限已放行。
 
-当前共有 **89 个业务工具 + 1 个发现工具**，覆盖 **80 个 CLI 业务叶子命令**。其中 25 个工具需要网页确认。
+当前共有 **90 个业务工具 + 1 个发现工具**，覆盖 **80 个 CLI 业务叶子命令**。其中 25 个工具需要网页确认。
 
 | CLI 命令 | Agent 工具 | 领域 | 需确认 |
 | --- | --- | --- | --- |
@@ -163,6 +182,7 @@ CLI 的本地登录/退出、环境、业务选择、认证状态、保活、命
 | `ml featureset wide export` | `export_featureset` | `featuresets` | 否 |
 | `ml featureset wide list` | `list_featuresets` | `featuresets` | 否 |
 | `ml quality feature list` | `list_quality_features` | `quality` | 否 |
+| `ml quality feature list` | `list_feature_null_rates` | `quality` | 否 |
 | `ml quality wide-featureset list` | `list_quality_wide_featuresets` | `quality` | 否 |
 | `ml jupyter doctor` | `jupyter_doctor` | `jupyter` | 否 |
 | `ml jupyter exec` | `jupyter_exec` | `jupyter` | 是 |
