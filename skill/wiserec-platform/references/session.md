@@ -1,21 +1,34 @@
 # 会话、Windows shell 与故障处理
 
-## 最短预检
+## 首次确认与上下文复用
+
+当前聊天尚无已确认上下文时运行：
 
 ```powershell
-ml --version
-ml env show
+ml context --json
 ml auth status
-ml business show
 ```
 
-逐条检查退出码和实际字段。用户指定了环境时，先运行 `ml env use dev`、`ml env use mirror`、`ml env use explore` 或 `ml env use product` 中对应的一条。切换环境后重新核对认证和业务。
+- `context` 无需登录、不访问网络，包含运行模式、CLI 版本和路径、当前环境、实际配置路径。使用 `--json`，不加 `-o json`；只查看报告的路径，不读取配置、凭据或业务文件。它已经提供版本和环境，无需另外运行 `ml --version`、`ml env show`。
+- `auth status` 不续期，显示 `profile`、`username`、`status`、`remaining_minutes`、`expires_at` 和 `businessId`。必须检查 `status=valid`，不能只看退出码；`profile` 应与 `context` 的环境一致。`businessId` 读取当前环境的 `selected.businessId`，可用于确认业务 ID；不使用其他来源或旧字段代替。
+- `businessId` 缺失、为空或为 `-` 时，用 `ml business show` 核对；需要租户/团队名称时也可查询。未选业务再进入选择流程，不在每次查询前列出全部业务。
+- 在当前聊天内复用已确认的 CLI 路径、配置来源、环境、账号、业务 ID 和按需取得的名称。用户发来下一条意图、重新调用 `/ml` 或再次加载 skill，都不自动使上下文失效。普通查询直接执行，已确认的命令语法也直接复用。
+- 用户要求切换到另一环境时，运行对应的 `ml env use dev|mirror|explore|product`，再用上述两条命令更新上下文。与已确认环境相同时不重复切换；未指定环境时沿用已确认的当前环境，不擅自切换。
+- 使用自定义配置时，`--config PATH` 放在子命令之前，例如 `ml --config 'C:\Work\config.json' context --json`；也可设置 `ML_CONFIG`。所有业务命令沿用已确认的同一配置来源，变更来源后重新确认。
 
-- `ml --version` 成功才说明 `ml` 可调用。
-- 需要核对运行模式或生效配置路径时，运行 `ml context --json`；无需登录，使用 `--json` 而非 `-o json`。只查看命令报告的路径，不读取凭据或业务文件。
-- `ml auth status` 只读本地缓存、不续期；无缓存会失败，过期也可能退出 0，必须看 `status` 与 `remaining_seconds`。
-- `ml business show` 必须显示当前环境有效的租户或团队。`auth status` 中的 `business_id` 可能是旧值，不作依据。
-- 使用自定义配置时，`--config PATH` 放在子命令之前，例如 `ml --config 'C:\Work\config.json' env show`；也可设置 `ML_CONFIG`。同一任务内所有命令使用同一配置来源。
+## 何时重新检查
+
+| 场景 | 处理 |
+| --- | --- |
+| 同一上下文下的后续普通查询 | 直接执行业务命令，不重复预检 |
+| 登录、退出、切换账号或业务 | 按对应命令结果更新上下文；必要时只补查认证或业务 |
+| 切换环境、CLI 路径或配置来源，上下文丢失 | 重新运行 `context --json` 与 `auth status` |
+| 长任务前、长时间中断后无法确认认证状态 | 只查 `auth status`；长任务核对剩余时间是否足够，不重查版本和业务列表 |
+| 认证、业务或权限失败 | 进入下方对应处理，不重新执行完整检查清单 |
+| 不熟悉的命令、用法错误、文档不一致 | 查该命令 `--help`；涉及安装或版本异常再查版本和路径 |
+| 提交写操作前 | 重新用 `context --json` 与 `auth status` 核对实际环境、账号、业务及目标；需要名称时补查 `business show`，保留生产写操作确认 |
+
+上下文只用于当前聊天的操作决策，不跨账号、跨聊天共享。不能靠聊天记录发现其他终端的配置切换，也不把历史认证状态当作实时授权。CLI 自身每次业务调用的认证、业务和权限检查始终保留；skill 不增加绕过方式。
 
 ## Windows shell
 
@@ -29,7 +42,7 @@ ml business show
 ## 登录与业务选择
 
 - **无缓存或已过期**：运行 `ml login`，shell 工具 `timeout` 至少设为 10 分钟。命令会打开 Edge，由用户完成 SSO 或验证码，之后复查 `ml auth status`。不能代替用户输入凭据，也不要靠运行业务命令来触发登录。
-- **未选业务**：用 `ml business list` 取得当前环境的候选，按用户明确的选择运行 `ml business use --tenant TENANT_ID [--team TEAM_ID] [--department DEPARTMENT_ID]`，再用 `ml business show` 核对。必须传 `--tenant`；不传 ID 会进入交互选择，在 shell 工具中无法完成。业务 ID 不从其他环境复制。
+- **未选业务**：用 `ml business list` 取得当前环境的候选，按用户明确的选择运行 `ml business use --tenant TENANT_ID [--team TEAM_ID] [--department DEPARTMENT_ID]`，按命令结果更新当前业务；输出不足以确认时，再用 `ml business show` 核对一次。必须传 `--tenant`；不传 ID 会进入交互选择，在 shell 工具中无法完成。业务 ID 不从其他环境复制。
 - **业务目录缺失或失效**：`ml business refresh` 会打开 Edge 刷新目录，`timeout` 同样至少 10 分钟，刷新后重新核对选择。
 - **权限拒绝**：停止该业务操作并报告原因，可用 `ml access status` 检查。
 - **退出登录**：`ml logout` 仅在用户要求或排障需要时运行。

@@ -2,13 +2,16 @@
 
 ## 环境、认证与业务
 
-- 第一次操作、切换环境或长任务前核对 `ml --version`、`ml env show`、`ml auth status`、`ml business show`。同一上下文连续操作可复用已确认结果。
+- 当前聊天首次缺少已确认上下文时，仅运行 `ml context --json` 与 `ml auth status`。context 已包含 CLI 版本、路径、当前环境和配置来源，无需另查版本和环境。保留已确认的非敏感上下文，后续普通查询直接执行；新的一条意图、再次调用 `/ml-lab` 或再次加载 skill 不视为新会话。
 - `ml tree`、`ml history` 不需要平台登录；`ml context` 不访问网络，但需要可读取的生效配置。登录、退出、环境管理和认证检查按各自说明执行，不要求先选业务再登录。
 - 业务资源查询/操作需要有效认证、当前环境业务选择及对应权限。Jupyter 按当前配置连接；Web Studio 模式使用当前平台业务和选择实例，direct 模式使用其 Jupyter 配置；不要混用两种模式的目标。direct 模式传 --studio-id 会报错；其 studio_id 输出为空字符串。
-- 环境通常包括 dev/mirror/explore/product，以 `ml env list` 实际配置为准。用户未指定环境时先确认当前环境，不擅自切换。
-- `auth status` 的退出 0 只说明状态展示成功，必须检查 status=valid 和剩余时长。业务以 `business show` 为准，不能拿旧凭据中的 business_id 替代。
+- 环境通常包括 dev/mirror/explore/product。用户未指定时沿用已确认环境，不擅自切换；与已确认环境相同则不重复 env use。切换环境、CLI 路径或配置来源，或上下文丢失时，重新运行 context --json 与 auth status；登录、退出或业务切换后按结果更新受影响的上下文。
+- `auth status` 检查 status=valid、profile 与当前环境一致，以及有效的 businessId；剩余时间字段为 remaining_minutes，并有 expires_at。businessId 读取当前环境 selected.businessId，不用旧字段或其他环境的 ID。缺少有效 businessId 或需要租户/团队名称时才补查 business show，需要选择业务时才列候选。
 - 平台请求 businessid 来源应为 business.json 当前具体环境 selected.businessId；接口根地址来自配置 api_endpoint。这些由 CLI 负责，skill 不手工读取或修改文件实现绕过。
 - 缺少认证时让用户通过 `ml login` 的 Edge 流程登录，不索取 Cookie、Token、密码或验证码。登录和 business refresh 的工具时限至少预留 10 分钟。
+
+- 上下文只在当前聊天内复用，不跨账号或聊天共享。CLI 每次业务调用仍执行认证、业务与权限校验；skill 的前置检查不能替代它们。其他终端的环境或业务变化无法靠聊天记录自动发现，提交写操作前重新运行 context --json 与 auth status 核对实际环境、账号和业务，必要时补查 business show；生产写操作仍需复述目标与参数并取得明确确认。
+- 已确认且适用当前安装版本的语法可复用；不熟悉的命令、用法错误或说明不一致时再查对应 --help，安装或版本异常再查版本与路径。认证、业务及权限报错按对应项处理，不重新跑全套预检。
 
 ## 参数与输出
 
@@ -29,7 +32,7 @@
 - 不运行 jupyter terminal open/attach，不分配 TTY/PTY 绕过限制；使用 files、exec 或 notebook run。终端命令文档用于覆盖现有能力并说明人工使用边界。
 - jupyter exec 的 `--` 后是程序与参数，不隐式展开 shell 管道、通配符或重定向。需要 shell 的任务须明确执行已授权的 shell 命令，不能误以为程序参数自动执行 shell 语法。
 - 为长任务显式设置执行工具时限。Jupyter 至少考虑 startup-timeout + timeout，再加 60 秒用于传输和清理；大文件操作还需按实际文件大小预留时间。工具时限不等于 CLI 网络操作时限。
-- 非交互环境自动保活不生效，auth ping start 不能替代重新登录；长任务前核对认证有效期。
+- 非交互环境自动保活不生效，auth ping start 不能替代重新登录；长任务前只查 auth status 核对有效期，不重查版本与业务列表。长时间中断后无法确认认证状态也只补查认证。
 
 ## 错误、部分成功和副作用
 

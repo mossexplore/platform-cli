@@ -101,18 +101,20 @@
 - 放在子命令前的全局参数（如 `ml --config PATH model list`）匹配不到放行规则，会改为审批，不会被误放行。
 - 以上只列出 `ml` 相关规则，其他命令按团队要求另行配置。OpenCode 对 PowerShell 命令的解析方式（例如命令前加了编码设置时）可能影响匹配结果，正式分发前请在 OpenCode 中实测：只读命令直接执行，写操作弹出审批，被禁止的命令被拒绝。
 
-## 本机核对
+## 上下文检查与本机核对
+
+首次缺少上下文时只运行：
 
 ```powershell
-Get-Command ml
-ml --version
-ml tree
-ml env show
+ml context --json
 ml auth status
-ml business show
 ```
 
-`ml login` 需要 Edge 和图形界面，不能在无人值守的环境中完成登录。命令和参数以实际安装的 CLI 帮助为准；命令缺失时更新 CLI，不能只更新 skill。
+`context` 已包含 CLI 版本、路径、环境与配置来源；`auth status` 包含账号、认证状态、`remaining_minutes`、`expires_at` 和当前环境选中的 `businessId`。需检查状态和实际字段，不能只看退出码。需要租户/团队名称或缺少有效业务 ID 时再查 `ml business show`。
+
+两套 skill 与 `/ml`、`/ml-lab` 均在同一聊天内跨用户消息复用已确认上下文，后续普通查询直接执行。环境、账号、业务、CLI 路径或配置来源变化时按影响补查；长任务只查认证有效期；提交写操作前重新核对实际环境、账号与业务并保留原确认要求。只读失败按认证、业务、权限或语法分类处理，不把每个新意图当作首次操作。CLI 自身的逐次认证及授权不变。
+
+找不到 `ml` 时用 `Get-Command ml` 排查 PATH；安装或版本问题时按需使用 `ml --version`、`ml tree` 和对应命令的 `--help`。已确认的语法不重复查询帮助。`ml login` 需要 Edge 和图形界面，不能在无人值守环境中完成。旧 CLI 若不支持 context 或所需字段，按实际版本帮助核对或更新 CLI，不猜测字段含义。
 
 ## 分发边界
 
