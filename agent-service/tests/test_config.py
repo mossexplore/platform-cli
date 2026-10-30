@@ -85,3 +85,10 @@ def test_tool_output_character_limit(settings, limit, accepted):
     else:
         with pytest.raises(ValidationError):
             Settings.model_validate(data)
+
+
+def test_health_reports_installed_cli_version(client):
+    from wiserec_cli import __version__
+    response = client.get('/api/health')
+    assert response.status_code == 200
+    assert response.json()['version'] == __version__

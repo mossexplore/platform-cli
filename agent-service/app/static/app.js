@@ -31,7 +31,10 @@ let polling = false;
 
 async function boot() {
   try {
-    state.environments = await api("/environments");
+    const [environments, health] = await Promise.all([api("/environments"), api("/health")]);
+    state.environments = environments;
+    $("app-version").textContent = health.version ? `v${health.version}` : "";
+    $("app-version").hidden = !health.version;
     renderEnvironments();
     state.session = await api("/session");
     $("setup-error").hidden = true;

@@ -38,9 +38,6 @@
   .context-item {
     gap: 8px;
   }
-  .readonly {
-    display: none;
-  }
   .message-scroll {
     padding: 25px;
   }
@@ -114,6 +111,7 @@
   }
   .mobile-only {
     display: block;
+    flex-shrink: 0;
   }
   .workspace-header {
     height: 65px;
@@ -124,7 +122,7 @@
     display: none;
   }
   .business-button {
-    max-width: 160px;
+    max-width: min(160px, 100%);
   }
   .message-scroll {
     padding: 20px 16px;
@@ -168,6 +166,22 @@
   .composer-note {
     font-size: 9px;
   }
+}
+@media (max-width: 480px) {
+  .workspace-header {
+    height: auto;
+    min-height: 86px;
+    padding: 8px 12px;
+    flex-wrap: wrap;
+    gap: 6px 10px;
+  }
+  .business-context {
+    order: 4;
+    flex-basis: 100%;
+    padding-left: 46px;
+  }
+  .workspace-actions { gap: 8px; }
+  .logout-button { padding: 6px; }
 }
 @media (prefers-reduced-motion: reduce) {
   * {

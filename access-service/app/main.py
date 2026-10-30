@@ -17,6 +17,7 @@ from .pagination import PAGE_SIZE
 from .navigation import GROUPS, ROOTS
 from .security import display_time
 from .settings import Settings
+from .build_info import application_version
 
 
 def create_app(settings=None):
@@ -27,7 +28,8 @@ def create_app(settings=None):
     app.state.templates = Jinja2Templates(directory=str(directory / 'templates'))
     app.state.templates.env.filters['beijing'] = display_time
     app.state.templates.env.filters['application_expiry'] = lambda value: display_time(datetime.fromisoformat(value))
-    app.state.templates.env.globals.update(page_size=PAGE_SIZE, navigation_groups=GROUPS, navigation_roots=ROOTS)
+    app.state.templates.env.globals.update(page_size=PAGE_SIZE, navigation_groups=GROUPS,
+        navigation_roots=ROOTS, app_version=application_version())
     def application_context(request):
         if request.url.path.startswith('/cli-permission/admin'):
             try:

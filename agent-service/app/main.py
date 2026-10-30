@@ -12,6 +12,7 @@ from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.trustedhost import TrustedHostMiddleware
+from wiserec_cli import __version__
 from sqlalchemy import select, delete, update
 from .settings import load_settings
 from .db import connect, verify_schema
@@ -265,7 +266,8 @@ def create_app(
 
     @app.get("/api/health")
     def health():
-        return {"ready": app.state.ready, "message": app.state.config_error}
+        return {"ready": app.state.ready, "message": app.state.config_error,
+                "version": __version__}
 
     @app.get("/")
     def index():

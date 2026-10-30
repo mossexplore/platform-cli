@@ -166,6 +166,7 @@
   border-radius: 5px;
   color: #31445e;
   max-width: 250px;
+  min-width: 0;
 }
 .business-button strong {
   font-weight: 500;
@@ -180,14 +181,38 @@
   color: #9aa8ba;
   font-size: 10px;
 }
-.readonly {
+.workspace-actions {
   margin-left: auto;
-  font-size: 11px;
-  color: #8996a7;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
+}
+.app-version {
+  font-size: 12px;
+  color: #86909c;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.logout-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  flex-shrink: 0;
+  padding: 6px 10px;
+  border-radius: 4px;
+  background: transparent;
+  font-size: 13px;
+  color: #4e5969;
   white-space: nowrap;
 }
-.readonly i {
-  margin-right: 5px;
+.logout-button:hover {
+  color: #d54941;
+  background: #fdecea;
+}
+.logout-icon {
+  width: 15px;
+  height: 15px;
 }
 .message-scroll {
   flex: 1;

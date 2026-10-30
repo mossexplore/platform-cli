@@ -6,7 +6,7 @@ LABEL org.opencontainers.image.title="CLI access management" \
       org.opencontainers.image.version=$VERSION \
       org.opencontainers.image.revision=$REVISION
 ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 \
-    LISTEN_HOST=0.0.0.0 LISTEN_PORT=8008
+    LISTEN_HOST=0.0.0.0 LISTEN_PORT=8008 WISEREC_APP_VERSION=$VERSION
 WORKDIR /app
 COPY requirements.lock ./requirements.lock
 RUN python -m pip install --no-cache-dir --only-binary=:all: -r requirements.lock \
