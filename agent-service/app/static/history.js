@@ -1,6 +1,6 @@
 import { $, state, api, text, icon, notice } from "./api.js";
 
-let rows = [], scope = "", prefs = {}, open, archived = false, generation = 0;
+let rows = [], scope = "", prefs = {}, open, onDeleted, archived = false, generation = 0;
 let editing = null;
 const day = (value) => new Intl.DateTimeFormat("en-CA", {
   timeZone: "Asia/Shanghai", year: "numeric", month: "2-digit", day: "2-digit",
@@ -77,6 +77,19 @@ function entry(c) {
   }), action(archived ? "恢复对话" : "归档", () => {
     prefs[c.id] = { ...prefs[c.id], archived: !archived };
     save(); render();
+  }), action("删除", async () => {
+    closeMenus();
+    if (!window.confirm('永久删除对话「' + c.title + '」及全部消息和运行记录？此操作无法恢复。')) return;
+    try {
+      await api("/conversations/" + c.id, { method: "DELETE" });
+      // Invalidate history requests started before deletion.
+      generation++;
+      rows = rows.filter(row => row.id !== c.id);
+      delete prefs[c.id];
+      save(); render();
+      if (state.conversation?.id === c.id) await onDeleted();
+      notice("对话已永久删除");
+    } catch (error) { notice(error.message); }
   }));
   row.append(button, toggle, menu);
   return row;
@@ -97,8 +110,8 @@ function render() {
   }
   if (!visible.length) nav.append(text("p", rows.length ? "没有匹配的对话" : "你的对话将在这里保留", "history-empty"));
 }
-export async function refreshHistory(onOpen) {
-  open = onOpen;
+export async function refreshHistory(onOpen, afterDelete) {
+  open = onOpen; onDeleted = afterDelete;
   const ticket = ++generation;
   const key = "wiserec-history:" + JSON.stringify([state.session?.environment_id, state.session?.user?.username]);
   if (scope !== key) {

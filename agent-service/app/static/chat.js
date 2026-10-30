@@ -1,4 +1,4 @@
-import { showAction, settleAction, installUpload } from './actions.js';
+import { showAction, settleAction } from './actions.js';
 import { attachMessageTime } from "./message-time.js";
 import { refreshHistory } from "./history.js";
 import {
@@ -13,7 +13,6 @@ import {
   setBusy,
 } from "./api.js";
 import { createTimeline } from "./message-parts.js";
-installUpload();
 let earliest = null;
 let progressTimer = null;
 const toolNames = {
@@ -40,7 +39,7 @@ export function disconnect() {
     state.stream = null;
   }
 }
-export const loadHistory = (more = false) => refreshHistory(openConversation, more);
+export const loadHistory = (more = false) => refreshHistory(openConversation, newConversation);
 export async function newConversation() {
   if (state.busy) return;
   disconnect();

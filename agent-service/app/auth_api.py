@@ -225,22 +225,11 @@ async def _logout_locked(request: Request, response: Response):
                 )
             )
         )
-        environments = set(
-            db.scalars(select(Attempt.environment_id).where(Attempt.session_id == s.id))
-        )
-        if s.environment_id:
-            environments.add(s.environment_id)
         revoke(db, s)
         db.commit()
     for a in attempts:
         state.login.cancel(a)
     for r in runs:
         await state.runs.stop(r)
-    warnings = []
-    for environment in environments:
-        try:
-            await state.login.forget_environment(environment)
-        except Exception as exc:
-            warnings.append(login_failure("profile_cleanup", exc).message)
     response.delete_cookie(state.config.session.cookie_name, path="/")
-    return {"ok": True, "warning": "；".join(warnings)}
+    return {"ok": True, "warning": ""}

@@ -15,7 +15,7 @@ from .errors import AppError
 from .models import Attempt, Session, Credential, User, UserPreference, now
 from .sessions import valid
 from .business_preferences import preferred, remember
-from .login_support import prepare_profile, profile_paths, clear_profile, login_failure
+from .login_support import prepare_profile, login_failure
 
 
 def selections(raw):
@@ -152,22 +152,6 @@ class LoginManager:
     def cancel(self, attempt_id):
         if self.active == attempt_id:
             self.stop.set()
-
-    async def forget_environment(self, environment_id):
-        # The marker prevents a subsequent login from reusing a cache whose deletion failed.
-        _, pending = profile_paths(self.config, environment_id)
-        self.config.login.profile_root.mkdir(parents=True, exist_ok=True)
-        pending.touch()
-        if self.busy() and self.active_environment == environment_id:
-            self.stop.set()
-            try:
-                await asyncio.wait_for(asyncio.shield(self.task), timeout=25)
-            except TimeoutError:
-                raise AppError(
-                    "PROFILE_BUSY",
-                    "登录已退出，但 Edge 仍未关闭；已禁止复用旧缓存，请关闭该登录窗口后重试",
-                ) from None
-        await asyncio.to_thread(clear_profile, self.config, environment_id)
 
     @staticmethod
     def clear_partial(db, attempt):

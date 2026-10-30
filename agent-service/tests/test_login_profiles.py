@@ -32,7 +32,7 @@ def test_pending_clear_prevents_cache_reuse(settings):
     assert not pending.exists()
 
 
-def test_logout_clears_only_selected_environment(client, app):
+def test_logout_preserves_environment_profiles(client, app):
     ready(client)
     dev = prepare_profile(app.state.config, "dev")
     other = prepare_profile(app.state.config, "mirror")
@@ -40,7 +40,10 @@ def test_logout_clears_only_selected_environment(client, app):
     response = client.post("/api/logout", headers=headers(client))
     assert response.status_code == 200
     assert not response.json()["warning"]
-    assert not dev.exists() and other.exists()
+    assert (dev / "Cookies").read_text() == "private-state"
+    assert other.exists()
+    assert not profile_paths(app.state.config, "dev")[1].exists()
+    assert prepare_profile(app.state.config, "dev") == dev
 
 
 def test_cleanup_retries_windows_file_lock(settings, monkeypatch):
@@ -169,7 +172,7 @@ def test_local_edge_success_retains_profile_and_reuses_it(settings, monkeypatch)
     assert (prepare_profile(settings, "dev") / "Cookies").exists()
 
 
-def test_failed_logout_cleanup_is_visible_and_blocks_reuse(client, app, monkeypatch):
+def test_logout_never_attempts_cache_deletion_and_revokes_credentials(client, app, monkeypatch):
     import app.login_support as support
 
     ready(client)
@@ -183,9 +186,11 @@ def test_failed_logout_cleanup_is_visible_and_blocks_reuse(client, app, monkeypa
     monkeypatch.setattr(support.time, "sleep", lambda _: None)
     response = client.post("/api/logout", headers=headers(client))
     assert response.status_code == 200
-    assert "profile_cleanup" in response.json()["warning"]
-    assert "test-private-cookie" not in response.text
-    assert profile_paths(app.state.config, "dev")[1].exists()
-    with pytest.raises(AppError):
-        prepare_profile(app.state.config, "dev")
+    assert not response.json()["warning"]
+    assert not profile_paths(app.state.config, "dev")[1].exists()
+    assert (prepare_profile(app.state.config, "dev") / "Cookies").read_text() == "test-private-cookie"
     assert client.get("/api/businesses").status_code == 401
+    from sqlalchemy import select
+    from app.models import Credential
+    with app.state.db() as db:
+        assert db.scalar(select(Credential)) is None

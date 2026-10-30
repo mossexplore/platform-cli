@@ -4,8 +4,8 @@ from uuid import UUID
 from fastapi import APIRouter, Request, Query
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, ConfigDict, Field
-from sqlalchemy import select
-from .models import Conversation, Message, Run, Event, now
+from sqlalchemy import select, delete
+from .models import Conversation, Message, Run, Event, ToolCall, now
 from .sessions import request_session, valid, protect, TERMINAL
 from .errors import AppError
 from .sanitize import clean
@@ -37,6 +37,29 @@ def rename_conversation(key: str, body: RenameInput, request: Request):
         c.title = title
         db.commit()
         return {"id": c.id, "title": c.title}
+
+
+@router.delete("/conversations/{key}")
+async def delete_conversation(key: str, request: Request):
+    state = request.app.state
+    # Serialize with run creation so no new writer can start during deletion.
+    async with state.runs.lock:
+        with state.db() as db:
+            s = request_session(request, db)
+            protect(request, s)
+            conversation(db, s, key)
+            if db.scalar(select(Run.id).where(
+                Run.conversation_id == key, Run.status.in_(["queued", "running"])
+            )):
+                raise AppError("RUN_ACTIVE", "请先停止该对话的当前执行，再删除对话", 409)
+            ids = select(Run.id).where(Run.conversation_id == key)
+            db.execute(delete(Event).where(Event.run_id.in_(ids)))
+            db.execute(delete(ToolCall).where(ToolCall.run_id.in_(ids)))
+            db.execute(delete(Message).where(Message.conversation_id == key))
+            db.execute(delete(Run).where(Run.conversation_id == key))
+            db.execute(delete(Conversation).where(Conversation.id == key))
+            db.commit()
+    return {"ok": True}
 
 
 def conversation(db, s, key):
@@ -231,6 +254,8 @@ async def events(key: str, request: Request):
         with state.db() as db:
             valid(db, state.config, sid)
             r = db.get(Run, key)
+            if r is None:
+                raise AppError("NOT_FOUND", "对话已删除", 404)
             rows = list(
                 db.scalars(
                     select(Event)
@@ -261,7 +286,10 @@ async def events(key: str, request: Request):
                 status, answer, error, created_at, parts, batch = await asyncio.to_thread(
                     read_batch, cursor
                 )
-            except AppError:
+            except AppError as error:
+                if error.code == "NOT_FOUND":
+                    yield 'event: stream.closed\ndata: {"status":"cancelled","message":"对话已删除"}\n\n'
+                    return
                 yield 'event: auth.expired\ndata: {"message":"登录已失效"}\n\n'
                 return
             terminal = status in TERMINAL
