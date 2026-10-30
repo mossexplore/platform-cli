@@ -23,17 +23,32 @@ DOMAINS = {
     "services": Domain("服务查询、主机和部署视图", (
         "list_services", "list_service_hosts", "get_service_deployments",
     ), ("服务", "service", "主机", "host", "pod", "部署")),
-    "logs": Domain("验证服务主机后查询日志文件与尾部日志", (
+    "logs": Domain("验证服务主机后查询日志文件与日志内容", (
         "list_service_log_files", "search_service_logs",
     ), ("日志", "log", "报错")),
 }
+
+from .business_tools import OPERATIONS
+KEYWORDS = {'algorithms': ('算法', 'algorithm'), 'datasets': ('数据集', 'dataset'),
+    'templates': ('部署模板',), 'resources': ('资源模板',), 'offline': ('离线实验', 'offline'),
+    'featuresets': ('特征集', 'featureset'), 'mep': ('mep',), 'account': ('用户信息',),
+    'feature_tasks': ('特征任务',), 'samples': ('样本', 'sample'), 'swanboard': ('swanboard', '训练看板'),
+    'webstudio': ('webstudio', '开发环境'), 'inference': ('推理测试',),
+    'training_write': ('启动训练', '取消训练', '删除训练', '克隆训练'),
+    'training_files': ('训练配置', '训练日志下载'), 'deployment': ('发布模型', '部署模型'),
+    'jupyter': ('jupyter', '执行代码', 'notebook'), 'jupyter_files': ('远端文件',),
+    'jupyter_terminals': ('终端', 'terminal')}
+for key, keywords in KEYWORDS.items():
+    names = tuple(name for name, op in OPERATIONS.items() if op.domain == key)
+    DOMAINS[key] = Domain(' / '.join(keywords), names, keywords)
 
 DISCOVERY_NAME = "discover_tools"
 
 
 class Discovery(Params):
     query: str = Field(default="", max_length=200)
-    domain: Literal["models", "training", "services", "logs"] | None = None
+    domain: Literal[tuple(DOMAINS)] | None = None
+    offset: int = Field(default=0, ge=0, le=100)
 
 
 def domain_catalog():
@@ -55,9 +70,10 @@ def discover(arguments):
     if not params.domain and exact in REGISTRY:
         names = (exact,)
     else:
-        names = DOMAINS[domain].names if domain else ()
+        names = DOMAINS[domain].names[params.offset:params.offset + 4] if domain else ()
     return {
         "ok": True,
+        "next_offset": params.offset + 4 if domain and params.offset + 4 < len(DOMAINS[domain].names) else None,
         "tools": [{"name": name, "description": REGISTRY[name][1]} for name in names],
         "domains": domain_catalog(),
         "message": "工具候选已找到" if names else "未匹配工具，请选择目录中的 domain；不要据此判断平台能力不存在",
@@ -69,7 +85,7 @@ class ToolSelection:
     def __init__(self, message, limit=16):
         domain = match_domain(message)
         self.limit = limit
-        self.loaded = set(DOMAINS[domain].names if domain else ())
+        self.loaded = set(DOMAINS[domain].names[:min(4, limit)] if domain else ())
 
     def apply(self, result):
         if not result.get("ok"):

@@ -11,17 +11,15 @@ def test_local_only(settings):
         Settings.model_validate(data)
 
 
-def test_tools_are_read_only():
+def test_tools_are_explicit_and_server_scoped():
     async def invoke(name, args):
         return args
 
     tools = build_tools(invoke)
-    assert len(tools) == 13
-    assert not any(
-        x in name
-        for name in REGISTRY
-        for x in ("delete", "start", "cancel", "deploy_model", "exec")
-    )
+    from app.business_tools import OPERATIONS
+    assert len(tools) == len(REGISTRY) == 13 + len(OPERATIONS)
+    assert all(op.write for name, op in OPERATIONS.items()
+               if name.startswith(('delete_', 'start_', 'cancel_', 'publish_', 'upload_', 'update_')))
     for tool in tools:
         assert "cookie" not in str(tool.params_json_schema)
         assert "business_id" not in str(tool.params_json_schema)

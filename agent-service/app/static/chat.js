@@ -1,3 +1,4 @@
+import { showAction, settleAction, installUpload } from './actions.js';
 import { attachMessageTime } from "./message-time.js";
 import { refreshHistory } from "./history.js";
 import {
@@ -12,6 +13,7 @@ import {
   setBusy,
 } from "./api.js";
 import { createTimeline } from "./message-parts.js";
+installUpload();
 let earliest = null;
 let progressTimer = null;
 const toolNames = {
@@ -233,7 +235,8 @@ function connectEvents(runId, body) {
     const labels = {
       model_waiting: "等待模型响应",
       model_output: "模型正在输出文字",
-      tool_running: "正在查询平台数据",
+      tool_running: "正在执行平台操作",
+      awaiting_confirmation: "等待你确认操作",
     };
     phase = labels[data.stage] || "处理中";
     if (data.model_requests)
@@ -242,6 +245,8 @@ function connectEvents(runId, body) {
     lastProgress = Date.now();
     renderProgress();
   });
+  on("action.decided", (data) => settleAction(body, data));
+  on("action.required", (data) => { showAction(body, runId, data); scrollDown(); });
   on("tool.started", (data) => {
     phase = "正在查询平台数据";
     renderProgress();

@@ -79,6 +79,12 @@ def housekeeping(state):
             db.execute(delete(Conversation).where(Conversation.id == cid))
         db.commit()
 
+    from .artifacts import prune
+    with state.db() as db:
+        active = set(db.scalars(select(Session.id).where(
+            Session.status.not_in(['expired', 'revoked']), Session.expires_at > timestamp)))
+    prune(state.config, active)
+
 
 async def cleanup_loop(state):
     while True:
@@ -277,5 +283,7 @@ def create_app(
 
     app.include_router(auth_api.router)
     app.include_router(chat_api.router)
+    from . import action_api
+    app.include_router(action_api.router)
     app.mount("/static", StaticFiles(directory=STATIC), name="static")
     return app

@@ -1,6 +1,6 @@
 """Explicit function schemas; no generic HTTP or shell escape hatch."""
 
-from typing import Callable
+from typing import Callable, Literal
 from pydantic import BaseModel, ConfigDict, Field
 
 
@@ -17,6 +17,12 @@ class Search(Page):
     name: str = Field(default="", max_length=200)
 
 
+class ModelSearch(Search):
+    model_type: str | None = None
+    owner: str | None = None
+    team_id: str = ''
+
+
 class ModelID(Params):
     model_id: str = Field(min_length=1, max_length=128)
 
@@ -31,6 +37,7 @@ class Instances(TaskID, Page):
 
 class ServiceSearch(Search):
     model_name: str | None = Field(default=None, max_length=200)
+    model_version: str | None = Field(default=None, max_length=200)
 
 
 class ServiceID(Params):
@@ -52,11 +59,14 @@ class Logs(LogFiles):
     file_name: str = Field(min_length=1, max_length=512)
     keywords: list[str] = Field(default_factory=list, max_length=5)
     lines: int = Field(default=100, ge=1, le=1000)
+    search_order: Literal['head', 'tail'] = 'tail'
+    grep_scope: Literal['A', 'B', 'C'] = 'C'
+    grep_line: int = Field(default=0, ge=0, le=1000)
 
 
 REGISTRY = {
     "list_models": (
-        Search,
+        ModelSearch,
         "查询当前业务模型列表，支持名称筛选与分页；第一页不代表全部",
     ),
     "get_model": (ModelID, "按模型 ID 查询模型详情"),
@@ -81,10 +91,13 @@ REGISTRY = {
     ),
     "search_service_logs": (
         Logs,
-        "查询已验证主机与文件的尾部日志，支持关键词；不支持精确起止时间过滤",
+        "查询已验证主机与文件的首部或尾部日志，支持关键词与上下文行数；不支持精确起止时间过滤",
     ),
 }
 
+
+from .business_tools import OPERATIONS
+REGISTRY.update({name: (op.schema, op.description) for name, op in OPERATIONS.items()})
 
 def build_tools(invoke: Callable, selection=None):
     from agents import FunctionTool
@@ -121,8 +134,8 @@ def build_tools(invoke: Callable, selection=None):
 
         tools.append(FunctionTool(
             name=DISCOVERY_NAME,
-            description="查找并加载只读工具；按 query 或 domain 查询，每次最多一个领域。"
-                        "domain: models 模型、training 训练、services 服务主机、logs 日志。"
+            description="查找并加载业务工具；按 query 或 domain 查询，每次最多四个工具，使用 offset 翻页。"
+                        "空 query 返回完整领域目录，包含查询、写入、附件及 Jupyter 执行。"
                         "无匹配时返回目录；query 也可以填写精确工具名。不授予业务访问权限",
             params_json_schema=Discovery.model_json_schema(),
             on_invoke_tool=discover_call,

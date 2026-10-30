@@ -22,10 +22,10 @@ async def test_initial_domain_sends_only_relevant_definitions(message, domain):
 async def test_unknown_intent_only_exposes_discovery_and_directory():
     assert await visible(ToolSelection('你好，帮我分析一下')) == {'discover_tools'}
     result = discover({'query': 'not-a-real-capability'})
-    assert not result['tools'] and len(result['domains']) == 4
+    assert not result['tools'] and len(result['domains']) == len(DOMAINS)
 
 
-def test_catalog_is_complete_read_only_and_bounded():
+def test_catalog_is_complete_and_bounded():
     assert {name for d in DOMAINS.values() for name in d.names} == REGISTRY.keys()
     for domain in DOMAINS:
         result = discover({'domain': domain})

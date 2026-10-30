@@ -3,6 +3,10 @@
 from datetime import timezone
 import json
 import threading
+from contextlib import contextmanager
+from .business_tools import OPERATIONS
+from .artifacts import Artifacts, MAX_BYTES
+from .approvals import Approvals
 from collections import defaultdict
 import time
 from uuid import uuid4
@@ -40,6 +44,7 @@ COMMANDS = {
     "search_service_logs": "ml service logs",
     "business_selection": "ml business use",
 }
+COMMANDS.update({name: op.command for name, op in OPERATIONS.items()})
 LOG_TYPES = {
     "infer-python": (
         "run",
@@ -70,6 +75,7 @@ LOG_TYPES = {
 class Platform:
     def __init__(self, config, db, transport=None):
         self.config, self.db, self.transport = config, db, transport
+        self.approvals = Approvals()
         self.credential_locks = defaultdict(threading.RLock)
 
     def identity(self, env, cred, *, return_response=False):
@@ -168,7 +174,11 @@ class Platform:
             )
         return request_id
 
-    def execute(self, session_id, run_id, business, name, args, invocation):
+    def execute(self, session_id, run_id, business, name, args, invocation, approval=None):
+        if name in OPERATIONS:
+            args = OPERATIONS[name].schema.model_validate(args).model_dump()
+            if OPERATIONS[name].write:
+                self.approvals.consume(approval, session_id, run_id, business, name, args)
         with self.credential_locks[session_id]:
             return self._execute(session_id, run_id, business, name, args, invocation)
 
@@ -196,12 +206,47 @@ class Platform:
 
         latest_response = []
 
+        guard_failures = []
+
+        def guard():
+            if time.monotonic() >= deadline:
+                raise AppError('TOOL_TIMEOUT', '操作时间已超限', 504)
+            try:
+                owner.gateway(session_id, business, name, invocation, run_id)
+            except AppError as exc:
+                guard_failures.append(exc)
+                raise
+
+        class BoundedResponse:
+            def __init__(inner, response): inner.response = response
+            def __getattr__(inner, key): return getattr(inner.response, key)
+            def iter_bytes(inner, *args, **kwargs):
+                count = 0
+                for chunk in inner.response.iter_bytes(*args, **kwargs):
+                    owner.context(session_id, run_id)
+                    count += len(chunk)
+                    if count > MAX_BYTES: raise AppError('FILE_TOO_LARGE', '文件超过 20 MiB', 413)
+                    yield chunk
+
         class GuardedClient(PlatformClient):
+            def upload_file(inner, *a, **kw):
+                guard()
+                result = super().upload_file(*a, **kw)
+                owner.context(session_id, run_id)
+                return result
+
+            @contextmanager
+            def stream(inner, *a, **kw):
+                guard()
+                with super().stream(*a, **kw) as response:
+                    yield BoundedResponse(response)
+                owner.context(session_id, run_id)
+
             def request(inner, *a, **kw):
                 nonlocal cred
                 if time.monotonic() >= deadline:
                     raise AppError("TOOL_TIMEOUT", "查询时间已超限", 504)
-                owner.gateway(session_id, business, name, invocation, run_id)
+                guard()
                 result = super().request(*a, **kw)
                 payload = result.get("result", {}) if isinstance(result, dict) else {}
                 if (
@@ -229,11 +274,25 @@ class Platform:
             transport=self.transport,
             business_selection=BusinessSelection.from_dict(business),
         ) as client:
+            client.agent_artifacts = Artifacts(self.config, session_id, business)
+            client.agent_business = business
+            client.agent_environment = env
+            client.agent_transport = self.transport
+            client.agent_guard = guard
+            def check():
+                try:
+                    return owner.context(session_id, run_id)
+                except AppError as exc:
+                    guard_failures.append(exc)
+                    raise
+            client.agent_check = check
             client._client.event_hooks["response"].append(
                 lambda response: latest_response.__setitem__(slice(None), [response])
             )
             try:
                 result = self.dispatch(client, name, args)
+                if guard_failures:
+                    raise guard_failures[-1]
             except AuthenticationError:
                 try:
                     self.identity(env, cred)
@@ -245,6 +304,10 @@ class Platform:
                         ) from None
                     raise
                 raise AppError("RESOURCE_DENIED", "平台拒绝访问该资源", 403) from None
+            except Exception:
+                if guard_failures:
+                    raise guard_failures[-1] from None
+                raise
         normalized = clean(result)
         if (
             len(json.dumps(normalized, ensure_ascii=False))
@@ -283,12 +346,15 @@ class Platform:
         )
 
     def dispatch(self, client, name, a):
+        if name in OPERATIONS:
+            from .business_dispatch import dispatch
+            return dispatch(self, client, name, a)
         page, size = a.get("page", 1), a.get("page_size", 10)
         if page < 1 or not 1 <= size <= self.config.runtime.max_page_size:
             raise ValueError("分页参数超出范围")
         m, t, s = ModelService(client), TrainService(client), ServiceCatalog(client)
         if name == "list_models":
-            return m.list_models(page, size, a.get("name", ""))
+            return m.list_models(page, size, a.get("name", ""), a.get("model_type"), a.get("owner"), a.get("team_id", ""))
         if name == "get_model":
             return m.detail(a["model_id"])
         if name == "get_model_source":
@@ -306,7 +372,7 @@ class Platform:
             return t.list_history(a["task_id"])
         if name == "list_services":
             return s.list_services(
-                page, size, name=a.get("name"), model_name=a.get("model_name")
+                page, size, name=a.get("name"), model_name=a.get("model_name"), model_version=a.get("model_version")
             )
         if name == "list_service_hosts":
             return s.list_hosts(a["service_id"], page, pod_ip=a.get("pod_ip"))
@@ -351,11 +417,11 @@ class Platform:
                 a["file_name"],
                 a.get("keywords", []),
                 lines,
-                "tail",
-                "C",
-                0,
+                a.get("search_order", "tail"),
+                a.get("grep_scope", "C"),
+                a.get("grep_line", 0),
                 infra,
             ),
-            "warnings": ["当前接口按尾部行数检索，不保证覆盖完整时间范围"],
+            "warnings": ["当前接口按指定方向和行数检索，不保证覆盖完整时间范围"],
             "requested_lines": lines,
         }

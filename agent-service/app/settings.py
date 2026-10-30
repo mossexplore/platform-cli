@@ -19,6 +19,8 @@ class Environment(Strict):
     enabled: bool = True
     api_endpoint: str
     verify_ssl: bool = True
+    download_hosts: list[str] = Field(default_factory=list)
+    jupyter_gateways: dict[str, str] = Field(default_factory=dict)
 
     @model_validator(mode="after")
     def url_valid(self):
@@ -32,6 +34,9 @@ class Environment(Strict):
             or u.fragment
         ):
             raise ValueError("api_endpoint 必须是无凭据的 HTTP(S) 入口")
+        if self.jupyter_gateways:
+            from wiserec_cli.webstudio.urls import validate_server_urls
+            validate_server_urls({'server_urls_by_region': self.jupyter_gateways})
         return self
 
 

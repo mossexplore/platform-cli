@@ -16,6 +16,7 @@ test('progress reports elapsed time and status polling recovers a lost completio
   const output = {};
   const body = {timeline:{finish:(answer)=>{output.content=answer;}},append:()=>{}};
   const context = vm.createContext({
+    installUpload:()=>{}, showAction:()=>{}, settleAction:()=>{},
     state:{stream:null,run:'r'}, $, body, EventSource, Date, Map, Number, JSON,
     setInterval:fn=>{timer=fn; return 1;}, clearInterval:()=>cleared++,
     api:async()=>{polls++;return {status:'completed',answer:'最终回答',error:''};},

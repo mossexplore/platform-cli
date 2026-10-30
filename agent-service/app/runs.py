@@ -4,6 +4,9 @@ import asyncio
 import time
 from uuid import uuid4
 from .errors import AppError
+from .business_tools import OPERATIONS
+from .artifacts import Artifacts
+import json
 from .agent_engine import AgentEngine
 from .progress import RunProgress
 from .run_store import RunStore
@@ -14,6 +17,8 @@ class RunManager:
     def __init__(self, config, db, platform, engine=None):
         self.config, self.db, self.platform = config, db, platform
         self.store = RunStore(config, db)
+        from .approvals import Approvals
+        self.approvals = getattr(platform, "approvals", Approvals())
         self.engine = engine or AgentEngine(config)
         self.tasks = {}
         self.lock = asyncio.Lock()
@@ -134,6 +139,23 @@ class RunManager:
                             else:
                                 result = discover(args)
                         else:
+                            approval = None
+                            if name in OPERATIONS:
+                                args = OPERATIONS[name].schema.model_validate(args).model_dump()
+                                if OPERATIONS[name].write:
+                                    details = None
+                                    artifacts = Artifacts(self.config, sid, business)
+                                    if 'artifact_id' in args:
+                                        details = artifacts.metadata(args['artifact_id'])
+                                    if name in ('publish_model_deployment', 'cancel_train_task'):
+                                        details = {'artifact': details, 'payload': json.loads(
+                                            artifacts.path(args['artifact_id'], 'deployment_plan' if name == 'publish_model_deployment' else 'cancellation_plan').read_text())}
+                                    await progress.phase("awaiting_confirmation")
+                                    approval = await self.approvals.request(
+                                        sid, run_id, business, name, args, emit, details)
+                                    await io(self.check, run_id)
+                                    await progress.phase("tool_running")
+                            extra = {'approval': approval} if approval else {}
                             result = await asyncio.to_thread(
                                 self.platform.execute,
                                 sid,
@@ -142,6 +164,7 @@ class RunManager:
                                 name,
                                 args,
                                 call_id,
+                                **extra,
                             )
                         await io(self.check, run_id)
                     except asyncio.CancelledError:
@@ -156,7 +179,7 @@ class RunManager:
                             "ok": False,
                             "error": {
                                 "code": "PLATFORM_QUERY_FAILED",
-                                "message": "平台查询未成功，请核对参数或缩小范围后重试",
+                                "message": "操作未成功确认；写入或执行结果可能未知，未自动重试，请先查询状态",
                             },
                         }
                     finally:
@@ -246,4 +269,5 @@ class RunManager:
                 {"message": message, "answer": answer, "parts": presentation},
             )
         finally:
+            self.approvals.clear(run_id)
             await progress.close()

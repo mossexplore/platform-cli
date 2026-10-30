@@ -27,28 +27,36 @@
       "name": "开发环境",
       "enabled": true,
       "api_endpoint": "https://dev.PLATFORM_HOST/ai/",
-      "verify_ssl": true
+      "verify_ssl": true,
+      "download_hosts": [],
+      "jupyter_gateways": {}
     },
     {
       "id": "mirror",
       "name": "镜像环境",
       "enabled": true,
       "api_endpoint": "https://mirror.PLATFORM_HOST/ai/",
-      "verify_ssl": true
+      "verify_ssl": true,
+      "download_hosts": [],
+      "jupyter_gateways": {}
     },
     {
       "id": "explore",
       "name": "探索环境",
       "enabled": true,
       "api_endpoint": "https://explore.PLATFORM_HOST/ai/",
-      "verify_ssl": true
+      "verify_ssl": true,
+      "download_hosts": [],
+      "jupyter_gateways": {}
     },
     {
       "id": "product",
       "name": "生产环境",
       "enabled": true,
       "api_endpoint": "https://product.PLATFORM_HOST/ai/",
-      "verify_ssl": true
+      "verify_ssl": true,
+      "download_hosts": [],
+      "jupyter_gateways": {}
     }
   ],
   "access_control": {
