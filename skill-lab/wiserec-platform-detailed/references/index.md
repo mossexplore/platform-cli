@@ -102,3 +102,7 @@
 | `ml webstudio stop` | 停止指定 Web Studio。 | [详情](commands/webstudio/stop.md) |
 | `ml quality feature list` | 特征质量分页查询 | [详情](commands/quality/feature/list.md) |
 | `ml quality wide-featureset list` | 宽表特征集质量分页查询 | [详情](commands/quality/wide-featureset/list.md) |
+| `ml quality wide-featureset feature-assemble list` | 查询特征装配样本定义列表 | [详情](commands/quality/wide-featureset/feature-assemble/list.md) |
+| `ml quality wide-featureset feature-assemble feature list` | 分页查询特征装配样本定义下的特征列表 | [详情](commands/quality/wide-featureset/feature-assemble/feature/list.md) |
+| `ml quality wide-featureset label-assemble list` | 查询标签装配样本定义列表 | [详情](commands/quality/wide-featureset/label-assemble/list.md) |
+| `ml quality wide-featureset label-assemble feature list` | 分页查询标签装配样本定义下的特征列表 | [详情](commands/quality/wide-featureset/label-assemble/feature/list.md) |

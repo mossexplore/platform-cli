@@ -132,7 +132,15 @@ ml                                              WiseRec 命令行工具
 │   ├── feature                                 特征列表
 │   │   └── list                                分页查询当前业务下的特征质量信息
 │   └── wide-featureset                          宽表特征集
-│       └── list                                分页查询当前业务下的宽表特征集质量信息
+│       ├── list                                分页查询当前业务下的宽表特征集质量信息
+│       ├── feature-assemble                    特征装配质量信息
+│       │   ├── list                            查询特征装配样本定义列表
+│       │   └── feature                         特征装配特征列表
+│       │       └── list                        分页查询特征装配样本定义下的特征列表
+│       └── label-assemble                      标签装配质量信息
+│           ├── list                            查询标签装配样本定义列表
+│           └── feature                         标签装配特征列表
+│               └── list                        分页查询标签装配样本定义下的特征列表
 ├── jupyter                                     文件、非交互执行、Notebook 与终端
 │   ├── doctor                                  检查连接状态
 │   ├── exec                                    非交互执行远端程序
@@ -1593,4 +1601,70 @@ ml quality wide-featureset list
 ml quality wide-featureset list --name SET_NAME
 ml quality wide-featureset list --page 2 --page-size 20
 ml quality wide-featureset list --name SET_NAME -o json
+```
+
+
+## 质量监控装配样本定义
+
+### 命令格式
+
+```bash
+ml quality wide-featureset feature-assemble list --set-id SET_ID [--output table|json]
+ml quality wide-featureset label-assemble list --set-id SET_ID [--output table|json]
+```
+
+### 参数与选项
+
+| 选项 | 默认值 | 说明 |
+| --- | --- | --- |
+| `--set-id SET_ID` | 必填 | 宽表特征集 ID，不可为空白 |
+| `--output` / `-o` | 当前环境配置 | `table` 或 `json` |
+
+### 说明
+
+先选择环境、登录并选择业务，再通过 `ml quality wide-featureset list` 定位特征集。两个入口分别查询该特征集的特征装配、标签装配样本定义；本命令不分页，不接受装配类型参数。
+
+表格依次展示样本定义ID、样本定义名称、装配输出表名、装配最新周期、正负样本比例。首列固定宽度 36，完整展示 ID，其他长字段换行。周期原样展示；比例乘以 100 后四舍五入到整数并加百分号，如 `0.1538` 显示为 `15%`，`0.125` 显示为 `13%`。缺失、null 和空字符串显示为 `-`，数值 0 显示为 `0%`。
+
+JSON 包含 `items`、`count`，保留记录全部原始字段和值；`count` 为本次返回条数。接口返回 `featureSetId` 时一并保留；若与请求 ID 不同，表格模式提示差异。后续特征查询严格使用显式传入的 `--set-id`，请核对返回 ID 后指定，不会自动替换。空列表显示“暂无特征装配样本定义”或“暂无标签装配样本定义”。非法参数、未选择业务或接口失败返回非零退出码。
+
+### 示例
+
+```bash
+ml quality wide-featureset feature-assemble list --set-id SET_ID
+ml quality wide-featureset label-assemble list --set-id SET_ID -o json
+```
+
+## 质量监控装配特征列表
+
+### 命令格式
+
+```bash
+ml quality wide-featureset feature-assemble feature list --set-id SET_ID --definition-id DEFINITION_ID [--page PAGE] [--page-size SIZE] [--output table|json]
+ml quality wide-featureset label-assemble feature list --set-id SET_ID --definition-id DEFINITION_ID [--page PAGE] [--page-size SIZE] [--output table|json]
+```
+
+### 参数与选项
+
+| 选项 | 默认值 | 说明 |
+| --- | --- | --- |
+| `--set-id SET_ID` | 必填 | 宽表特征集 ID，不可为空白 |
+| `--definition-id DEFINITION_ID` | 必填 | 对应装配列表中的样本定义 ID，不可为空白 |
+| `--page PAGE` | `1` | 页码，必须为正整数 |
+| `--page-size SIZE` | `10` | 每页条数，范围 1～100 |
+| `--output` / `-o` | 当前环境配置 | `table` 或 `json` |
+
+### 说明
+
+先选择环境、登录并选择业务，再从对应装配列表取得样本定义 ID。特征集 ID、样本定义 ID 与装配分组必须对应，每次只查询指定页，不自动遍历所有记录。
+
+表格依次展示特征ID、特征名、特征类型、特征值类型、特征装配最新周期或标签装配最新周期、空值率。首列固定宽度 36，完整展示 ID，其他长字段换行。类型与周期原样显示；空值率乘以 100 后四舍五入到整数并加百分号，如 `0.0170` 显示为 `2%`。缺失、null 和空字符串显示为 `-`，数值 0 保留，空值率为 0 时显示为 `0%`。
+
+分页摘要优先使用服务端返回的页码和每页条数，缺失时使用请求值；总数取服务端返回的记录总数。JSON 包含 `items`、`count`、`pageIndex`、`pageSize`，保留记录全部原始字段和值，不转换百分比或空值。空列表显示“暂无特征记录”。非法参数、未选择业务或接口失败返回非零退出码。
+
+### 示例
+
+```bash
+ml quality wide-featureset feature-assemble feature list --set-id SET_ID --definition-id DEFINITION_ID
+ml quality wide-featureset label-assemble feature list --set-id SET_ID --definition-id DEFINITION_ID --page 2 --page-size 100 -o json
 ```

@@ -78,3 +78,7 @@ ml [GLOBAL_OPTIONS] COMMAND [ARGS]
 | `ml quality` | 质量监控报告 | 命令分组/帮助 |
 | `ml quality feature` | 特征列表 | 命令分组/帮助 |
 | `ml quality wide-featureset` | 宽表特征集 | 命令分组/帮助 |
+| `ml quality wide-featureset feature-assemble` | 特征装配质量信息 | 命令分组/帮助 |
+| `ml quality wide-featureset feature-assemble feature` | 特征装配特征列表 | 命令分组/帮助 |
+| `ml quality wide-featureset label-assemble` | 标签装配质量信息 | 命令分组/帮助 |
+| `ml quality wide-featureset label-assemble feature` | 标签装配特征列表 | 命令分组/帮助 |

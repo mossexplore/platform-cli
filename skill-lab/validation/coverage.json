@@ -7333,6 +7333,288 @@
       ],
       "callback_line": 65,
       "evidence": "source-reviewed and mock-tested; not live verified"
+    },
+    "quality wide-featureset feature-assemble list": {
+      "document": "references/commands/quality/wide-featureset/feature-assemble/list.md",
+      "parameters": [
+        {
+          "name": "set_id",
+          "opts": [
+            "--set-id"
+          ],
+          "secondary_opts": [],
+          "required": true,
+          "default": null,
+          "type": "TEXT",
+          "parser": {},
+          "multiple": false,
+          "nargs": 1,
+          "envvar": null,
+          "help": "宽表特征集 ID"
+        },
+        {
+          "name": "output",
+          "opts": [
+            "--output",
+            "-o"
+          ],
+          "secondary_opts": [],
+          "required": false,
+          "default": null,
+          "type": "TEXT",
+          "parser": {},
+          "multiple": false,
+          "nargs": 1,
+          "envvar": null,
+          "help": "输出格式: table 或 json"
+        }
+      ],
+      "sources": [
+        "src/wiserec_cli/commands/quality.py",
+        "src/wiserec_cli/commands/quality_assembly.py",
+        "src/wiserec_cli/services/quality.py"
+      ],
+      "callback_line": 79,
+      "evidence": "source-reviewed; mock tested; not live verified"
+    },
+    "quality wide-featureset feature-assemble feature list": {
+      "document": "references/commands/quality/wide-featureset/feature-assemble/feature/list.md",
+      "parameters": [
+        {
+          "name": "set_id",
+          "opts": [
+            "--set-id"
+          ],
+          "secondary_opts": [],
+          "required": true,
+          "default": null,
+          "type": "TEXT",
+          "parser": {},
+          "multiple": false,
+          "nargs": 1,
+          "envvar": null,
+          "help": "宽表特征集 ID"
+        },
+        {
+          "name": "definition_id",
+          "opts": [
+            "--definition-id"
+          ],
+          "secondary_opts": [],
+          "required": true,
+          "default": null,
+          "type": "TEXT",
+          "parser": {},
+          "multiple": false,
+          "nargs": 1,
+          "envvar": null,
+          "help": "样本定义 ID"
+        },
+        {
+          "name": "page",
+          "opts": [
+            "--page"
+          ],
+          "secondary_opts": [],
+          "required": false,
+          "default": 1,
+          "type": "INTEGER RANGE",
+          "parser": {
+            "min": 1,
+            "max": null,
+            "min_open": false,
+            "max_open": false
+          },
+          "multiple": false,
+          "nargs": 1,
+          "envvar": null,
+          "help": "开始页码"
+        },
+        {
+          "name": "page_size",
+          "opts": [
+            "--page-size"
+          ],
+          "secondary_opts": [],
+          "required": false,
+          "default": 10,
+          "type": "INTEGER RANGE",
+          "parser": {
+            "min": 1,
+            "max": 100,
+            "min_open": false,
+            "max_open": false
+          },
+          "multiple": false,
+          "nargs": 1,
+          "envvar": null,
+          "help": "每页条数，最多 100"
+        },
+        {
+          "name": "output",
+          "opts": [
+            "--output",
+            "-o"
+          ],
+          "secondary_opts": [],
+          "required": false,
+          "default": null,
+          "type": "TEXT",
+          "parser": {},
+          "multiple": false,
+          "nargs": 1,
+          "envvar": null,
+          "help": "输出格式: table 或 json"
+        }
+      ],
+      "sources": [
+        "src/wiserec_cli/commands/quality.py",
+        "src/wiserec_cli/commands/quality_assembly.py",
+        "src/wiserec_cli/services/quality.py"
+      ],
+      "callback_line": 93,
+      "evidence": "source-reviewed; mock tested; not live verified"
+    },
+    "quality wide-featureset label-assemble list": {
+      "document": "references/commands/quality/wide-featureset/label-assemble/list.md",
+      "parameters": [
+        {
+          "name": "set_id",
+          "opts": [
+            "--set-id"
+          ],
+          "secondary_opts": [],
+          "required": true,
+          "default": null,
+          "type": "TEXT",
+          "parser": {},
+          "multiple": false,
+          "nargs": 1,
+          "envvar": null,
+          "help": "宽表特征集 ID"
+        },
+        {
+          "name": "output",
+          "opts": [
+            "--output",
+            "-o"
+          ],
+          "secondary_opts": [],
+          "required": false,
+          "default": null,
+          "type": "TEXT",
+          "parser": {},
+          "multiple": false,
+          "nargs": 1,
+          "envvar": null,
+          "help": "输出格式: table 或 json"
+        }
+      ],
+      "sources": [
+        "src/wiserec_cli/commands/quality.py",
+        "src/wiserec_cli/commands/quality_assembly.py",
+        "src/wiserec_cli/services/quality.py"
+      ],
+      "callback_line": 79,
+      "evidence": "source-reviewed; mock tested; not live verified"
+    },
+    "quality wide-featureset label-assemble feature list": {
+      "document": "references/commands/quality/wide-featureset/label-assemble/feature/list.md",
+      "parameters": [
+        {
+          "name": "set_id",
+          "opts": [
+            "--set-id"
+          ],
+          "secondary_opts": [],
+          "required": true,
+          "default": null,
+          "type": "TEXT",
+          "parser": {},
+          "multiple": false,
+          "nargs": 1,
+          "envvar": null,
+          "help": "宽表特征集 ID"
+        },
+        {
+          "name": "definition_id",
+          "opts": [
+            "--definition-id"
+          ],
+          "secondary_opts": [],
+          "required": true,
+          "default": null,
+          "type": "TEXT",
+          "parser": {},
+          "multiple": false,
+          "nargs": 1,
+          "envvar": null,
+          "help": "样本定义 ID"
+        },
+        {
+          "name": "page",
+          "opts": [
+            "--page"
+          ],
+          "secondary_opts": [],
+          "required": false,
+          "default": 1,
+          "type": "INTEGER RANGE",
+          "parser": {
+            "min": 1,
+            "max": null,
+            "min_open": false,
+            "max_open": false
+          },
+          "multiple": false,
+          "nargs": 1,
+          "envvar": null,
+          "help": "开始页码"
+        },
+        {
+          "name": "page_size",
+          "opts": [
+            "--page-size"
+          ],
+          "secondary_opts": [],
+          "required": false,
+          "default": 10,
+          "type": "INTEGER RANGE",
+          "parser": {
+            "min": 1,
+            "max": 100,
+            "min_open": false,
+            "max_open": false
+          },
+          "multiple": false,
+          "nargs": 1,
+          "envvar": null,
+          "help": "每页条数，最多 100"
+        },
+        {
+          "name": "output",
+          "opts": [
+            "--output",
+            "-o"
+          ],
+          "secondary_opts": [],
+          "required": false,
+          "default": null,
+          "type": "TEXT",
+          "parser": {},
+          "multiple": false,
+          "nargs": 1,
+          "envvar": null,
+          "help": "输出格式: table 或 json"
+        }
+      ],
+      "sources": [
+        "src/wiserec_cli/commands/quality.py",
+        "src/wiserec_cli/commands/quality_assembly.py",
+        "src/wiserec_cli/services/quality.py"
+      ],
+      "callback_line": 93,
+      "evidence": "source-reviewed; mock tested; not live verified"
     }
   },
   "groups": {
@@ -7711,6 +7993,26 @@
       "parameters": [],
       "invoke_without_command": false,
       "no_args_is_help": true
+    },
+    "quality wide-featureset feature-assemble": {
+      "parameters": [],
+      "invoke_without_command": false,
+      "no_args_is_help": true
+    },
+    "quality wide-featureset feature-assemble feature": {
+      "parameters": [],
+      "invoke_without_command": false,
+      "no_args_is_help": true
+    },
+    "quality wide-featureset label-assemble": {
+      "parameters": [],
+      "invoke_without_command": false,
+      "no_args_is_help": true
+    },
+    "quality wide-featureset label-assemble feature": {
+      "parameters": [],
+      "invoke_without_command": false,
+      "no_args_is_help": true
     }
   },
   "unverified": [
@@ -7789,8 +8091,9 @@
     "src/wiserec_cli/services/webstudio.py": "0c64a45a2e1e5ae37f3a15384df98bdc432c4a1719c4eec241d675123d76b03f",
     "src/wiserec_cli/webstudio/resolve.py": "290b496b3ec2648d87de42587dd9e426eb1db46b1b91720cb0a1d95f714ab088",
     "src/wiserec_cli/webstudio/store.py": "7f3c0dc15f8eefe9eba8ca1c4b89a1539d8284b1673bcc1df027ab26a5d8ee48",
-    "src/wiserec_cli/commands/quality.py": "52c00339e880d49b99227d6e5f8190d8a04ae25fb72f8e39a7b702cac2b3d9fb",
+    "src/wiserec_cli/commands/quality.py": "dd10b2732c894a8112720759b6dbb2d63f45875e60fc601b263a6dafccb73b37",
     "src/wiserec_cli/commands/quality_display.py": "735e00227c68aeaef8734ffb2b2e0ae7452b48ab75b4a2e796c9342f7661af94",
-    "src/wiserec_cli/services/quality.py": "9a732f2ef378041d65c67c3d02176bfe22113394d0396f65fced338cbfe88950"
+    "src/wiserec_cli/services/quality.py": "9029613df0239daef30a78903caf56edef1f96f674f98ae6082c2024022e29e7",
+    "src/wiserec_cli/commands/quality_assembly.py": "7f739fe92a9f49a99554ef6abd29016095343af23f0ee7760222b042707fd14e"
   }
 }

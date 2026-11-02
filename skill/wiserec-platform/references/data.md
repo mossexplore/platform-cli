@@ -64,3 +64,17 @@ ml quality wide-featureset list --name SET_NAME --page 1 --page-size 10 -o json
 - 默认第 1 页、每页 10 条；`--page` ≥ 1，`--page-size` 为 1～100，每次只取一页。名称、表名默认空字符串；两个类型筛选默认省略。
 - 特征值类型与指标类型独立筛选，均接受连续/CONTINUOUS、离散/DISCRETE、有序/ORDINAL、分类/CATEGORICAL、序列/SEQUENCE、长序列/LONG_SEQUENCE、向量/VECTOR，英文忽略大小写。
 - JSON 为 `items`、`count`、`pageIndex`、`pageSize`，保留记录的全部原始字段和值；分页优先采用响应值，缺失时采用请求值。表格显示中文类型、百分比空值率，特征周期保留原值，时效性不拼接单位；不要从表格反向重建原始数据。
+
+### 宽表特征集装配查询
+
+```powershell
+ml quality wide-featureset feature-assemble list --set-id SET_ID -o json
+ml quality wide-featureset label-assemble list --set-id SET_ID -o json
+ml quality wide-featureset feature-assemble feature list --set-id SET_ID --definition-id DEFINITION_ID --page 1 --page-size 10 -o json
+ml quality wide-featureset label-assemble feature list --set-id SET_ID --definition-id DEFINITION_ID --page 2 --page-size 100 -o json
+```
+
+- 先用 `ml quality wide-featureset list` 定位特征集，再查询对应装配的样本定义，最后使用该分组下的样本定义 ID 查询特征。不传 `--type`，由命令分组决定装配类型。
+- 样本定义列表不分页，JSON 为 `items`、`count`，其中 `count` 仅为本次返回条数；响应包含 `featureSetId` 时保留。若返回 ID 与请求 ID 不同，先核对，不擅自推断两者可互换；后续查询显式传入经确认的 `--set-id`。
+- 装配特征列表默认第 1 页、每页 10 条，最大 100 条，每次只取一页；JSON 为 `items`、`count`、`pageIndex`、`pageSize`。请求必须同时指定特征集 ID 和样本定义 ID，不混用特征 ID。
+- 新增装配命令的表格比例按整数四舍五入：`0.1538 → 15%`、`0.017 → 2%`、`0.125 → 13%`；JSON 保留原始数值和空值。周期保留编码原值，类型不翻译；原有质量监控特征列表仍保留小数百分比。

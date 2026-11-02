@@ -10,6 +10,7 @@ from ..errors import BusinessError
 from ..services.quality import QualityService, normalize_type
 from .common import fail, runtime_from_context
 from .quality_display import render_page
+from .quality_assembly import register_assemblies
 
 quality_app = typer.Typer(no_args_is_help=True, help="质量监控报告")
 feature_app = typer.Typer(no_args_is_help=True, help="特征列表")
@@ -28,7 +29,7 @@ def selected_service(runtime, client):
     return QualityService(client)
 
 
-def run_list(context, output, operation, wide=False):
+def run_list(context, output, operation, wide=False, renderer=None):
     runtime = runtime_from_context(context)
     selected = (output or runtime.config.current_profile().output_format).lower()
     if selected not in {"table", "json"}:
@@ -37,7 +38,10 @@ def run_list(context, output, operation, wide=False):
         result = runtime.authenticated_call(
             lambda client: operation(selected_service(runtime, client))
         )
-    render_page(result, selected, wide)
+    if renderer is None:
+        render_page(result, selected, wide)
+    else:
+        renderer(result, selected)
 
 
 @feature_app.command("list")
@@ -77,3 +81,6 @@ def list_wide_featuresets(
         ), wide=True)
     except Exception as exc:
         fail(exc)
+
+
+register_assemblies(wide_app, run_list)

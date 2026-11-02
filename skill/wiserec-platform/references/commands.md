@@ -103,6 +103,10 @@
 | --- | --- | --- | --- |
 | `ml quality feature list` | 特征质量分页查询，支持名称、表名、特征值类型、指标类型筛选 | | |
 | `ml quality wide-featureset list` | 质量监控宽表特征集分页查询，支持名称筛选 | | |
+| `ml quality wide-featureset feature-assemble list --set-id SET_ID` | 特征装配样本定义列表，不分页 | | |
+| `ml quality wide-featureset label-assemble list --set-id SET_ID` | 标签装配样本定义列表，不分页 | | |
+| `ml quality wide-featureset feature-assemble feature list --set-id SET_ID --definition-id DEFINITION_ID` | 特征装配样本定义下的特征分页查询 | | |
+| `ml quality wide-featureset label-assemble feature list --set-id SET_ID --definition-id DEFINITION_ID` | 标签装配样本定义下的特征分页查询 | | |
 
 ## Web Studio 与 Jupyter
 
