@@ -8,6 +8,10 @@ from .client_metadata import client_headers, handle_version_result
 from .errors import MlError
 
 
+class NoEnvironmentAccessError(MlError):
+    """当前账号没有任何有效环境授权。"""
+
+
 def local_status(runtime, profile):
     try:
         credentials = runtime.credentials.load(profile.name)
@@ -94,7 +98,7 @@ def environment_statuses(runtime):
     response = query_environment_access(settings, username, checks,
                                         current_check['business_id'] if current_check else None)
     if response['has_access'] is False:
-        raise MlError(f"请打开{settings['url'].rstrip('/')}/apply进行CLI权限申请"
+        raise NoEnvironmentAccessError(f"请打开{settings['url'].rstrip('/')}/apply进行CLI权限申请"
                       '（若地址无法打开，将*.hwcloudtest.cn加入代理排除），权限通过后方可执行CLI命令')
     authorizations = response.get('authorizations')
     if not isinstance(authorizations, list):

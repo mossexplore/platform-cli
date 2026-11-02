@@ -6,7 +6,8 @@ import typer
 from .. import messages as msg
 from .. import ping
 
-from ..env_access import environment_statuses
+from ..env_access import NoEnvironmentAccessError, environment_statuses
+from ..errors import MlError
 from ..access_guidance import show_access_guidance
 from ..output import console, error_console, print_result
 from .common import fail, runtime_from_context
@@ -20,7 +21,14 @@ def list_environments(context: typer.Context) -> None:
     """列出全部环境。"""
     try:
         runtime = runtime_from_context(context)
-        statuses = environment_statuses(runtime)
+        try:
+            statuses = environment_statuses(runtime)
+        except NoEnvironmentAccessError as exc:
+            msg.error(exc)
+            statuses = {item.name: "未授权" for item in runtime.config.profiles()}
+        except MlError as exc:
+            msg.error(exc)
+            statuses = {item.name: "授权状态未知" for item in runtime.config.profiles()}
         print_result(
             [
                 {
