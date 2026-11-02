@@ -25,7 +25,9 @@
         }
       ],
       "sources": [
-        "src/wiserec_cli/commands/access.py"
+        "src/wiserec_cli/commands/access.py",
+        "src/wiserec_cli/access.py",
+        "src/wiserec_cli/access_transport.py"
       ],
       "callback_line": 14,
       "evidence": "source-reviewed; not live verified"
@@ -8038,7 +8040,7 @@
     "src/wiserec_cli/commands/deployment.py": "88b6ba7037e7d81174b4222f383c41387bef60841a58a29fdcff9cede4b0fbdc",
     "src/wiserec_cli/services/deployment.py": "fbf48c036b1fa1d1f2c2e8a67249d1de915bb8515d8087725ebed6d74005f9cb",
     "src/wiserec_cli/commands/env.py": "f68f57477ddc5d1f3a36ca557130e09943a8816fc155c1383ed060d383237091",
-    "src/wiserec_cli/env_access.py": "04471e57c5d8041cd34bd453ae11a9f257b51f2bf05a4ab7a74ac8d348d25363",
+    "src/wiserec_cli/env_access.py": "1fb346b2c796fb62938b783555e996ab8adebe2e6763601b561cc93d89ae65d4",
     "src/wiserec_cli/config.py": "79a888d5c4a061b42e0970db0cf767b68e06edd59de0a02fff64a9951edfae11",
     "src/wiserec_cli/commands/feature_execution.py": "2924164f9882e17d83df317cd7c7a9757999f32edce3c7ec7f5d5432aa5f3a73",
     "src/wiserec_cli/services/feature_execution.py": "74444dd879a3941d9cf14e16008f20f45fff0584cb7b40afa6a126b883804e4c",
@@ -8094,6 +8096,9 @@
     "src/wiserec_cli/commands/quality.py": "dd10b2732c894a8112720759b6dbb2d63f45875e60fc601b263a6dafccb73b37",
     "src/wiserec_cli/commands/quality_display.py": "735e00227c68aeaef8734ffb2b2e0ae7452b48ab75b4a2e796c9342f7661af94",
     "src/wiserec_cli/services/quality.py": "9029613df0239daef30a78903caf56edef1f96f674f98ae6082c2024022e29e7",
-    "src/wiserec_cli/commands/quality_assembly.py": "7f739fe92a9f49a99554ef6abd29016095343af23f0ee7760222b042707fd14e"
+    "src/wiserec_cli/commands/quality_assembly.py": "7f739fe92a9f49a99554ef6abd29016095343af23f0ee7760222b042707fd14e",
+    "src/wiserec_cli/access.py": "ba1bc29039ce59a4bb2d31f9e05f71cd9167a55c3420447ceb891d21b7f718e0",
+    "src/wiserec_cli/access_transport.py": "e40c6d13736296df9614cc28efee023843487daf97357dd47fb0598b426bdeaf",
+    "src/wiserec_cli/access_guidance.py": "66fac607c8570f2e23cbaacc7c12f7e42ae676f12bc03379b74fb533012fc5db"
   }
 }

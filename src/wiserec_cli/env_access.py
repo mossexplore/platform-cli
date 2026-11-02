@@ -3,7 +3,7 @@ from .execution import create_client
 import httpx
 
 from .access import access_enabled
-from .access_transport import permission_url, tls_verify
+from .access_transport import permission_url, tls_verify, connection_error
 from .client_metadata import client_headers, handle_version_result
 from .errors import MlError
 
@@ -41,7 +41,7 @@ def query_environment_access(settings, username, checks, business_id=None):
         headers['businessid'] = business_id
     url = permission_url(settings['url']).rsplit('/', 1)[0] + '/environments'
     try:
-        with create_client(timeout=settings.get('timeout_seconds', 15), verify=tls_verify(),
+        with create_client(timeout=settings.get('timeout_seconds', 15), verify=tls_verify(settings),
                           follow_redirects=False, trust_env=settings.get('use_env_proxy', False)) as client:
             response = client.post(url, headers=headers, json={'username': username, 'environments': checks})
         if response.status_code == 404:
@@ -49,8 +49,8 @@ def query_environment_access(settings, username, checks, business_id=None):
         if response.status_code != 200:
             raise MlError(f'批量环境权限查询失败，HTTP {response.status_code}')
         result = response.json()
-    except httpx.HTTPError:
-        raise MlError('无法查询环境权限，请检查权限服务地址、网络及证书后重试') from None
+    except httpx.HTTPError as exc:
+        raise connection_error(exc, settings, '无法查询环境权限，请检查权限服务地址、网络及证书后重试') from None
     except ValueError:
         raise MlError('批量环境权限查询响应不是有效 JSON') from None
     if (not isinstance(result, dict) or not {'username', 'has_access', 'environments'} <= result.keys()

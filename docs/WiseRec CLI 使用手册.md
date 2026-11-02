@@ -405,13 +405,37 @@ ml access status [--diagnose]
 
 ### 7.3 说明
 
-先登录并选择业务。授权失败时按提示处理；需要排查连接时使用 `--diagnose`。分享诊断输出前隐藏账号与内部地址。
+先登录并选择业务。授权失败时按提示处理；需要排查连接时使用 `--diagnose`，其中“CA 来源”说明当前使用的证书信任库。分享诊断输出前隐藏账号与内部地址。
+
+权限服务的证书来源在实际使用的 `config.json` 的 `access_control` 中配置，与代理开关独立，适用于业务授权检查、账号授权查询和批量环境授权查询。
+
+| 配置项 | 默认值 | 用途 |
+| --- | --- | --- |
+| `ca_source` | 省略时为 `env`；随包配置显式为 `certifi` | `certifi` 使用公共 CA 并忽略 `SSL_CERT_FILE`、`SSL_CERT_DIR`；`env` 沿用环境 CA；`custom` 使用指定 CA 文件 |
+| `ca_file` | 不设置 | 仅 `custom` 模式必填，必须为现有 PEM CA 文件的绝对路径 |
+| `use_env_proxy` | `false` | 是否使用环境代理，与 CA 来源独立 |
+
+公共证书服务推荐设置 `ca_source` 为 `certifi`，CMD 和 Agent 调用使用相同的公共 CA，不必每次清空证书环境变量。企业私有证书可选择 `env` 或 `custom`；`env` 优先读取非空的 `SSL_CERT_FILE`，其次读取 `SSL_CERT_DIR`，两者均未设置时使用默认公共 CA。目录须符合 OpenSSL CA 目录布局。`custom` 与 `certifi` 模式均不读取环境 CA，也不会合并或回退到其他来源。
+
+证书校验失败时核对 CA 来源及服务端证书链；CA 文件无法加载时修正对应配置。不要关闭 HTTPS 校验或权限检查。旧配置未添加此字段时保留环境 CA 行为；使用 `--config PATH` 或 `ML_CONFIG` 指定外部配置时，需在该配置中显式设置所需来源。此配置只作用于权限服务请求，不改变平台业务客户端和系统证书。
 
 ### 7.4 示例
 
 ```bash
 ml access status
 ml access status --diagnose
+ml --config CONFIG_PATH access status --diagnose
+```
+
+公共证书权限服务的 `access_control` 配置示例，保留实际服务地址和其他配置：
+
+```json
+{
+  "url": "https://PERMISSION_HOST",
+  "timeout_seconds": 15,
+  "use_env_proxy": false,
+  "ca_source": "certifi"
+}
 ```
 
 ## 8. 当前用户

@@ -7,7 +7,7 @@ from .execution import create_client
 import httpx
 from .errors import ConfigError, MlError
 from .client_metadata import client_headers, handle_version_result
-from .access_transport import permission_url, tls_verify
+from .access_transport import permission_url, tls_verify, validate_ca_settings, ca_description, connection_error
 
 
 class AccessDeniedError(MlError):
@@ -49,6 +49,7 @@ def validate_settings(value: Any) -> Dict[str, Any]:
             raise ConfigError('access_control.url 必须是 HTTP 或 HTTPS 地址，路径仅允许 /cli-permission，不含凭据、查询参数或片段')
     if not isinstance(value.get('use_env_proxy', False), bool):
         raise ConfigError('access_control.use_env_proxy 必须是布尔值')
+    validate_ca_settings(value)
     timeout = value.get('timeout_seconds', 15)
     if isinstance(timeout, bool) or not isinstance(timeout, (int, float)) or not 1 <= timeout <= 120:
         raise ConfigError('access_control.timeout_seconds 必须在 1–120 秒之间')
@@ -74,9 +75,11 @@ def check_access(settings, profile, credentials, selection, *, command="unknown"
     if diagnostics:
         diagnostics.begin(url, profile, credentials, selection, command, settings.get('timeout_seconds', 15))
         diagnostics.line('网络设置', '沿用环境代理配置' if settings.get('use_env_proxy', False) else '权限服务直连，已忽略环境代理')
+    if diagnostics:
+        diagnostics.line('CA 来源', ca_description(settings))
     try:
         with create_client(timeout=settings.get('timeout_seconds', 15),
-                          verify=tls_verify(), follow_redirects=False,
+                          verify=tls_verify(settings), follow_redirects=False,
                           trust_env=settings.get('use_env_proxy', False)) as client:
             response = client.post(url,
                                    headers={**client_headers(), 'businessid': selection.business_id},
@@ -98,8 +101,8 @@ def check_access(settings, profile, credentials, selection, *, command="unknown"
         raise MlError('等待权限服务响应超时，业务请求已停止，请检查服务日志、数据库及 timeout_seconds 配置') from None
     except httpx.TimeoutException:
         raise MlError('权限服务请求超时，业务请求已停止，请检查网络及 timeout_seconds 配置') from None
-    except httpx.ConnectError:
-        raise MlError('无法连接权限服务，业务请求已停止，请检查地址、端口、HTTP/HTTPS 协议及证书') from None
+    except httpx.ConnectError as exc:
+        raise connection_error(exc, settings, '无法连接权限服务，业务请求已停止，请检查地址、端口、HTTP/HTTPS 协议及证书') from None
     except httpx.RemoteProtocolError:
         raise MlError('权限服务连接被关闭或 HTTP 响应不完整，业务请求已停止，请检查服务或网关日志及 HTTP/HTTPS 协议') from None
     except httpx.HTTPError:

@@ -6,7 +6,7 @@ import httpx
 
 from . import messages as msg
 from .access import access_enabled
-from .access_transport import permission_url, tls_verify
+from .access_transport import permission_url, tls_verify, connection_error
 from .client_metadata import client_headers
 from .errors import BusinessError, MlError
 from .output import console
@@ -20,7 +20,7 @@ def check_user_access(settings, username, business_id=None):
     url = permission_url(settings['url']).rsplit('/', 1)[0] + '/summary'
     try:
         with create_client(timeout=settings.get('timeout_seconds', 15),
-                          verify=tls_verify(), follow_redirects=False,
+                          verify=tls_verify(settings), follow_redirects=False,
                           trust_env=settings.get('use_env_proxy', False)) as client:
             response = client.post(url, headers=headers, json={'username': username})
         if response.status_code == 404:
@@ -28,8 +28,8 @@ def check_user_access(settings, username, business_id=None):
         if response.status_code != 200:
             raise MlError(f'用户授权查询失败，HTTP {response.status_code}，请联系管理员')
         result = response.json()
-    except httpx.HTTPError:
-        raise MlError('无法查询用户授权，请检查权限服务地址、网络及证书后重试') from None
+    except httpx.HTTPError as exc:
+        raise connection_error(exc, settings, '无法查询用户授权，请检查权限服务地址、网络及证书后重试') from None
     except ValueError:
         raise MlError('用户授权查询响应不是有效 JSON，请联系管理员') from None
     if (not isinstance(result, dict) or type(result.get('has_access')) is not bool

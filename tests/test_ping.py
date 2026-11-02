@@ -244,8 +244,10 @@ class PingTest(unittest.TestCase):
             process.side_effect = crashed
             with self.assertRaisesRegex(RuntimeError, "启动失败"):
                 start(self.runtime)
-        self.assertIn("Windows worker failed", status(self.runtime)["最近错误"])
-        self.assertEqual(status(self.runtime)["状态"], "未运行")
+        # The synthetic worker PID must not resolve to an unrelated real process.
+        with patch("wiserec_cli.ping._process_identity", return_value=None):
+            self.assertIn("Windows worker failed", status(self.runtime)["最近错误"])
+            self.assertEqual(status(self.runtime)["状态"], "未运行")
 
     def test_start_replaces_worker_from_previous_version(self):
         self.prepare_worker()

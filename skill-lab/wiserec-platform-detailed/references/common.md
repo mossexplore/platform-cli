@@ -48,3 +48,9 @@
 不运行 login --show-secrets。access status --diagnose 只用于故障诊断。模板参数、远端内容、日志、下载地址可能有秘密，不整段复制到共享报告。
 
 本 skill 基于当前仓库实现与已有测试资料，未宣称真实平台/Jupyter 联调完成。超大输入、异常响应和写操作边界使用 mock 测试；需要真实环境时先确认目标与权限。测试 skill 的独立目录不是安全沙箱，执行命令仍可影响真实环境。
+
+## 权限服务证书来源
+
+权限服务 CA 配置与代理开关独立。Agent 注入的 SSL_CERT_FILE、SSL_CERT_DIR 可能使普通 CMD 成功而 Agent 调用失败；用 `ml access status --diagnose` 核对“CA 来源”，不要把证书错误解释为无权限。公共证书由用户或管理员将实际配置的 access_control.ca_source 设置为 certifi；企业 CA 使用 env 或 custom，custom 还需绝对路径 ca_file，其他模式不能带 ca_file。随包配置为 certifi；旧外部配置省略字段保留 env 行为。所有模式保留证书和主机名校验，失败不回退其他来源。
+
+不擅自改配置、全局环境变量或宿主证书，不给所有命令固定添加清空 CA 的前缀，不关闭 HTTPS 校验或权限检查。此设置覆盖权限检查、账号授权和批量环境授权查询，不改变平台业务客户端。

@@ -13,7 +13,8 @@
   "access_control": {
     "url": "",
     "timeout_seconds": 15,
-    "use_env_proxy": false
+    "use_env_proxy": false,
+    "ca_source": "certifi"
   },
   "browser": {
     "channel": "msedge",
