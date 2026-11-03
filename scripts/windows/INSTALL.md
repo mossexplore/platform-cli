@@ -167,8 +167,8 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\install.ps1 `
 
 OpenCode/codeagent 集成分两个阶段：先安装并验证 CLI，再安装简洁版 `wiserec-platform`、详细版 `wiserec-platform-detailed` 以及 `/ml`、`/ml-lab` 两个 command。第二阶段失败会显示原因，CLI 仍可正常使用；排除文件占用或目录权限问题后，重新运行安装程序即可重试。
 
-两套 skill 和两个 command 同时安装到当前用户的 `~/.config/opencode` 与 `~/.cac`：skill 位于各目录的 `skills/wiserec-platform`、`skills/wiserec-platform-detailed`，command 位于 `commands/ml.md`、`commands/ml-lab.md`。设置 `OPENCODE_CONFIG_DIR` 时仅替换 OpenCode 根目录，CAC 路径保持不变。每次安装完整替换这四项受管理资源，同版本重装也会更新并删除废弃参考文件；请勿直接修改安装副本。其他 skill、command 和 Agent 配置不受影响。已有同名实验 skill 会被替换，个人修改应提前另存；项目或兼容目录中的同名副本需自行移除，以免加载旧副本。
+OpenCode 的两套 skill 安装到当前用户的 `~/.agents/skills/wiserec-platform` 和 `~/.agents/skills/wiserec-platform-detailed`（Windows 为 `%USERPROFILE%\.agents\skills\` 下对应目录），可供支持该目录的 Agent 发现；OpenCode 的 command 仍位于 `~/.config/opencode/commands/ml.md`、`commands/ml-lab.md`。codeagent 的 skill 和 command 保持安装在 `~/.cac/skills/` 和 `~/.cac/commands/` 下。设置 `OPENCODE_CONFIG_DIR` 仅改变 OpenCode command 的配置根目录，不改变共享 skill 或 CAC 路径。共享 skill 安装成功后，安装器会清理当前 OpenCode 配置目录中两套同名旧 skill；曾使用的其他配置目录需自行清理。每次安装完整替换这四项受管理资源，同版本重装也会更新并删除废弃参考文件；请勿直接修改安装副本。其他 skill、command 和 Agent 配置不受影响。已有同名实验 skill 会被替换，个人修改应提前另存；项目或兼容目录中的同名副本需自行移除，以免加载旧副本。
 
 完成后重新打开 Agent 会话，输入 `/ml 查询当前业务下的模型` 使用简洁版，输入 `/ml-lab 查询当前业务的数据集并解释分页参数和响应字段` 使用详细版；不带需求时可查看上下文和用法。详细版仍处于说明资料测试阶段，lab 不表示沙箱，命令可能影响真实平台。需要允许 Agent 加载 skill 和调用终端工具，安装程序不会修改权限。直接通过 pip 安装 Wheel 不自动安装 Agent 资源，自动安装入口为官方 Windows 安装包。
 
-降级到不支持 `/ml-lab` 的旧安装器时，实验入口和详细 skill 可能残留；确认不再使用后，仅移除各 Agent 配置目录中的 `commands/ml-lab.md` 与 `skills/wiserec-platform-detailed`，不要删除其他配置。
+降级到不支持 `/ml-lab` 的旧安装器时，实验入口和详细 skill 可能残留；确认不再使用后，仅移除各 Agent 配置目录中的 `commands/ml-lab.md`，以及 `~/.agents/skills/wiserec-platform-detailed` 和 `~/.cac/skills/wiserec-platform-detailed`，不要删除其他配置。

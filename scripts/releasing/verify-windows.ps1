@@ -9,11 +9,16 @@ required = {'commands/ml.md', 'commands/ml-lab.md', 'skills/wiserec-platform/SKI
             'skills/wiserec-platform-detailed/SKILL.md',
             'skills/wiserec-platform-detailed/references/commands/dataset/list.md'}
 assert required <= set(manifest), 'Missing bundled agent resources'
-for target in (Path(os.environ.get('OPENCODE_CONFIG_DIR') or Path.home() / '.config/opencode'),
-               Path.home() / '.cac'):
+opencode = Path(os.environ.get('OPENCODE_CONFIG_DIR') or Path.home() / '.config/opencode')
+for commands, skills in ((opencode, Path.home() / '.agents'),
+                         (Path.home() / '.cac', Path.home() / '.cac')):
     for relative, digest in manifest.items():
+        target = skills if relative.startswith('skills/') else commands
         assert hashlib.sha256((target / relative).read_bytes()).hexdigest() == digest, (target, relative)
-print('Both skills and slash commands verified in OpenCode and codeagent')
+if opencode.resolve() not in ((Path.home() / '.agents').resolve(), (Path.home() / '.cac').resolve()):
+    for name in ('wiserec-platform', 'wiserec-platform-detailed'):
+        assert not (opencode / 'skills' / name).exists(), 'Legacy OpenCode skill remains'
+print('Both skills and slash commands verified in shared directory, OpenCode and codeagent')
 '@
     & $Python -c $check
     if ($LASTEXITCODE -ne 0) { throw 'Agent resource verification failed' }

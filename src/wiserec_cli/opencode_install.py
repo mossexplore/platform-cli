@@ -1,5 +1,7 @@
 """Internal installer for bundled agent resources; no CLI command registration."""
 
+from __future__ import annotations
+
 import hashlib
 import json
 import os
@@ -34,8 +36,16 @@ def _remove(path: Path) -> None:
         shutil.rmtree(path)
 
 
-def install_resources(target: Path, source: Path = RESOURCE_ROOT) -> None:
+def install_resources(
+    target: Path, source: Path = RESOURCE_ROOT, *, skills_target: Path | None = None,
+) -> None:
     """Validate before deletion, then replace only the selected owned resources."""
+    skills_target = skills_target if skills_target is not None else target
+
+    def destination_for(relative):
+        root = skills_target if relative.startswith("skills/") else target
+        return root / relative
+
     manifest = json.loads((source / "manifest.json").read_text(encoding="utf-8"))
     if not isinstance(manifest, dict) or not REQUIRED.issubset(manifest):
         raise ValueError("Incomplete OpenCode resource manifest")
@@ -50,9 +60,9 @@ def install_resources(target: Path, source: Path = RESOURCE_ROOT) -> None:
             destination = staged / relative
             destination.parent.mkdir(parents=True, exist_ok=True)
             destination.write_bytes(data)
-        owned = [target / relative for relative in OWNED]
+        owned = [destination_for(relative) for relative in OWNED]
         # Refuse redirected parent directories; do not delete unrelated resources.
-        parents = [target, target / "skills", target / "commands"]
+        parents = [target, target / "commands", skills_target, skills_target / "skills"]
         for parent in parents:
             if parent.is_symlink():
                 raise ValueError(f"Resource directory must not be a symlink: {parent}")
@@ -61,15 +71,15 @@ def install_resources(target: Path, source: Path = RESOURCE_ROOT) -> None:
             for destination in owned:
                 _remove(destination)
             replacement_started = True
-            for destination in owned:
+            for relative, destination in zip(OWNED, owned):
                 destination.parent.mkdir(parents=True, exist_ok=True)
-                origin = staged / destination.relative_to(target)
+                origin = staged / relative
                 if origin.is_dir():
                     shutil.copytree(origin, destination)
                 else:
                     shutil.copyfile(origin, destination)
             for relative, digest in manifest.items():
-                if hashlib.sha256((target / relative).read_bytes()).hexdigest() != digest:
+                if hashlib.sha256(destination_for(relative).read_bytes()).hexdigest() != digest:
                     raise ValueError(f"Installed resource checksum failed: {relative}")
         except Exception:
             if replacement_started:
@@ -78,21 +88,35 @@ def install_resources(target: Path, source: Path = RESOURCE_ROOT) -> None:
             raise
 
 
+def remove_legacy_skills(target: Path, skills_target: Path) -> None:
+    """Remove only old managed skills after the shared installation succeeds."""
+    if target.resolve() == skills_target.resolve():
+        return
+    for parent in (target, target / "skills"):
+        if parent.is_symlink():
+            raise ValueError(f"Legacy resource directory must not be a symlink: {parent}")
+    for name in SKILLS:
+        _remove(target / "skills" / name)
+
+
 def main() -> int:
     target = Path(os.environ.get("OPENCODE_CONFIG_DIR") or Path.home() / ".config/opencode")
+    shared_target = Path.home() / ".agents"
     cac_target = Path.home() / ".cac"
     msg.detail("WiseRec skills and /ml, /ml-lab commands are replaced on every installation; do not edit these files.")
     failed = False
-    for label, directory in (
-        ("OpenCode", target), ("codeagent", cac_target),
+    for label, directory, skills_directory in (
+        ("OpenCode", target, shared_target), ("codeagent", cac_target, cac_target),
     ):
         msg.detail(f"{label} resource directory: {directory}")
         for name in SKILLS:
-            msg.detail(f"{label} skill directory: {directory / 'skills' / name}")
+            msg.detail(f"{label} skill directory: {skills_directory / 'skills' / name}")
         for name in COMMANDS:
             msg.detail(f"{label} /{name} command file: {directory / 'commands' / (name + '.md')}")
         try:
-            install_resources(directory)
+            install_resources(directory, skills_target=skills_directory)
+            if label == "OpenCode":
+                remove_legacy_skills(directory, skills_directory)
         except Exception as error:
             failed = True
             msg.warning(f"{label} resource installation failed: {error}")

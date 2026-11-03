@@ -9,9 +9,9 @@
 
 启用权限校验后，CLI 在执行业务命令前向权限系统检查当前账号和环境的授权，通过后再调用平台接口。权限系统独立部署，数据保存在 MySQL；客户端校验不替代平台自身的权限控制。
 
-四个产品的源码目标版本统一记录在根目录 [`versions.toml`](versions.toml)，本次 CLI 为 **1.0.7.14**，权限管理系统、Agent、权限通知助手为 **1.0.7.12**，以后可以独立递增。只维护该文件，运行 `python scripts/sync_versions.py` 同步派生版本，再运行 `python scripts/sync_versions.py --check` 检查。页面及安装包读取各自携带的版本，详见 [版本号管理说明](docs/版本号管理说明.md)。源码目标版本不等于正式发布版本。
+四个产品的源码目标版本统一记录在根目录 [`versions.toml`](versions.toml)，本次 CLI 为 **1.0.7.15**，权限管理系统、Agent、权限通知助手为 **1.0.7.12**，以后可以独立递增。只维护该文件，运行 `python scripts/sync_versions.py` 同步派生版本，再运行 `python scripts/sync_versions.py --check` 检查。页面及安装包读取各自携带的版本，详见 [版本号管理说明](docs/版本号管理说明.md)。源码目标版本不等于正式发布版本。
 
-当前 CLI 源码版本为 **1.0.7.14**，增加权限服务 CA 来源配置，修复 Agent 注入自定义 CA 时公共证书校验失败的问题，同步诊断提示和 skill 指导，见 [发布说明](docs/RELEASE_NOTES_1.0.7.14.md)。本次为源码更新，尚未正式发布；下方下载入口仍指向已发布版本。
+当前 CLI 源码版本为 **1.0.7.15**，将 OpenCode skill 安装到当前用户的 `.agents/skills` 共享目录，保留 codeagent 和快捷命令的安装位置，见 [发布说明](docs/RELEASE_NOTES_1.0.7.15.md)。本次为源码更新，尚未正式发布；下方下载入口仍指向已发布版本。
 
 当前正式版本为 **1.0.7.10**，包括 CLI、权限管理系统及独立本地通知助手，见 [发布说明](docs/RELEASE_NOTES_1.0.7.10.md)。已发布为最新稳定版。本地开发参见 [Jupyter 本地开发指南](docs/Jupyter本地开发指南.md)。
 
@@ -98,11 +98,11 @@ docker load -i cli-access-1.0.7.10-linux-amd64.tar.gz
 
 OpenCode/codeagent 集成分两个阶段：先安装并验证 CLI，再安装简洁版 `wiserec-platform`、详细版 `wiserec-platform-detailed` 以及 `/ml`、`/ml-lab` 两个 command。第二阶段失败会显示原因，CLI 仍可正常使用；排除文件占用或目录权限问题后，重新运行安装程序即可重试。
 
-两套 skill 和两个 command 同时安装到当前用户的 `~/.config/opencode` 与 `~/.cac`：skill 位于各目录的 `skills/wiserec-platform`、`skills/wiserec-platform-detailed`，command 位于 `commands/ml.md`、`commands/ml-lab.md`。设置 `OPENCODE_CONFIG_DIR` 时仅替换 OpenCode 根目录，CAC 路径保持不变。每次安装完整替换这四项受管理资源，同版本重装也会更新并删除废弃参考文件；请勿直接修改安装副本。其他 skill、command 和 Agent 配置不受影响。已有同名实验 skill 会被替换，个人修改应提前另存；项目或兼容目录中的同名副本需自行移除，以免加载旧副本。
+OpenCode 的两套 skill 安装到当前用户的 `~/.agents/skills/wiserec-platform` 和 `~/.agents/skills/wiserec-platform-detailed`（Windows 为 `%USERPROFILE%\.agents\skills\` 下对应目录），可供支持该目录的 Agent 发现；OpenCode 的 command 仍位于 `~/.config/opencode/commands/ml.md`、`commands/ml-lab.md`。codeagent 的 skill 和 command 保持安装在 `~/.cac/skills/` 和 `~/.cac/commands/` 下。设置 `OPENCODE_CONFIG_DIR` 仅改变 OpenCode command 的配置根目录，不改变共享 skill 或 CAC 路径。共享 skill 安装成功后，安装器会清理当前 OpenCode 配置目录中两套同名旧 skill；曾使用的其他配置目录需自行清理。每次安装完整替换这四项受管理资源，同版本重装也会更新并删除废弃参考文件；请勿直接修改安装副本。其他 skill、command 和 Agent 配置不受影响。已有同名实验 skill 会被替换，个人修改应提前另存；项目或兼容目录中的同名副本需自行移除，以免加载旧副本。
 
 完成后重新打开 Agent 会话，输入 `/ml 查询当前业务下的模型` 使用简洁版，输入 `/ml-lab 查询当前业务的数据集并解释分页参数和响应字段` 使用详细版；不带需求时可查看上下文和用法。详细版仍处于说明资料测试阶段，lab 不表示沙箱，命令可能影响真实平台。需要允许 Agent 加载 skill 和调用终端工具，安装程序不会修改权限。直接通过 pip 安装 Wheel 不自动安装 Agent 资源，自动安装入口为官方 Windows 安装包。
 
-降级到不支持 `/ml-lab` 的旧安装器时，实验入口和详细 skill 可能残留；确认不再使用后，仅移除各 Agent 配置目录中的 `commands/ml-lab.md` 与 `skills/wiserec-platform-detailed`，不要删除其他配置。
+降级到不支持 `/ml-lab` 的旧安装器时，实验入口和详细 skill 可能残留；确认不再使用后，仅移除各 Agent 配置目录中的 `commands/ml-lab.md`，以及 `~/.agents/skills/wiserec-platform-detailed` 和 `~/.cac/skills/wiserec-platform-detailed`，不要删除其他配置。
 
 
 ## Windows 本地代码打包并安装
