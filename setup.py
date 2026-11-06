@@ -30,9 +30,8 @@ class BuildPy(BaseBuildPy):
         if resources.exists():
             rmtree(resources)
         sources = [(Path("skill/commands") / name, "commands/" + name)
-                   for name in ("ml.md", "ml-lab.md")]
-        for directory in (Path("skill/wiserec-platform"),
-                          Path("skill-lab/wiserec-platform-detailed")):
+                   for name in ("ml.md",)]
+        for directory in (Path("skill/wiserec-platform"),):
             prefix = "skills/" + directory.name + "/"
             sources.append((directory / "SKILL.md", prefix + "SKILL.md"))
             sources += [(path, prefix + path.relative_to(directory).as_posix())

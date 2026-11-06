@@ -113,7 +113,7 @@ def test_cli_without_login_still_lists_environments(tmp_path):
     runtime = make_runtime(tmp_path)
     with patch('wiserec_cli.cli.Runtime', return_value=runtime), \
          patch('wiserec_cli.env_access.query_environment_access') as query:
-        result = CliRunner().invoke(app, ['env', 'list'])
+        result = CliRunner().invoke(app, ['env', 'list'], env={'COLUMNS': '160'})
     query.assert_not_called()
     assert result.exit_code == 0, result.output
     assert result.output.index('请先执行 ml login') < result.output.index('当前在用环境')
@@ -125,6 +125,7 @@ def test_columns_alias_and_highlight(tmp_path):
     runtime = make_runtime(tmp_path)
     data = json.loads(runtime.config.path.read_text())
     data['profiles'][0]['alias'] = '开发环境'
+    data['profiles'][1]['platform_type'] = 'mlops'
     runtime.config.path.write_text(json.dumps(data))
     runtime = Runtime(config_path=runtime.config.path, credential_path=runtime.credentials.path,
                       business_path=runtime.business.path)
@@ -133,9 +134,11 @@ def test_columns_alias_and_highlight(tmp_path):
          patch('wiserec_cli.commands.env.print_result') as output:
         list_environments(None)
     rows = output.call_args.args[0]
-    assert list(rows[0]) == ['当前在用环境', '环境标识', '环境名', '管理台地址', '管理台类型', '状态']
+    assert list(rows[0]) == ['当前在用环境', '环境标识', '环境名', '管理台类型', '管理台地址', '状态']
     assert rows[0]['环境标识'] == 'dev'
     assert rows[0]['环境名'] == '开发环境'
+    assert rows[0]['管理台类型'] == '搜推广工程平台'
+    assert rows[1]['管理台类型'] == 'WiseMLOps'
     assert output.call_args.kwargs['row_style'](rows[0]) == 'bold green'
 
 

@@ -59,15 +59,17 @@ def test_skill_name_matches_directory():
     assert re.search(r"^name: (\S+)$", header, re.M).group(1) == SKILL_DIR.name
 
 
-def test_detailed_skill_links_and_command_coverage():
-    import runpy
+def test_detailed_skill_is_repository_only():
     root = SKILL_DIR.parents[1]
-    runpy.run_path(str(root / 'skill-lab/validation/verify.py'))['audit']()
+    assert (root / 'skill-lab/wiserec-platform-detailed/SKILL.md').is_file()
+    from wiserec_cli.opencode_install import SKILLS, COMMANDS
+    assert SKILLS == ('wiserec-platform',)
+    assert COMMANDS == ('ml',)
 
 
 def test_slash_commands_load_separate_skills():
     directory = SKILL_DIR.parent / 'commands'
-    for command, skill in [('ml', 'wiserec-platform'), ('ml-lab', 'wiserec-platform-detailed')]:
+    for command, skill in [('ml', 'wiserec-platform')]:
         content = (directory / f'{command}.md').read_text()
         assert f'先通过 skill 工具加载 `{skill}`' in content
         assert '$ARGUMENTS' in content

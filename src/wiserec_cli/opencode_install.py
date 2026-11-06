@@ -13,8 +13,8 @@ from . import messages as msg
 
 
 RESOURCE_ROOT = Path(__file__).with_name("opencode_resources")
-SKILLS = ("wiserec-platform", "wiserec-platform-detailed")
-COMMANDS = ("ml", "ml-lab")
+SKILLS = ("wiserec-platform",)
+COMMANDS = ("ml",)
 OWNED = tuple(f"skills/{name}" for name in SKILLS) + tuple(
     f"commands/{name}.md" for name in COMMANDS)
 REQUIRED = {f"skills/{name}/SKILL.md" for name in SKILLS} | {
@@ -81,11 +81,23 @@ def install_resources(
             for relative, digest in manifest.items():
                 if hashlib.sha256(destination_for(relative).read_bytes()).hexdigest() != digest:
                     raise ValueError(f"Installed resource checksum failed: {relative}")
+            # 只清理历史受管理的 lab 副本；共享目录和旧 OpenCode 目录均覆盖。
+            for root in {target, skills_target}:
+                remove_retired_lab(root)
         except Exception:
             if replacement_started:
                 for destination in owned:
                     _remove(destination)
             raise
+
+
+def remove_retired_lab(root: Path) -> None:
+    """安装成功后清理废弃详细版，拒绝沿父目录符号链接删除。"""
+    for parent in (root, root / "skills", root / "commands"):
+        if parent.is_symlink():
+            raise ValueError(f"Retired resource directory must not be a symlink: {parent}")
+    _remove(root / "skills/wiserec-platform-detailed")
+    _remove(root / "commands/ml-lab.md")
 
 
 def remove_legacy_skills(target: Path, skills_target: Path) -> None:
@@ -103,7 +115,7 @@ def main() -> int:
     target = Path(os.environ.get("OPENCODE_CONFIG_DIR") or Path.home() / ".config/opencode")
     shared_target = Path.home() / ".agents"
     cac_target = Path.home() / ".cac"
-    msg.detail("WiseRec skills and /ml, /ml-lab commands are replaced on every installation; do not edit these files.")
+    msg.detail("WiseRec skill and /ml command are replaced on every installation; do not edit these files.")
     failed = False
     for label, directory, skills_directory in (
         ("OpenCode", target, shared_target), ("codeagent", cac_target, cac_target),
@@ -125,7 +137,7 @@ def main() -> int:
     if failed:
         msg.detail("CLI remains usable. Rerun the official installer to retry.")
         return 1
-    msg.success("WiseRec skills and /ml, /ml-lab commands installed in both directories. Reopen your agent session.")
+    msg.success("WiseRec skill and /ml command installed in both directories. Reopen your agent session.")
     return 0
 
 

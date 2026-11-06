@@ -13,3 +13,5 @@ MLOps 开放全部现有 Web Studio、Jupyter 和 service 公开命令，按已�
 执行记录日志下载增加 `--type plog`，默认普通日志行为保持兼容。Plog 接口按 code=0 判断成功，从 plogUrl 获取地址，并复用现有文件下载与重名保护。请求不传 target。
 
 MLOps 新增支持现有 auth ping、user、mep、model、resource、deployment、dataset 分组全部公开命令，复用 WiseRec 实现。完整命令树仅在不支持的叶命令描述末尾追加红色 [不支持]，支持命令不添加标记。
+
+CLI 安装仅分发正式 wiserec-platform skill 与 /ml 入口；不再打包或安装 skill-lab 详细版。安装成功时自动清理标准安装位置中历史详细版与 /ml-lab，仓库设计资料保留。

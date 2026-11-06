@@ -5,20 +5,21 @@ import hashlib, json, os
 from pathlib import Path
 from wiserec_cli.opencode_install import RESOURCE_ROOT
 manifest = json.loads((RESOURCE_ROOT / 'manifest.json').read_text(encoding='utf-8'))
-required = {'commands/ml.md', 'commands/ml-lab.md', 'skills/wiserec-platform/SKILL.md',
-            'skills/wiserec-platform-detailed/SKILL.md',
-            'skills/wiserec-platform-detailed/references/commands/dataset/list.md'}
+required = {'commands/ml.md', 'skills/wiserec-platform/SKILL.md'}
 assert required <= set(manifest), 'Missing bundled agent resources'
+assert not any('ml-lab' in key or 'wiserec-platform-detailed' in key for key in manifest)
 opencode = Path(os.environ.get('OPENCODE_CONFIG_DIR') or Path.home() / '.config/opencode')
 for commands, skills in ((opencode, Path.home() / '.agents'),
                          (Path.home() / '.cac', Path.home() / '.cac')):
+    assert not (skills / 'skills/wiserec-platform-detailed').exists()
+    assert not (commands / 'commands/ml-lab.md').exists()
     for relative, digest in manifest.items():
         target = skills if relative.startswith('skills/') else commands
         assert hashlib.sha256((target / relative).read_bytes()).hexdigest() == digest, (target, relative)
 if opencode.resolve() not in ((Path.home() / '.agents').resolve(), (Path.home() / '.cac').resolve()):
     for name in ('wiserec-platform', 'wiserec-platform-detailed'):
         assert not (opencode / 'skills' / name).exists(), 'Legacy OpenCode skill remains'
-print('Both skills and slash commands verified in shared directory, OpenCode and codeagent')
+print('Skill and slash command verified in shared directory, OpenCode and codeagent')
 '@
     & $Python -c $check
     if ($LASTEXITCODE -ne 0) { throw 'Agent resource verification failed' }

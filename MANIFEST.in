@@ -5,10 +5,10 @@ include scripts/jupyter_local.py
 include examples/jupyter/hello.ipynb
 include docs/Jupyter本地开发指南.md
 
-recursive-include skill *.md
-include skill-lab/wiserec-platform-detailed/SKILL.md
-recursive-include skill-lab/wiserec-platform-detailed/references *.md
-prune skill-lab/validation
+recursive-include skill/wiserec-platform *.md
+include skill/commands/ml.md
+exclude skill/commands/ml-lab.md
+prune skill-lab
 
 prune devtools
 prune scripts/demo

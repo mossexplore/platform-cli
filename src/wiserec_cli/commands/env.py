@@ -37,12 +37,12 @@ def list_environments(context: typer.Context) -> None:
                     ),
                     "环境标识": item.name,
                     "环境名": item.alias or item.name,
+                    "管理台类型": {"wiserec": "搜推广工程平台", "mlops": "WiseMLOps"}[item.platform_type],
                     "管理台地址": item.api_endpoint,
-                    "管理台类型": item.platform_type,
                     "状态": statuses[item.name],
                 }
                 for item in runtime.config.profiles()
-            ], wrap_columns=("管理台地址",),
+            ], wrap_columns=("管理台地址", "管理台类型"),
             row_style=lambda row: "bold green" if row["当前在用环境"] == "*" else None,
         )
     except Exception as exc:

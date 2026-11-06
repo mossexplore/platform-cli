@@ -13,9 +13,7 @@ def resources(tmp_path):
     source = tmp_path / "bundle"
     manifest = {}
     for relative in ("skills/wiserec-platform/SKILL.md",
-                     "skills/wiserec-platform/references/session.md", "commands/ml.md",
-                     "commands/ml-lab.md", "skills/wiserec-platform-detailed/SKILL.md",
-                     "skills/wiserec-platform-detailed/references/commands/dataset/list.md"):
+                     "skills/wiserec-platform/references/session.md", "commands/ml.md"):
         path = source / relative
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(relative, encoding="utf-8")
@@ -122,10 +120,8 @@ def test_main_installs_both_targets_independently(
         assert (skills_directory / "skills/wiserec-platform/SKILL.md").exists() == (
             label != failed_target
         )
-        assert (skills_directory / "skills/wiserec-platform-detailed/SKILL.md").exists() == (
-            label != failed_target
-        )
-        assert (directory / "commands/ml-lab.md").exists() == (label != failed_target)
+        assert not (skills_directory / "skills/wiserec-platform-detailed/SKILL.md").exists()
+        assert not (directory / "commands/ml-lab.md").exists()
         command = directory / "commands/ml.md"
         assert command.exists() == (label != failed_target)
         if command.exists():
@@ -148,13 +144,13 @@ def test_upgrade_and_reinstall_lab_preserve_unrelated(resources, tmp_path):
     unrelated.write_text('keep')
     install_resources(target, resources)
     lab = target / 'skills/wiserec-platform-detailed'
+    lab.mkdir(parents=True)
     (lab / 'stale.md').write_text('obsolete')
     (target / 'commands/ml-lab.md').write_text('modified')
     install_resources(target, resources)
     assert not (lab / 'stale.md').exists()
-    assert (lab / 'references/commands/dataset/list.md').read_bytes() == (
-        resources / 'skills/wiserec-platform-detailed/references/commands/dataset/list.md').read_bytes()
-    assert (target / 'commands/ml-lab.md').read_text() == 'commands/ml-lab.md'
+    assert not lab.exists()
+    assert not (target / 'commands/ml-lab.md').exists()
     assert unrelated.read_text() == 'keep'
 
 
@@ -166,9 +162,9 @@ def test_invalid_lab_bundle_preserves_both_skills(resources, tmp_path, problem):
     manifest_file = resources / 'manifest.json'
     manifest = json.loads(manifest_file.read_text())
     if problem == 'missing':
-        del manifest['commands/ml-lab.md']
+        del manifest['commands/ml.md']
     elif problem == 'corrupt':
-        (resources / 'commands/ml-lab.md').write_text('corrupt')
+        (resources / 'commands/ml.md').write_text('corrupt')
     else:
         invalid = {'traversal': 'skills/wiserec-platform-detailed/references/../outside.md',
                    'sibling': 'skills/wiserec-platform-detailed-other/SKILL.md',
@@ -213,8 +209,8 @@ def test_shared_install_migrates_old_skills_and_preserves_other_agents(
     assert legacy_other.read_text() == "legacy personal"
     for name in ("wiserec-platform", "wiserec-platform-detailed"):
         assert not (opencode / "skills" / name).exists()
-        assert (shared / "skills" / name / "SKILL.md").exists()
-        assert (home / ".cac/skills" / name / "SKILL.md").exists()
+        assert (shared / "skills" / name / "SKILL.md").exists() == (name == "wiserec-platform")
+        assert (home / ".cac/skills" / name / "SKILL.md").exists() == (name == "wiserec-platform")
     assert not (shared / "commands").exists()
     assert (opencode / "commands/ml.md").exists()
 
@@ -266,3 +262,38 @@ def test_legacy_cleanup_refuses_redirected_skills(resources, tmp_path):
     with pytest.raises(ValueError, match="symlink"):
         remove_legacy_skills(target, shared)
     assert (shared / "skills/wiserec-platform/SKILL.md").exists()
+
+
+def test_install_cleans_retired_lab_in_all_managed_locations(resources, tmp_path, monkeypatch):
+    home = tmp_path / 'home'
+    opencode = tmp_path / 'custom-opencode'
+    shared, cac = home / '.agents', home / '.cac'
+    monkeypatch.setattr(Path, 'home', lambda: home)
+    monkeypatch.setenv('OPENCODE_CONFIG_DIR', str(opencode))
+    for root in (shared, opencode, cac):
+        lab = root / 'skills/wiserec-platform-detailed'
+        lab.mkdir(parents=True)
+        (lab / 'SKILL.md').write_text('old')
+        commands = root / 'commands'
+        commands.mkdir()
+        (commands / 'ml-lab.md').write_text('old command')
+        (commands / 'personal.md').write_text('keep')
+    with patch('wiserec_cli.opencode_install.install_resources',
+               side_effect=lambda directory, **kw: install_resources(directory, resources, **kw)):
+        assert main() == 0
+    for root in (shared, opencode, cac):
+        assert not (root / 'skills/wiserec-platform-detailed').exists()
+        assert not (root / 'commands/ml-lab.md').exists()
+        assert (root / 'commands/personal.md').read_text() == 'keep'
+
+
+def test_retired_symlink_removes_link_only(resources, tmp_path):
+    target = tmp_path / 'config'
+    external = tmp_path / 'personal'
+    external.mkdir()
+    (external / 'SKILL.md').write_text('keep')
+    (target / 'skills').mkdir(parents=True)
+    (target / 'skills/wiserec-platform-detailed').symlink_to(external, target_is_directory=True)
+    install_resources(target, resources)
+    assert not (target / 'skills/wiserec-platform-detailed').is_symlink()
+    assert (external / 'SKILL.md').read_text() == 'keep'
