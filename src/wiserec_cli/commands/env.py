@@ -18,7 +18,7 @@ env_app = typer.Typer(no_args_is_help=True, help="管理运行环境")
 
 @env_app.command("list")
 def list_environments(context: typer.Context) -> None:
-    """列出全部环境。"""
+    """列出已授权及授权状态未知的环境"""
     try:
         runtime = runtime_from_context(context)
         try:
@@ -29,6 +29,10 @@ def list_environments(context: typer.Context) -> None:
         except MlError as exc:
             msg.error(exc)
             statuses = {item.name: "授权状态未知" for item in runtime.config.profiles()}
+        visible = [item for item in runtime.config.profiles() if statuses[item.name] != "未授权"]
+        if not visible:
+            msg.info("暂无已授权环境")
+            return
         print_result(
             [
                 {
@@ -41,7 +45,7 @@ def list_environments(context: typer.Context) -> None:
                     "管理台地址": item.api_endpoint,
                     "状态": statuses[item.name],
                 }
-                for item in runtime.config.profiles()
+                for item in visible
             ], wrap_columns=("管理台地址", "管理台类型"),
             row_style=lambda row: "bold green" if row["当前在用环境"] == "*" else None,
         )

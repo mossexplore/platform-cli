@@ -53,7 +53,7 @@ def test_four_statuses_and_current_account_only(tmp_path):
         assert environment_statuses(runtime)['test'] == '未授权'
 
 
-def test_no_authorization_prints_error_before_table(tmp_path, capsys):
+def test_no_authorization_prints_guidance_without_environment_table(tmp_path, capsys):
     runtime = make_runtime(tmp_path)
     runtime.credentials.save(Credentials.create('dev', 'cookie', 'csrf', 'alice', 600))
     with patch('wiserec_cli.commands.env.runtime_from_context', return_value=runtime), \
@@ -61,12 +61,14 @@ def test_no_authorization_prints_error_before_table(tmp_path, capsys):
                side_effect=lambda *args, **kwargs: print('ENVIRONMENT_TABLE')) as table, \
          patch('wiserec_cli.env_access.query_environment_access', return_value=response(runtime, False)):
         list_environments(None)
-    assert [row['状态'] for row in table.call_args.args[0]] == ['未授权', '未授权']
+    table.assert_not_called()
     captured = capsys.readouterr()
-    assert captured.out == 'ENVIRONMENT_TABLE\n'
+    assert captured.out == ''
+    assert '暂无已授权环境' in captured.err
     actual = ''.join(captured.err.splitlines())
     assert actual == ('[错误] 请打开https://access.example.com/apply进行CLI权限申请'
-                      '（若地址无法打开，将*.hwcloudtest.cn加入代理排除），权限通过后方可执行CLI命令')
+                      '（若地址无法打开，将*.hwcloudtest.cn加入代理排除），权限通过后方可执行CLI命令'
+                      '[提示] 暂无已授权环境')
 
 
 def test_status_failures_still_display_all_environments(tmp_path):
@@ -93,7 +95,7 @@ def test_status_failures_still_display_all_environments(tmp_path):
         assert [row['状态'] for row in rows] == ['授权状态未知', '授权状态未知']
 
 
-def test_cli_lists_environments_after_permission_error_with_success_exit(tmp_path):
+def test_cli_hides_environments_after_permission_denial_with_success_exit(tmp_path):
     from typer.testing import CliRunner
     from wiserec_cli.cli import app
     runtime = make_runtime(tmp_path)
@@ -102,9 +104,9 @@ def test_cli_lists_environments_after_permission_error_with_success_exit(tmp_pat
          patch('wiserec_cli.env_access.query_environment_access', return_value=response(runtime, False)):
         result = CliRunner().invoke(app, ['env', 'list'])
     assert result.exit_code == 0, result.output
-    assert result.output.index('[错误]') < result.output.index('当前在用环境')
-    assert 'dev' in result.output and 'test' in result.output
-    assert '未授权' in result.output
+    assert '[错误]' in result.output and '暂无已授权环境' in result.output
+    assert '当前在用环境' not in result.output
+    assert result.stdout == ''
 
 
 def test_cli_without_login_still_lists_environments(tmp_path):
@@ -130,7 +132,7 @@ def test_columns_alias_and_highlight(tmp_path):
     runtime = Runtime(config_path=runtime.config.path, credential_path=runtime.credentials.path,
                       business_path=runtime.business.path)
     with patch('wiserec_cli.commands.env.runtime_from_context', return_value=runtime), \
-         patch('wiserec_cli.commands.env.environment_statuses', return_value={'dev': '已授权', 'test': '未授权'}), \
+         patch('wiserec_cli.commands.env.environment_statuses', return_value={'dev': '已授权', 'test': '已授权'}), \
          patch('wiserec_cli.commands.env.print_result') as output:
         list_environments(None)
     rows = output.call_args.args[0]
@@ -195,3 +197,27 @@ def test_old_service_or_malformed_authorizations_fail_explicitly(tmp_path):
         result['authorizations'] = value
         with patch('wiserec_cli.env_access.query_environment_access', return_value=result), pytest.raises(MlError):
             environment_statuses(runtime)
+
+
+def test_list_hides_unauthorized_current_without_switching_environment(tmp_path):
+    runtime = make_runtime(tmp_path)
+    original = runtime.config.path.read_bytes()
+    with patch('wiserec_cli.commands.env.runtime_from_context', return_value=runtime), \
+         patch('wiserec_cli.commands.env.environment_statuses', return_value={'dev': '未授权', 'test': '已授权'}), \
+         patch('wiserec_cli.commands.env.print_result') as output:
+        list_environments(None)
+    rows = output.call_args.args[0]
+    assert [row['环境标识'] for row in rows] == ['test']
+    assert rows[0]['当前在用环境'] == ''
+    assert runtime.config.current_name == 'dev'
+    assert runtime.config.path.read_bytes() == original
+
+
+def test_list_keeps_unknown_status_when_other_environment_is_unauthorized(tmp_path):
+    runtime = make_runtime(tmp_path)
+    with patch('wiserec_cli.commands.env.runtime_from_context', return_value=runtime), \
+         patch('wiserec_cli.commands.env.environment_statuses', return_value={'dev': '未授权', 'test': '授权状态未知'}), \
+         patch('wiserec_cli.commands.env.print_result') as output:
+        list_environments(None)
+    rows = output.call_args.args[0]
+    assert [(row['环境标识'], row['状态']) for row in rows] == [('test', '授权状态未知')]
