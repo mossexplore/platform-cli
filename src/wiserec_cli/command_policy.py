@@ -32,4 +32,4 @@ def parse_policy(value):
 def require_command(profile, command):
     require_supported(getattr(profile, 'platform_type', 'wiserec'), command)
     if is_denied(command, getattr(profile, 'denied_commands', ())):
-        raise MlError(f'当前环境 {profile.name} 禁止执行 ml {command}；请查看 command_policy 配置')
+        raise MlError(f'当前环境 {profile.name} 禁止执行 ml {command}')

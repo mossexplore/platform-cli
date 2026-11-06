@@ -37,6 +37,7 @@ def test_rejects_before_login_ping_or_jupyter(tmp_path, platform, rule, command,
         result = CliRunner().invoke(app, ['--config', str(config), 'jupyter', 'files', command, *args])
     assert result.exit_code == 1
     assert 'restricted' in result.output and '禁止执行 ml jupyter files ' + command in result.output
+    assert '请查看 command_policy' not in result.output
     assert not (tmp_path / 'local').exists()
 
 
