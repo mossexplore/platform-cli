@@ -4,7 +4,7 @@ import json
 import os
 import time
 import unittest
-from unittest.mock import patch
+from unittest.mock import patch, Mock
 
 import httpx
 
@@ -45,6 +45,13 @@ class PingTest(unittest.TestCase):
         self.fixture.store.select("dev", "jack", tenant_id="mep")
         self.runtime = self.fixture.runtime
         self.state = PingStore(self.fixture.credential_path.with_name("ping.json"))
+
+    def test_missing_or_expired_login_prompts_login(self):
+        for credentials in (None, Mock(is_expired=lambda: True)):
+            with self.subTest(credentials=credentials), \
+                 patch("wiserec_cli.ping.sys.stdin.isatty", return_value=True), \
+                 patch.object(self.runtime.credentials, "load", return_value=credentials):
+                self.assertEqual(start(self.runtime), "当前环境未登录，请执行ml login登录该环境")
 
     def prepare_worker(self, *, owner_identity="123"):
         self.state.write({"profiles": {"dev": {

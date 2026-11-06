@@ -134,7 +134,7 @@ def start(runtime: Any, *, automatic: bool = False) -> str:
     profile = runtime.config.current_name
     credentials = runtime.credentials.load(profile)
     if credentials is None or credentials.is_expired():
-        return "当前环境没有有效的本地登录信息，未启动自动保活"
+        return "当前环境未登录，请执行ml login登录该环境"
     try:
         runtime.business.require_selection(profile, credentials.username)
     except BusinessError:
