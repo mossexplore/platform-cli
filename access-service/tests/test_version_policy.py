@@ -56,7 +56,8 @@ def test_version_gate_and_logs(system, version, allowed, reason):
 
 def test_missing_all_identifiers_defaults_and_no_policy_compatibility(system):
     app, client, _ = system
-    assert check(client).json() == {'allowed': True, 'username': 'alice', 'environment': 'prod'}
+    assert check(client).json() == {'allowed': True, 'username': 'alice', 'environment': 'prod',
+        'command_policy': {'environment': 'prod', 'platform_origin': 'https://platform.example.com', 'revision': 0, 'deny': []}}
     policy(app, minimum_version='1.0.0')
     assert call(client).json()['allowed']
     assert version_tuple('1.0.10') > version_tuple('1.0.9')

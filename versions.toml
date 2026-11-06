@@ -1,7 +1,7 @@
 # 唯一人工维护入口；修改后运行 python scripts/sync_versions.py
 [components]
 cli = "1.0.9.1"
-access = "1.0.7.12"
+access = "1.0.9.1"
 agent = "1.0.7.12"
 notifier = "1.0.7.12"
 

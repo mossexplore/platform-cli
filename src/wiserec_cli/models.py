@@ -39,6 +39,7 @@ class Profile:
     verify_ssl: Optional[bool] = None
     alias: str = ""
     platform_type: str = "wiserec"
+    denied_commands: tuple[str, ...] = ()
 
     @property
     def base_url(self) -> str:

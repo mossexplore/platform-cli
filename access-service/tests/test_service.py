@@ -51,7 +51,8 @@ def test_reported_username_without_platform_request(system, monkeypatch):
         pytest.fail('权限服务不得访问业务平台')
     monkeypatch.setattr(httpx.Client, '__init__', unexpected)
     # TestClient 已创建；权限检查不得再创建用于平台请求的客户端。
-    assert check(client).json() == {'allowed': True, 'username': 'alice', 'environment': 'prod'}
+    assert check(client).json() == {'allowed': True, 'username': 'alice', 'environment': 'prod',
+        'command_policy': {'environment': 'prod', 'platform_origin': 'https://platform.example.com', 'revision': 0, 'deny': []}}
     assert check(client, username='admin').json()['reason'] == 'USER_DISABLED'
 
 

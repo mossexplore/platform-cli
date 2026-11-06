@@ -112,11 +112,13 @@ def initialize(
     if context.invoked_subcommand in {"tree", "history", "context"}:
         return
     try:
-        from .adapters.registry import invocation_path, require_supported
+        from .adapters.registry import invocation_path
+        from .command_policy import require_command
         context.obj = Runtime(config_path=config)
         profile = context.obj.config.current_profile()
-        if getattr(profile, "platform_type", "wiserec") == "mlops":
-            require_supported("mlops", invocation_path(context))
+        if (getattr(profile, "platform_type", "wiserec") == "mlops"
+                or getattr(profile, "denied_commands", ())):
+            require_command(profile, invocation_path(context))
         if (sys.stdin.isatty() and context.invoked_subcommand
                 not in {"login", "logout", "auth", "tree"}
                 and context.obj.config.auto_ping):

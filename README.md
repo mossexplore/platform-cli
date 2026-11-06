@@ -9,7 +9,7 @@
 
 启用权限校验后，CLI 在执行业务命令前向权限系统检查当前账号和环境的授权，通过后再调用平台接口。权限系统独立部署，数据保存在 MySQL；客户端校验不替代平台自身的权限控制。
 
-四个产品的源码目标版本统一记录在根目录 [`versions.toml`](versions.toml)，本次 CLI 为 **1.0.9.1**，权限管理系统、Agent、权限通知助手为 **1.0.7.12**，以后可以独立递增。只维护该文件，运行 `python scripts/sync_versions.py` 同步派生版本，再运行 `python scripts/sync_versions.py --check` 检查。页面及安装包读取各自携带的版本，详见 [版本号管理说明](docs/版本号管理说明.md)。源码目标版本不等于正式发布版本。
+四个产品的源码目标版本统一记录在根目录 [`versions.toml`](versions.toml)，本次 CLI 为 **1.0.9.1**，权限管理系统为 **1.0.9.1**，Agent、权限通知助手为 **1.0.7.12**，以后可以独立递增。只维护该文件，运行 `python scripts/sync_versions.py` 同步派生版本，再运行 `python scripts/sync_versions.py --check` 检查。页面及安装包读取各自携带的版本，详见 [版本号管理说明](docs/版本号管理说明.md)。源码目标版本不等于正式发布版本。
 
 当前 CLI 源码版本为 **1.0.9.1**，增加 MLOps 训练列表适配、执行记录与执行实例查询和平台命令树筛选，支持复用保活、用户、MEP、模型、资源、部署、数据集、Web Studio、Jupyter 与服务管理接口，见 [发布说明](docs/RELEASE_NOTES_1.0.9.1.md)。本次为源码更新，尚未正式发布；下方下载入口仍指向已发布版本。
 
@@ -130,3 +130,5 @@ scripts\build-install.cmd -OutputDirectory "D:\Builds\WiseRecCLI"
 ## 本地 Agent 工作台
 
 新增独立的 [WiseRec Agent 本地工作台](agent-service/README.md)，通过环境登录与对话查询平台数据。配置模板位于 [agent-service/config.example.json](agent-service/config.example.json)。当前需完成真实平台、MySQL、模型及 Windows 联调后再验收放行；未纳入现有 CLI 正式发布附件。
+
+仓库根目录 `config.example.json` 是样例配置；源码开发可复制为 `config.json` 后按环境修改。构建时将样例转换为包内 `wiserec_cli/config.json`，安装后正式配置仍为用户目录中的 `config.json`。真实根目录配置不提交到 Git。

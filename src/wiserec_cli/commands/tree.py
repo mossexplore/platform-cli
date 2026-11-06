@@ -28,7 +28,7 @@ def _summary(command: Any) -> str:
     return summary
 
 
-def _append_commands(parent: Tree, group: Any, platform="wiserec", show_all=False, prefix="") -> None:
+def _append_commands(parent: Tree, group: Any, platform="wiserec", show_all=False, prefix="", denied=()) -> None:
     for name, command in group.commands.items():
         if command.hidden:
             continue
@@ -36,10 +36,10 @@ def _append_commands(parent: Tree, group: Any, platform="wiserec", show_all=Fals
         path = f"{prefix} {name}".strip()
         children = Tree("temporary")
         if _is_group(command):
-            _append_commands(children, command, platform, show_all, path)
+            _append_commands(children, command, platform, show_all, path, denied)
             if not children.children and not show_all:
                 continue
-        elif not show_all and not supported(platform, path):
+        elif not show_all and (not supported(platform, path) or path in denied):
             continue
         label = Text()
         label.append(name, style="bold cyan" if _is_group(command) else "cyan")
@@ -48,6 +48,8 @@ def _append_commands(parent: Tree, group: Any, platform="wiserec", show_all=Fals
             label.append(f"  {summary}", style="dim")
         if show_all and not _is_group(command) and not supported(platform, path):
             label.append("  [不支持]", style="red")
+        elif show_all and not _is_group(command) and path in denied:
+            label.append("  [当前环境禁用]", style="red")
         branch = parent.add(label)
         if _is_group(command):
             branch.children.extend(children.children)
@@ -67,5 +69,23 @@ def show_tree(context: typer.Context, all_commands: bool = typer.Option(False, "
     Console().print(f"当前环境：{profile.name} · 管理台类型：{profile.platform_type}")
     if not all_commands:
         Console().print("仅展示当前环境支持的命令；查看全部命令：ml tree --all")
-    _append_commands(tree, root, profile.platform_type, all_commands)
+    from ..server_command_policy import load
+    from ..access import access_enabled
+    checking = access_enabled(config.access_control)
+    policy = load(config.access_control, profile) if checking else None
+    denied = set(profile.denied_commands)
+    if policy:
+        denied.update(command.removeprefix("ml ") for command in policy["deny"])
+        from datetime import datetime
+        from ..models import BEIJING_TIMEZONE
+        try:
+            stamp = datetime.fromisoformat(policy["synced_at"]).astimezone(BEIJING_TIMEZONE).strftime("%Y-%m-%d %H:%M:%S")
+        except (KeyError, ValueError, TypeError):
+            stamp = "未知"
+        Console().print(f"服务端环境策略同步时间：{stamp}；执行时仍将实时鉴权")
+    elif checking:
+        Console().print("服务端环境策略尚未同步，执行时将实时检查")
+    else:
+        Console().print("权限校验已关闭，仅展示平台支持情况与本地策略")
+    _append_commands(tree, root, profile.platform_type, all_commands, denied=denied)
     Console().print(tree)

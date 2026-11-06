@@ -15,3 +15,9 @@ MLOps 开放全部现有 Web Studio、Jupyter 和 service 公开命令，按已�
 MLOps 新增支持现有 auth ping、user、mep、model、resource、deployment、dataset 分组全部公开命令，复用 WiseRec 实现。完整命令树仅在不支持的叶命令描述末尾追加红色 [不支持]，支持命令不添加标记。
 
 CLI 安装仅分发正式 wiserec-platform skill 与 /ml 入口；不再打包或安装 skill-lab 详细版。安装成功时自动清理标准安装位置中历史详细版与 /ml-lab，仓库设计资料保留。
+
+环境 profile 新增 command_policy.deny，可精确禁止 jupyter files upload/download。执行前离线拦截，默认命令树隐藏禁用命令，完整命令树显示红色 [当前环境禁用]。重装保留配置，不扩展为终端、Notebook 或其他文件传输限制。
+
+配合权限服务的环境禁止命令策略，CLI 增加 COMMAND_DISABLED/COMMAND_REQUIRED 拒绝提示与服务端策略展示缓存；删除本地配置不能解除正常在线鉴权收到的禁令，缓存不用于执行放行。
+
+根目录配置样例更名为 config.example.json；构建转换为包内 config.json，安装后的正式用户配置仍为 config.json，真实根目录配置已加入忽略清单。权限系统源码目标同步为 1.0.9.1，数据库结构为 13，需显式迁移。

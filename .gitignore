@@ -25,3 +25,6 @@ agent-service/config.local.json
 agent-service/var/
 agent-service/.env
 agent-service/test-results/
+
+# User-specific root configuration; only the example is tracked
+/config.json

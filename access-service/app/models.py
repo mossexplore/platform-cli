@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Text, UniqueConstraint, create_engine
-from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, sessionmaker
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, sessionmaker, relationship
 
 
 def now():
@@ -43,6 +43,10 @@ class Environment(Base):
     display_name: Mapped[str] = mapped_column(String(128))
     platform_origin: Mapped[str] = mapped_column(String(512))
     enabled: Mapped[bool] = mapped_column(Boolean, default=True)
+    command_policy_revision: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+    forbidden_commands: Mapped[list["EnvironmentCommandDeny"]] = relationship(
+        cascade="all, delete-orphan", lazy="selectin")
+
     default_grant: Mapped[bool] = mapped_column(Boolean, default=False, server_default="0")
 
     created_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, default=now)
@@ -143,3 +147,13 @@ class CallLog(Base):
     request_id: Mapped[str] = mapped_column(String(64), default='')
     check_source: Mapped[str] = mapped_column(String(16), default='client')
     version_decision: Mapped[str] = mapped_column(Text, default='{}')
+
+
+class EnvironmentCommandDeny(Base):
+    __tablename__ = 'environment_command_denies'
+    __table_args__ = (UniqueConstraint('environment_id', 'command'),)
+    id: Mapped[int] = mapped_column(primary_key=True)
+    environment_id: Mapped[int] = mapped_column(ForeignKey('environments.id'))
+    command: Mapped[str] = mapped_column(String(128))
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=now)
+    created_by: Mapped[str] = mapped_column(String(128))

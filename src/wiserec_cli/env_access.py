@@ -112,6 +112,8 @@ def environment_statuses(runtime):
         grants[item['environment']] = item['platform_origin'].rstrip('/')
     decisions = {}
     for item in response['environments']:
+        from .server_command_policy import remember
+        remember(settings, next(profile for profile in profiles if profile.name == item['environment']), item['result'])
         handle_version_result(item['result'])
         decisions[item['environment']] = item['result']['allowed']
     statuses = {}

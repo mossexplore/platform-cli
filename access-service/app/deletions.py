@@ -25,6 +25,8 @@ def remove(request: Request, resource: str, item_id: int,
         before = {column.name: getattr(item, column.name) for column in model.__table__.columns}
         condition = Grant.user_id == item_id if resource == 'users' else Grant.environment_id == item_id
         if resource == 'environments':
+            from .command_policy import denied_commands
+            before['forbidden_commands'] = denied_commands(item)
             affected = select(Grant.user_id).where(condition)
             db.execute(update(User).where(User.id.in_(affected)).values(updated_at=now(), updated_by=admin.username))
         removed = db.execute(delete(Grant).where(condition)).rowcount

@@ -18,8 +18,8 @@ def runtime_from_context(context: typer.Context) -> Runtime:
     from ..history_recording import observe_runtime
     observe_runtime(runtime)
     runtime.invocation_command = command_name(context)
-    from ..adapters.registry import require_supported
-    require_supported(getattr(runtime.config.current_profile(), "platform_type", "wiserec"), runtime.invocation_command.removeprefix("ml "))
+    from ..command_policy import require_command
+    require_command(runtime.config.current_profile(), runtime.invocation_command.removeprefix("ml "))
     runtime.full_command = context.meta.get("full_command", "")
     return runtime
 

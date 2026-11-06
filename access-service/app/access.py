@@ -63,6 +63,7 @@ def gateway_check(body: Check, request: Request,
 
 
 def recorded_check(body, request, businessid, source='client'):
+    body.command = ' '.join(body.command.split())
     result = evaluate_access(body, request)
     info = metadata(request)
     with request.app.state.sessions() as db:
@@ -104,4 +105,13 @@ def evaluate_access(body, request):
             return denied('NOT_GRANTED', '当前账号未获当前环境授权，请联系管理员')
         if grant.expires_at and grant.expires_at <= now():
             return denied('GRANT_EXPIRED', '当前环境的使用授权已过期，请联系管理员')
-        return {'allowed': True, 'username': body.username, 'environment': environment.name}
+        from .command_policy import policy_snapshot, known_command
+        policy = policy_snapshot(environment)
+        if policy['deny'] and not known_command(body.command):
+            return denied('COMMAND_REQUIRED', '当前环境已配置禁止命令，请使用可上报完整命令路径的 CLI')
+        if body.command in policy['deny']:
+            return {**denied('COMMAND_DISABLED', '当前环境已由管理员禁止执行该命令'),
+                    'username': body.username, 'environment': environment.name,
+                    'command': body.command, 'command_policy': policy}
+        return {'allowed': True, 'username': body.username, 'environment': environment.name,
+                'command_policy': policy}

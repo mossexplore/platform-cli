@@ -125,7 +125,7 @@ def test_missing_access_url_fails_closed(inputs, settings):
 def test_upgrade_replaces_access_configuration(tmp_path):
     target = tmp_path / 'config.json'
     settings = {'enabled': True, 'url': 'https://access.example.com'}
-    baseline = json.loads((Path(__file__).resolve().parents[1] / 'config.json').read_text())
+    baseline = json.loads((Path(__file__).resolve().parents[1] / 'config.example.json').read_text())
     previous = dict(baseline, access_control=settings)
     target.write_text(json.dumps(previous))
     with patch('wiserec_cli.config._packaged_config_text', return_value=json.dumps(baseline)):

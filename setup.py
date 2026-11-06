@@ -1,4 +1,4 @@
-"""setuptools 构建扩展：将项目根目录 config.json 放入 Wheel。"""
+"""setuptools 构建扩展：将项目根目录 config.example.json 作为 config.json 放入 Wheel。"""
 
 from pathlib import Path
 from shutil import copyfile, rmtree
@@ -21,7 +21,7 @@ class BuildPy(BaseBuildPy):
         if build_lib.exists():
             rmtree(build_lib)
         super().run()
-        source = Path("config.json")
+        source = Path("config.example.json")
         destination = Path(self.build_lib) / "wiserec_cli" / "config.json"
         destination.parent.mkdir(parents=True, exist_ok=True)
         copyfile(source, destination)

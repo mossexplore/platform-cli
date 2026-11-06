@@ -135,7 +135,7 @@ ML_CONFIG=<path>     通过环境变量指定 config.json
 
 ### 5.1 默认配置
 
-项目根目录 `config.json` 是默认配置的唯一源码：
+项目根目录 `config.example.json` 是默认配置样例的唯一源码：
 
 ```json
 {
@@ -195,7 +195,7 @@ https://console-dev.cloudtest.cn/dashboard
 
 ### 5.2 配置安装与优先级
 
-构建 Wheel 时，根目录 `config.json` 被复制进安装包。安装新版本或默认配置内容变化后，首次执行 CLI 会强制覆盖用户目录的 `config.json`；同一版本后续执行不重复覆盖。
+构建 Wheel 时，根目录 `config.example.json` 以 `config.json` 文件名复制进安装包。安装新版本或默认配置内容变化后，首次执行 CLI 会强制覆盖用户目录的 `config.json`；同一版本后续执行不重复覆盖。
 
 配置选择优先级：
 
@@ -859,7 +859,7 @@ spec:
 
 ### 14.4 安装
 
-- Wheel 中包含根目录默认 `config.json`。
+- Wheel 中包含由根目录 `config.example.json` 生成的默认 `config.json`。
 - 新版本首次运行刷新用户配置。
 - 安装后在已正确配置 PATH 的任意 CMD 目录可执行 `ml`。
 - `ml --version` 与 Wheel 版本一致。
@@ -918,7 +918,7 @@ spec:
 | 环境命令 | `ml env`，不再使用 `ml profile` |
 | 业务命令 | `ml business`，不再使用 `ml context` |
 | 打包 | Wheel，不要求 exe |
-| 默认配置 | 仅以项目根目录 `config.json` 为源码 |
+| 默认配置 | 仅以项目根目录 `config.example.json` 为样例源码 |
 | 部门分组 | 使用显示名称回退链，不使用 `settleTenant` |
 | business schema | `businessId`，不保留 `effective_business_id` |
 

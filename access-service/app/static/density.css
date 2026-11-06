@@ -164,11 +164,13 @@
 .environment-table td.origin { white-space: normal; overflow-wrap: anywhere; word-break: normal; }
 .environment-table th:nth-child(4), .environment-table td:nth-child(4) { width: 72px; min-width: 72px; max-width: 72px; padding-left: 8px; padding-right: 8px; }
 .environment-table th:nth-child(4) { white-space: normal; }
-.environment-table th:nth-child(5) { width: 80px; }
-.environment-table th:nth-child(6), .environment-table th:nth-child(7) { width: 176px; min-width: 176px; }
-.environment-table td:nth-child(6), .environment-table td:nth-child(7) { white-space: nowrap; }
-.environment-table th:nth-child(8) { width: 84px; }
-.environment-table td:nth-child(8) { max-width: 84px; }
+.environment-table th:nth-child(5) { width: 120px; min-width: 120px; }
+.environment-table td:nth-child(5) code { white-space: normal; overflow-wrap: anywhere; }
+.environment-table th:nth-child(6) { width: 80px; }
+.environment-table th:nth-child(7), .environment-table th:nth-child(8) { width: 176px; min-width: 176px; }
+.environment-table td:nth-child(7), .environment-table td:nth-child(8) { white-space: nowrap; }
+.environment-table th:nth-child(9) { width: 84px; }
+.environment-table td:nth-child(9) { max-width: 84px; }
 
 /* 分页控件 */
 .management-page .pagination { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; }

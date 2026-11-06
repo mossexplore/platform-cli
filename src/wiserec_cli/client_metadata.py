@@ -77,6 +77,11 @@ def handle_version_result(result):
 def check_version_response(response):
     # Parse only the stable envelope; never treat a policy denial as auth expiry.
     try:
-        handle_version_result(response.json())
+        payload = response.json()
+        if (isinstance(payload, dict) and payload.get('allowed') is False
+                and payload.get('reason') in ('COMMAND_DISABLED', 'COMMAND_REQUIRED')):
+            from .access import AccessDeniedError
+            raise AccessDeniedError(payload['reason'], '网关拒绝命令：当前环境禁止该操作或要求上报完整命令，请联系管理员')
+        handle_version_result(payload)
     except ValueError:
         pass

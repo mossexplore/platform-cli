@@ -57,7 +57,7 @@ ACTIONS = {
 'grants.selection_save': '配置环境授权', 'users.delete': '删除人员', 'environments.delete': '删除环境', 'version_policy.update': '编辑版本策略', 'version_policy.delete': '删除版本策略', 'administrators.delete': '删除管理员', 'administrators.reset_password': '重置管理员密码', 'administrators.create': '创建管理员', 'administrators.update_name': '更新管理员姓名', 'administrators.enable': '启用管理员', 'administrators.disable': '停用管理员', 'login': '登录管理台', 'logout': '退出登录', 'login_failed': '登录失败',
            'users.save': '更新人员', 'environments.save': '更新环境',
            'grants.save': '更新授权', 'grants.batch_save': '批量配置授权', 'grants.bulk_save': '多人批量编辑授权'}
-FIELDS = {'role': '管理角色', 'username': '账号', 'display_name': '名称', 'enabled': '启用状态',
+FIELDS = {'forbidden_commands': '禁止命令', 'command_policy_revision': '命令策略修订号', 'role': '管理角色', 'username': '账号', 'display_name': '名称', 'enabled': '启用状态',
           'environment': '适用环境', 'business_id': '业务 ID', 'mode': '执行模式',
           'minimum_version': '最低版本', 'recommended_version': '推荐版本',
           'blocked_versions': '禁用版本', 'upgrade_url': '升级说明地址', 'effective_at': '生效时间',
@@ -103,6 +103,8 @@ def audit_detail(item):
     def display(key, value):
         if value in (None, 'None', ''):
             return '—'
+        if key == 'forbidden_commands':
+            return '、'.join(value) if value else '无'
         if key == 'role':
             return {'admin': '管理员', 'super_admin': '超级管理员'}.get(value, value)
         if key == 'enabled':

@@ -115,9 +115,13 @@ def check_access(settings, profile, credentials, selection, *, command="unknown"
             diagnostics.finish()
     if not isinstance(result, dict) or type(result.get('allowed')) is not bool:
         raise MlError('权限服务响应格式错误，业务请求已停止')
+    from .server_command_policy import remember
+    remember(settings, profile, result)
     handle_version_result(result)
     if not result['allowed']:
         messages = {
+            'COMMAND_REQUIRED': '当前环境要求上报完整命令路径，请更新 CLI',
+            'COMMAND_DISABLED': f'当前环境 {profile.name} 已由管理员禁止执行 {command}',
             'ENVIRONMENT_DISABLED': '当前环境未启用权限访问',
             'ENVIRONMENT_MISMATCH': '当前环境与平台地址不匹配',
             'USER_DISABLED': '当前账号未获授权或已停用',

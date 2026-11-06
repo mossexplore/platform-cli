@@ -14,7 +14,11 @@ router = APIRouter()
 
 
 def snapshot(item):
-    return {column.name: str(getattr(item, column.name)) for column in item.__table__.columns}
+    result = {column.name: str(getattr(item, column.name)) for column in item.__table__.columns}
+    if isinstance(item, Environment):
+        from .command_policy import denied_commands
+        result['forbidden_commands'] = denied_commands(item)
+    return result
 
 
 def record(db, admin, action, before, item):
@@ -111,14 +115,21 @@ def save_environment(request: Request, csrf: str = Form(max_length=64), item_id:
                      name: str = Form(min_length=1, max_length=64),
                      display_name: str = Form(min_length=1, max_length=128),
                      platform_origin: str = Form(max_length=512), enabled: bool = Form(False),
-                     default_grant: bool = Form(False)):
+                     default_grant: bool = Form(False), forbidden_commands: str = Form('', max_length=65000),
+                     policy_revision: int | None = Form(None, ge=0)):
     with request.app.state.sessions() as db:
         admin = authorize_form(request, db, csrf)
         item = existing(db, Environment, item_id) if item_id else Environment(name=name.strip())
+        if item_id:
+            db.refresh(item, with_for_update=True)
+            if policy_revision is not None and policy_revision != item.command_policy_revision:
+                raise HTTPException(409, '环境策略已被其他管理员修改，请刷新后重试')
         before = snapshot(item) if item_id else None
         if not item.name or (item_id and item.name != name):
             raise HTTPException(400, '环境标识不可为空，已建环境不可重命名')
         item.display_name, item.platform_origin, item.enabled = display_name, origin(platform_origin), enabled
+        from .command_policy import save_policy, parse_commands
+        save_policy(item, parse_commands(forbidden_commands), admin.username)
         item.default_grant = default_grant
         db.add(item)
         return record(db, admin, 'environments.save', before, item)

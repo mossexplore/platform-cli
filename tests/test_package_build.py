@@ -11,7 +11,7 @@ def test_wheel_excludes_stale_build_modules(tmp_path):
     root = Path(__file__).resolve().parents[1]
     project = tmp_path / "project"
     project.mkdir()
-    for name in ("setup.py", "pyproject.toml", "MANIFEST.in", "config.json", "versions.toml"):
+    for name in ("setup.py", "pyproject.toml", "MANIFEST.in", "config.example.json", "versions.toml"):
         shutil.copy2(root / name, project / name)
     (project / 'scripts').mkdir()
     shutil.copy2(root / 'scripts/sync_versions.py', project / 'scripts/sync_versions.py')
@@ -40,10 +40,34 @@ def test_wheel_excludes_stale_build_modules(tmp_path):
             names = set(archive.namelist())
             assert names.isdisjoint(stale_files)
             assert "wiserec_cli/cli.py" in names
-            assert archive.read("wiserec_cli/config.json") == (root / "config.json").read_bytes()
+            assert archive.read("wiserec_cli/config.json") == (root / "config.example.json").read_bytes()
             assert "wiserec_cli/opencode_resources/manifest.json" in names
 
 
-def test_both_skills_survive_sdist_and_installation():
+def test_sdist_excludes_lab_and_builds_formal_skill(tmp_path):
+    import tarfile
     root = Path(__file__).resolve().parents[1]
-    runpy.run_path(str(root / "skill-lab/validation/verify_package.py"))["main"]()
+    project = tmp_path / "project"
+    project.mkdir()
+    for name in ("setup.py", "pyproject.toml", "MANIFEST.in", "config.example.json", "versions.toml"):
+        shutil.copy2(root / name, project / name)
+    (project / "scripts").mkdir()
+    shutil.copy2(root / "scripts/sync_versions.py", project / "scripts/sync_versions.py")
+    for name in ("src", "skill"):
+        shutil.copytree(root / name, project / name, ignore=shutil.ignore_patterns("*.egg-info", "__pycache__"))
+    result = subprocess.run([sys.executable, "setup.py", "sdist"], cwd=project, capture_output=True, text=True)
+    assert result.returncode == 0, result.stdout + result.stderr
+    archive, = (project / "dist").glob("*.tar.gz")
+    with tarfile.open(archive) as source:
+        names = source.getnames()
+        assert not any("skill-lab" in name or name.endswith("/ml-lab.md") for name in names)
+        assert any(name.endswith("/skill/wiserec-platform/SKILL.md") for name in names)
+        source.extractall(tmp_path / "extracted")
+    restored, = (tmp_path / "extracted").iterdir()
+    result = subprocess.run([sys.executable, "setup.py", "bdist_wheel"], cwd=restored, capture_output=True, text=True)
+    assert result.returncode == 0, result.stdout + result.stderr
+    wheel, = (restored / "dist").glob("*.whl")
+    with zipfile.ZipFile(wheel) as source:
+        names = source.namelist()
+        assert "wiserec_cli/opencode_resources/skills/wiserec-platform/SKILL.md" in names
+        assert not any("wiserec-platform-detailed" in name or "ml-lab.md" in name for name in names)

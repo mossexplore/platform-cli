@@ -172,3 +172,5 @@ OpenCode 的正式 skill 安装到 `~/.agents/skills/wiserec-platform`，`/ml` �
 完成后重新打开 Agent 会话，输入 `/ml 查询当前业务下的模型` 使用正式 skill；不带需求时可查看上下文和用法。直接通过 pip 安装 Wheel 不自动安装 Agent 资源，自动安装入口为官方 Windows 安装包。
 
 历史安装若使用过其他自定义 OpenCode 配置目录，需在该目录重新运行安装程序才能清理对应旧副本。
+
+仓库样例为 config.example.json；构建后包内和用户目录仍使用 config.json。无需在用户目录创建 config.example.json。

@@ -5,7 +5,7 @@ from .models import Base, CallLog, SchemaVersion, AccessApplication, Application
 from .version_models import VersionPolicy, VersionException
 from .notification_models import NotificationClient, NotificationTask
 
-SCHEMA_VERSION = 12
+SCHEMA_VERSION = 13
 
 
 def migrate(engine, sessions):
@@ -85,6 +85,13 @@ def migrate(engine, sessions):
     if version < 12:
         NotificationClient.__table__.create(engine, checkfirst=True)
         NotificationTask.__table__.create(engine, checkfirst=True)
+    if version < 13:
+        from .models import EnvironmentCommandDeny
+        columns = {column['name'] for column in inspect(engine).get_columns('environments')}
+        if 'command_policy_revision' not in columns:
+            with engine.begin() as connection:
+                connection.execute(text('ALTER TABLE environments ADD COLUMN command_policy_revision INTEGER NOT NULL DEFAULT 0'))
+        EnvironmentCommandDeny.__table__.create(engine, checkfirst=True)
     with sessions() as db:
         if db.get(NotificationClient, 1) is None:
             db.add(NotificationClient(id=1))

@@ -8,6 +8,15 @@
 <label>环境标识 <span class="required">*</span><input name="name" required maxlength="64" value="{{ item.name if item else '' }}" {% if item %}readonly{% endif %} placeholder="例如 production"><small>与 CLI 中的环境标识一致，创建后不可修改。</small></label>
 <label>显示名称 <span class="required">*</span><input name="display_name" required maxlength="128" value="{{ item.display_name if item else '' }}" placeholder="例如 生产环境"></label>
 <label>平台地址 <span class="required">*</span><input name="platform_origin" type="url" required maxlength="512" value="{{ item.platform_origin if item else '' }}" placeholder="https://platform.example.com"><small>HTTP 或 HTTPS 源地址，不包含 /dashboard 等路径。</small></label>
+<input type="hidden" name="policy_revision" value="{{ item.command_policy_revision if item else 0 }}">
+<fieldset data-command-policy><legend>禁止命令</legend>
+{% set selected = item.forbidden_commands|map(attribute='command')|list if item else [] %}
+<label>命令列表<textarea name="forbidden_commands" data-command-input rows="7" maxlength="65000" spellcheck="false" placeholder="ml jupyter files upload&#10;ml jupyter files download">{{ selected|join('\n') }}</textarea></label>
+<small>每行一条完整业务命令，包含 ml 前缀，不填写参数或通配符；空行忽略、重复项自动去重。最多 500 条，每条最多 128 字符。留空解除全部命令禁令。</small>
+<small>请按 CLI 实际命令路径填写；不校验命令是否存在。基础管理入口不可禁用，禁止分组路径不会自动禁止子命令。</small>
+<small data-command-count>已禁止 {{ selected|length }} 个命令</small>
+<small>对该环境全部账号生效，下一次业务鉴权检查；不限制终端或 Notebook 内部行为</small>
+</fieldset>
 <div class="state-field"><div><strong>默认开通环境</strong><p>审批时预选此环境，仅在环境启用时生效，不会自动授权。</p></div><label class="switch"><input type="checkbox" aria-label="默认开通环境" name="default_grant" value="true" {% if item and item.default_grant %}checked{% endif %}><span></span></label></div>
 {% else %}
 <label>平台账号 <span class="required">*</span><input name="username" required maxlength="128" value="{{ users[item.user_id] if item else username }}" {% if item or username %}readonly{% endif %} placeholder="填写已添加的人员账号"></label>
