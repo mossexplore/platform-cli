@@ -1,5 +1,5 @@
 include config.example.json
-exclude config.json
+include config.json
 include versions.toml
 include scripts/sync_versions.py
 include scripts/jupyter_local.py

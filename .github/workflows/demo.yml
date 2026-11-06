@@ -23,6 +23,8 @@ jobs:
       - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1
         with:
           python-version: '3.12'
+      - name: Prepare CI example configuration
+        run: python -c "from shutil import copyfile; copyfile('config.example.json', 'config.json')"
       - run: python -m pip install -e '.[jupyter-local]' -e ./devtools/mock-platform pytest build -r access-service/requirements.lock
       - run: python -m pytest devtools/mock-platform/tests tests/test_execution_context.py -q
       - run: python -m build --outdir /tmp/formal

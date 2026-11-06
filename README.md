@@ -131,4 +131,4 @@ scripts\build-install.cmd -OutputDirectory "D:\Builds\WiseRecCLI"
 
 新增独立的 [WiseRec Agent 本地工作台](agent-service/README.md)，通过环境登录与对话查询平台数据。配置模板位于 [agent-service/config.example.json](agent-service/config.example.json)。当前需完成真实平台、MySQL、模型及 Windows 联调后再验收放行；未纳入现有 CLI 正式发布附件。
 
-仓库根目录 `config.example.json` 是样例配置；源码开发可复制为 `config.json` 后按环境修改。构建时将样例转换为包内 `wiserec_cli/config.json`，安装后正式配置仍为用户目录中的 `config.json`。真实根目录配置不提交到 Git。
+仓库根目录 `config.example.json` 仅为样例；制作安装包前，必须在同一目录复制为 `config.json` 并填写实际环境。构建仅使用根目录正式 `config.json`，缺失时直接报错，不自动回退至样例。Wheel、源码分发包及 Windows 安装包均携带这份配置；安装时据此覆盖用户配置，并按上述规则保留或回退 `current`。真实根目录配置不提交到 Git。

@@ -65,6 +65,9 @@ foreach ($RequiredCommand in @(
 }
 
 $RepositoryRoot = (Resolve-Path (Join-Path $ScriptDirectory "..\..")).Path
+if (-not (Test-Path -LiteralPath (Join-Path $RepositoryRoot "config.json") -PathType Leaf)) {
+    throw "Missing project-root config.json. Copy config.example.json to config.json, edit it, then rebuild."
+}
 if ($Online -and $Offline) {
     throw "Use either -Online or -Offline, not both. Online is the default."
 }

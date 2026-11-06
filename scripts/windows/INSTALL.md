@@ -175,4 +175,4 @@ OpenCode 的正式 skill 安装到 `~/.agents/skills/wiserec-platform`，`/ml` �
 
 历史安装若使用过其他自定义 OpenCode 配置目录，需在该目录重新运行安装程序才能清理对应旧副本。
 
-仓库样例为 config.example.json；构建后包内和用户目录仍使用 config.json。无需在用户目录创建 config.example.json。
+制作安装包前，在项目根目录将 `config.example.json` 复制为同目录的 `config.json`，修改正式环境配置后再运行打包脚本。打包仅使用这份 `config.json`，缺失时直接报错，绝不自动采用样例。Wheel、源码分发包和 Windows 安装包均携带正式配置；安装后的用户文件仍为 `config.json`。无需在用户目录创建 `config.example.json`。
