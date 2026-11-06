@@ -2,7 +2,7 @@
 
 Windows 托盘与本地网页应用。通过权限系统领取任务，逐个调用消息接口；不依赖、不修改业务 CLI。
 
-当前源码版本为 **1.0.7.12**。唯一维护入口是根目录 `versions.toml` 的 `components.notifier`；同步脚本更新本项目 `pyproject.toml` 与包内 `__version__`。页面左下角“高级设置”同一行右侧和心跳上报均读取助手自身版本。完整仓库打包时自动同步，独立安装包无需根目录版本文件。详见 [版本号管理说明](https://github.com/mossexplore/platform-cli/blob/main/docs/版本号管理说明.md)。
+当前源码版本为 **1.0.9.1**。唯一维护入口是根目录 `versions.toml` 的 `components.notifier`；同步脚本更新本项目 `pyproject.toml` 与包内 `__version__`。页面左下角“高级设置”同一行右侧和心跳上报均读取助手自身版本。完整仓库打包时自动同步，独立安装包无需根目录版本文件。详见 [版本号管理说明](https://github.com/mossexplore/platform-cli/blob/main/docs/版本号管理说明.md)。
 
 ## 安装与启动
 

@@ -68,23 +68,25 @@ manifest['notifier_package'] = {'file': assistant.name, **data}
 shutil.copyfile('permission-notifier/README.md', out / 'Notifier-install.md')
 manifest['cli_packages'] = cli
 manifest['cli_version'] = cli_version
+manifest['component_versions'] = dict.fromkeys(('cli', 'access', 'agent', 'notifier'), version)
 manifest['release_tag'] = 'v' + version
 manifest['validation'] = [
     'Assistant tests and simulated cross-component delivery; disposable MySQL notification concurrency',
     'Windows assistant installer and loopback HTTP startup/shutdown (headless)',
+    'Agent and CLI pairing tests with injected HTTP and SQLite; no real model or Edge acceptance',
     'CLI and service unit tests', 'Browser timezone and environment disclosure tests',
     'MySQL Docker smoke, numeric dashboard JSON, directory mount and configuration restart',
     'Docker save/load round trip', 'Windows online and offline install',
-    'Windows CLI upgrade from published 1.0.7.7; selected environment preserved on upgrade and reinstall',
+    'Windows CLI upgrade from published 1.0.7.10; selected environment preserved on upgrade and reinstall',
 ]
 (out / 'manifest.json').write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + '\n')
 shutil.copyfile('docs/权限管理系统Docker安装部署与调试指南.md', out / 'Docker-runbook.md')
-shutil.copyfile(f'docs/权限管理系统1.0.7.7升级至{version}指南.md', out / f'Docker-upgrade-{version}.md')
+shutil.copyfile(f'docs/权限管理系统结构12升级至{version}指南.md', out / f'Docker-upgrade-{version}.md')
 shutil.copyfile('scripts/windows/INSTALL.md', out / 'CLI-install.md')
 shutil.copyfile('docs/WiseRec CLI 使用手册.md', out / 'CLI-reference.md')
 expected = {wheel.name, assistant.name, *(a.name for a in archives), manifest['image_file'],
             'manifest.json', 'SHA256SUMS', 'README.md', 'service.env.example', 'CLI-install.md',
-            'CLI-reference.md', 'Notifier-install.md', 'Docker-runbook.md', f'Docker-upgrade-{version}.md'}
+            'RELEASE_NOTES.md', 'Migration-notes.md', 'CLI-reference.md', 'Notifier-install.md', 'Docker-runbook.md', f'Docker-upgrade-{version}.md'}
 assert {p.name for p in out.iterdir()} == expected, 'Unexpected or missing release assets'
 lines = []
 for path in sorted(out.iterdir()):

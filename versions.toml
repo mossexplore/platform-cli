@@ -2,8 +2,8 @@
 [components]
 cli = "1.0.9.1"
 access = "1.0.9.1"
-agent = "1.0.7.12"
-notifier = "1.0.7.12"
+agent = "1.0.9.1"
+notifier = "1.0.9.1"
 
 [compatibility]
-agent_cli = "1.0.7.12"
+agent_cli = "1.0.9.1"

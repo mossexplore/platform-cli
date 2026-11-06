@@ -91,6 +91,15 @@ service('list_quality_wide_featuresets', 'quality', 'QualityService', 'list_wide
     'quality wide-featureset list', 'quality', '查询质量监控宽表特征集，支持名称筛选；不同于普通宽表特征集列表',
     overrides=QUALITY_PAGING)
 
+for assembly_type, label in (('feature_assemble', '特征装配'), ('label_assemble', '标签装配')):
+    base = 'quality wide-featureset ' + assembly_type.replace('_', '-')
+    fixed_type = {'assembly_type': (Literal[assembly_type], assembly_type)}
+    service('list_quality_' + assembly_type, 'quality', 'QualityService', 'list_assemblies',
+        base + ' list', 'quality_assemblies', '查询' + label + '样本定义列表', overrides=fixed_type)
+    service('list_quality_' + assembly_type + '_features', 'quality', 'QualityService', 'list_assembly_features',
+        base + ' feature list', 'quality_assemblies', '查询' + label + '样本定义下的特征列表',
+        overrides={**QUALITY_PAGING, **fixed_type})
+
 service('list_sample_tasks', 'sample_task', 'SampleTaskService', 'list_tasks', 'sample-task list', 'samples', '查询样本任务', overrides={'types': (list[str] | None, None), 'status': (Literal['all', 'stopped', 'started'] | None, None), 'sort': (str | None, None)})
 service('list_sample_periods', 'sample_execution', 'SampleExecutionService', 'list_periods', 'sample-task period list', 'samples', '查询样本执行周期', overrides={'states': (list[str] | None, None)})
 service('list_sample_executions', 'sample_execution', 'SampleExecutionService', 'list_executions', 'sample-task execution list', 'samples', '查询样本执行记录')

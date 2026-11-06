@@ -4,7 +4,9 @@
 
 **本次交付尚未完成真实环境验收**：没有模型、MySQL、平台或 access-service 配置。自动化测试使用可注入的 HTTP 测试桩与 SQLite；生产启动路径必须连接 MySQL 和真实模型，不会回退为演示数据。Windows 与真实 Edge 登录需按下方验收清单验证。
 
-当前源码版本为 **1.0.7.12**，由根目录 `versions.toml` 的 `components.agent` 维护；`agent-service/pyproject.toml` 和 `app/_version.py` 由脚本同步。运行时只读取自身包内版本，不读取 CLI 版本作为页面版本。修改方法见 [版本号管理说明](../docs/版本号管理说明.md)。
+当前源码版本为 **1.0.9.1**，由根目录 `versions.toml` 的 `components.agent` 维护；`agent-service/pyproject.toml` 和 `app/_version.py` 由脚本同步。运行时只读取自身包内版本，不读取 CLI 版本作为页面版本。修改方法见 [版本号管理说明](../docs/版本号管理说明.md)。
+
+本次补齐 CLI 质量监控中宽表特征集的特征装配、标签装配样本定义及特征列表查询，继续通过服务端权限检查并使用当前业务上下文。
 
 ## 环境与安装
 

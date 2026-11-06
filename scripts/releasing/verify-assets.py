@@ -18,7 +18,7 @@ def verify(directory, release, version, revision, digest):
         f'wiserec_cli-{version}-py3-none-any.whl',
         f'permission-notifier-{version}-windows-source.zip',
         f'cli-access-{version}-linux-amd64.tar.gz',
-        'CLI-install.md', 'CLI-reference.md', 'Notifier-install.md', 'Docker-runbook.md',
+        'CLI-install.md', 'RELEASE_NOTES.md', 'Migration-notes.md', 'CLI-reference.md', 'Notifier-install.md', 'Docker-runbook.md',
         f'Docker-upgrade-{version}.md', 'README.md', 'service.env.example', 'manifest.json', 'SHA256SUMS',
     }
     assert release['draft'] and not release['prerelease']
@@ -43,6 +43,7 @@ def verify(directory, release, version, revision, digest):
     manifest = json.loads((directory / 'manifest.json').read_text())
     assert manifest['release_tag'] == 'v' + version
     assert manifest['cli_version'] == manifest['image_version'] == version
+    assert manifest['component_versions'] == dict.fromkeys(('cli', 'access', 'agent', 'notifier'), version)
     assert manifest['image_revision'] == revision and manifest['platform'] == 'linux/amd64'
     assert manifest['image_tag'] == 'cli-access:' + version
     assert manifest['image_reference'] == 'ghcr.io/mossexplore/cli-access@' + digest
@@ -86,11 +87,15 @@ def verify(directory, release, version, revision, digest):
         'CLI-reference.md': 'docs/WiseRec CLI 使用手册.md',
         'Notifier-install.md': 'permission-notifier/README.md',
         'Docker-runbook.md': 'docs/权限管理系统Docker安装部署与调试指南.md',
-        f'Docker-upgrade-{version}.md': f'docs/权限管理系统1.0.7.7升级至{version}指南.md',
+        f'Docker-upgrade-{version}.md': f'docs/权限管理系统结构12升级至{version}指南.md',
+        'Migration-notes.md': 'docs/环境禁止命令开发与迁移说明.md',
         'service.env.example': 'access-service/docker/service.env.example',
     }
     for name, source in docs.items():
         assert (directory / name).read_bytes() == Path(source).read_bytes(), name
+    notes = Path(f'docs/ACCESS_RELEASE_NOTES_{version}.md').read_text().replace('环境禁止命令开发与迁移说明.md', 'Migration-notes.md')
+    assert (directory / 'RELEASE_NOTES.md').read_text() == notes
+    assert manifest.get('documents_source_revision', revision) == revision
     template = Path('docs/权限管理系统Docker离线导入与运行.md').read_text()
     for key, value in manifest.items():
         if isinstance(value, str):
@@ -115,4 +120,4 @@ if __name__ == '__main__':
     manifest = verify(directory, json.loads(release_file.read_text()), os.environ['VERSION'],
            os.environ['GITHUB_SHA'], os.environ['IMAGE_DIGEST'])
     print(json.dumps({key: manifest[key] for key in ('release_tag', 'image_revision', 'image_reference', 'image_id')}, indent=2))
-    print('Verified all 14 downloaded draft assets: hashes, versions, source, CLI isolation, docs and Docker archive identity')
+    print('Verified all downloaded draft assets: hashes, versions, source, CLI isolation, docs and Docker archive identity')

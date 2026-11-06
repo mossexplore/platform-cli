@@ -126,3 +126,41 @@ def test_full_permission_chain_and_service_contract(client, app, name, filtered)
     with pytest.raises(AppError, match='权限'):
         app.state.platform.execute(session_id, None, BUSINESS, name, args, 'denied-call')
     assert len(queries) == 1
+
+
+@pytest.mark.parametrize('kind', ['feature_assemble', 'label_assemble'])
+@pytest.mark.parametrize('features', [False, True])
+def test_assembly_tools_preserve_permission_and_business_context(client, app, kind, features):
+    ready(client)
+    with app.state.db() as db:
+        session_id = db.scalar(select(Session.id).where(Session.status == 'ready'))
+    name = 'list_quality_' + kind + ('_features' if features else '')
+    args = {'set_id': 'set-id'}
+    expected = {'setId': 'set-id', 'type': kind}
+    suffix = '/feature-sets/query'
+    if features:
+        args.update(definition_id='definition-id', page=2, page_size=5)
+        expected.update(definitionId='definition-id', pageIndex=2, pageSize=5)
+        suffix += '/feature-indicators'
+    opposite = 'label_assemble' if kind == 'feature_assemble' else 'feature_assemble'
+    with pytest.raises(ValueError):
+        OPERATIONS[name].schema.model_validate({**args, 'assembly_type': opposite})
+    calls = []
+    original = app.state.platform.transport.handler
+    def upstream(request):
+        if request.url.path == PREFIX + suffix:
+            assert request.headers.get_list('businessid') == ['b1']
+            assert json.loads(request.content) == expected
+            assert json.loads(app.test_upstream.calls[-1].content)['command'] == COMMANDS[name]
+            calls.append(request)
+            return httpx.Response(200, json={'result': {'code': 0, 'sampleDefinitionList': [],
+                'featureList': [], 'totalCount': 0}})
+        return original(request)
+    app.state.platform.transport = httpx.MockTransport(upstream)
+    result = app.state.platform.execute(session_id, None, BUSINESS, name, args, 'assembly-call')
+    assert result['ok'] and result['data']['items'] == [] and len(calls) == 1
+    assert discover({'query': name})['tools'][0]['name'] == name
+    app.test_upstream.allow = False
+    with pytest.raises(AppError, match='权限'):
+        app.state.platform.execute(session_id, None, BUSINESS, name, args, 'assembly-denied')
+    assert len(calls) == 1

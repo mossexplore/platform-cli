@@ -13,7 +13,7 @@ from zipfile import ZipFile
 import pytest
 
 ROOT = Path(__file__).parents[1]
-VERSION = '1.0.7.10'
+VERSION = '1.0.9.1'
 SHA = 'a' * 40
 
 
@@ -24,11 +24,13 @@ def assemble(tmp_path, *, wrong_revision=False, extra_file=False, leak=False):
         shutil.copyfile(ROOT / 'scripts/releasing' / name, scripts / name)
     files = {
         'access-service/VERSION': VERSION,
+        f'docs/ACCESS_RELEASE_NOTES_{VERSION}.md': 'access notes',
+        'docs/环境禁止命令开发与迁移说明.md': 'migration notes',
         f'docs/RELEASE_NOTES_{VERSION}.md': 'release notes fixture',
         'docs/权限管理系统Docker离线导入与运行.md': 'image readme',
         'access-service/docker/service.env.example': 'placeholder',
         'docs/权限管理系统Docker安装部署与调试指南.md': 'runbook',
-        f'docs/权限管理系统1.0.7.7升级至{VERSION}指南.md': 'upgrade',
+        f'docs/权限管理系统结构12升级至{VERSION}指南.md': 'upgrade',
         'docs/WiseRec CLI 使用手册.md': 'commands',
         'scripts/windows/INSTALL.md': 'install',
         'permission-notifier/README.md': 'assistant install',
@@ -75,6 +77,8 @@ def assemble(tmp_path, *, wrong_revision=False, extra_file=False, leak=False):
             entry = tarfile.TarInfo(name)
             entry.size = len(content)
             archive.addfile(entry, io.BytesIO(content))
+    (out / 'RELEASE_NOTES.md').write_text('access notes')
+    (out / 'Migration-notes.md').write_text('migration notes')
     (out / 'README.md').write_text('image readme')
     (out / 'service.env.example').write_text('placeholder')
     (out / 'manifest.json').write_text(json.dumps({'image_version': VERSION, 'image_revision': SHA,
@@ -98,7 +102,7 @@ def test_assistant_is_third_separate_archive_with_complete_checksums(tmp_path):
     manifest = json.loads((out / 'manifest.json').read_text())
     assert len(manifest['cli_packages']) == 2
     assert manifest['notifier_package']['file'].startswith('permission-notifier-')
-    assert len((out / 'SHA256SUMS').read_text().splitlines()) == 13
+    assert len((out / 'SHA256SUMS').read_text().splitlines()) == 15
     assert (out / 'Notifier-install.md').read_text() == 'assistant install'
 
 

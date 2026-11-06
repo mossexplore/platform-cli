@@ -1,8 +1,8 @@
 # CLI 权限管理服务
 
-当前源码版本：1.0.9.1，数据库结构为 13，新增环境禁止命令表与策略修订号；升级此源码目标前必须显式迁移。版本由根目录 `versions.toml` 的 `components.access` 维护，使用同步脚本生成 `VERSION` 和 `app/_version.py`，详见 [版本号管理说明](../docs/版本号管理说明.md)。当前正式下载仍为 1.0.7.10。
+当前源码版本：1.0.9.1，数据库结构为 13，新增环境禁止命令表与策略修订号；升级此源码目标前必须显式迁移。版本由根目录 `versions.toml` 的 `components.access` 维护，使用同步脚本生成 `VERSION` 和 `app/_version.py`，详见 [版本号管理说明](../docs/版本号管理说明.md)。正式附件以对应 Release 发布状态为准。
 
-附件见 [v1.0.7.10 Release](https://github.com/mossexplore/platform-cli/releases/tag/v1.0.7.10)。从上一正式版 1.0.7.7 升级结构仍为 12，无需迁移，见 [升级指南](../docs/权限管理系统1.0.7.7升级至1.0.7.10指南.md)。独立本地助手单独下载，不进入 CLI 安装包。
+附件见 [v1.0.9.1 Release](https://github.com/mossexplore/platform-cli/releases/tag/v1.0.9.1)。从结构 12 升级需显式迁移至结构 13，见 [升级指南](../docs/权限管理系统结构12升级至1.0.9.1指南.md)。保留原配置、管理员和外部数据库；独立本地助手单独下载，不进入 CLI 安装包。
 
 支持 Docker Compose 部署与 GitHub Actions → GHCR 自动制作镜像，详见 [Docker 部署与发布指南](../docs/权限管理系统Docker部署与发布指南.md)。下面保留原内网离线包部署方式。
 

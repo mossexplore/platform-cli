@@ -9,7 +9,7 @@ import httpx
 def verify(client):
     response = client.get('/healthz')
     assert response.status_code == 200 and response.json() == {'status': 'ok'}
-    for asset in ('app.css', 'app.js', 'base.css', 'icon-chevron-down.svg', 'environment-pills.js', 'approval-environments.js'):
+    for asset in ('app.css', 'app.js', 'base.css', 'icon-chevron-down.svg', 'environment-pills.js', 'approval-environments.js', 'command-policy.js'):
         assert client.get('/static/' + asset).status_code == 200, asset
     page = client.get('/login')
     token = re.search(r'name="csrf" value="([^"]+)"', page.text)[1]
@@ -52,6 +52,27 @@ def verify(client):
             'command': 'ml train list', 'full_command': 'ml train list'}
     response = client.post('/api/v1/access/check', json=body, headers={'businessid': 'ci-business'})
     assert response.status_code == 200 and response.json()['allowed'] is True
+    # Exercise manual entry, environment-level deny, audit, and removal in the same image.
+    command = 'ml jupyter files upload'
+    page = client.get('/admin?tab=environments')
+    assert 'data-command-input' in page.text
+    token = re.search(r'name="csrf" value="([^"]+)"', page.text)[1]
+    revision = re.search(r'name="policy_revision" value="([0-9]+)"', page.text)[1]
+    form = {'csrf': token, 'item_id': ci_id, 'name': 'ci', 'display_name': 'CI alias',
+            'platform_origin': 'https://platform.example.com', 'enabled': 'true',
+            'default_grant': 'true', 'forbidden_commands': command, 'policy_revision': revision}
+    assert client.post('/admin/environments', data=form).status_code == 200
+    blocked = client.post('/api/v1/access/check', json={**body, 'command': command},
+                          headers={'businessid': 'ci-business'})
+    assert blocked.status_code == 200 and blocked.json()['reason'] == 'COMMAND_DISABLED'
+    assert blocked.json()['command_policy']['deny'] == [command]
+    audit = client.get('/admin?tab=audit')
+    assert audit.status_code == 200 and '禁止命令' in audit.text
+    form['policy_revision'] = blocked.json()['command_policy']['revision']
+    form['forbidden_commands'] = ''
+    assert client.post('/admin/environments', data=form).status_code == 200
+    assert client.post('/api/v1/access/check', json={**body, 'command': command},
+                       headers={'businessid': 'ci-business'}).json()['allowed'] is True
     body['username'] = 'unknown-user'
     response = client.post('/api/v1/access/check', json=body, headers={'businessid': 'ci-business'})
     assert response.status_code == 200, response.text

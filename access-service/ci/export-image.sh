@@ -35,19 +35,51 @@ docker load -i "$OUTPUT_DIR/$filename"
 cp "$source_dir/docker/service.env.example" "$OUTPUT_DIR/service.env.example"
 export IMAGE_REFERENCE IMAGE_ID="$image_id" IMAGE_TAG="$tag" IMAGE_FILE="$filename" IMAGE_VERSION="$version" IMAGE_REVISION="$revision"
 python - <<'PY'
-import json, os
+import json, os, subprocess
 from pathlib import Path
 out = Path(os.environ['OUTPUT_DIR'])
 metadata = {key.lower(): os.environ[key] for key in (
     'IMAGE_REFERENCE', 'IMAGE_ID', 'IMAGE_TAG', 'IMAGE_FILE', 'IMAGE_VERSION', 'IMAGE_REVISION')}
 metadata['platform'] = 'linux/amd64'
 (out/'manifest.json').write_text(json.dumps(metadata, indent=2)+'\n')
-template = Path('docs/权限管理系统Docker离线导入与运行.md').read_text()
-for key, value in metadata.items():
-    template = template.replace('{{'+key+'}}', value)
-(out/'README.md').write_text(template)
+# Always use documents from the exported image's exact source commit.
+def source_text(relative):
+    return subprocess.check_output(['git', 'show', metadata['image_revision'] + ':' + relative]).decode('utf-8')
+
+def rendered(text):
+    for key, value in metadata.items():
+        text = text.replace('{{'+key+'}}', value)
+    return text
+
+(out/'service.env.example').write_text(source_text('access-service/docker/service.env.example'))
+(out/'README.md').write_text(rendered(source_text('docs/权限管理系统Docker离线导入与运行.md')))
+runbook = source_text('docs/权限管理系统Docker安装部署与调试指南.md')
+runbook = runbook.replace('cli-access:' + metadata['image_version'], metadata['image_tag'])
+runbook = runbook.replace('cli-access-' + metadata['image_version'] + '-linux-amd64.tar.gz', metadata['image_file'])
+runbook = runbook.replace('权限管理系统结构12升级至' + metadata['image_version'] + '指南.md', 'Docker-upgrade-' + metadata['image_version'] + '.md')
+(out/'Docker-runbook.md').write_text(runbook)
+files = subprocess.check_output(['git', 'ls-tree', '-rz', '--name-only', metadata['image_revision'], 'docs']).decode().split('\0')
+guides = [name for name in files if name.endswith('升级至' + metadata['image_version'] + '指南.md')]
+if len(guides) > 1:
+    raise RuntimeError('More than one upgrade guide for target image')
+for guide in guides:
+    text = source_text(guide)
+    text = text.replace('cli-access:' + metadata['image_version'], metadata['image_tag'])
+    text = text.replace('cli-access-' + metadata['image_version'] + '-linux-amd64.tar.gz', metadata['image_file'])
+    (out/('Docker-upgrade-' + metadata['image_version'] + '.md')).write_text(text)
+notes = 'docs/ACCESS_RELEASE_NOTES_' + metadata['image_version'] + '.md'
+if notes in files:
+    notes_text = source_text(notes)
+    migration_notes = 'docs/环境禁止命令开发与迁移说明.md'
+    if migration_notes in files:
+        (out/'Migration-notes.md').write_text(source_text(migration_notes))
+        notes_text = notes_text.replace('环境禁止命令开发与迁移说明.md', 'Migration-notes.md')
+    (out/'RELEASE_NOTES.md').write_text(notes_text)
+metadata['export_run_id'] = os.environ.get('GITHUB_RUN_ID', '')
+metadata['documents_source_revision'] = metadata['image_revision']
+(out/'manifest.json').write_text(json.dumps(metadata, indent=2)+'\n')
 PY
-(cd "$OUTPUT_DIR" && sha256sum "$filename" service.env.example manifest.json README.md > SHA256SUMS)
+(cd "$OUTPUT_DIR" && find . -maxdepth 1 -type f ! -name SHA256SUMS -printf '%f\n' | sort | xargs sha256sum > SHA256SUMS)
 if [[ -n "${GITHUB_STEP_SUMMARY:-}" ]]; then
   {
     echo '### Offline Docker download'

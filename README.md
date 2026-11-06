@@ -9,26 +9,26 @@
 
 启用权限校验后，CLI 在执行业务命令前向权限系统检查当前账号和环境的授权，通过后再调用平台接口。权限系统独立部署，数据保存在 MySQL；客户端校验不替代平台自身的权限控制。
 
-四个产品的源码目标版本统一记录在根目录 [`versions.toml`](versions.toml)，本次 CLI 为 **1.0.9.1**，权限管理系统为 **1.0.9.1**，Agent、权限通知助手为 **1.0.7.12**，以后可以独立递增。只维护该文件，运行 `python scripts/sync_versions.py` 同步派生版本，再运行 `python scripts/sync_versions.py --check` 检查。页面及安装包读取各自携带的版本，详见 [版本号管理说明](docs/版本号管理说明.md)。源码目标版本不等于正式发布版本。
+四个产品的版本统一记录在根目录 [`versions.toml`](versions.toml)，CLI、权限管理系统、Agent 和权限通知助手本次发布目标均为 **1.0.9.1**，以后可以独立递增。运行 `python scripts/sync_versions.py` 同步，再运行 `python scripts/sync_versions.py --check` 检查。各产品读取自身包内版本，详见 [版本号管理说明](docs/版本号管理说明.md)。
 
-当前 CLI 源码版本为 **1.0.9.1**，增加 MLOps 训练列表适配、执行记录与执行实例查询和平台命令树筛选，支持复用保活、用户、MEP、模型、资源、部署、数据集、Web Studio、Jupyter 与服务管理接口，见 [发布说明](docs/RELEASE_NOTES_1.0.9.1.md)。本次为源码更新，尚未正式发布；下方下载入口仍指向已发布版本。
-
-当前正式版本为 **1.0.7.10**，包括 CLI、权限管理系统及独立本地通知助手，见 [发布说明](docs/RELEASE_NOTES_1.0.7.10.md)。已发布为最新稳定版。本地开发参见 [Jupyter 本地开发指南](docs/Jupyter本地开发指南.md)。
+本次发布增加 MLOps 管理台适配、Plog 下载与环境禁止命令管理，见 [发布说明](docs/RELEASE_NOTES_1.0.9.1.md)。权限管理系统数据库要求结构 **13**；现有结构 12 必须按 [升级指南](docs/权限管理系统结构12升级至1.0.9.1指南.md) 备份、迁移并验收。正式交付以对应 GitHub Release 的发布状态与校验清单为准。本地开发参见 [Jupyter 本地开发指南](docs/Jupyter本地开发指南.md)。
 
 新增本地命令历史：`ml history` 查看最近记录，`ml history clear` 清理。历史以文本保存在配置目录，最多保留 1000 条；`ml --no-history COMMAND` 可跳过本次记录。
 
-## 下载 1.0.7.10
+## 下载 1.0.9.1
 
-前往 [GitHub Release](https://github.com/mossexplore/platform-cli/releases/tag/v1.0.7.10)，按需要下载：
+前往 [GitHub Release](https://github.com/mossexplore/platform-cli/releases/tag/v1.0.9.1)，按需要下载：
 
 | 文件 | 用途 |
 | --- | --- |
-| `wiserec-cli-1.0.7.10-windows-py3-online.zip` | Windows 联网安装，支持企业 Python 包源 |
-| `wiserec-cli-1.0.7.10-windows-x64-py312-offline.zip` | Windows x64、Python 3.12 离线安装 |
-| `wiserec_cli-1.0.7.10-py3-none-any.whl` | 通过 pip 安装 CLI，依赖另行准备 |
-| `cli-access-1.0.7.10-linux-amd64.tar.gz` | Linux x86_64 权限系统 Docker 镜像 |
-| `permission-notifier-1.0.7.10-windows-source.zip` | 独立本地助手源码安装包，需要 Python 3.12 和依赖下载网络 |
+| `wiserec-cli-1.0.9.1-windows-py3-online.zip` | Windows 联网安装，支持企业 Python 包源 |
+| `wiserec-cli-1.0.9.1-windows-x64-py312-offline.zip` | Windows x64、Python 3.12 离线安装 |
+| `wiserec_cli-1.0.9.1-py3-none-any.whl` | 通过 pip 安装 CLI，依赖另行准备 |
+| `cli-access-1.0.9.1-linux-amd64.tar.gz` | Linux x86_64 权限系统 Docker 镜像 |
+| `permission-notifier-1.0.9.1-windows-source.zip` | 独立本地助手源码安装包，需要 Python 3.12 和依赖下载网络 |
 | `Notifier-install.md` | 助手安装、Token 绑定、配置与退出说明 |
+
+Agent 通过 Release 的完整仓库源码附件交付，按照 [Agent 安装说明](agent-service/README.md) 安装，需自行配置模型、MySQL 和 Edge。
 
 Release 同时提供配置示例、安装指南和 `SHA256SUMS` 校验文件。
 
@@ -56,18 +56,18 @@ ml --help
 服务支持 Docker 部署，复用现有 MySQL 8.x。内网服务器无需拉取镜像，可下载 Release 中的离线镜像后导入：
 
 ```bash
-docker load -i cli-access-1.0.7.10-linux-amd64.tar.gz
+docker load -i cli-access-1.0.9.1-linux-amd64.tar.gz
 ```
 
 接着按 [Docker 部署速查](docs/权限管理系统Docker安装部署与调试指南.md) 完成配置和启动：
 
 - 配置保存在宿主机 `/opt/cli-access-config/service.env`，只读挂载到容器 `/run/cli-access`。
-- 使用镜像 `cli-access:1.0.7.10` 启动，默认端口 `8008`。
+- 使用镜像 `cli-access:1.0.9.1` 启动，默认端口 `8008`。
 - 管理页面：`http://服务器IP:8008/cli-permission`。
 - 管理员添加与平台登录账号一致的人员、配置对应环境并授予访问权限。
 - 修改挂载配置后执行 `docker restart cli-access`；运行日志使用 `docker logs -f cli-access`。
 
-新数据库需要初始化并创建管理员；从上一正式版本 1.0.7.7 升级结构仍为 12，无需迁移；先恢复演练、停写并完成最终备份，再切换镜像验收，不重新创建已有管理员。完整步骤与回滚限制见 [升级指南](docs/权限管理系统1.0.7.7升级至1.0.7.10指南.md)。
+新数据库需要初始化并创建管理员；从上一正式版本 1.0.7.7 升级结构仍为 12，无需迁移；先恢复演练、停写并完成最终备份，再切换镜像验收，不重新创建已有管理员。完整步骤与回滚限制见 [升级指南](docs/权限管理系统1.0.7.7升级至1.0.9.1指南.md)。
 
 ## CLI 接入权限系统
 

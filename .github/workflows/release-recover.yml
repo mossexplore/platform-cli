@@ -43,7 +43,7 @@ jobs:
           assert run['event'] == 'workflow_dispatch' and run['head_branch'] == 'main'
           assert run['status'] == 'completed'
           jobs = gh('api', f'repos/{repo}/actions/runs/{run_id}/jobs?per_page=100')['jobs']
-          for name in ['validate', 'cli', 'image / image', 'notifier', 'notifier-tests']:
+          for name in ['validate', 'cli', 'image / image', 'notifier', 'notifier-tests', 'agent-tests']:
               assert any(j['name'] == name and j['conclusion'] == 'success' for j in jobs), name
           sha = run['head_sha']
           subprocess.run(['git', 'merge-base', '--is-ancestor', sha, 'origin/main'], check=True)
@@ -126,7 +126,7 @@ jobs:
           expected=$(python -c 'import json; print(json.load(open("verified-assets/manifest.json"))["image_id"])')
           test "$(docker image inspect --format '{{.Id}}' "cli-access:$VERSION")" = "$expected"
           test "$(docker run --rm --pull=never --network none "cli-access:$VERSION" python -c 'import os; print(os.getuid())')" = 10001
-          echo 'All 14 draft assets freshly downloaded and verified against the original tested source and artifacts; Docker load and image ID verified. Draft remains unpublished.' >> "$GITHUB_STEP_SUMMARY"
+          echo 'All 16 draft assets freshly downloaded and verified against the original tested source and artifacts; Docker load and image ID verified. Draft remains unpublished.' >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: verified-release-assets

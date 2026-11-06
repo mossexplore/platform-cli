@@ -75,4 +75,4 @@ def test_build_hook_supports_standalone_source_without_root_manifest(tmp_path, c
     result = subprocess.run([sys.executable, 'setup.py', '--version'], cwd=project,
                             capture_output=True, text=True)
     assert result.returncode == 0, result.stderr
-    assert result.stdout.strip().splitlines()[-1] == '1.0.7.12'
+    assert result.stdout.strip().splitlines()[-1] == '1.0.9.1'
