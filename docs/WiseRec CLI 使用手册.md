@@ -573,7 +573,7 @@ ml train instance list TASK_ID
 ml train history list TASK_ID
 ml train start TASK_ID
 ml train config export TASK_ID [--file PATH]
-ml train history logs download TASK_ID JOB_ID [--file PATH]
+ml train history logs download TASK_ID JOB_ID [--type log|plog] [--file PATH]
 ml train cancel TASK_ID [--yes]
 ml train delete TASK_ID [--yes]
 ml train clone TASK_ID --name NAME [OPTIONS]
@@ -588,7 +588,7 @@ ml train config update TASK_ID --customize-config VALUE
 | `instance list`、`history list` | 必填 `TASK_ID`；可选 `--output` / `-o` |
 | `start` | 必填 `TASK_ID`；执行后显示作业 ID |
 | `config export` | 必填 `TASK_ID`；可选 `--file PATH` 指定保存位置 |
-| `history logs download` | 必填 `TASK_ID`、`JOB_ID`；可选 `--file PATH`、`--output` / `-o` |
+| `history logs download` | 必填 `TASK_ID`、`JOB_ID`；`--type` 默认 `log`，也可选 `plog`；可选 `--file PATH`、`--output` / `-o` |
 | `cancel`、`delete` | 必填 `TASK_ID`；可选 `--yes` / `-y` 跳过确认 |
 | `clone` | 必填 `TASK_ID`、`--name NAME`；可选 `--customize-config VALUE`、`--yes` / `-y` |
 | `config update` | 必填 `TASK_ID`、`--customize-config VALUE`；参数按字符串原样传递 |
@@ -602,6 +602,8 @@ ml train config update TASK_ID --customize-config VALUE
 先用 `list` 获取任务 ID，`history list` 获取作业 ID。实例和执行记录默认展示第一页 10 条；`start` 返回作业 ID，不代表训练完成。
 
 `cancel` 取消查询到的执行实例；`delete` 软删除任务；`clone` 创建副本；`config update` 更新自定义参数。操作结果不明时先查询状态。
+
+`history logs download` 默认下载普通日志；使用 `--type plog` 下载 plog。无需提供 `target`，请求仅使用当前业务 ID、任务 ID 和作业 ID。两种下载均适用于 WiseRec 和 MLOps，JSON 返回本地文件路径、字节数及下载状态。
 
 配置导出为 YAML，日志默认下载为 ZIP；同名文件自动编号，`--file` 的父目录须存在。
 

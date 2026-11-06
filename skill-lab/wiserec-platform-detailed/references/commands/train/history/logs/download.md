@@ -20,6 +20,7 @@ ml train history logs download TASK_ID JOB_ID [OPTIONS]
 | --- | --- | --- | --- | --- |
 | `task_id` | TEXT | 是 | 无，必填 | 所属训练任务 ID |
 | `job_id` | TEXT | 是 | 无，必填 | 执行记录 ID |
+| `--type` | TEXT | 否 | log | log 或 plog |
 | `--file` | PATH | 否 | 未指定（None） | 检查可读；本地保存路径，目录须已存在 |
 | `--output` / `-o` | TEXT | 否 | 未指定（None） | 结果摘要格式: table 或 json；缺省读取当前环境 output_format |
 | `--help` | 开关 | 否 | false | 显示本命令帮助并退出 |
@@ -27,6 +28,8 @@ ml train history logs download TASK_ID JOB_ID [OPTIONS]
 参数表的 None 表示未指定，不应在命令行输入字面量 `None` 或 `null`。空字符串与缺省是否相同，以以下规则为准。
 
 ## 边界与组合规则
+
+默认下载普通日志。选择 `--type plog` 下载 plog，无需提供 target。成功码为 0 时从 plogUrl 获取下载地址。WiseRec 与 MLOps 均支持。
 
 TASK_ID 与 JOB_ID 分别为任务和执行记录 ID；父目录须存在，不覆盖已有文件；CLI 会显示下载地址，分享前剔除签名参数。
 

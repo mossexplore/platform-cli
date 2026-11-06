@@ -9,3 +9,5 @@
 本次为源码更新，不代表正式 Release 已发布。沿用现有 Python 和平台要求，下载仍以 README 正式发布入口为准。真实 MLOps 登录、业务选择、权限服务及接口联调需在可访问环境验收，不能将模拟响应测试视为真实联调通过。
 
 MLOps 开放全部现有 Web Studio、Jupyter 和 service 公开命令，按已确认的相同接口复用 WiseRec 实现，保留当前环境业务上下文与权限检查。训练列表成功且 count 为零时直接返回空列表，兼容 taskInfos 缺失或为 null。
+
+执行记录日志下载增加 `--type plog`，默认普通日志行为保持兼容。Plog 接口按 code=0 判断成功，从 plogUrl 获取地址，并复用现有文件下载与重名保护。请求不传 target。

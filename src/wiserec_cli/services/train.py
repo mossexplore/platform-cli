@@ -304,6 +304,20 @@ class TrainService:
             raise ApiError(f"无法获取下载日志地址：{summary}；{exc}") from None
         return result["url"]
 
+    def get_plog_url(self, task_id: str, job_id: str) -> str:
+        """获取 plog 地址，以业务成功码为准，不限定描述文案。"""
+        if not self.client.business_id:
+            raise BusinessError("尚未选择租户或团队，请运行 ml business use")
+        payload = self.client.request(
+            "GET", "/ai/backend/mtp/traintask/downloadPlog",
+            params={"jobId": job_id, "taskId": task_id,
+                    "businessId": self.client.business_id, "isApplicantPromise": "true"},
+            headers={"businessid": self.client.business_id},
+        )
+        result = self._action_result(payload, "获取 plog 下载地址")
+        https_url(result.get("plogUrl"))
+        return result["plogUrl"]
+
     @staticmethod
     def _result(payload: Any) -> Dict[str, Any]:
         if not isinstance(payload, dict) or not isinstance(payload.get("result"), dict):

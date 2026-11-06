@@ -6587,8 +6587,7 @@
           "multiple": false,
           "nargs": 1,
           "envvar": null,
-          "help": "所属训练任务 ID",
-          "constraints": []
+          "help": "所属训练任务 ID"
         },
         {
           "name": "job_id",
@@ -6603,8 +6602,22 @@
           "multiple": false,
           "nargs": 1,
           "envvar": null,
-          "help": "执行记录 ID",
-          "constraints": []
+          "help": "执行记录 ID"
+        },
+        {
+          "name": "log_type",
+          "opts": [
+            "--type"
+          ],
+          "secondary_opts": [],
+          "required": false,
+          "default": "log",
+          "type": "TEXT",
+          "parser": {},
+          "multiple": false,
+          "nargs": 1,
+          "envvar": null,
+          "help": "日志类型: log 或 plog，默认 log"
         },
         {
           "name": "file",
@@ -6626,10 +6639,7 @@
           "multiple": false,
           "nargs": 1,
           "envvar": null,
-          "help": "本地保存路径，目录须已存在",
-          "constraints": [
-            "检查可读"
-          ]
+          "help": "本地保存路径，目录须已存在"
         },
         {
           "name": "output",
@@ -6645,8 +6655,7 @@
           "multiple": false,
           "nargs": 1,
           "envvar": null,
-          "help": "结果摘要格式: table 或 json",
-          "constraints": []
+          "help": "结果摘要格式: table 或 json"
         }
       ],
       "sources": [
@@ -8099,8 +8108,8 @@
     "src/wiserec_cli/commands/service_mock.py": "25d07c39d8490c79281bcd996303becffa8f315680ed3aa159c2f78ce107bea6",
     "src/wiserec_cli/services/service_mock.py": "0cc1287f1db4e2797e65616412a5f72ece280fcc0b1a6099d3dbf18e4c3b5aa2",
     "src/wiserec_cli/commands/service_logs.py": "3baa64d095805dad84a9432a7a71c358f6ca832656a4ea65d03fc68499baa5fb",
-    "src/wiserec_cli/commands/train.py": "6cc1460f883ab80f251bcb89028fd51f760230a4b2cd84d1080a6ab4f2dfedb5",
-    "src/wiserec_cli/services/train.py": "7454e222c048e17d59aa834e6e702764cad7ebd85af36b504df1ceeecfcb715b",
+    "src/wiserec_cli/commands/train.py": "b6c8ef78676413a5585545096fb3268bcda0ad3fbe2c1ef6cea8d9646752530b",
+    "src/wiserec_cli/services/train.py": "811479cae6644df17f5f78119c924470b87bd9eb37dee44bce50cb4c2590784a",
     "src/wiserec_cli/services/train_export.py": "62c93ab9afc384cbb7f7eb34f687ab1ace072e21df6b03fdc590e886c7a12069",
     "src/wiserec_cli/downloads.py": "7166556045dbbbed8067554234281d617219ce9036f450d2b4e8a18d5fce33f6",
     "src/wiserec_cli/commands/tree.py": "32dad18cbb25f62cf373b257c627b650f87f2175496eea10ba9787b9a659c990",

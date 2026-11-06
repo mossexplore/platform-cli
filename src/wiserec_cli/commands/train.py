@@ -328,11 +328,14 @@ def download_logs(
     context: typer.Context,
     task_id: str = typer.Argument(..., help="所属训练任务 ID"),
     job_id: str = typer.Argument(..., help="执行记录 ID"),
+    log_type: str = typer.Option("log", "--type", help="日志类型: log 或 plog，默认 log"),
     file: Optional[Path] = typer.Option(None, "--file", help="本地保存路径，目录须已存在"),
     output: Optional[str] = typer.Option(None, "--output", "-o", help="结果摘要格式: table 或 json"),
 ) -> None:
     """获取日志地址并下载；发送 isApplicantPromise=true，不覆盖已有文件。"""
     try:
+        if log_type not in {"log", "plog"}:
+            raise ValueError("--type 仅支持 log 或 plog")
         if file is not None:
             file = file.expanduser().absolute()
             if not file.parent.is_dir():
@@ -341,14 +344,16 @@ def download_logs(
         selected = selected_output(runtime, output)
         with redirect_stdout(sys.stderr):
             url = runtime.authenticated_call(
-                lambda client: TrainService(client).get_log_url(task_id, job_id)
+                lambda client: (TrainService(client).get_plog_url(task_id, job_id)
+                                if log_type == "plog" else
+                                TrainService(client).get_log_url(task_id, job_id))
             )
         msg.detail(f"下载地址：{url}")
         with Progress(msg.MessageColumn(), BarColumn(), DownloadColumn(),
                       console=error_console) as progress:
-            progress_id = progress.add_task("下载日志", total=None)
+            progress_id = progress.add_task("下载 plog 日志" if log_type == "plog" else "下载日志", total=None)
             path, size = download_file(
-                url, job_id, file,
+                url, f"{job_id}-plog" if log_type == "plog" else job_id, file,
                 progress=lambda done, total: progress.update(progress_id, completed=done, total=total),
             )
         print_result({"taskId": task_id, "jobId": job_id, "path": str(path),
