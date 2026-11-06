@@ -17,3 +17,5 @@ def test_smoke_client_exercises_valid_allow_and_deny_requests(system):
         db.commit()
     client.base_url = 'http://testserver/cli-permission/'
     verify(client)
+    # Re-running after persistence must read the environment revision, not the new form default.
+    verify(client)

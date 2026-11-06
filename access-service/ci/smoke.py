@@ -57,11 +57,14 @@ def verify(client):
     page = client.get('/admin?tab=environments')
     assert 'data-command-input' in page.text
     token = re.search(r'name="csrf" value="([^"]+)"', page.text)[1]
-    revision = re.search(r'name="policy_revision" value="([0-9]+)"', page.text)[1]
+    environment_form = next(form for form in re.findall(r'<form\b[^>]*>(.*?)</form>', page.text, re.S)
+                            if re.search(r'name="item_id" value="' + re.escape(ci_id) + r'"', form))
+    revision = re.search(r'name="policy_revision" value="([0-9]+)"', environment_form)[1]
     form = {'csrf': token, 'item_id': ci_id, 'name': 'ci', 'display_name': 'CI alias',
             'platform_origin': 'https://platform.example.com', 'enabled': 'true',
             'default_grant': 'true', 'forbidden_commands': command, 'policy_revision': revision}
-    assert client.post('/admin/environments', data=form).status_code == 200
+    saved = client.post('/admin/environments', data=form)
+    assert saved.status_code == 200, saved.text
     blocked = client.post('/api/v1/access/check', json={**body, 'command': command},
                           headers={'businessid': 'ci-business'})
     assert blocked.status_code == 200 and blocked.json()['reason'] == 'COMMAND_DISABLED'
@@ -70,7 +73,8 @@ def verify(client):
     assert audit.status_code == 200 and '禁止命令' in audit.text
     form['policy_revision'] = blocked.json()['command_policy']['revision']
     form['forbidden_commands'] = ''
-    assert client.post('/admin/environments', data=form).status_code == 200
+    saved = client.post('/admin/environments', data=form)
+    assert saved.status_code == 200, saved.text
     assert client.post('/api/v1/access/check', json={**body, 'command': command},
                        headers={'businessid': 'ci-business'}).json()['allowed'] is True
     body['username'] = 'unknown-user'
