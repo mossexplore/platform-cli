@@ -140,7 +140,7 @@ def test_columns_alias_and_highlight(tmp_path):
     assert rows[0]['环境标识'] == 'dev'
     assert rows[0]['环境名'] == '开发环境'
     assert rows[0]['管理台类型'] == '搜推广工程平台'
-    assert rows[1]['管理台类型'] == 'WiseMLOps'
+    assert rows[1]['管理台类型'] == 'WiseMLOps平台'
     assert output.call_args.kwargs['row_style'](rows[0]) == 'bold green'
 
 

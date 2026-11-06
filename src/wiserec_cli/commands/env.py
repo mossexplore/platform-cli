@@ -41,7 +41,7 @@ def list_environments(context: typer.Context) -> None:
                     ),
                     "环境标识": item.name,
                     "环境名": item.alias or item.name,
-                    "管理台类型": {"wiserec": "搜推广工程平台", "mlops": "WiseMLOps"}[item.platform_type],
+                    "管理台类型": {"wiserec": "搜推广工程平台", "mlops": "WiseMLOps平台"}[item.platform_type],
                     "管理台地址": item.api_endpoint,
                     "状态": statuses[item.name],
                 }
