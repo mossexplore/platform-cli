@@ -119,7 +119,6 @@ def initialize(
             require_supported("mlops", invocation_path(context))
         if (sys.stdin.isatty() and context.invoked_subcommand
                 not in {"login", "logout", "auth", "tree"}
-                and getattr(profile, "platform_type", "wiserec") == "wiserec"
                 and context.obj.config.auto_ping):
             ping.auto_start(context.obj)
     except Exception as exc:

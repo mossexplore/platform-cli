@@ -43,11 +43,11 @@ def _append_commands(parent: Tree, group: Any, platform="wiserec", show_all=Fals
             continue
         label = Text()
         label.append(name, style="bold cyan" if _is_group(command) else "cyan")
-        if show_all and not _is_group(command):
-            label.append("  支持" if supported(platform, path) else "  不支持")
         summary = _summary(command)
         if summary:
             label.append(f"  {summary}", style="dim")
+        if show_all and not _is_group(command) and not supported(platform, path):
+            label.append("  [不支持]", style="red")
         branch = parent.add(label)
         if _is_group(command):
             branch.children.extend(children.children)

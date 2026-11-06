@@ -172,11 +172,11 @@ ml                                              WiseRec 命令行工具
 
 ### 1.2 参数与选项
 
-`ml tree` 无需必填参数；`--all` 显示全部命令及当前平台的支持情况。各命令的参数与选项见对应章节。
+`ml tree` 无需必填参数；`--all` 显示全部命令；不支持的命令在描述末尾显示红色 `[不支持]`，支持的命令不加标记。各命令的参数与选项见对应章节。
 
 ### 1.3 说明
 
-默认仅展示当前环境支持的命令；MLOps 包含训练列表、执行记录、执行实例及 Web Studio、Jupyter、服务管理命令。`ml tree --all` 可查看全部命令的支持情况。
+默认仅展示当前环境支持的命令；MLOps 支持保活、用户信息、MEP 配置、模型、资源模板、部署模板、数据集、Web Studio、Jupyter、服务管理，以及训练列表、执行记录与执行实例。`ml tree --all` 可查看全部命令，不支持的命令在描述末尾显示红色 `[不支持]`，支持的命令不加标记。
 
 从上到下按顺序输入命令层级；使用 `--help` 查看具体用法。`ml tree` 中各命令的说明结尾不显示标点符号。
 
@@ -595,7 +595,7 @@ ml train config update TASK_ID --customize-config VALUE
 
 ### 12.3 说明
 
-环境的 `platform_type` 支持 `wiserec` 和 `mlops`，未配置时默认 `wiserec`。MLOps 支持 `ml train list`、`ml train history list`、`ml train history logs download`、`ml train instance list`，以及 `ml webstudio`、`ml jupyter`、`ml service` 下的全部现有公开命令；其他未适配的业务命令会提示不支持。登录、业务选择和权限检查仍需完成，MLOps 不自动启动保活。
+环境的 `platform_type` 支持 `wiserec` 和 `mlops`，未配置时默认 `wiserec`。MLOps 支持 `ml train list`、`ml train history list`、`ml train history logs download`、`ml train instance list`，以及 `ml auth ping`、`ml user`、`ml mep`、`ml model`、`ml resource`、`ml deployment`、`ml dataset`、`ml webstudio`、`ml jupyter`、`ml service` 下的全部现有公开命令；其他未适配的业务命令会提示不支持。登录、业务选择和权限检查仍需完成，MLOps 与 WiseRec 使用相同保活方式，按 `auth.auto_ping` 配置自动启动，也可用 `ml auth ping` 管理。
 
 `list` 的 `--name` 按名称模糊查询，`--page` 默认 1，`--page-size` 默认 10，MLOps 每页最多 200 条。查询成功且总数为 0 时，表格提示“暂无训练任务”，JSON 返回 `count: 0` 和 `items: []`。列表时间按北京时间展示，大小从字节转换为 B、K、M、G，JSON 保留原始数值和额外字段。
 

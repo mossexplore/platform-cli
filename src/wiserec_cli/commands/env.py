@@ -82,7 +82,7 @@ def use_environment(context: typer.Context, name: str = typer.Argument(...)) -> 
             ping.detach(runtime, previous)
         msg.success(f"当前环境已切换为: {profile.name}")
         has_access = show_access_guidance(runtime)
-        if has_access and profile.platform_type == "wiserec" and runtime.config.auto_ping:
+        if has_access and runtime.config.auto_ping:
             msg.ping_status(ping.auto_start(runtime))
     except Exception as exc:
         fail(exc)

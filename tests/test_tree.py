@@ -47,3 +47,19 @@ def test_tree_uses_newly_registered_commands_and_descriptions():
 
     assert "sample  示例分组，补充说明\n" in stream.getvalue()
     assert "new-command  新注册的命令，中间标点保留\n" in stream.getvalue()
+
+
+def test_unsupported_marker_follows_description_and_is_red():
+    root = click.Group('ml')
+    root.add_command(click.Command('unsupported', help='未适配命令。'))
+    root.add_command(click.Command('tree', help='查看命令树。'))
+    tree = Tree('ml')
+    _append_commands(tree, root, platform='mlops', show_all=True)
+    unsupported = tree.children[0].label
+    assert unsupported.plain == 'unsupported  未适配命令  [不支持]'
+    assert any(span.style == 'red' and unsupported.plain[span.start:span.end] == '  [不支持]'
+               for span in unsupported.spans)
+    assert tree.children[1].label.plain == 'tree  查看命令树'
+    stream = StringIO()
+    Console(file=stream, force_terminal=True, no_color=False, color_system='standard', width=120).print(tree)
+    assert '\x1b[31m' in stream.getvalue()

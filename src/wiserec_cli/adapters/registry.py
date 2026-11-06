@@ -7,6 +7,11 @@ MLOPS_BINDINGS = {"train list": list_mlops}
 # 已确认与 WiseRec 协议一致的公开命令，直接复用既有命令和 Service。
 # 按叶命令登记，未来新增操作需确认后显式开放。
 SHARED_COMMANDS = frozenset({
+    "auth ping start", "auth ping stop", "auth ping status", "user info", "mep config get",
+    "model list", "model detail", "model source", "model deploy",
+    "resource template list", "resource template detail",
+    "deployment template list", "deployment template detail",
+    "dataset list", "dataset detail", "dataset files list", "dataset files upload",
     "train history list", "train history logs download", "train instance list",
     "webstudio list", "webstudio login", "webstudio start", "webstudio stop", "webstudio show",
     "jupyter exec", "jupyter doctor",
@@ -26,8 +31,6 @@ CONTEXT_GROUPS = {"login", "logout", "auth", "business"}
 def supported(platform_type, command):
     if platform_type == "wiserec":
         return True
-    if command.startswith("auth ping"):
-        return command == "auth ping status"
     return (command in MLOPS_BINDINGS or command in SHARED_COMMANDS or
             command.split(" ")[0] in LOCAL_GROUPS | CONTEXT_GROUPS)
 

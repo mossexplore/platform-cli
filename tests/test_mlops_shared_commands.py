@@ -20,17 +20,18 @@ def leaves(command, path):
 
 def test_all_existing_shared_commands_supported():
     root = typer.main.get_command(app)
-    actual = {path for group in ('webstudio', 'jupyter', 'service')
+    actual = {path for group in ('webstudio', 'jupyter', 'service', 'user', 'mep', 'model', 'resource', 'deployment', 'dataset')
               for path in leaves(root.commands[group], group)}
     actual.update(leaves(root.commands["train"].commands["history"], "train history"))
     actual.update(leaves(root.commands["train"].commands["instance"], "train instance"))
+    actual.update(leaves(root.commands["auth"].commands["ping"], "auth ping"))
     assert actual == SHARED_COMMANDS
     for path in actual:
         require_supported('mlops', path)
         require_supported('wiserec', path)
     assert not supported('mlops', 'service future-operation')
     assert not supported('mlops', 'train start')
-    assert not supported('mlops', 'dataset list')
+    assert not supported('mlops', 'algorithm list')
 
 
 def config_file(tmp_path):
@@ -45,14 +46,13 @@ def test_shared_tree(tmp_path):
     for options in ([], ['--all']):
         result = CliRunner().invoke(app, ['--config', str(config), 'tree', *options])
         assert result.exit_code == 0, result.output
-        for group in ('webstudio', 'jupyter', 'service'):
+        for group in ('webstudio', 'jupyter', 'service', 'user', 'mep', 'model', 'resource', 'deployment', 'dataset'):
             assert group in result.output
         if options:
-            assert 'doctor  支持' in result.output
-            assert 'exec  支持' in result.output
-            assert 'download  支持' in result.output
+            assert '  支持' not in result.output
+            assert '[不支持]' in result.output
         else:
-            assert '── dataset' not in result.output
+            assert '── algorithm' not in result.output
 
 
 @pytest.mark.parametrize('args,module', [
