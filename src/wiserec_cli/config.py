@@ -73,14 +73,14 @@ def _package_install_stamp() -> str:
 
 
 def reset_packaged_config() -> Path:
-    """安装器入口：强制更新默认配置，仅保留本地 current 环境选择。"""
+    """安装器入口：强制更新默认配置，优先保留可用的本地 current。"""
     destination = user_config_dir() / "config.json"
     _sync_packaged_config(destination, force=True)
     return destination
 
 
 def _sync_packaged_config(destination: Path, *, force: bool = False) -> None:
-    """用包内配置更新默认配置，仅保留用户本地 current 值。"""
+    """用包内配置更新默认配置，本地 current 不可恢复时采用包内默认值。"""
     template = _packaged_config_text()
     signature = f"{__version__}:{sha256(template.encode('utf-8')).hexdigest()}:{_package_install_stamp()}"
     marker = _config_marker_path(destination)
@@ -93,29 +93,22 @@ def _sync_packaged_config(destination: Path, *, force: bool = False) -> None:
         return
 
     settings = json.loads(template)
+    candidate = ConfigManager.__new__(ConfigManager)
+    candidate.path = destination
+    candidate._data = settings
+    candidate._validate()
+    # The package must be usable on a fresh install before retaining local current.
+    candidate.current_profile()
     preserved = False
     if destination.exists():
         try:
             previous = json.loads(destination.read_text(encoding="utf-8"))
-        except (OSError, json.JSONDecodeError) as exc:
-            raise ConfigError(
-                f"无法读取原配置 {destination}，已保留原文件；请修复配置后重新安装或运行"
-            ) from exc
-        if not isinstance(previous, dict):
-            raise ConfigError(f"原配置无效，已保留 {destination}；配置文件顶层必须是 JSON 对象")
-        current = previous.get("current")
-        if not isinstance(current, str) or not current:
-            raise ConfigError(f"原配置无效，已保留 {destination}；current 必须是非空字符串")
-        if not any(item.get("name") == current for item in settings.get("profiles", [])):
-            raise ConfigError(
-                f"新配置中不存在原环境 {current!r}，已保留 {destination}；"
-                "请通过 --config 指定原配置并使用 ml env use 选择新包支持的环境后重试"
-            )
-        settings["current"] = current
-        preserved = True
-    candidate = ConfigManager.__new__(ConfigManager)
-    candidate.path = destination
-    candidate._data = settings
+        except (OSError, json.JSONDecodeError):
+            previous = {}
+        current = previous.get("current") if isinstance(previous, dict) else None
+        if isinstance(current, str) and any(item["name"] == current for item in settings["profiles"]):
+            settings["current"] = current
+            preserved = True
     candidate._validate()
     content = json.dumps(settings, ensure_ascii=False, indent=2) + "\n" if preserved else template
     _install_packaged_config(destination, content)

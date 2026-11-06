@@ -190,27 +190,32 @@ class ConfigManagerTest(unittest.TestCase):
             _sync_packaged_config(destination, force=True)
         self.assertEqual(json.loads(destination.read_text()), dict(json.loads(template), current="test"))
 
-    def test_failed_sync_preserves_config_and_marker(self):
+    def test_invalid_local_config_uses_packaged_default(self):
         destination = Path(self.temporary.name) / "installed-config.json"
-        marker = destination.with_name(".installed-config.json.installed")
         template = self.path.read_text()
+        baseline = json.loads(template)
+        for previous in ("not json", "[]", '{}',
+                         json.dumps(dict(baseline, current=123)),
+                         json.dumps(dict(baseline, current="unknown")),
+                         json.dumps(dict(baseline, current=""))):
+            with self.subTest(previous=previous), \
+                 patch("wiserec_cli.config._packaged_config_text", return_value=template):
+                destination.write_text(previous)
+                _sync_packaged_config(destination, force=True)
+                self.assertEqual(json.loads(destination.read_text()), baseline)
+                self.assertEqual(ConfigManager(destination).current_name, baseline["current"])
+
+    def test_missing_selected_environment_uses_packaged_default(self):
+        destination = Path(self.temporary.name) / "installed-config.json"
+        baseline = json.loads(self.path.read_text())
+        baseline["current"] = "test"
+        template = json.dumps(baseline)
+        destination.write_text(json.dumps({"current": "product", "profiles": [
+            {"name": "product", "api_endpoint": "https://old.example"}]}))
         with patch("wiserec_cli.config._packaged_config_text", return_value=template):
-            _sync_packaged_config(destination)
-            original_marker = marker.read_bytes()
-            baseline = json.loads(template)
-            missing = dict(baseline, current="removed")
-            missing["profiles"] = baseline["profiles"] + [{
-                "name": "removed", "api_endpoint": "https://removed.example.com"}]
-            for previous in ("not json", "[]", '{}',
-                             json.dumps(dict(baseline, current=123)),
-                             json.dumps(dict(baseline, current="unknown")),
-                             json.dumps(missing)):
-                with self.subTest(previous=previous):
-                    destination.write_text(previous)
-                    with self.assertRaises(ConfigError):
-                        _sync_packaged_config(destination, force=True)
-                    self.assertEqual(destination.read_text(), previous)
-                    self.assertEqual(marker.read_bytes(), original_marker)
+            _sync_packaged_config(destination, force=True)
+        self.assertEqual(json.loads(destination.read_text()), baseline)
+        self.assertEqual(ConfigManager(destination).current_profile().name, "test")
 
     def test_same_version_reinstall_preserves_selection(self):
         destination = Path(self.temporary.name) / "installed-config.json"

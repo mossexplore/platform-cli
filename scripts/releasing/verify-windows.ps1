@@ -25,12 +25,13 @@ print('Skill and slash command verified in shared directory, OpenCode and codeag
     if ($LASTEXITCODE -ne 0) { throw 'Agent resource verification failed' }
 }
 
-function Set-ConfigOverrideProbe([string]$Python) {
+function Set-ConfigOverrideProbe([string]$Python, [string]$CurrentName = "test") {
     $probe = @'
-import json
+import json, sys
 from wiserec_cli.config import ConfigManager
 manager = ConfigManager()
 settings = json.loads(manager.path.read_text(encoding='utf-8'))
+settings['current'] = sys.argv[1]
 settings['auth'] = {'auto_ping': False, 'ping_interval_minutes': 15}
 settings['access_control'] = {'enabled': False, 'url': 'https://old.example'}
 settings['profiles'][0].update(api_endpoint='https://old.example', platform_type='mlops',
@@ -38,20 +39,21 @@ settings['profiles'][0].update(api_endpoint='https://old.example', platform_type
 settings['local_only'] = True
 manager.path.write_text(json.dumps(settings), encoding='utf-8')
 '@
-    & $Python -c $probe
+    & $Python -c $probe $CurrentName
     if ($LASTEXITCODE -ne 0) { throw 'Config override probe failed' }
 }
-function Assert-PackagedConfig([string]$Python) {
+function Assert-PackagedConfig([string]$Python, [string]$CurrentName = "test") {
     $check = @'
-import json
+import json, sys
 from wiserec_cli.config import ConfigManager, _packaged_config_text
 manager = ConfigManager()
 actual = json.loads(manager.path.read_text(encoding='utf-8'))
 expected = json.loads(_packaged_config_text())
-expected['current'] = 'test'
+if sys.argv[1] != "__package_default__":
+    expected['current'] = sys.argv[1]
 assert actual == expected, 'Installer must replace all config fields except local current'
 '@
-    & $Python -c $check
+    & $Python -c $check $CurrentName
     if ($LASTEXITCODE -ne 0) { throw 'Installed config differs from package except current' }
 }
 
@@ -90,6 +92,9 @@ foreach ($mode in @('online', 'offline')) {
     & $installedPython -c "from wiserec_cli.config import ConfigManager; assert ConfigManager().current_name == 'test'"
     if ($LASTEXITCODE -ne 0) { throw 'Same-version reinstall changed selected environment' }
     Assert-PackagedConfig $installedPython
+    Set-ConfigOverrideProbe $installedPython "product-not-in-package"
+    & "$bundle/install.ps1" -InstallDirectory $install
+    Assert-PackagedConfig $installedPython "__package_default__"
     Assert-AgentResources $installedPython
     if ($mode -eq 'offline') {
         Remove-Item Env:PIP_NO_INDEX, Env:PIP_INDEX_URL, Env:PIP_NO_CACHE_DIR

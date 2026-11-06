@@ -84,7 +84,7 @@ docker load -i cli-access-1.0.9.1-linux-amd64.tar.gz
 
 替换为客户端实际可访问的地址。地址为空或未配置时，业务调用会报配置错误并停止。确需关闭时，在 `access_control` 中显式设置 `"enable": false`；默认配置无需写 `enable`。完成登录和业务选择后，执行 `ml access status` 验证授权。
 
-当前源码的安装器在每次安装、同版本重装和升级时强制覆盖用户默认 `config.json`，仅保留本地 `current`，其余字段全部采用安装包内容。此调整需通过后续安装包交付，已发布附件保持原样。配置位置、覆盖规则和授权排查见 [WiseRec CLI 使用手册](docs/WiseRec%20CLI%20使用手册.md)。
+当前源码的安装器在每次安装、同版本重装和升级时强制覆盖用户默认 `config.json`，仅保留新包中仍可用的本地 `current`，无法恢复时采用包内默认 `current`，其余字段全部采用安装包内容。此调整需通过后续安装包交付，已发布附件保持原样。配置位置、覆盖规则和授权排查见 [WiseRec CLI 使用手册](docs/WiseRec%20CLI%20使用手册.md)。
 
 ## 更多文档
 
