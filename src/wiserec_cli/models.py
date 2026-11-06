@@ -38,6 +38,7 @@ class Profile:
     output_format: str = "table"
     verify_ssl: Optional[bool] = None
     alias: str = ""
+    platform_type: str = "wiserec"
 
     @property
     def base_url(self) -> str:

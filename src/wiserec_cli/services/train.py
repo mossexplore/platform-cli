@@ -42,6 +42,9 @@ class TrainService:
         self, page_index: int = 1, page_size: int = 10,
         task_name: Optional[str] = None,
     ) -> Dict[str, Any]:
+        if getattr(self.client, "platform_type", "wiserec") == "mlops":
+            from ..adapters.registry import MLOPS_BINDINGS
+            return MLOPS_BINDINGS["train list"](self.client, page_index, page_size, task_name)
         if page_index < 1 or page_size < 1:
             raise ValueError("page 和 page-size 必须大于等于 1")
         if not self.client.business_id:

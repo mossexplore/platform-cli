@@ -107,12 +107,19 @@ def initialize(
 ) -> None:
     """初始化 CLI 运行时。"""
     del version, no_history
+    if "--help" in context.meta.get("raw_args", []):
+        return
     if context.invoked_subcommand in {"tree", "history", "context"}:
         return
     try:
+        from .adapters.registry import invocation_path, require_supported
         context.obj = Runtime(config_path=config)
+        profile = context.obj.config.current_profile()
+        if getattr(profile, "platform_type", "wiserec") == "mlops":
+            require_supported("mlops", invocation_path(context))
         if (sys.stdin.isatty() and context.invoked_subcommand
                 not in {"login", "logout", "auth", "tree"}
+                and getattr(profile, "platform_type", "wiserec") == "wiserec"
                 and context.obj.config.auto_ping):
             ping.auto_start(context.obj)
     except Exception as exc:

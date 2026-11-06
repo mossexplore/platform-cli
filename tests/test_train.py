@@ -250,7 +250,7 @@ class TrainOutputTest(unittest.TestCase):
             self.assertEqual(client.calls, [])
 
     def test_size_zero_null_and_boundaries(self):
-        for value, expected in ((None, "-"), ("", "-"), (0, "0B"), (1, "0.00M"),
+        for value, expected in ((None, "-"), ("", "-"), (0, "0B"), (1, "1B"),
                                 (1024 ** 3 - 1, "1024.00M"), (1024 ** 3, "1.00G"),
                                 (3858541639, "3.59G"), (145755572, "139.00M")):
             with self.subTest(value=value):

@@ -133,7 +133,7 @@ def test_columns_alias_and_highlight(tmp_path):
          patch('wiserec_cli.commands.env.print_result') as output:
         list_environments(None)
     rows = output.call_args.args[0]
-    assert list(rows[0]) == ['当前在用环境', '环境标识', '环境名', '管理台地址', '状态']
+    assert list(rows[0]) == ['当前在用环境', '环境标识', '环境名', '管理台地址', '管理台类型', '状态']
     assert rows[0]['环境标识'] == 'dev'
     assert rows[0]['环境名'] == '开发环境'
     assert output.call_args.kwargs['row_style'](rows[0]) == 'bold green'

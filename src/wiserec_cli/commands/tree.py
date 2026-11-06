@@ -28,25 +28,44 @@ def _summary(command: Any) -> str:
     return summary
 
 
-def _append_commands(parent: Tree, group: Any) -> None:
+def _append_commands(parent: Tree, group: Any, platform="wiserec", show_all=False, prefix="") -> None:
     for name, command in group.commands.items():
         if command.hidden:
             continue
+        from ..adapters.registry import supported
+        path = f"{prefix} {name}".strip()
+        children = Tree("temporary")
+        if _is_group(command):
+            _append_commands(children, command, platform, show_all, path)
+            if not children.children and not show_all:
+                continue
+        elif not show_all and not supported(platform, path):
+            continue
         label = Text()
         label.append(name, style="bold cyan" if _is_group(command) else "cyan")
+        if show_all and not _is_group(command):
+            label.append("  支持" if supported(platform, path) else "  不支持")
         summary = _summary(command)
         if summary:
             label.append(f"  {summary}", style="dim")
         branch = parent.add(label)
         if _is_group(command):
-            _append_commands(branch, command)
+            branch.children.extend(children.children)
 
 
-def show_tree(context: typer.Context) -> None:
+def show_tree(context: typer.Context, all_commands: bool = typer.Option(False, "--all", help="展示全部命令及当前平台支持情况")) -> None:
     """显示当前安装版本的完整命令树。"""
     root = context.find_root().command
     if not _is_group(root):
         raise typer.Exit(code=1)
     tree = Tree(Text("ml  WiseRec 命令行工具", style="bold"))
-    _append_commands(tree, root)
+    from ..config import ConfigManager
+    from pathlib import Path
+    path = context.find_root().params.get("config")
+    config = ConfigManager(Path(path) if path else None)
+    profile = config.current_profile()
+    Console().print(f"当前环境：{profile.name} · 管理台类型：{profile.platform_type}")
+    if not all_commands:
+        Console().print("仅展示当前环境支持的命令；查看全部命令：ml tree --all")
+    _append_commands(tree, root, profile.platform_type, all_commands)
     Console().print(tree)

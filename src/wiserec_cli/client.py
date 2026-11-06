@@ -39,6 +39,7 @@ class PlatformClient:
         if business_selection is not None:
             headers["ai-businessId"] = business_selection.business_id
             headers["businessid"] = business_selection.business_id
+        self.platform_type = profile.platform_type
         self._username = credentials.username
         self._business_selection = business_selection
         self._platform_url = httpx.URL(profile.base_url)

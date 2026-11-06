@@ -35,6 +35,9 @@ class Runtime:
         operation: Callable[[PlatformClient], Any],
         *, retry_auth: bool = True,
     ) -> Any:
+        from .adapters.registry import require_supported
+        profile = self.config.current_profile()
+        require_supported(profile.platform_type, getattr(self, "invocation_command", "unknown").removeprefix("ml "))
         for attempt in range(2):
             credentials = self.auth.ensure_credentials(force_refresh=attempt == 1)
             profile = self.config.current_profile()

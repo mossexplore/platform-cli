@@ -106,4 +106,7 @@ class InvocationGroup(TyperGroup):
         begin_invocation()
         # 必须在 Click 消费参数前捕获；兼容真实入口和 CliRunner，不读取其他进程参数。
         ctx.meta['full_command'] = format_invocation(args)
-        return super().parse_args(ctx, args)
+        ctx.meta["raw_args"] = list(args)
+        result = super().parse_args(ctx, args)
+        ctx.meta["command_args"] = list(getattr(ctx, "_protected_args", getattr(ctx, "protected_args", []))) + list(ctx.args)
+        return result

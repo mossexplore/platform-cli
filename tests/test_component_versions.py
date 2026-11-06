@@ -58,7 +58,7 @@ agent_cli = "2.3.4"
 def test_invalid_version_cannot_partially_update_files(tmp_path):
     root = checkout(tmp_path)
     manifest = root / 'versions.toml'
-    manifest.write_text(manifest.read_text().replace('cli = "1.0.7.15"', 'cli = "bad"', 1))
+    manifest.write_text(manifest.read_text().replace('cli = "1.0.9.1"', 'cli = "bad"', 1))
     before = (root / 'pyproject.toml').read_bytes()
     with pytest.raises(ValueError, match='版本'):
         SYNC(root)

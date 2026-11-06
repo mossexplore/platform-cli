@@ -143,7 +143,8 @@ def test_cli_summary_and_auth_stdout_separation(tmp_path, output, kind):
         def authenticated(operation):
             print('正在刷新认证', flush=True)
             return operation(api)
-        runtime = SimpleNamespace(authenticated_call=authenticated)
+        runtime = SimpleNamespace(authenticated_call=authenticated,
+            config=SimpleNamespace(current_profile=lambda: Profile("dev", "https://example.com")))
         with patch('wiserec_cli.cli.Runtime', return_value=runtime), patch(
             'wiserec_cli.commands.featureset.runtime_from_context', return_value=runtime,
         ):

@@ -63,6 +63,10 @@ def display_value(field: str, value: Any) -> str:
     if field == "fileSize":
         if value == 0:
             return "0B"
+        if value < 1024:
+            return f"{value:g}B"
+        if value < 1024 ** 2:
+            return f"{value / 1024:.2f}K"
         divisor, suffix = (1024 ** 2, "M") if value < 1024 ** 3 else (1024 ** 3, "G")
         return f"{value / divisor:.2f}{suffix}"
     if field in TIME_FIELDS:

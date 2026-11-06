@@ -93,3 +93,5 @@ ml train list -o json
 - `src/wiserec_cli/services/train.py`
 
 命令入口函数 `list_tasks`，记录时起始行 378。服务端额外字段、权限差异和未显式校验的长度/数量限制不作推断。
+
+MLOps 环境使用 `platform_type=mlops`；每页最多 200 条。时间按北京时间展示，文件大小按 B、K、M、G 换算，JSON 保留原始数值。其他训练命令需通过 `ml tree` 核对支持情况。

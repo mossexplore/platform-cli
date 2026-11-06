@@ -111,6 +111,11 @@ def _sync_packaged_config(destination: Path, *, force: bool = False) -> None:
         except (ConfigError, TypeError, ValueError) as exc:
             raise ConfigError(f"原配置无效，已保留 {destination}；请修复配置：{exc}") from exc
         current = previous["current"]
+        mlops_profiles = {item["name"]: item for item in previous["profiles"]
+                          if item.get("platform_type") == "mlops"}
+        settings["profiles"] = [mlops_profiles.pop(item["name"], item)
+                                for item in settings["profiles"]]
+        settings["profiles"].extend(mlops_profiles.values())
         if not any(item.get("name") == current for item in settings.get("profiles", [])):
             raise ConfigError(
                 f"新配置中不存在原环境 {current!r}，已保留 {destination}；"
@@ -193,6 +198,8 @@ class ConfigManager:
         for item in profiles:
             if not isinstance(item, dict):
                 raise ConfigError("profiles 中的每一项都必须是对象")
+            if item.get("platform_type", "wiserec") not in ("wiserec", "mlops"):
+                raise ConfigError("platform_type 仅支持 wiserec 或 mlops")
             name = item.get("name")
             if "alias" in item and (not isinstance(item["alias"], str) or not item["alias"].strip()):
                 raise ConfigError("profile.alias 必须是非空字符串")
@@ -309,6 +316,7 @@ class ConfigManager:
         return [
             Profile(
                 name=item["name"],
+                platform_type=item.get("platform_type", "wiserec"),
                 api_endpoint=item["api_endpoint"],
                 output_format=item.get("output_format", "table"),
                 verify_ssl=item.get("verify_ssl"),

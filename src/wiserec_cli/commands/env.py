@@ -38,6 +38,7 @@ def list_environments(context: typer.Context) -> None:
                     "环境标识": item.name,
                     "环境名": item.alias or item.name,
                     "管理台地址": item.api_endpoint,
+                    "管理台类型": item.platform_type,
                     "状态": statuses[item.name],
                 }
                 for item in runtime.config.profiles()
@@ -59,6 +60,7 @@ def show_environment(context: typer.Context) -> None:
         print_result(
             {
                 "name": profile.name,
+                "platform_type": profile.platform_type,
                 "api_endpoint": profile.api_endpoint,
                 "base_url": profile.base_url,
                 "output_format": profile.output_format,
@@ -80,7 +82,7 @@ def use_environment(context: typer.Context, name: str = typer.Argument(...)) -> 
             ping.detach(runtime, previous)
         msg.success(f"当前环境已切换为: {profile.name}")
         has_access = show_access_guidance(runtime)
-        if has_access and runtime.config.auto_ping:
+        if has_access and profile.platform_type == "wiserec" and runtime.config.auto_ping:
             msg.ping_status(ping.auto_start(runtime))
     except Exception as exc:
         fail(exc)
