@@ -42,7 +42,8 @@ def test_snapshot_identity_validation_and_cached_policy_not_execution_gate(tmp_p
         require_command(profile, 'jupyter files upload')
 
 
-def test_tree_displays_cached_server_policy_without_login(tmp_path):
+@pytest.mark.parametrize('rule', ['ml jupyter files upload', 'ml jupyter'])
+def test_tree_displays_cached_server_policy_without_login(tmp_path, rule):
     from pathlib import Path
     from typer.testing import CliRunner
     from wiserec_cli.cli import app
@@ -54,11 +55,13 @@ def test_tree_displays_cached_server_policy_without_login(tmp_path):
     with patch('wiserec_cli.server_command_policy.user_config_dir', return_value=tmp_path):
         remember(manager.access_control, manager.current_profile(), {'command_policy': {
             'environment': 'prod', 'platform_origin': 'https://platform.example.com', 'revision': 1,
-            'deny': ['ml jupyter files upload']}})
+            'deny': [rule]}})
         with patch('wiserec_cli.auth.AuthManager.ensure_credentials', side_effect=AssertionError('must not login')):
             result = CliRunner().invoke(app, ['--config', str(config), 'tree', '--all'])
         assert result.exit_code == 0, result.output
         assert '[当前环境禁用]' in result.output
+        if rule == 'ml jupyter':
+            assert result.output.count('[当前环境禁用]') > 1
 
 
 def test_business_gateway_denial_is_not_authentication_expiry():

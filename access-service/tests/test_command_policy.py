@@ -44,7 +44,7 @@ def test_admin_policy_enforces_without_local_configuration(system):
     assert result['allowed'] is True and result['command_policy']['revision'] == 2
 
 
-@pytest.mark.parametrize('commands', [['ml env use'], ['ml unknown'], ['ml jupyter files upload --force']])
+@pytest.mark.parametrize('commands', [['ml env use'], ['ml'], ['ml jupyter files upload --force']])
 def test_invalid_rule_is_atomic(system, commands):
     app, client, _ = system
     csrf = login(client)
@@ -130,3 +130,31 @@ def test_manual_lines_normalize_and_deduplicate(system):
     assert 'ml custom-system future-operation\nml jupyter files upload' in page.text
     assert 'type="checkbox" name="forbidden_commands"' not in page.text
     assert check(client, command='ml custom-system future-operation').json()['reason'] == 'COMMAND_DISABLED'
+
+
+@pytest.mark.parametrize('rule,blocked,allowed', [
+    ('ml jupyter', ['ml jupyter', 'ml jupyter files upload', 'ml jupyter files download',
+                    'ml jupyter terminal open', 'ml jupyter exec'],
+     ['ml jupyter-other list', 'ml dataset files upload']),
+    ('ml jupyter files', ['ml jupyter files', 'ml jupyter files upload', 'ml jupyter files download'],
+     ['ml jupyter files-other list', 'ml jupyter terminal open']),
+])
+def test_parent_policy_applies_to_client_gateway_and_future_descendants(system, rule, blocked, allowed):
+    from dataclasses import replace
+    app, client, _ = system
+    app.state.settings = replace(app.state.settings, gateway_token='a' * 40)
+    csrf = login(client)
+    assert save(app, client, csrf, [rule]).status_code == 303
+    for command in blocked + [rule + ' future-subcommand']:
+        result = check(client, command=command).json()
+        assert result['reason'] == 'COMMAND_DISABLED'
+        assert result['command_policy']['deny'] == [rule]
+        gateway = client.post('/cli-permission/api/v1/gateway/check',
+            headers={'authorization': 'Bearer ' + 'a' * 40, 'businessid': 'selected'},
+            json={'username': 'alice', 'environment': 'prod', 'platform_origin': 'https://platform.example.com',
+                  'command': command})
+        assert gateway.status_code == 403 and gateway.json()['reason'] == 'COMMAND_DISABLED'
+    for command in allowed:
+        assert check(client, command=command).json()['allowed'] is True
+    assert save(app, client, csrf, []).status_code == 303
+    assert check(client, command=blocked[0]).json()['allowed'] is True

@@ -341,15 +341,17 @@ ml env use NAME
 
 ### 5.3 说明
 
-每个 profile 可通过 `command_policy.deny` 禁止当前环境的 Jupyter 文件上传、下载命令。填写完整命令 `ml jupyter files upload` 和 `ml jupyter files download`，与权限管理系统一致；兼容已有的不带 `ml` 前缀配置；不得重复，不支持通配符或分组名称。未配置或列表为空时不额外限制。此配置只限制这两个命令，不影响其他 Jupyter 功能或数据集上传。
+每个 profile 可通过 `command_policy.deny` 禁止当前环境的业务命令或命令分组。填写包含 `ml` 前缀的完整路径，与权限管理系统一致；兼容已有的不带 `ml` 前缀配置。禁止父命令时，其下所有现有及未来新增子命令同时禁止。例如 `ml jupyter` 禁止全部 Jupyter 命令，`ml jupyter files` 只禁止文件操作分组；`ml jupyter files upload` 仅禁止上传。匹配按完整命令层级判断，不会把 `ml jupyter-other` 视为 `ml jupyter` 的子命令。
 
 ```json
 "command_policy": {
-  "deny": ["ml jupyter files upload", "ml jupyter files download"]
+  "deny": ["ml jupyter"]
 }
 ```
 
-把上面的字段加入需要限制的 profile；切换环境后使用该环境自己的策略。安装或重装后，本地策略采用安装包中的配置。`ml tree` 隐藏被禁用的命令，`ml tree --all` 在描述末尾显示红色 `[当前环境禁用]`。直接执行时在登录、保活和连接 Jupyter 前报错退出；`--help` 仍可查看。
+把上面的字段加入需要限制的 profile；切换环境后使用该环境自己的策略。未配置或列表为空时不额外限制。每个环境最多 500 条规则，每条完整路径最多 128 字符；不得重复，不支持参数或通配符。登录、认证、环境切换、命令树、本地历史、业务选择和权限诊断等基础管理入口不能禁用。
+
+安装或重装后，本地策略采用安装包中的配置。`ml tree` 隐藏禁用分组及其子命令，`ml tree --all` 在受影响的分组和命令描述末尾显示红色 `[当前环境禁用]`。直接执行会在登录、保活和业务请求前报错退出；`--help` 仍可查看。
 
 `list` 显示“当前在用环境”“环境标识”“环境名”“管理台类型”“管理台地址”“状态”六列。管理台类型 `wiserec` 显示为“搜推广工程平台”，`mlops` 显示为“WiseMLOps”。“环境标识”显示 profile 的 `name`，“环境名”显示 `alias`，未配置别名时显示 `name`。星号表示当前环境，支持彩色输出的终端中该环境整行以加粗绿色文字显示；`show` 显示当前环境，`use` 切换环境。切换仍使用 `name`，例如 `ml env use dev`，不能使用别名。
 
@@ -417,7 +419,7 @@ ml access status [--diagnose]
 
 ### 7.3 说明
 
-管理员可在权限管理系统“环境管理 → 禁止命令”中限制该环境的业务命令，对全部账号生效。删除本地 `command_policy` 不能解除服务端禁令；直接执行会提示管理员已禁止，并停止业务请求。环境的账号授权不代表所有命令均可使用。
+管理员可在权限管理系统“环境管理 → 禁止命令”中限制该环境的业务命令或分组，对全部账号生效。填写 `ml jupyter` 会禁止全部 Jupyter 子命令，规则同样覆盖未来新增的子命令。删除本地 `command_policy` 不能解除服务端禁令；直接执行会提示管理员已禁止，并停止业务请求。环境的账号授权不代表所有命令均可使用。
 
 服务端策略快照仅用于命令树展示，成功鉴权或查询环境列表可同步；`ml tree` 显示同步时间，无快照时提示尚未同步。`ml tree --all` 在已知禁用命令描述末尾显示红色 `[当前环境禁用]`。快照可能滞后，执行仍以实时鉴权为准，权限服务不可用时不放行业务操作。
 
@@ -941,7 +943,7 @@ ml jupyter files delete PATH [OPTIONS]
 
 ### 19.3 说明
 
-`upload` 和 `download` 可被当前 profile 的 `command_policy.deny` 禁用，使用 `ml tree --all` 查看；其他文件操作不受该策略影响。
+Jupyter 文件操作可被当前 profile 的 `command_policy.deny` 禁用，使用 `ml tree --all` 查看。禁止 `ml jupyter files` 会覆盖全部文件操作，禁止 `ml jupyter` 会覆盖全部 Jupyter 功能；仅填写某个叶命令时，只禁止该命令。
 
 WiseRec 和 MLOps 环境均支持本章全部命令，参数及操作方式相同；连接地址和业务上下文取自当前环境。
 

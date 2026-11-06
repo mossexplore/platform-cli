@@ -11,8 +11,8 @@
 <input type="hidden" name="policy_revision" value="{{ item.command_policy_revision if item else 0 }}">
 <fieldset data-command-policy><legend>禁止命令</legend>
 {% set selected = item.forbidden_commands|map(attribute='command')|list if item else [] %}
-<label>命令列表<textarea name="forbidden_commands" data-command-input rows="7" maxlength="65000" spellcheck="false" placeholder="ml jupyter files upload&#10;ml jupyter files download">{{ selected|join('\n') }}</textarea></label>
-<small>每行一条完整业务命令，包含 ml 前缀，不填写参数或通配符；空行忽略、重复项自动去重。最多 500 条，每条最多 128 字符。留空解除全部命令禁令。</small>
+<label>命令列表<textarea name="forbidden_commands" data-command-input rows="7" maxlength="65000" spellcheck="false" placeholder="ml jupyter&#10;ml train history">{{ selected|join('\n') }}</textarea></label>
+<small>每行一条业务命令或分组，包含 ml 前缀；例如 ml jupyter 会禁止其下全部子命令。不要填写参数或通配符；空行忽略、重复项自动去重。最多 500 条，每条最多 128 字符。留空解除全部命令禁令。</small>
 <small>请按 CLI 实际命令路径填写；不校验命令是否存在。基础管理入口不可禁用，禁止分组路径不会自动禁止子命令。</small>
 <small data-command-count>已禁止 {{ selected|length }} 个命令</small>
 <small>对该环境全部账号生效，下一次业务鉴权检查；不限制终端或 Notebook 内部行为</small>

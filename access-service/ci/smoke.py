@@ -54,6 +54,7 @@ def verify(client):
     assert response.status_code == 200 and response.json()['allowed'] is True
     # Exercise manual entry, environment-level deny, audit, and removal in the same image.
     command = 'ml jupyter files upload'
+    rule = 'ml jupyter'
     page = client.get('/admin?tab=environments')
     assert 'data-command-input' in page.text
     token = re.search(r'name="csrf" value="([^"]+)"', page.text)[1]
@@ -62,13 +63,13 @@ def verify(client):
     revision = re.search(r'name="policy_revision" value="([0-9]+)"', environment_form)[1]
     form = {'csrf': token, 'item_id': ci_id, 'name': 'ci', 'display_name': 'CI alias',
             'platform_origin': 'https://platform.example.com', 'enabled': 'true',
-            'default_grant': 'true', 'forbidden_commands': command, 'policy_revision': revision}
+            'default_grant': 'true', 'forbidden_commands': rule, 'policy_revision': revision}
     saved = client.post('/admin/environments', data=form)
     assert saved.status_code == 200, saved.text
     blocked = client.post('/api/v1/access/check', json={**body, 'command': command},
                           headers={'businessid': 'ci-business'})
     assert blocked.status_code == 200 and blocked.json()['reason'] == 'COMMAND_DISABLED'
-    assert blocked.json()['command_policy']['deny'] == [command]
+    assert blocked.json()['command_policy']['deny'] == [rule]
     audit = client.get('/admin?tab=audit')
     assert audit.status_code == 200 and '禁止命令' in audit.text
     form['policy_revision'] = blocked.json()['command_policy']['revision']

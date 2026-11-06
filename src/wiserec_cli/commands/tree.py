@@ -33,13 +33,17 @@ def _append_commands(parent: Tree, group: Any, platform="wiserec", show_all=Fals
         if command.hidden:
             continue
         from ..adapters.registry import supported
+        from ..command_policy import is_denied
         path = f"{prefix} {name}".strip()
+        blocked = is_denied(path, denied)
+        if blocked and not show_all:
+            continue
         children = Tree("temporary")
         if _is_group(command):
             _append_commands(children, command, platform, show_all, path, denied)
             if not children.children and not show_all:
                 continue
-        elif not show_all and (not supported(platform, path) or path in denied):
+        elif not show_all and (not supported(platform, path) or blocked):
             continue
         label = Text()
         label.append(name, style="bold cyan" if _is_group(command) else "cyan")
@@ -48,7 +52,7 @@ def _append_commands(parent: Tree, group: Any, platform="wiserec", show_all=Fals
             label.append(f"  {summary}", style="dim")
         if show_all and not _is_group(command) and not supported(platform, path):
             label.append("  [不支持]", style="red")
-        elif show_all and not _is_group(command) and path in denied:
+        elif show_all and blocked:
             label.append("  [当前环境禁用]", style="red")
         branch = parent.add(label)
         if _is_group(command):

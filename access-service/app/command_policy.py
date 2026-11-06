@@ -4,7 +4,11 @@ from fastapi import HTTPException
 from .models import EnvironmentCommandDeny
 
 CONTROL_GROUPS = {"login", "logout", "auth", "env", "tree", "history", "context", "access", "business"}
-COMMAND_PATTERN = re.compile(r'ml(?: [a-z][a-z0-9_-]*){2,}')
+COMMAND_PATTERN = re.compile(r'ml(?: [a-z][a-z0-9_-]*)+')
+
+
+def is_denied(command, rules):
+    return any(command == rule or command.startswith(rule + ' ') for rule in rules)
 
 
 def known_command(command):
@@ -39,7 +43,7 @@ def save_policy(environment, selected, actor):
     for command in selected:
         if (len(command) > 128 or not COMMAND_PATTERN.fullmatch(command)
                 or command.split()[1] in CONTROL_GROUPS):
-            raise HTTPException(400, '每行需填写一条完整业务命令，如 ml jupyter files upload；不支持参数、通配符或基础管理入口')
+            raise HTTPException(400, '每行需填写一条业务命令或分组，如 ml jupyter；不支持参数、通配符或基础管理入口')
     if set(selected) != previous:
         environment.forbidden_commands = [rule for rule in environment.forbidden_commands if rule.command in selected]
         environment.forbidden_commands.extend(EnvironmentCommandDeny(command=command, created_by=actor)
