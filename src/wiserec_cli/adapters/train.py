@@ -29,6 +29,9 @@ def list_mlops(client, page_index=1, page_size=10, task_name=None):
         raise ApiError("查询训练任务失败：" + str(result))
     if type(result.get("count")) is not int or result["count"] < 0:
         raise ApiError("训练列表响应缺少有效的 count")
+    # 成功且总数为零即为空结果，服务端可省略 taskInfos 或返回 null。
+    if result["count"] == 0:
+        return dict(count=0, pageIndex=page_index, pageSize=page_size, items=[])
     items = result.get("taskInfos")
     if not isinstance(items, list) or not all(isinstance(item, dict) for item in items):
         raise ApiError("训练列表响应缺少有效的 taskInfos")

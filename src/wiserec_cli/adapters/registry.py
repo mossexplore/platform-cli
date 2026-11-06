@@ -4,6 +4,20 @@ from ..errors import MlError
 
 # 值为实际实现，未登记的业务操作一律不支持。
 MLOPS_BINDINGS = {"train list": list_mlops}
+# 已确认与 WiseRec 协议一致的公开命令，直接复用既有命令和 Service。
+# 按叶命令登记，未来新增操作需确认后显式开放。
+SHARED_COMMANDS = frozenset({
+    "train history list", "train history logs download", "train instance list",
+    "webstudio list", "webstudio login", "webstudio start", "webstudio stop", "webstudio show",
+    "jupyter exec", "jupyter doctor",
+    "jupyter files list", "jupyter files stat", "jupyter files read", "jupyter files write",
+    "jupyter files mkdir", "jupyter files upload", "jupyter files download",
+    "jupyter files move", "jupyter files copy", "jupyter files delete",
+    "jupyter notebook run", "jupyter terminal list", "jupyter terminal open",
+    "jupyter terminal attach", "jupyter terminal close",
+    "service list", "service logs", "service mock", "service host list",
+    "service host mock", "service deployment list",
+})
 LOCAL_GROUPS = {"env", "history", "context", "tree", "access"}
 # 认证与业务选择沿用现有机制，仍执行原有权限检查。
 CONTEXT_GROUPS = {"login", "logout", "auth", "business"}
@@ -14,7 +28,7 @@ def supported(platform_type, command):
         return True
     if command.startswith("auth ping"):
         return command == "auth ping status"
-    return (command in MLOPS_BINDINGS or
+    return (command in MLOPS_BINDINGS or command in SHARED_COMMANDS or
             command.split(" ")[0] in LOCAL_GROUPS | CONTEXT_GROUPS)
 
 

@@ -176,6 +176,8 @@ ml                                              WiseRec 命令行工具
 
 ### 1.3 说明
 
+默认仅展示当前环境支持的命令；MLOps 包含训练列表、执行记录、执行实例及 Web Studio、Jupyter、服务管理命令。`ml tree --all` 可查看全部命令的支持情况。
+
 从上到下按顺序输入命令层级；使用 `--help` 查看具体用法。`ml tree` 中各命令的说明结尾不显示标点符号。
 
 ### 1.4 示例
@@ -593,9 +595,9 @@ ml train config update TASK_ID --customize-config VALUE
 
 ### 12.3 说明
 
-环境的 `platform_type` 支持 `wiserec` 和 `mlops`，未配置时默认 `wiserec`。MLOps 当前业务命令仅支持 `ml train list`；其他业务命令会提示不支持。登录、业务选择和权限检查仍需完成，MLOps 不自动启动保活。
+环境的 `platform_type` 支持 `wiserec` 和 `mlops`，未配置时默认 `wiserec`。MLOps 支持 `ml train list`、`ml train history list`、`ml train history logs download`、`ml train instance list`，以及 `ml webstudio`、`ml jupyter`、`ml service` 下的全部现有公开命令；其他未适配的业务命令会提示不支持。登录、业务选择和权限检查仍需完成，MLOps 不自动启动保活。
 
-`list` 的 `--name` 按名称模糊查询，`--page` 默认 1，`--page-size` 默认 10，MLOps 每页最多 200 条。列表时间按北京时间展示，大小从字节转换为 B、K、M、G，JSON 保留原始数值和额外字段。
+`list` 的 `--name` 按名称模糊查询，`--page` 默认 1，`--page-size` 默认 10，MLOps 每页最多 200 条。查询成功且总数为 0 时，表格提示“暂无训练任务”，JSON 返回 `count: 0` 和 `items: []`。列表时间按北京时间展示，大小从字节转换为 B、K、M、G，JSON 保留原始数值和额外字段。
 
 先用 `list` 获取任务 ID，`history list` 获取作业 ID。实例和执行记录默认展示第一页 10 条；`start` 返回作业 ID，不代表训练完成。
 
@@ -676,6 +678,8 @@ ml service deployment list SERVICE_ID [-o table|json]
 | `deployment list` | 必填 `SERVICE_ID`；可选 `--output` / `-o` |
 
 ### 14.3 说明
+
+WiseRec 和 MLOps 环境均支持本章全部命令，参数及操作方式相同；连接地址和业务上下文取自当前环境。
 
 先登录并选择业务，从 `list` 获取服务 ID。服务列表默认每页 10 条；主机和部署详情显示第一页 10 条，时间按北京时间显示。主机列表不展示主机ID列；podIP 按接口返回的完整 `IP:端口` 优先单行展示，便于复制，其他长字段可换行。
 
@@ -827,6 +831,8 @@ ml jupyter terminal close NAME [--studio-id ENV_ID]
 
 ### 17.3 说明
 
+WiseRec 和 MLOps 环境均支持本章命令，使用当前环境的 Web Studio 连接与业务选择。
+
 使用前需由管理员开通 Jupyter 能力。`doctor` 检查连接；`notebook run` 在前台执行并保存结果，执行失败时也会尽可能保存已有输出。远程终端需服务端启用，`open` 创建终端，`attach` 连接现有终端，`close` 关闭终端。按 `Ctrl+]` 可断开当前连接而保留远程终端。
 
 ### 17.4 示例
@@ -862,6 +868,8 @@ ml webstudio stop ENV_ID
 | `show` | 无参数 |
 
 ### 18.3 说明
+
+WiseRec 和 MLOps 环境均支持本章命令，实例及连接缓存按环境隔离。
 
 先登录平台并选择业务，再使用 `list` 找到实例。`login` 选择默认实例并建立 Jupyter 连接；`show` 查看当前默认实例。`start` 和 `stop` 改变远程实例状态，并清除当前环境的连接缓存，不会改变默认选择。启动超时或中断时，先用 `list --env-id ENV_ID` 核对状态，再决定是否重试。
 
@@ -917,6 +925,8 @@ ml jupyter files delete PATH [OPTIONS]
 
 ### 19.3 说明
 
+WiseRec 和 MLOps 环境均支持本章全部命令，参数及操作方式相同；连接地址和业务上下文取自当前环境。
+
 先选择环境、登录并选择业务。Web Studio 模式下执行 `ml webstudio login ENV_ID`；直连模式使用管理员提供的 Jupyter 配置。文件操作无需先打开远程终端。
 
 远端路径从 Jupyter 文件浏览器最顶层开始，不是本机目录或服务器 `/`。先用 `files list` 查看根目录，再使用返回的 path；`projects` 仅为示例，不一定存在。路径不得以 `/` 开头或包含 `..`，终端中的 `cd` 不影响文件命令。
@@ -966,6 +976,8 @@ ml jupyter exec [OPTIONS] -- PROGRAM [ARGS...]
 | `--studio-id ENV_ID` | 临时指定 Web Studio 实例，默认使用已选实例 |
 
 ### 20.3 说明
+
+WiseRec 和 MLOps 环境均支持本章全部命令，参数及操作方式相同；连接地址和业务上下文取自当前环境。
 
 连接准备同文件操作。远端须为 Linux/macOS 等 POSIX 系统并提供 Python Kernel，本机可使用 Windows。每次执行使用独立 Kernel，不继承已有 Notebook 变量；程序通过远端 PATH 查找，也可指定程序绝对路径。
 

@@ -121,7 +121,9 @@ def test_install_sync_preserves_mlops_profile(tmp_path):
     assert ConfigManager(path).current_profile().api_endpoint == 'https://old.example'
 
 
-def test_cli_mlops_list_dispatch(tmp_path):
+@pytest.mark.parametrize("fields", [{}, {"taskInfos": None}, {"taskInfos": []}])
+@pytest.mark.parametrize("output", ["json", "table"])
+def test_cli_mlops_list_dispatch(tmp_path, fields, output):
     from wiserec_cli.runtime import Runtime
     config = configuration(tmp_path)
     runtime = Runtime(config_path=config, credential_path=tmp_path / 'credentials.json',
@@ -129,13 +131,17 @@ def test_cli_mlops_list_dispatch(tmp_path):
     calls = []
     def request(method, path, json_body):
         calls.append((path, json_body))
-        return {'result': {'code': 0, 'count': 0, 'taskInfos': []}}
+        return {'result': {'code': 0, 'count': 0, **fields}}
     client = SimpleNamespace(platform_type='mlops', business_id='selected', request=request)
     with patch('wiserec_cli.cli.Runtime', return_value=runtime), \
          patch.object(runtime, 'authenticated_call', side_effect=lambda operation: operation(client)):
         result = CliRunner().invoke(app, ['--config', str(config), 'train', 'list',
-                                         '--name', 'alarm', '--page-size', '200', '-o', 'json'])
+                                         '--name', 'alarm', '--page-size', '200', '-o', output])
     assert result.exit_code == 0, result.output
-    assert json.loads(result.stdout)['count'] == 0
+    if output == 'json':
+        assert json.loads(result.stdout) == dict(count=0, pageIndex=1, pageSize=200, items=[])
+    else:
+        assert '暂无训练任务' in result.output
+        assert '共 0 条' in result.output
     assert calls[0][0] == '/ai/backend/mtp/traintask/queryList'
     assert calls[0][1]['taskName'] == 'alarm'
