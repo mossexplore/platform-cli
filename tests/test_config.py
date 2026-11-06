@@ -135,7 +135,7 @@ class ConfigManagerTest(unittest.TestCase):
             _sync_packaged_config(destination)
         self.assertEqual(ConfigManager(destination).current_name, "test")
 
-    def test_package_update_preserves_manual_ping_settings(self):
+    def test_package_update_overwrites_manual_ping_settings(self):
         destination = Path(self.temporary.name) / "ml" / "config.json"
         _sync_packaged_config(destination)
         user_config = json.loads(destination.read_text(encoding="utf-8"))
@@ -145,8 +145,8 @@ class ConfigManagerTest(unittest.TestCase):
         with patch("wiserec_cli.config.__version__", "999.0.0"):
             _sync_packaged_config(destination)
         manager = ConfigManager(destination)
-        self.assertFalse(manager.auto_ping)
-        self.assertEqual(manager.ping_interval_minutes, 15)
+        self.assertTrue(manager.auto_ping)
+        self.assertEqual(manager.ping_interval_minutes, 10)
 
     def test_ping_settings_reject_invalid_values(self):
         baseline = json.loads(self.path.read_text(encoding="utf-8"))
@@ -159,21 +159,36 @@ class ConfigManagerTest(unittest.TestCase):
                 with self.assertRaisesRegex(Exception, "auth\\.(auto_ping|ping_interval_minutes)"):
                     ConfigManager(self.path)
 
-    def test_installer_preserves_selection_but_updates_other_settings(self):
+    def test_installer_preserves_only_current_on_every_install(self):
         root = Path(self.temporary.name) / "user-config"
         template = self.path.read_text()
         with patch("wiserec_cli.config.user_config_dir", return_value=root), \
              patch("wiserec_cli.config._packaged_config_text", return_value=template):
             destination = reset_packaged_config()
             ConfigManager(destination).use_profile("test")
-            previous = json.loads(destination.read_text())
-            previous["profiles"][1]["api_endpoint"] = "https://old.example.com"
-            destination.write_text(json.dumps(previous))
-            reset_packaged_config()
-            manager = ConfigManager(destination)
-            self.assertEqual(manager.current_name, "test")
-            self.assertEqual(manager.current_profile().api_endpoint,
-                             "https://test.example.com/dashboard")
+            expected = dict(json.loads(template), current="test")
+            for _ in range(2):
+                previous = json.loads(destination.read_text())
+                previous["profiles"][1].update(api_endpoint="https://old.example.com",
+                    platform_type="mlops", command_policy={"deny": ["jupyter files upload"]})
+                previous["profiles"].append({"name": "local", "api_endpoint": "https://local.example"})
+                previous["auth"] = {"auto_ping": False, "ping_interval_minutes": 15}
+                previous["access_control"] = {"enabled": False, "url": "https://old.example"}
+                previous["api"] = {"timeout": 1}
+                previous["browser"] = {"channel": "chrome"}
+                previous["local_only"] = True
+                destination.write_text(json.dumps(previous))
+                reset_packaged_config()
+                self.assertEqual(json.loads(destination.read_text()), expected)
+
+    def test_install_ignores_old_fields_except_current(self):
+        destination = Path(self.temporary.name) / "installed-config.json"
+        template = self.path.read_text()
+        # Old fields may be invalid or obsolete because they are all replaced.
+        destination.write_text(json.dumps({"current": "test", "auth": "obsolete", "profiles": None}))
+        with patch("wiserec_cli.config._packaged_config_text", return_value=template):
+            _sync_packaged_config(destination, force=True)
+        self.assertEqual(json.loads(destination.read_text()), dict(json.loads(template), current="test"))
 
     def test_failed_sync_preserves_config_and_marker(self):
         destination = Path(self.temporary.name) / "installed-config.json"

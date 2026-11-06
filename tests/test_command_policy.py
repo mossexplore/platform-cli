@@ -91,7 +91,7 @@ def test_invalid_policy_rejected(value):
 
 
 @pytest.mark.parametrize('platform', ['wiserec', 'mlops'])
-def test_reinstall_preserves_profile_policy(tmp_path, platform):
+def test_reinstall_uses_packaged_profile_policy(tmp_path, platform):
     config = configuration(tmp_path, platform)
     template = json.dumps({'current': 'allowed', 'profiles': [
         {'name': 'allowed', 'api_endpoint': 'https://new.example'},
@@ -99,9 +99,10 @@ def test_reinstall_preserves_profile_policy(tmp_path, platform):
     with patch('wiserec_cli.config._packaged_config_text', return_value=template):
         _sync_packaged_config(config, force=True)
     profile = ConfigManager(config).current_profile()
-    assert profile.denied_commands == tuple(DENY)
-    assert profile.platform_type == platform
-    assert profile.api_endpoint == 'https://restricted.example'
+    assert ConfigManager(config).current_name == 'restricted'
+    assert profile.denied_commands == ()
+    assert profile.platform_type == 'wiserec'
+    assert profile.api_endpoint == 'https://template.example'
 
 
 def test_runtime_rejects_without_authentication(tmp_path):

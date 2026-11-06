@@ -112,14 +112,16 @@ def test_default_body_and_empty_result():
     assert result == dict(count=0, pageIndex=1, pageSize=10, items=[])
 
 
-def test_install_sync_preserves_mlops_profile(tmp_path):
+def test_install_sync_uses_packaged_mlops_profile(tmp_path):
     from wiserec_cli.config import _sync_packaged_config, ConfigManager
     path = configuration(tmp_path)
     with patch('wiserec_cli.config._packaged_config_text', return_value=json.dumps({
-            'current': 'new', 'profiles': [{'name': 'new', 'api_endpoint': 'https://new.example'}]})):
+            'current': 'new', 'profiles': [{'name': 'new', 'api_endpoint': 'https://new.example'},
+            {'name': 'old', 'platform_type': 'mlops', 'api_endpoint': 'https://updated.example'}]})):
         _sync_packaged_config(path, force=True)
     assert ConfigManager(path).current_profile().platform_type == 'mlops'
-    assert ConfigManager(path).current_profile().api_endpoint == 'https://old.example'
+    assert ConfigManager(path).current_name == 'old'
+    assert ConfigManager(path).current_profile().api_endpoint == 'https://updated.example'
 
 
 @pytest.mark.parametrize("fields", [{}, {"taskInfos": None}, {"taskInfos": []}])

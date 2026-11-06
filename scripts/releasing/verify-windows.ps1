@@ -25,6 +25,36 @@ print('Skill and slash command verified in shared directory, OpenCode and codeag
     if ($LASTEXITCODE -ne 0) { throw 'Agent resource verification failed' }
 }
 
+function Set-ConfigOverrideProbe([string]$Python) {
+    $probe = @'
+import json
+from wiserec_cli.config import ConfigManager
+manager = ConfigManager()
+settings = json.loads(manager.path.read_text(encoding='utf-8'))
+settings['auth'] = {'auto_ping': False, 'ping_interval_minutes': 15}
+settings['access_control'] = {'enabled': False, 'url': 'https://old.example'}
+settings['profiles'][0].update(api_endpoint='https://old.example', platform_type='mlops',
+    command_policy={'deny': ['jupyter files upload']})
+settings['local_only'] = True
+manager.path.write_text(json.dumps(settings), encoding='utf-8')
+'@
+    & $Python -c $probe
+    if ($LASTEXITCODE -ne 0) { throw 'Config override probe failed' }
+}
+function Assert-PackagedConfig([string]$Python) {
+    $check = @'
+import json
+from wiserec_cli.config import ConfigManager, _packaged_config_text
+manager = ConfigManager()
+actual = json.loads(manager.path.read_text(encoding='utf-8'))
+expected = json.loads(_packaged_config_text())
+expected['current'] = 'test'
+assert actual == expected, 'Installer must replace all config fields except local current'
+'@
+    & $Python -c $check
+    if ($LASTEXITCODE -ne 0) { throw 'Installed config differs from package except current' }
+}
+
 $version = (Select-String -Path pyproject.toml -Pattern '^version = "([^"]+)"').Matches[0].Groups[1].Value
 foreach ($mode in @('online', 'offline')) {
     $zip = @(Get-ChildItem release -Filter "*-$mode.zip")
@@ -51,6 +81,7 @@ foreach ($mode in @('online', 'offline')) {
     if ($LASTEXITCODE -ne 0 -or -not (Test-Path -LiteralPath $modulePath)) { throw 'Installed CLI package was not found' }
     & $installedPython -c "from wiserec_cli.config import ConfigManager; ConfigManager().use_profile('test')"
     if ($LASTEXITCODE -ne 0) { throw 'Selecting environment before reinstall failed' }
+    Set-ConfigOverrideProbe $installedPython
     Add-Content -LiteralPath $modulePath -Value '# same-version-reinstall-probe'
     & "$bundle/install.ps1" -InstallDirectory $install
     if (Select-String -LiteralPath $modulePath -Pattern 'same-version-reinstall-probe' -Quiet) {
@@ -58,6 +89,7 @@ foreach ($mode in @('online', 'offline')) {
     }
     & $installedPython -c "from wiserec_cli.config import ConfigManager; assert ConfigManager().current_name == 'test'"
     if ($LASTEXITCODE -ne 0) { throw 'Same-version reinstall changed selected environment' }
+    Assert-PackagedConfig $installedPython
     Assert-AgentResources $installedPython
     if ($mode -eq 'offline') {
         Remove-Item Env:PIP_NO_INDEX, Env:PIP_INDEX_URL, Env:PIP_NO_CACHE_DIR
@@ -76,6 +108,7 @@ $before = & "$upgrade/venv/Scripts/ml.exe" --version
 if ($before -notmatch 'ml 1\.0\.7\.10$') { throw 'Wrong previous version' }
 & $python -c "from wiserec_cli.config import ConfigManager; ConfigManager().use_profile('test')"
 if ($LASTEXITCODE -ne 0) { throw 'Previous CLI environment selection failed' }
+Set-ConfigOverrideProbe $python
 $env:PIP_NO_INDEX = '1'
 $env:PIP_NO_CACHE_DIR = '1'
 & "$bundle/install.ps1" -InstallDirectory $upgrade
@@ -85,4 +118,5 @@ if ($LASTEXITCODE -ne 0 -or $after -notmatch "ml $version") { throw 'Upgrade fai
 & $python -c "from wiserec_cli.config import ConfigManager; assert ConfigManager().current_name == 'test'"
 if ($LASTEXITCODE -ne 0) { throw 'Upgrade changed selected environment' }
 
+Assert-PackagedConfig $python
 Assert-AgentResources $python

@@ -73,14 +73,14 @@ def _package_install_stamp() -> str:
 
 
 def reset_packaged_config() -> Path:
-    """安装器入口：更新默认配置，保留环境选择与自动保活设置。"""
+    """安装器入口：强制更新默认配置，仅保留本地 current 环境选择。"""
     destination = user_config_dir() / "config.json"
     _sync_packaged_config(destination, force=True)
     return destination
 
 
 def _sync_packaged_config(destination: Path, *, force: bool = False) -> None:
-    """更新包内配置时保留用户环境选择与明确设置的自动保活选项。"""
+    """用包内配置更新默认配置，仅保留用户本地 current 值。"""
     template = _packaged_config_text()
     signature = f"{__version__}:{sha256(template.encode('utf-8')).hexdigest()}:{_package_install_stamp()}"
     marker = _config_marker_path(destination)
@@ -101,21 +101,11 @@ def _sync_packaged_config(destination: Path, *, force: bool = False) -> None:
             raise ConfigError(
                 f"无法读取原配置 {destination}，已保留原文件；请修复配置后重新安装或运行"
             ) from exc
-        previous_manager = ConfigManager.__new__(ConfigManager)
-        previous_manager.path = destination
-        previous_manager._data = previous
-        try:
-            if not isinstance(previous, dict):
-                raise ConfigError("配置文件顶层必须是 JSON 对象")
-            previous_manager._validate()
-        except (ConfigError, TypeError, ValueError) as exc:
-            raise ConfigError(f"原配置无效，已保留 {destination}；请修复配置：{exc}") from exc
-        current = previous["current"]
-        preserved_profiles = {item["name"]: item for item in previous["profiles"]
-                          if item.get("platform_type") == "mlops" or "command_policy" in item}
-        settings["profiles"] = [preserved_profiles.pop(item["name"], item)
-                                for item in settings["profiles"]]
-        settings["profiles"].extend(preserved_profiles.values())
+        if not isinstance(previous, dict):
+            raise ConfigError(f"原配置无效，已保留 {destination}；配置文件顶层必须是 JSON 对象")
+        current = previous.get("current")
+        if not isinstance(current, str) or not current:
+            raise ConfigError(f"原配置无效，已保留 {destination}；current 必须是非空字符串")
         if not any(item.get("name") == current for item in settings.get("profiles", [])):
             raise ConfigError(
                 f"新配置中不存在原环境 {current!r}，已保留 {destination}；"
@@ -123,9 +113,6 @@ def _sync_packaged_config(destination: Path, *, force: bool = False) -> None:
             )
         settings["current"] = current
         preserved = True
-        for key in ("auto_ping", "ping_interval_minutes"):
-            if key in previous.get("auth", {}):
-                settings.setdefault("auth", {})[key] = previous["auth"][key]
     candidate = ConfigManager.__new__(ConfigManager)
     candidate.path = destination
     candidate._data = settings
