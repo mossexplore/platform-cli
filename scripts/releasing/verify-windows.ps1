@@ -35,7 +35,7 @@ settings['current'] = sys.argv[1]
 settings['auth'] = {'auto_ping': False, 'ping_interval_minutes': 15}
 settings['access_control'] = {'enabled': False, 'url': 'https://old.example'}
 settings['profiles'][0].update(api_endpoint='https://old.example', platform_type='mlops',
-    command_policy={'deny': ['jupyter files upload']})
+    command_policy={'deny': ['ml jupyter files upload']})
 settings['local_only'] = True
 manager.path.write_text(json.dumps(settings), encoding='utf-8')
 '@

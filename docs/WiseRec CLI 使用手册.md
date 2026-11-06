@@ -341,11 +341,11 @@ ml env use NAME
 
 ### 5.3 说明
 
-每个 profile 可通过 `command_policy.deny` 禁止当前环境的 Jupyter 文件上传、下载命令。只接受 `jupyter files upload` 和 `jupyter files download`，不带 `ml` 前缀；不得重复，不支持通配符或分组名称。未配置或列表为空时不额外限制。此配置只限制这两个命令，不影响其他 Jupyter 功能或数据集上传。
+每个 profile 可通过 `command_policy.deny` 禁止当前环境的 Jupyter 文件上传、下载命令。填写完整命令 `ml jupyter files upload` 和 `ml jupyter files download`，与权限管理系统一致；兼容已有的不带 `ml` 前缀配置；不得重复，不支持通配符或分组名称。未配置或列表为空时不额外限制。此配置只限制这两个命令，不影响其他 Jupyter 功能或数据集上传。
 
 ```json
 "command_policy": {
-  "deny": ["jupyter files upload", "jupyter files download"]
+  "deny": ["ml jupyter files upload", "ml jupyter files download"]
 }
 ```
 

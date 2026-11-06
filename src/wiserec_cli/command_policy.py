@@ -9,8 +9,13 @@ def parse_policy(value):
     if not isinstance(value, dict) or set(value) - {'deny'}:
         raise ConfigError('command_policy 必须是仅包含 deny 的对象')
     deny = value.get('deny', [])
-    if not isinstance(deny, list) or any(not isinstance(item, str) or item not in RESTRICTABLE for item in deny):
-        raise ConfigError('command_policy.deny 只接受 jupyter files upload 和 jupyter files download 的列表')
+    message = 'command_policy.deny 只接受 ml jupyter files upload 和 ml jupyter files download 的列表'
+    if not isinstance(deny, list) or any(not isinstance(item, str) for item in deny):
+        raise ConfigError(message)
+    # Match the permission system's full paths while retaining legacy local entries.
+    deny = [' '.join(item.split()).removeprefix('ml ') for item in deny]
+    if any(item not in RESTRICTABLE for item in deny):
+        raise ConfigError(message)
     if len(deny) != len(set(deny)):
         raise ConfigError('command_policy.deny 不得重复')
     return tuple(deny)

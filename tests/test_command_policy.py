@@ -17,7 +17,7 @@ def configuration(tmp_path, platform='wiserec'):
     path = tmp_path / 'config.json'
     path.write_text(json.dumps({'current': 'restricted', 'profiles': [
         {'name': 'restricted', 'platform_type': platform, 'api_endpoint': 'https://restricted.example',
-         'command_policy': {'deny': DENY}},
+         'command_policy': {'deny': ['ml ' + command for command in DENY]}},
         {'name': 'allowed', 'platform_type': platform, 'api_endpoint': 'https://allowed.example'},
     ]}))
     return path
@@ -82,9 +82,18 @@ def test_other_commands_remain_allowed_and_help_available(tmp_path):
     assert result.exit_code == 0, result.output
 
 
+@pytest.mark.parametrize('commands', [DENY, ['ml ' + command for command in DENY],
+    ['ml jupyter files upload', 'jupyter files download'],
+    [' ml  jupyter files upload ', 'ml\tjupyter files download']])
+def test_full_and_legacy_paths_have_identical_policy(commands):
+    assert parse_policy({'deny': commands}) == tuple(DENY)
+
+
 @pytest.mark.parametrize('value', [None, [], {'allow': []}, {'deny': 'jupyter files upload'},
-    {'deny': [None]}, {'deny': ['ml jupyter files upload']}, {'deny': ['jupyter files *']},
-    {'deny': ['jupyter exec']}, {'deny': [DENY[0], DENY[0]]}])
+    {'deny': [None]}, {'deny': ['ml jupyter files list']}, {'deny': ['jupyter files *']},
+    {'deny': ['jupyter exec']}, {'deny': [DENY[0], DENY[0]]},
+    {'deny': [DENY[0], 'ml ' + DENY[0]]},
+    {'deny': ['ml jupyter files upload', ' ml  jupyter files upload ']}])
 def test_invalid_policy_rejected(value):
     with pytest.raises(ConfigError):
         parse_policy(value)
