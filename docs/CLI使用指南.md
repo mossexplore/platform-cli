@@ -119,6 +119,7 @@ ml - WiseRec平台命令行客户端
 | --- | --- |
 | `ml train start TASK_ID` | 立即执行指定训练任务，返回作业 ID |
 | `ml train list` | 分页查询当前业务下的训练任务 |
+| `ml train detail TASK_ID` | 查询 WiseRec 训练任务详情 |
 | `ml train instance list TASK_ID` | 查询执行实例，固定第 1 页 10 条 |
 | `ml train history list TASK_ID` | 查询执行记录，固定第 1 页 10 条 |
 | `ml train history logs download TASK_ID JOB_ID` | 获取日志地址并下载 |
@@ -1108,6 +1109,15 @@ ml train history list [OPTIONS] TASK_ID
 ```bash
 ml train history list TASK_ID
 ml train history list TASK_ID -o json
+```
+
+### `ml train detail`
+
+登录并选择业务后，使用训练任务 ID 查询 WiseRec 任务详情。表格展示基本信息、首个样本的数据集与配置引用、算法参数和自定义参数。JSON 输出保留接口返回的完整详情。
+
+```bash
+ml train detail TASK_ID
+ml train detail TASK_ID -o json
 ```
 
 ### `ml train history logs download`

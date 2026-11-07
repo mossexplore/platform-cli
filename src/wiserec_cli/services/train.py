@@ -169,20 +169,29 @@ class TrainService:
             raise ApiError(f"删除训练任务结果未能确认：{exc}；请查询任务列表") from exc
         self._action_result(payload, "删除训练任务")
 
-    def clone_detail(self, task: Dict[str, Any]) -> Dict[str, Any]:
-        if not isinstance(task.get("teamId"), str):
-            raise ApiError("训练任务缺少有效的 teamId")
-        payload = self.client.request(
+    def _request_detail(self, task_id: str, team_id: str):
+        task_id = task_id.strip()
+        if not task_id:
+            raise ValueError("taskId 不能为空")
+        business_id = self.client.business_id
+        if not business_id:
+            raise BusinessError("尚未选择租户或团队，请运行 ml business use")
+        return self.client.request(
             "POST", "/ai/backend/modelDev/modelTrain/detailNew",
-            json_body={"data": {"id": task["taskId"],
-                                "businessId": self.client.business_id,
-                                "teamId": task["teamId"]}},
+            json_body={"data": {"id": task_id, "businessId": business_id, "teamId": team_id}},
         )
-        result = self._action_result(payload, "获取训练任务详情")
+
+    def detail(self, task_id: str, team_id: str = "") -> Dict[str, Any]:
+        result = self._action_result(self._request_detail(task_id, team_id), "获取训练任务详情")
         detail = result.get("data")
         if not isinstance(detail, dict):
             raise ApiError("获取训练任务详情失败：缺少有效的 result.data")
         return detail
+
+    def clone_detail(self, task: Dict[str, Any]) -> Dict[str, Any]:
+        if not isinstance(task.get("teamId"), str):
+            raise ApiError("训练任务缺少有效的 teamId")
+        return self.detail(task["taskId"], task["teamId"])
 
     def clone_task(self, detail: Dict[str, Any], name: str,
                    customize_config: Optional[str], create_user: str) -> Optional[str]:
@@ -247,10 +256,7 @@ class TrainService:
             raise BusinessError("尚未选择租户或团队，请运行 ml business use")
         if not update_user.strip():
             raise BusinessError("当前环境 business.json 缺少 username，请运行 ml login 或 ml business refresh")
-        detail_payload = self.client.request(
-            "POST", "/ai/backend/modelDev/modelTrain/detailNew",
-            json_body={"data": {"id": task_id, "businessId": self.client.business_id, "teamId": ""}},
-        )
+        detail_payload = self._request_detail(task_id, "")
         detail_result = self._config_result(detail_payload, "获取训练任务详情")
         detail = detail_result.get("data")
         if not isinstance(detail, dict) or not isinstance(detail.get("taskInfo"), dict):

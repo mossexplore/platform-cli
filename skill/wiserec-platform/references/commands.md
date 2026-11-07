@@ -44,6 +44,7 @@
 | `ml offline experiment trial list PROJECT_ID` | 实验下的 trial | | |
 | `ml offline experiment clone PROJECT_ID --name NAME` | 克隆实验，可先 `--dry-run` | 是 | 创建实验 |
 | `ml train list` | 训练任务 | | |
+| `ml train detail TASK_ID` | 查询 WiseRec 训练任务详情，可用 `-o json` 获取完整详情 | | |
 | `ml sample-task list` | 样本任务列表，默认旧任务管理；`--source new` 查询新版，支持分页、名称、创建者、修改者和重复 `--type` 筛选，`--status` 仅旧版可用 | | |
 | `ml sample-task period list TASK_ID` | 新旧样本任务共用执行周期查询，无需 `--source`，四列网格；支持分页、北京时间范围及重复 `--state` | | |
 | `ml sample-task execution list TASK_ID` | 新旧样本任务共用执行记录查询，无需 `--source`，支持分页、`--include-history` 和 `-o json` | | |

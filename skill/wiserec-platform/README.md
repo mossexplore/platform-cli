@@ -57,6 +57,7 @@
       "ml feature-task execution list*": "allow",
       "ml feature-task execution logs search*": "allow",
       "ml train list*": "allow",
+      "ml train detail*": "allow",
       "ml train instance list*": "allow",
       "ml train history list*": "allow",
       "ml algorithm list*": "allow",

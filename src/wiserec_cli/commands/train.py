@@ -21,6 +21,7 @@ from ..services.train import TrainService
 from ..services.train_export import export_config
 from .common import fail, runtime_from_context
 from .train_logs import instance_logs_app
+from .train_detail import render_detail
 
 
 train_app = typer.Typer(no_args_is_help=True, help="训练任务查询与执行管理")
@@ -380,6 +381,25 @@ def list_history(
                 lambda client: TrainService(client).list_history(task_id)
             )
         render_page(result, selected, history_task_id=task_id)
+    except Exception as exc:
+        fail(exc)
+
+
+@train_app.command("detail")
+def detail(
+    context: typer.Context,
+    task_id: str = typer.Argument(..., help="训练任务的完整 taskId"),
+    output: Optional[str] = typer.Option(None, "--output", "-o", help="输出格式: table 或 json"),
+) -> None:
+    """查询训练任务详情"""
+    try:
+        if not task_id.strip():
+            raise ValueError("taskId 不能为空")
+        runtime = runtime_from_context(context)
+        selected = selected_output(runtime, output)
+        with redirect_stdout(sys.stderr):
+            data = runtime.authenticated_call(lambda client: TrainService(client).detail(task_id))
+        render_detail(data, selected)
     except Exception as exc:
         fail(exc)
 

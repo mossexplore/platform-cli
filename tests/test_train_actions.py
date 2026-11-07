@@ -41,6 +41,61 @@ class TrainActionsTest(unittest.TestCase):
     def task_response(task):
         return success({"count": 1, "taskInfos": [task]})
 
+    def test_detail_request_and_raw_json(self):
+        detail = {"id": "t", "createTime": "2026-10-26T09:02:55.000Z",
+                  "taskInfo": {"samples": []}, "extra": {"kept": [False, 0]}}
+        calls = []
+
+        def handler(request):
+            calls.append(request)
+            self.assertEqual(request.method, "POST")
+            self.assertEqual(str(request.url), "https://dev.example.com/ai/backend/modelDev/modelTrain/detailNew")
+            self.assertEqual(request.headers["businessid"], "mep")
+            self.assertEqual(json.loads(request.content), {"data": {
+                "id": "t", "businessId": "mep", "teamId": "",
+            }})
+            return success(detail)
+
+        result = self.invoke(["detail", "t", "-o", "json"], handler)
+        self.assertEqual(result.exit_code, 0, result.output)
+        self.assertEqual(len(calls), 1)
+        self.assertEqual(json.loads(result.stdout), detail)
+
+    def test_detail_tables_and_custom_config(self):
+        detail = {"businessId": "mep", "name": "task", "createTime": "2026-10-26T09:02:55.000Z",
+                  "taskInfo": {"source": "wisemlops", "teamId": "team",
+                    "resource": {"acceptQueue": True},
+                    "environment": {"region": "cn-north-2"},
+                    "baseInfo": {"trainMode": "singleNodeSingleGpu"},
+                    "taskConfig": {"autoArchive": False, "scheduling": {"cronTimeOut": 0}},
+                    "samples": [{
+                        "dataSets": [{"dataSetName": "dataset", "region": "cn-north-2", "source": "dataops"}],
+                        "mutiGroupRefInfos": [{"mutiGroupRefName": "group.json", "mutiGroupName": "group"}],
+                        "featureSetRefInfos": [{"setRefName": "feature.json", "setName": "feature"}],
+                    }, {"dataSets": [{"dataSetName": "second-sample"}]}],
+                    "parameter": {"algorithmConfig": [{"paramKey": "flag", "paramValue": False}],
+                                  "customizeConfig": "first\\nsecond"}}}
+        for custom, expected, timestamp in (
+            ("first\\nsecond", "first\nsecond", "2026-10-26 17:02:55.0"),
+            ('{"enabled":false}', '"enabled": false', "2026-10-26T09:02:55.000Z"),
+        ):
+            with self.subTest(custom=custom):
+                detail["createTime"] = timestamp
+                detail["taskInfo"]["parameter"]["customizeConfig"] = custom
+                result = self.invoke(["detail", "t", "-o", "table"], lambda request: success(detail))
+                self.assertEqual(result.exit_code, 0, result.output)
+                for value in ("基本信息", "数据集名称：dataset", "组合配置名称：group", "特征集名称：feature",
+                              "2026-10-26 17:02:55", "北京二", "单机单卡", "超时时间(s)：0",
+                              "配额内等待：是", "输出归档：否", "flag：false", "WiseMLOps", expected):
+                    self.assertIn(value, result.stdout)
+                self.assertNotIn("dataops", result.stdout)
+                self.assertNotIn("second-sample", result.stdout)
+
+    def test_detail_rejects_bad_response(self):
+        result = self.invoke(["detail", "t"], lambda request: success())
+        self.assertEqual(result.exit_code, 1)
+        self.assertIn("缺少有效的 result.data", result.stderr)
+
     def test_export_uses_selected_business_streams_and_keeps_existing_file(self):
         with tempfile.TemporaryDirectory() as directory:
             target = Path(directory) / "task.yaml"

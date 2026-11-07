@@ -62,6 +62,7 @@ ml                                              WiseRec 命令行工具
 │       └── clone                               克隆实验
 ├── train                                       训练任务
 │   ├── list                                    查看任务列表
+│   ├── detail                                  查询训练任务详情
 │   ├── instance                                执行实例
 │   │   ├── list                                查看实例列表
 │   │   └── logs                                执行实例日志归档与下载
@@ -588,6 +589,7 @@ ml offline experiment clone PROJECT_ID --name 训练副本
 
 ```text
 ml train list [OPTIONS]
+ml train detail TASK_ID [--output table|json]
 ml train instance list TASK_ID
 ml train history list TASK_ID
 ml train start TASK_ID
@@ -605,6 +607,7 @@ ml train config update TASK_ID --customize-config VALUE
 | 命令 | 主要参数与选项 |
 | --- | --- |
 | `list` | `--name`、`--page`、`--page-size`、`--output` / `-o` |
+| `detail` | 必填 `TASK_ID`；可选 `--output` / `-o` |
 | `instance list`、`history list` | 必填 `TASK_ID`；可选 `--output` / `-o` |
 | `start` | 必填 `TASK_ID`；执行后显示作业 ID |
 | `config export` | 必填 `TASK_ID`；可选 `--file PATH` 指定保存位置 |
@@ -620,6 +623,8 @@ ml train config update TASK_ID --customize-config VALUE
 
 `list` 的 `--name` 按名称模糊查询，`--page` 默认 1，`--page-size` 默认 10，MLOps 每页最多 200 条。查询成功且总数为 0 时，表格提示“暂无训练任务”，JSON 返回 `count: 0` 和 `items: []`。列表时间按北京时间展示，大小从字节转换为 B、K、M、G，JSON 保留原始数值和额外字段。
 
+WiseRec 可用 `detail` 查询指定训练任务。先登录并选择业务，再使用任务 ID 查询。表格展示基本信息、首个样本的数据集与配置引用、算法参数和自定义参数，时间按北京时间显示。自定义参数为 JSON 时缩进展示，普通文本按行显示。使用 `-o json` 获取完整原始详情。
+
 先用 `list` 获取任务 ID，`history list` 获取作业 ID。实例和执行记录默认展示第一页 10 条；`start` 返回作业 ID，不代表训练完成。
 
 `cancel` 取消查询到的执行实例；`delete` 软删除任务；`clone` 创建副本；`config update` 更新自定义参数。操作结果不明时先查询状态。
@@ -634,6 +639,8 @@ ml train config update TASK_ID --customize-config VALUE
 
 ```bash
 ml train list --name demo
+ml train detail TASK_ID
+ml train detail TASK_ID -o json
 ml train instance list TASK_ID
 ml train history list TASK_ID
 ml train start TASK_ID
