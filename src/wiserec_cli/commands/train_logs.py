@@ -23,6 +23,8 @@ instance_logs_app = typer.Typer(no_args_is_help=True, help='执行实例日志�
 
 
 def select_logs(value, items):
+    if value.strip().lower() == 'all':
+        return [index for index, item in enumerate(items, 1) if is_downloadable(item)]
     if '，' in value:
         raise ValueError('检测到中文逗号，请使用英文逗号，例如 1,2,3')
     parts = value.split(',')
@@ -31,11 +33,15 @@ def select_logs(value, items):
     indices = list(dict.fromkeys(int(part.strip()) for part in parts))
     if any(index < 1 or index > len(items) for index in indices):
         raise ValueError('编号超出列表范围，请重新输入')
-    unavailable = [str(index) for index in indices if type(items[index - 1].get('status')) is not int
-                   or items[index - 1]['status'] != 1]
+    unavailable = [str(index) for index in indices if not is_downloadable(items[index - 1])]
     if unavailable:
         raise ValueError(f"编号 {','.join(unavailable)} 尚未归档成功，不能下载，请重新选择")
     return indices
+
+
+def is_downloadable(item):
+    status = item.get('status')
+    return type(status) is int and status == 1
 
 
 def archive_time(value):
@@ -98,14 +104,17 @@ def download_running_logs(
                 print_result({'status': 'archiving', 'count': 0, 'items': []}, selected)
             return
         show_logs(items)
-        if not any(type(item.get('status')) is int and item['status'] == 1 for item in items):
+        if not any(is_downloadable(item) for item in items):
             msg.detail('暂无可下载的日志，请稍后执行下载命令！')
             if selected == 'json':
                 print_result({'status': 'unavailable', 'count': len(items), 'items': items}, selected)
             return
         while True:
             with redirect_stdout(sys.stderr):
-                value = typer.prompt('请输入日志编号，多个用英文逗号分隔，例如 1,2,3；输入 q 取消', err=True)
+                value = typer.prompt(
+                    '请输入日志编号，多个用英文逗号分隔，例如 1,2,3；输入 all 下载全部可下载日志；输入 q 取消',
+                    err=True,
+                )
             if value.strip().lower() == 'q':
                 return
             try:

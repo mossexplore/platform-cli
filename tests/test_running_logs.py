@@ -126,13 +126,14 @@ def test_batch_failure_continues(tmp_path):
     runtime.authenticated_call = lambda op: op(SimpleNamespace())
     with patch('wiserec_cli.cli.Runtime', return_value=runtime), \
          patch('wiserec_cli.commands.train_logs.runtime_from_context', return_value=runtime), \
-         patch.object(RunningLogService, 'archive', return_value={'logInfoList': [RECORD, RECORD]}), \
+         patch.object(RunningLogService, 'archive', return_value={'logInfoList': [RECORD, dict(RECORD, status=0), RECORD]}), \
          patch.object(RunningLogService, 'download_url', return_value='https://files.example/log'), \
          patch('wiserec_cli.commands.train_logs.download_file', side_effect=[ApiError('failed'), (tmp_path/'ok.zip', 10)]) as download:
-        result = runner().invoke(app, ['train', 'instance', 'logs', 'download', 't', 'j'], input='1,2\n')
+        result = runner().invoke(app, ['train', 'instance', 'logs', 'download', 't', 'j'], input='all\n')
     assert result.exit_code == 1 and download.call_count == 2
     summary = json.loads(result.stdout)
     assert summary['failed'] == summary['succeeded'] == 1
+    assert [item['number'] for item in summary['items']] == [1, 3]
 
 
 def test_directory_download_zip_naming_and_no_overwrite(tmp_path):
