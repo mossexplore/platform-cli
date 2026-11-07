@@ -12,7 +12,7 @@ ml model source MODEL_ID --train-task -o json
 ```
 
 - 模型列表项在 `result.models`，ID 为 `modelId`。
-- `source` 默认返回来源接口的完整响应；加 `--train-task` 只返回关联训练任务的响应，字段在 `result.jobHistoryDetail`，其中 `jobId` 是执行标识，`taskId` 是任务标识。两种结果不合并。
+- `source` 的表格输出先展示「输出版本基本信息」，有 `jobId` 时再展示「任务基本信息」。两个表格每行三列，每格显示一项「字段：值」。加 `-o json` 获取来源接口的完整响应。加 `--train-task` 查询关联训练任务，JSON 字段在 `result.jobHistoryDetail`，其中 `jobId` 是执行标识，`taskId` 是任务标识。
 - 溯源中的模型版本读 `modelVersion`，不是详情中的 `modelTag`。
 - 必要的来源或训练任务标识缺失时，CLI 会停止，不要自行猜测关联关系。
 

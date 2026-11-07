@@ -59,7 +59,9 @@ class ModelService:
                           {'versionId': source_id}, require_code=True)
 
     def train_task(self, model_id: str):
-        source = self.source(model_id)
+        return self.task_for_source(self.source(model_id))
+
+    def task_for_source(self, source):
         job_id = source['result'].get('jobId')
         if not isinstance(job_id, str) or not job_id.strip():
             raise ApiError('模型溯源缺少有效的 result.jobId，无法查询训练任务')

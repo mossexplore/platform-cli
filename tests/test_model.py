@@ -260,13 +260,21 @@ SOURCE = {'version': '1.0', 'meta': {'uuid': 'trace'}, 'result': {
 
 
 @pytest.mark.parametrize('output', ['table', 'json'])
-def test_source_request_chain_and_output(rt, invoke, output):
+def test_source_request_chain_and_output(rt, invoke, output, monkeypatch):
+    monkeypatch.setenv('COLUMNS', '120')
     rt.config._data['profiles'].append({'name': 'dev', 'api_endpoint': 'https://dev.example/dashboard'})
     rt.config._data['current'] = 'dev'
     rt.auth.ensure_credentials.return_value = Credentials.create('dev', 'cookie', 'csrf', 'current-user', 3600)
     rt.business.refresh('dev', 'current-user',
         [Department('d', 'D', (Tenant('dev-business', 'Dev', (), ()),))], browser_business_id='dev-business')
     calls = []
+    source_payload = {**SOURCE, 'result': {**SOURCE['result'], 'jobId': 'job-id'}}
+    task_payload = {'result': {'code': 0, 'jobHistoryDetail': {
+        'taskName': 'task', 'businessId': 'browser', 'scene': '', 'subScene': '',
+        'jobType': 'train', 'image': 'registry/train:image', 'imageSpecificInfo': 'gpu',
+        'infraSize': 1, 'createTime': 1793993694000, 'maxHistoryNum': 50, 'taskMaxTime': 0,
+    }}}
+
     def handler(request):
         calls.append(request.url.path)
         assert request.method == 'POST'
@@ -276,19 +284,32 @@ def test_source_request_chain_and_output(rt, invoke, output):
             assert request.url.path == '/ai/backend/mep/models/queryDetail'
             assert json.loads(request.content) == {'modelId': MODEL_ID}
             return httpx.Response(200, json=DETAIL)
-        assert request.url.path == '/ai/backend/mtp/offlinemodel/version/queryDetail'
-        assert json.loads(request.content) == {'versionId': DETAIL['result']['sourceId']}
-        return httpx.Response(200, json=SOURCE)
+        if len(calls) == 2:
+            assert request.url.path == '/ai/backend/mtp/offlinemodel/version/queryDetail'
+            assert json.loads(request.content) == {'versionId': DETAIL['result']['sourceId']}
+            return httpx.Response(200, json=source_payload)
+        assert request.url.path == '/ai/backend/mtp/traintask/queryModelTaskDetail'
+        assert json.loads(request.content) == {'jobId': 'job-id'}
+        return httpx.Response(200, json=task_payload)
     result = invoke(['source', MODEL_ID, '-o', output], handler)
     assert result.exit_code == 0, result.output
-    assert len(calls) == 2
+    assert len(calls) == (2 if output == "json" else 3)
     if output == 'json':
-        assert json.loads(result.stdout) == SOURCE
+        assert json.loads(result.stdout) == source_payload
     else:
+        first_row = next(line for line in result.stdout.splitlines() if '输出名称：' in line)
+        assert first_row.count('│') == 4
+        assert '模型版本：original' in first_row and '敏感：是' in first_row
         for text in ('输出名称：[red]output[/red]', '模型版本：original', '敏感：是',
                      '业务编码：browser', '状态：已发布', '创建时间：2026-09-20 14:30:14',
                      '描述：description', '来源：wisemlops', '存储桶：bucket'):
             assert text in result.stdout
+        assert result.stdout.index('输出版本基本信息') < result.stdout.index('任务基本信息')
+        for text in ('任务名称：task', '业务场景：-', '业务子场景：-', '工作节点数：1',
+                     '执行时间：2026-11-07 03:34:54', '历史记录数目：50', '超时时间(s)：0'):
+            assert text in result.stdout
+        task_row = next(line for line in result.stdout.splitlines() if '任务名称：' in line)
+        assert task_row.count('│') == 4
         assert 'wrong' not in result.stdout
 
 

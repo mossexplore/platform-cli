@@ -42,6 +42,13 @@ TRAIN_TASK_FIELDS = (
     ('镜像', 'image'), ('资源规格', 'imageSpecificInfo'), ('历史记录数目', 'maxHistoryNum'),
 )
 
+SOURCE_TASK_FIELDS = (
+    ('任务名称', 'taskName'), ('业务编码', 'businessId'), ('业务场景', 'scene'),
+    ('业务子场景', 'subScene'), ('任务类型', 'jobType'), ('镜像', 'image'),
+    ('资源规格', 'imageSpecificInfo'), ('工作节点数', 'infraSize'), ('执行时间', 'createTime'),
+    ('历史记录数目', 'maxHistoryNum'), ('超时时间(s)', 'taskMaxTime'),
+)
+
 
 def readable_size(value):
     if type(value) is bool:
@@ -173,13 +180,20 @@ def source(context: typer.Context,
         with redirect_stdout(sys.stderr):
             def query(client):
                 service = selected_service(runtime, client)
-                return service.train_task(model_id) if train_task else service.source(model_id)
-            payload = runtime.authenticated_call(query)
+                if train_task:
+                    return service.train_task(model_id), None
+                payload = service.source(model_id)
+                job_id = payload['result'].get('jobId')
+                task = (service.task_for_source(payload)
+                        if selected == 'table' and isinstance(job_id, str) and job_id.strip() else None)
+                return payload, task
+            payload, task = runtime.authenticated_call(query)
         if selected == 'json':
             typer.echo(json.dumps(payload, ensure_ascii=False))
             return
         fields = TRAIN_TASK_FIELDS if train_task else SOURCE_FIELDS
         data = payload['result']['jobHistoryDetail'] if train_task else payload['result']
+        cells = []
         for title, field in fields:
             value = data.get(field)
             if field == 'sensitive':
@@ -188,6 +202,28 @@ def source(context: typer.Context,
                 rendered = '已发布' if value == 1 else '未发布'
             else:
                 rendered = display_value(field, value)
-            console.print(Text(f'{title}：{rendered}'))
+            cell = Text(f'{title}：{rendered}')
+            if train_task:
+                console.print(cell)
+            else:
+                cells.append(cell)
+        if not train_task:
+            render_source_grid('输出版本基本信息', cells)
+            if task is not None:
+                detail = task['result']['jobHistoryDetail']
+                render_source_grid('任务基本信息', [
+                    Text(f'{title}：{display_value(field, detail.get(field))}')
+                    for title, field in SOURCE_TASK_FIELDS
+                ])
     except Exception as exc:
         fail(exc)
+
+
+def render_source_grid(title, cells):
+    print_text(title)
+    table = Table(show_header=False)
+    for _ in range(3):
+        table.add_column(overflow='fold', ratio=1)
+    for index in range(0, len(cells), 3):
+        table.add_row(*cells[index:index + 3])
+    console.print(table)
