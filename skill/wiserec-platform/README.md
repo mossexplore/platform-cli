@@ -113,7 +113,7 @@ ml auth status
 
 `/ml` 在同一聊天内跨用户消息复用已确认上下文，后续普通查询直接执行。环境、账号、业务、CLI 路径或配置来源变化时按影响补查；长任务只查认证有效期；提交写操作前重新核对实际环境、账号与业务并保留原确认要求。只读失败按认证、业务、权限或语法分类处理，不把每个新意图当作首次操作。CLI 自身的逐次认证及授权不变。
 
-找不到 `ml` 时用 `Get-Command ml` 排查 PATH；安装或版本问题时按需使用 `ml --version`、`ml tree` 和对应命令的 `--help`。已确认的语法不重复查询帮助。`ml login` 需要 Edge 和图形界面，不能在无人值守环境中完成。旧 CLI 若不支持 context 或所需字段，按实际版本帮助核对或更新 CLI，不猜测字段含义。
+PATH 中找不到 `ml` 时，直接调用默认安装目录的 `%LOCALAPPDATA%\Programs\WiseRecCLI\venv\Scripts\ml.exe`。Git Bash、PowerShell 和自定义安装目录的用法见 [会话参考](references/session.md)。安装或版本问题时按需使用 `ml --version`、`ml tree` 和对应命令的 `--help`。已确认的语法不重复查询帮助。`ml login` 需要 Edge 和图形界面，不能在无人值守环境中完成。旧 CLI 若不支持 context 或所需字段，按实际版本帮助核对或更新 CLI，不猜测字段含义。
 
 ## 分发边界
 

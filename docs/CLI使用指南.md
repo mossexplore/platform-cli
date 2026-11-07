@@ -122,6 +122,7 @@ ml - WiseRec平台命令行客户端
 | `ml train instance list TASK_ID` | 查询执行实例，固定第 1 页 10 条 |
 | `ml train history list TASK_ID` | 查询执行记录，固定第 1 页 10 条 |
 | `ml train history logs download TASK_ID JOB_ID` | 获取日志地址并下载 |
+| `ml train instance logs download TASK_ID JOB_ID` | 请求归档并按编号或全部下载执行实例日志 |
 | `ml train config update TASK_ID` | 更新训练任务自定义参数 |
 
 ### 特征集
@@ -1130,13 +1131,14 @@ ml train history logs download [OPTIONS] TASK_ID JOB_ID
 
 | 选项 | 短选项 | 默认值 | 说明 |
 | --- | --- | --- | --- |
-| `--file` | — | 当前目录下自动命名 | 本地保存路径，其父目录必须已存在 |
+| `--directory` | — | 当前目录 | 保存 ZIP 的已有目录 |
+| `--type` | — | `log` | 可选 `plog` |
 | `--output` | `-o` | 当前环境的默认输出格式 | 结果摘要格式：`table` 或 `json` |
 
 **说明**
 
 - 直接向下载地址接口提交这两个 ID，不预先查询历史记录或在本地验证归属，也不受记录列表第一页 10 条限制。
-- 默认文件名取响应 `Content-Disposition`，移除目录成分及不适合文件名的字符，并补充 `.zip` 后缀；缺省为 `JOB_ID-logs.zip`。显式 `--file` 保留指定文件名，不强制补 `.zip`。
+- 默认文件名取响应 `Content-Disposition`，移除目录成分及不适合文件名的字符，并补充 `.zip` 后缀；缺省为 `JOB_ID-logs.zip`。
 - 文件内容原样保存，不自动解压。目标已存在时自动递增编号（如 `train-logs (1).zip`），不覆盖已有文件。
 - 下载先写入同目录临时文件，接收完整后以硬链接发布最终文件，故目标文件系统须支持硬链接。
 - 实际文件下载使用独立客户端，不携带平台 Cookie、CSRF 或业务请求头。完整下载地址、认证提示和进度发送到 stderr。
@@ -1147,9 +1149,21 @@ ml train history logs download [OPTIONS] TASK_ID JOB_ID
 
 ```bash
 ml train history logs download TASK_ID JOB_ID
-ml train history logs download TASK_ID JOB_ID --file ./train-logs.zip
-ml train history logs download TASK_ID JOB_ID --file ./train-logs.zip -o json
+ml train history logs download TASK_ID JOB_ID --directory ./logs
+ml train history logs download TASK_ID JOB_ID --directory ./logs -o json
 ```
+
+### `ml train instance logs download`
+
+先登录并选择业务，从执行实例列表取得 `JOB_ID`。命令会请求日志归档。若提示归档中，稍后重跑同一命令。
+
+```bash
+ml train instance logs download TASK_ID JOB_ID --select 2 --directory ./logs
+ml train instance logs download TASK_ID JOB_ID --select "1,3" --directory ./logs
+ml train instance logs download TASK_ID JOB_ID --select all --directory ./logs -o json
+```
+
+`--select` 跳过编号提示。编号以本次归档表格为准，`all` 按表格顺序下载所有归档成功的记录。省略此参数时交互选择。保存目录须已存在，省略 `--directory` 时使用当前目录。表格和进度输出到 stderr，`-o json` 将结果摘要写到 stdout。
 
 ### `ml train config update`
 

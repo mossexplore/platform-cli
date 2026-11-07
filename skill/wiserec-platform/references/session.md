@@ -35,9 +35,24 @@ ml auth status
 
 实际使用的 shell 以 shell 工具说明为准。OpenCode 在 Windows 上通常优先选用 PowerShell（`pwsh` 或 Windows PowerShell），其次是 Git Bash 和 cmd；从 Git Bash 启动 OpenCode 或在配置中指定了 shell 时，可能使用该 shell。具体选择规则可能随 OpenCode 版本变化。
 
-- **找不到 `ml`**：shell 可能不加载 PowerShell 配置文件，`ml` 应位于系统或用户 PATH 中，不依赖配置文件中的 PATH 修改。用 `Get-Command ml` 核对。刚安装 CLI 时，OpenCode 进程仍是旧的 PATH，需要完全退出并重新打开 OpenCode。
+- **找不到 `ml`**：官方 Windows 安装器的默认根目录为 `%LOCALAPPDATA%\Programs\WiseRecCLI`。PATH 注册的是根目录下的 `bin`，启动器是 `bin\ml.cmd`，实际程序是 `venv\Scripts\ml.exe`。当前 shell 找不到 `ml` 时，按下面的示例直接调用实际程序。刚安装后也可以完全退出并重新打开 Agent，让它继承更新后的 PATH。
 - **引号**：PowerShell 中含空格或反斜杠的路径用单引号包住。Windows PowerShell 5.1 和 PowerShell 7.3 之前的版本会去掉参数里嵌入的双引号；有文件参数时（如 `--from-file`、`--request-file`、`--request-sample-file`）先把文本写入本地文件再传入，必须直接传含双引号的值（如 JSON 形式的 `--customize-config`）时，在这些版本中把每个 `"` 写成 `\"`，执行后核对平台上的实际值。
 - **中文乱码**：在同一条命令前加 `[Console]::OutputEncoding = [System.Text.Encoding]::UTF8;` 再运行 `ml`。
+
+Windows Git Bash 使用 `cygpath` 转换当前账号的安装路径：
+
+```bash
+ml_exe="$(cygpath -u "$LOCALAPPDATA")/Programs/WiseRecCLI/venv/Scripts/ml.exe"
+"$ml_exe" context --json
+```
+
+PowerShell 可直接运行：
+
+```powershell
+& "$env:LOCALAPPDATA\Programs\WiseRecCLI\venv\Scripts\ml.exe" context --json
+```
+
+确认配置路径后，用同一个 `ml.exe` 执行 `auth status` 和后续命令。在不同 shell 调用之间复用已确认的绝对路径。若默认路径下没有 `ml.exe`，请用户提供安装器指定的 `-InstallDirectory`，在该目录下使用 `venv\Scripts\ml.exe`。若用户未指定安装目录，请先确认是否已安装。WSL 中请切换到 Windows shell 使用这套安装。
 
 ## 登录与业务选择
 
@@ -51,7 +66,8 @@ ml auth status
 
 | 现象 | 下一步 |
 | --- | --- |
-| `ml` 不存在或版本异常 | 检查安装和 PATH，不继续业务命令 |
+| `ml` 不在 PATH 中 | 直接调用默认安装目录的 `ml.exe`，路径见上方示例 |
+| 默认路径缺少 `ml.exe` 或版本异常 | 向用户核对安装目录和实际调用的版本 |
 | `配置文件不存在` | 核对当前 Agent 账号的 `%APPDATA%\ml\config.json`。如果报错路径不同，告知用户实际路径并停止操作 |
 | `安装包中缺少 config.json` | 在报错的 Agent 终端运行 `Get-Command ml` 和 `ml --version`，核对实际调用的 CLI。若该安装缺少包内配置，用完整安装包重新安装 |
 | 认证过期或缺失 | 请用户登录后复查 |

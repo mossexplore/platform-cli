@@ -26,8 +26,8 @@ metadata:
 
 ## 运行约束
 
-1. **shell 工具**：以 shell 工具说明中的 shell 为准，Windows 上常见为 PowerShell，本 skill 示例按 PowerShell 编写；实际为其他 shell 时按其引号规则调整。引号、路径和中文输出问题见 [session.md](references/session.md)。
-2. **没有交互输入**：shell 工具不提供可交互的标准输入，确认提示会直接中止命令。会询问确认的命令（见 [commands.md](references/commands.md) 的“确认”列）在用户已明确授权具体目标后加 `--yes`；未获授权时先问用户，不要运行命令去触发提示。`ml business use` 必须传 `--tenant`，`ml service logs` 必须加 `--no-input`，不使用无子命令的 `ml history` 交互浏览。执行实例日志下载需要在表格出现后输入编号或 `all`，请用户在自己的终端运行 `ml train instance logs download`。
+1. **shell 工具**：以 shell 工具说明中的 shell 为准，Windows 上常见为 PowerShell，本 skill 示例按 PowerShell 编写；实际为其他 shell 时按其引号规则调整。若 PATH 中找不到 `ml`，直接使用 `%LOCALAPPDATA%\Programs\WiseRecCLI\venv\Scripts\ml.exe`。Git Bash 和 PowerShell 调用示例见 [session.md](references/session.md)。
+2. **没有交互输入**：shell 工具不提供可交互的标准输入，确认提示会直接中止命令。会询问确认的命令（见 [commands.md](references/commands.md) 的“确认”列）在用户已明确授权具体目标后加 `--yes`；未获授权时先问用户，不要运行命令去触发提示。`ml business use` 必须传 `--tenant`，`ml service logs` 必须加 `--no-input`，不使用无子命令的 `ml history` 交互浏览。执行实例日志下载须传 `--select`，按用户指定的表格编号选择，用户明确要求全部时传 `--select all`。
 3. **禁止交互终端**：不运行 `ml jupyter terminal open` 和 `ml jupyter terminal attach`，不设法分配 TTY/PTY 或模拟按键。远端操作只用 `ml jupyter files`、`ml jupyter exec` 和 `ml jupyter notebook run`；无法非交互完成时向用户报告限制。
 4. **显式设置工具超时**：shell 工具会在默认超时后终止命令，默认值以工具 `timeout` 参数的说明为准，常见约 2 分钟且可能被配置修改。预计超过默认值的命令必须设置工具的 `timeout`（毫秒），取 CLI 自身时限之和再加至少 60 秒：`jupyter exec` 为 `--startup-timeout` 与 `--timeout` 之和，`jupyter notebook run` 同理，`dataset files upload` 按 `--timeout`；`ml login`、`ml business refresh` 需等待用户在 Edge 中操作，至少设 10 分钟。
 5. **超时后不重放写操作**：工具超时或中断后，即使工具建议加大超时重试，对训练启动、克隆、部署、上传、exec、Notebook 等有副作用的命令，也必须先用只读命令查询远端状态，确认未生效后再决定是否重新执行。只读查询可以加大超时后重试。

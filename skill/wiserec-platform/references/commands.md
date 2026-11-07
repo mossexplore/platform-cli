@@ -50,7 +50,7 @@
 | `ml train instance list TASK_ID` | 执行实例 | | |
 | `ml train history list TASK_ID` | 执行记录 | | |
 | `ml train history logs download TASK_ID JOB_ID [--type log\|plog] [--directory DIR]` | 下载普通或 plog 执行日志 | | 本地文件 |
-| `ml train instance logs download TASK_ID JOB_ID [--directory DIR]` | 请求归档，在终端输入编号或 `all` 下载已归档日志 | 选择编号或 `all` | 平台归档、本地 ZIP 文件 |
+| `ml train instance logs download TASK_ID JOB_ID [--select SELECTION] [--directory DIR]` | 请求归档并下载已归档日志 | 可用 `--select` 传编号或 `all` | 平台归档、本地 ZIP 文件 |
 | `ml train start TASK_ID` | 立即启动任务 | | 启动作业 |
 | `ml train cancel TASK_ID` | 逐个取消全部执行实例 | 是 | 取消作业 |
 | `ml train delete TASK_ID` | 软删除任务 | 是 | 删除任务 |

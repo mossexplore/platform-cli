@@ -593,7 +593,7 @@ ml train history list TASK_ID
 ml train start TASK_ID
 ml train config export TASK_ID [--file PATH]
 ml train history logs download TASK_ID JOB_ID [--type log|plog] [--directory DIR]
-ml train instance logs download TASK_ID JOB_ID [--directory DIR]
+ml train instance logs download TASK_ID JOB_ID [--select SELECTION] [--directory DIR]
 ml train cancel TASK_ID [--yes]
 ml train delete TASK_ID [--yes]
 ml train clone TASK_ID --name NAME [OPTIONS]
@@ -609,7 +609,7 @@ ml train config update TASK_ID --customize-config VALUE
 | `start` | 必填 `TASK_ID`；执行后显示作业 ID |
 | `config export` | 必填 `TASK_ID`；可选 `--file PATH` 指定保存位置 |
 | `history logs download` | 必填 `TASK_ID`、`JOB_ID`；`--type` 默认 `log`，也可选 `plog`；可选 `--directory DIR`、`--output` / `-o` |
-| `instance logs download` | 必填 `TASK_ID`、`JOB_ID`；可选 `--directory DIR`、`--output` / `-o` |
+| `instance logs download` | 必填 `TASK_ID`、`JOB_ID`；可选 `--select SELECTION`、`--directory DIR`、`--output` / `-o` |
 | `cancel`、`delete` | 必填 `TASK_ID`；可选 `--yes` / `-y` 跳过确认 |
 | `clone` | 必填 `TASK_ID`、`--name NAME`；可选 `--customize-config VALUE`、`--yes` / `-y` |
 | `config update` | 必填 `TASK_ID`、`--customize-config VALUE`；参数按字符串原样传递 |
@@ -626,7 +626,7 @@ ml train config update TASK_ID --customize-config VALUE
 
 `history logs download` 默认下载普通日志；使用 `--type plog` 下载 plog。无需提供 `target`，请求仅使用当前业务 ID、任务 ID 和作业 ID。两种下载均适用于 WiseRec 和 MLOps，JSON 返回本地文件路径、字节数及下载状态。
 
-`instance logs download` 需先登录并选择业务，通过 `instance list` 获取作业 ID。命令先请求归档；未完成时提示“日志归档中，请稍后执行下载命令！”，稍后重新运行同一命令。已有记录时，以表格展示编号、任务名称、jobId、roleJobId、节点名称、归档状态及北京时间的开始和结束时间，每条记录占一行。只有归档成功的记录可下载，输入编号选择，多份使用英文逗号分隔，例如 `1,2,3`；中文逗号会提示重新输入。输入 `all` 下载所有归档成功的记录，输入 `q` 取消。同名任务的不同归档分别编号。选中后展示 OBS 下载链接并保存 ZIP；部分失败会继续其余下载，最终汇总结果并返回失败状态。JSON 输出结果摘要，选择提示及进度写入标准错误；仍需交互输入编号。归档文件不保证包含归档时间之后新增的日志。
+`instance logs download` 需先登录并选择业务，通过 `instance list` 获取作业 ID。命令先请求归档；未完成时提示“日志归档中，请稍后执行下载命令！”，稍后重新运行同一命令。已有记录时，以表格展示编号、任务名称、jobId、roleJobId、节点名称、归档状态及北京时间的开始和结束时间，每条记录占一行。只有归档成功的记录可下载，输入编号选择，多份使用英文逗号分隔，例如 `1,2,3`；中文逗号会提示重新输入。输入 `all` 下载所有归档成功的记录，输入 `q` 取消。同名任务的不同归档分别编号。传 `--select` 可跳过编号提示，值为本次表格中的编号、英文逗号分隔的多个编号或 `all`。不可下载或无效的编号会报错。选中后展示 OBS 下载链接并保存 ZIP；部分失败会继续其余下载，最终汇总结果并返回失败状态。JSON 输出结果摘要，表格、选择提示和进度写入标准错误。归档文件不保证包含归档时间之后新增的日志。
 
 两种日志下载均使用 `--directory DIR` 指定已存在的目录，不传时保存到当前目录，不再接受 `--file`。普通日志和 plog 均自动以 ZIP 文件名保存，同名文件自动编号。配置导出为 YAML，仍使用 `--file`，父目录须存在。
 
@@ -640,6 +640,9 @@ ml train start TASK_ID
 ml train config export TASK_ID --file ./task.yaml
 ml train history logs download TASK_ID JOB_ID --directory ./logs
 ml train instance logs download TASK_ID JOB_ID --directory ./logs
+ml train instance logs download TASK_ID JOB_ID --select 1 --directory ./logs
+ml train instance logs download TASK_ID JOB_ID --select "1,3" --directory ./logs
+ml train instance logs download TASK_ID JOB_ID --select all --directory ./logs
 ml train cancel TASK_ID
 ml train delete TASK_ID
 ml train clone TASK_ID --name 新任务 --customize-config 0096999

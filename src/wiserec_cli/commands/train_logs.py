@@ -82,6 +82,9 @@ def download_running_logs(
     context: typer.Context,
     task_id: str = typer.Argument(..., help='训练任务 ID'),
     job_id: str = typer.Argument(..., help='执行实例作业 ID'),
+    selection: Optional[str] = typer.Option(
+        None, '--select', metavar='SELECTION', help='直接下载指定编号，多个用英文逗号分隔，all 下载全部已归档日志',
+    ),
     directory: Optional[Path] = typer.Option(None, '--directory', help='已存在的保存目录，默认当前目录'),
     output: Optional[str] = typer.Option(None, '--output', '-o', help='结果摘要格式: table 或 json'),
 ):
@@ -104,24 +107,26 @@ def download_running_logs(
                 print_result({'status': 'archiving', 'count': 0, 'items': []}, selected)
             return
         show_logs(items)
+        indices = select_logs(selection, items) if selection is not None else []
         if not any(is_downloadable(item) for item in items):
             msg.detail('暂无可下载的日志，请稍后执行下载命令！')
             if selected == 'json':
                 print_result({'status': 'unavailable', 'count': len(items), 'items': items}, selected)
             return
-        while True:
-            with redirect_stdout(sys.stderr):
-                value = typer.prompt(
-                    '请输入日志编号，多个用英文逗号分隔，例如 1,2,3；输入 all 下载全部可下载日志；输入 q 取消',
-                    err=True,
-                )
-            if value.strip().lower() == 'q':
-                return
-            try:
-                indices = select_logs(value, items)
-                break
-            except ValueError as exc:
-                msg.error(exc)
+        if selection is None:
+            while True:
+                with redirect_stdout(sys.stderr):
+                    value = typer.prompt(
+                        '请输入日志编号，多个用英文逗号分隔，例如 1,2,3；输入 all 下载全部可下载日志；输入 q 取消',
+                        err=True,
+                    )
+                if value.strip().lower() == 'q':
+                    return
+                try:
+                    indices = select_logs(value, items)
+                    break
+                except ValueError as exc:
+                    msg.error(exc)
         summaries = []
         for index in indices:
             record = items[index - 1]

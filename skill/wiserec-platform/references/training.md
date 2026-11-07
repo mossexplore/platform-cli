@@ -35,6 +35,9 @@ ml train list --name NAME -o json
 ml train instance list TASK_ID -o json
 ml train history list TASK_ID -o json
 ml train history logs download TASK_ID JOB_ID --directory 'D:\logs' -o json
+ml train instance logs download TASK_ID JOB_ID --select 2 --directory 'D:\logs' -o json
+ml train instance logs download TASK_ID JOB_ID --select '1,3' --directory 'D:\logs' -o json
+ml train instance logs download TASK_ID JOB_ID --select all --directory 'D:\logs' -o json
 ```
 
 - WiseRec 和 MLOps 均支持训练任务列表、执行实例列表、执行记录列表及两种日志下载。先用 `ml tree` 查看当前环境支持的其他训练命令。
@@ -43,8 +46,8 @@ ml train history logs download TASK_ID JOB_ID --directory 'D:\logs' -o json
 - `cancel`、`delete`、`clone` 默认询问确认，授权后加 `--yes`。`cancel` 逐个取消全部执行实例，需看逐条结果和退出码，没有实例时退出 1。`clone` 成功后可能返回新任务 ID。
 - `ml train config update TASK_ID --customize-config VALUE` 不询问确认，直接修改任务；值按字符串原样传递，含双引号时注意 [session.md](session.md) 的引号说明，更新后导出配置核对。
 - `config export` 的文件父目录须已存在；历史记录和执行实例的日志下载均使用 `--directory DIR` 指定已有目录，默认当前目录，不接受 `--file`，同名文件自动编号且不覆盖。
-- 在用户自己的终端运行 `ml train instance logs download TASK_ID JOB_ID --directory DIR`。命令先请求归档，提示归档中时稍后重跑同一命令。已有记录时，每条归档在表格中占一行，显示编号、任务名称、`jobId`、`roleJobId`、节点、状态及北京时间的起止时间。
-- 输入 `1,2,3` 按输入顺序下载，使用中文逗号时按提示重输。输入 `all` 按表格顺序串行下载全部归档成功的记录，跳过仍在归档的记录。输入 `q` 取消。选中后显示 OBS 链接并保存 ZIP，单份失败后继续其余下载。加 `-o json` 可获取下载摘要，仍需交互选择。
+- 使用 `ml train instance logs download TASK_ID JOB_ID --select SELECTION --directory DIR` 非交互下载。按用户指定的表格编号传值，编号以本次归档列表为准。多个编号用英文逗号分隔，PowerShell 中把列表用引号包住。用户明确要求全部时传 `all`。省略 `--select` 时在终端交互选择。命令先请求归档，提示归档中时稍后重跑同一命令。已有记录时，每条归档在表格中占一行，显示编号、任务名称、`jobId`、`roleJobId`、节点、状态及北京时间的起止时间。
+- 输入 `1,2,3` 按输入顺序下载，使用中文逗号时按提示重输。输入 `all` 按表格顺序串行下载全部归档成功的记录，跳过仍在归档的记录。输入 `q` 取消。选中后显示 OBS 链接并保存 ZIP，单份失败后继续其余下载。加 `-o json` 可获取下载摘要。
 
 ## 样本任务
 

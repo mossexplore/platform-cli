@@ -137,6 +137,30 @@ def test_batch_failure_continues(tmp_path):
     assert [item['number'] for item in summary['items']] == [1, 3]
 
 
+@pytest.mark.parametrize('selection, expected', [
+    ('1', [1]), ('all', [1, 3]), ('3,1', [3, 1]), ('2', []), ('1，3', []),
+])
+def test_select_download_never_prompts(tmp_path, selection, expected):
+    runtime = SimpleNamespace(authenticated_call=lambda op: op(SimpleNamespace()))
+    with patch('wiserec_cli.cli.Runtime', return_value=runtime), \
+         patch('wiserec_cli.commands.train_logs.runtime_from_context', return_value=runtime), \
+         patch.object(RunningLogService, 'archive', return_value={
+             'logInfoList': [RECORD, dict(RECORD, status=0), RECORD]}), \
+         patch.object(RunningLogService, 'download_url', return_value='https://files.example/log'), \
+         patch('wiserec_cli.commands.train_logs.typer.prompt', side_effect=AssertionError('must not prompt')) as prompt, \
+         patch('wiserec_cli.commands.train_logs.download_file', return_value=(tmp_path/'ok.zip', 10)) as download:
+        runtime.config = SimpleNamespace(current_profile=lambda: SimpleNamespace(output_format='json'))
+        result = runner().invoke(app, ['train', 'instance', 'logs', 'download', 't', 'j',
+                                       '--select', selection, '--directory', str(tmp_path)])
+    prompt.assert_not_called()
+    assert download.call_count == len(expected)
+    if expected:
+        assert result.exit_code == 0, result.output
+        assert [item['number'] for item in json.loads(result.stdout)['items']] == expected
+    else:
+        assert result.exit_code == 1, result.output
+
+
 def test_directory_download_zip_naming_and_no_overwrite(tmp_path):
     transport = httpx.MockTransport(lambda r: httpx.Response(200, stream=httpx.ByteStream(b'zip'),
         headers={'Content-Disposition': 'attachment; filename="../../logs"'}))
