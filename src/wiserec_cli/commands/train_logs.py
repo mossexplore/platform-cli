@@ -7,7 +7,9 @@ import re
 import sys
 
 import typer
+from rich.console import Console
 from rich.progress import Progress, BarColumn, DownloadColumn
+from rich.table import Table
 from rich.text import Text
 
 from .. import messages as msg
@@ -36,27 +38,37 @@ def select_logs(value, items):
     return indices
 
 
+def archive_time(value):
+    if type(value) in (int, float):
+        try:
+            return datetime.fromtimestamp(value / 1000, timezone(timedelta(hours=8))).strftime('%Y-%m-%d %H:%M:%S')
+        except (ValueError, OverflowError, OSError):
+            pass
+    return '-'
+
+
 def show_logs(items):
-    # 详情块避免长 ID 在窄终端的多列表格中被截断或折行。
+    table = Table(header_style='bold cyan')
+    table.add_column('编号', justify='right', min_width=4)
+    table.add_column('任务名称', overflow='fold', min_width=8)
+    for title in ('jobId', 'roleJobId'):
+        table.add_column(title, width=36, no_wrap=True, overflow='ignore')
+    table.add_column('节点名称', overflow='fold', min_width=8)
+    table.add_column('状态', overflow='fold', min_width=8)
+    table.add_column('开始时间', width=19, no_wrap=True)
+    table.add_column('结束时间', width=19, no_wrap=True)
     for index, item in enumerate(items, 1):
         status = item.get('status')
         label = f'未知状态（{status}）'
         if type(status) is int:
             label = {0: '归档中', 1: '归档成功'}.get(status, label)
-        error_console.print(Text(f"[{index}] 任务名称：{item.get('taskName', '-')}"))
-        for title, field in [('jobId', 'jobId'), ('roleJobId', 'roleJobId'),
-                             ('节点名称', 'roleType')]:
-            error_console.print(Text(f"{title}：{item.get(field, '-')}"), soft_wrap=True)
-        error_console.print(Text(f'状态：{label}'))
-        for title, field in [('开始时间', 'createTime'), ('结束时间', 'updateTime')]:
-            value = item.get(field)
-            rendered = '-'
-            if type(value) in (int, float):
-                try:
-                    rendered = datetime.fromtimestamp(value / 1000, timezone(timedelta(hours=8))).strftime('%Y-%m-%d %H:%M:%S')
-                except (ValueError, OverflowError, OSError):
-                    pass
-            error_console.print(Text(f'{title}：{rendered}'))
+        table.add_row(
+            str(index),
+            *(Text(str(item.get(field) or '-')) for field in ('taskName', 'jobId', 'roleJobId', 'roleType')),
+            Text(label), archive_time(item.get('createTime')), archive_time(item.get('updateTime')),
+        )
+    # 窄终端也输出完整表格，避免 Rich 裁掉 ID 或末尾列。
+    Console(stderr=True, width=max(error_console.width, 163)).print(table)
 
 
 @instance_logs_app.command('download')

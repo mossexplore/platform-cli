@@ -80,13 +80,6 @@ def show_tree(context: typer.Context, all_commands: bool = typer.Option(False, "
     denied = set(profile.denied_commands)
     if policy:
         denied.update(command.removeprefix("ml ") for command in policy["deny"])
-        from datetime import datetime
-        from ..models import BEIJING_TIMEZONE
-        try:
-            stamp = datetime.fromisoformat(policy["synced_at"]).astimezone(BEIJING_TIMEZONE).strftime("%Y-%m-%d %H:%M:%S")
-        except (KeyError, ValueError, TypeError):
-            stamp = "未知"
-        Console().print(f"服务端环境策略同步时间：{stamp}；执行时仍将实时鉴权")
     elif checking:
         Console().print("服务端环境策略尚未同步，执行时将实时检查")
     else:
