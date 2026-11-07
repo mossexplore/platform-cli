@@ -109,6 +109,10 @@ def render_detail(data, output):
          ("区域", row.get("region")), ("来源", source)]
         for row in records(sample.get("dataSets"))
     ], 4)
+    render_grid("输出引用", [
+        [("输出目录", row.get("modelDirectory")), ("输出名称", row.get("modelName"))]
+        for row in records(info.get("quoteModels"))
+    ], 2)
     render_grid("组合配置引用", [
         [("文件名", row.get("mutiGroupRefName")), ("组合配置名称", row.get("mutiGroupName"))]
         for row in records(sample.get("mutiGroupRefInfos"))

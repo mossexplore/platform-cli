@@ -1113,7 +1113,7 @@ ml train history list TASK_ID -o json
 
 ### `ml train detail`
 
-登录并选择业务后，使用训练任务 ID 查询 WiseRec 任务详情。表格展示基本信息、首个样本的数据集与配置引用、算法参数和自定义参数。JSON 输出保留接口返回的完整详情。
+登录并选择业务后，使用训练任务 ID 查询 WiseRec 任务详情。表格展示基本信息、首个样本的数据集、输出引用（输出目录和输出名称）、首个样本的配置引用、算法参数和自定义参数。JSON 输出保留接口返回的完整详情。
 
 ```bash
 ml train detail TASK_ID

@@ -42,7 +42,7 @@ ml train instance logs download TASK_ID JOB_ID --select all --directory 'D:\logs
 ```
 
 - WiseRec 和 MLOps 均支持训练任务列表、执行实例列表、执行记录列表及两种日志下载。先用 `ml tree` 查看当前环境支持的其他训练命令。
-- `detail` 仅适用于 WiseRec。使用 `train list` 中的任务 ID，结果含基本信息、首个样本的数据集和配置引用、算法参数及自定义参数。
+- `detail` 仅适用于 WiseRec。使用 `train list` 中的任务 ID，结果含基本信息、首个样本的数据集、输出引用及首个样本的配置引用、算法参数及自定义参数。
 - `instance list` 和 `history list` 只返回第一页 10 条。按日志来源从对应列表取得 `jobId`。执行记录默认下载普通日志，加 `--type plog` 下载 plog。
 - `ml train start TASK_ID` 返回 `jobId` 只表示请求已被接受，之后用 `history list` 确认状态。
 - `cancel`、`delete`、`clone` 默认询问确认，授权后加 `--yes`。`cancel` 逐个取消全部执行实例，需看逐条结果和退出码，没有实例时退出 1。`clone` 成功后可能返回新任务 ID。

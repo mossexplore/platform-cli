@@ -68,6 +68,8 @@ class TrainActionsTest(unittest.TestCase):
                     "environment": {"region": "cn-north-2"},
                     "baseInfo": {"trainMode": "singleNodeSingleGpu"},
                     "taskConfig": {"autoArchive": False, "scheduling": {"cronTimeOut": 0}},
+                    "quoteModels": [{"modelDirectory": "model", "modelName": "output-online"},
+                                    {"modelDirectory": "backup", "modelName": "output-backup"}],
                     "samples": [{
                         "dataSets": [{"dataSetName": "dataset", "region": "cn-north-2", "source": "dataops"}],
                         "mutiGroupRefInfos": [{"mutiGroupRefName": "group.json", "mutiGroupName": "group"}],
@@ -88,6 +90,10 @@ class TrainActionsTest(unittest.TestCase):
                               "2026-10-26 17:02:55", "北京二", "单机单卡", "超时时间(s)：0",
                               "配额内等待：是", "输出归档：否", "flag：false", "WiseMLOps", expected):
                     self.assertIn(value, result.stdout)
+                self.assertLess(result.stdout.index("数据集名称：dataset"), result.stdout.index("输出引用"))
+                self.assertLess(result.stdout.index("输出引用"), result.stdout.index("组合配置引用"))
+                self.assertRegex(result.stdout, r"输出目录：model[^\n]*输出名称：output-online")
+                self.assertRegex(result.stdout, r"输出目录：backup[^\n]*输出名称：output-backup")
                 self.assertNotIn("dataops", result.stdout)
                 self.assertNotIn("second-sample", result.stdout)
 
