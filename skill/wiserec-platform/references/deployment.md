@@ -7,6 +7,7 @@
 ```powershell
 ml model list --name MODEL_NAME -o json
 ml model detail MODEL_ID -o json
+ml model source MODEL_ID
 ml model source MODEL_ID -o json
 ml model source MODEL_ID --train-task -o json
 ```
@@ -14,7 +15,7 @@ ml model source MODEL_ID --train-task -o json
 - 模型列表项在 `result.models`，ID 为 `modelId`。
 - `source` 的表格输出先展示「输出版本基本信息」，有 `jobId` 时再展示「任务基本信息」。两个表格每行三列，每格显示一项「字段：值」。加 `-o json` 获取来源接口的完整响应。加 `--train-task` 查询关联训练任务，JSON 字段在 `result.jobHistoryDetail`，其中 `jobId` 是执行标识，`taskId` 是任务标识。
 - 溯源中的模型版本读 `modelVersion`，不是详情中的 `modelTag`。
-- 必要的来源或训练任务标识缺失时，CLI 会停止，不要自行猜测关联关系。
+- 来源标识缺失时，CLI 会停止溯源。溯源结果缺少 `jobId` 时，默认表格只展示输出版本信息。显式使用 `--train-task` 时，缺少 `jobId` 会报错。
 
 ## 定位模板
 
