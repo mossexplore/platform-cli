@@ -49,7 +49,8 @@
 | `ml sample-task execution list TASK_ID` | 新旧样本任务共用执行记录查询，无需 `--source`，支持分页、`--include-history` 和 `-o json` | | |
 | `ml train instance list TASK_ID` | 执行实例 | | |
 | `ml train history list TASK_ID` | 执行记录 | | |
-| `ml train history logs download TASK_ID JOB_ID [--type log|plog] [--file PATH]` | 下载普通或 plog 执行日志 | | 本地文件 |
+| `ml train history logs download TASK_ID JOB_ID [--type log|plog] [--directory DIR]` | 下载普通或 plog 执行日志 | | 本地文件 |
+| `ml train instance logs download TASK_ID JOB_ID [--directory DIR]` | 归档并按编号选择下载执行实例日志 | | 本地 ZIP 文件 |
 | `ml train start TASK_ID` | 立即启动任务 | | 启动作业 |
 | `ml train cancel TASK_ID` | 逐个取消全部执行实例 | 是 | 取消作业 |
 | `ml train delete TASK_ID` | 软删除任务 | 是 | 删除任务 |

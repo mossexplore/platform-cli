@@ -20,7 +20,7 @@ ml train history logs download TASK_ID JOB_ID [OPTIONS]
 | --- | --- | --- | --- | --- |
 | `task_id` | TEXT | 是 | 无，必填 | 所属训练任务 ID |
 | `job_id` | TEXT | 是 | 无，必填 | 执行记录 ID |
-| `--file` | PATH | 否 | 未指定（None） | 检查可读；本地保存路径，目录须已存在 |
+| `--directory` | PATH | 否 | 当前目录 | 保存目录须已存在，自动命名为 ZIP |
 | `--output` / `-o` | TEXT | 否 | 未指定（None） | 结果摘要格式: table 或 json；缺省读取当前环境 output_format |
 | `--help` | 开关 | 否 | false | 显示本命令帮助并退出 |
 
@@ -28,7 +28,7 @@ ml train history logs download TASK_ID JOB_ID [OPTIONS]
 
 ## 边界与组合规则
 
-TASK_ID 与 JOB_ID 分别为任务和执行记录 ID；父目录须存在，不覆盖已有文件；CLI 会显示下载地址，分享前剔除签名参数。
+TASK_ID 与 JOB_ID 分别为任务和执行记录 ID；保存目录须存在，不覆盖已有文件；CLI 会显示下载地址，分享前剔除签名参数。
 
 ## 响应与展示
 

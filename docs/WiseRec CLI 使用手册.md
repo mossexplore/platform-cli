@@ -63,7 +63,9 @@ ml                                              WiseRec 命令行工具
 ├── train                                       训练任务
 │   ├── list                                    查看任务列表
 │   ├── instance                                执行实例
-│   │   └── list                                查看实例列表
+│   │   ├── list                                查看实例列表
+│   │   └── logs                                执行实例日志归档与下载
+│   │       └── download                        归档并下载执行实例日志
 │   ├── history                                 执行记录
 │   │   ├── list                                查看执行记录
 │   │   └── logs                                执行日志
@@ -591,7 +593,8 @@ ml train instance list TASK_ID
 ml train history list TASK_ID
 ml train start TASK_ID
 ml train config export TASK_ID [--file PATH]
-ml train history logs download TASK_ID JOB_ID [--type log|plog] [--file PATH]
+ml train history logs download TASK_ID JOB_ID [--type log|plog] [--directory DIR]
+ml train instance logs download TASK_ID JOB_ID [--directory DIR]
 ml train cancel TASK_ID [--yes]
 ml train delete TASK_ID [--yes]
 ml train clone TASK_ID --name NAME [OPTIONS]
@@ -606,14 +609,15 @@ ml train config update TASK_ID --customize-config VALUE
 | `instance list`、`history list` | 必填 `TASK_ID`；可选 `--output` / `-o` |
 | `start` | 必填 `TASK_ID`；执行后显示作业 ID |
 | `config export` | 必填 `TASK_ID`；可选 `--file PATH` 指定保存位置 |
-| `history logs download` | 必填 `TASK_ID`、`JOB_ID`；`--type` 默认 `log`，也可选 `plog`；可选 `--file PATH`、`--output` / `-o` |
+| `history logs download` | 必填 `TASK_ID`、`JOB_ID`；`--type` 默认 `log`，也可选 `plog`；可选 `--directory DIR`、`--output` / `-o` |
+| `instance logs download` | 必填 `TASK_ID`、`JOB_ID`；可选 `--directory DIR`、`--output` / `-o` |
 | `cancel`、`delete` | 必填 `TASK_ID`；可选 `--yes` / `-y` 跳过确认 |
 | `clone` | 必填 `TASK_ID`、`--name NAME`；可选 `--customize-config VALUE`、`--yes` / `-y` |
 | `config update` | 必填 `TASK_ID`、`--customize-config VALUE`；参数按字符串原样传递 |
 
 ### 12.3 说明
 
-环境的 `platform_type` 支持 `wiserec` 和 `mlops`，未配置时默认 `wiserec`。MLOps 支持 `ml train list`、`ml train history list`、`ml train history logs download`、`ml train instance list`，以及 `ml auth ping`、`ml user`、`ml mep`、`ml model`、`ml resource`、`ml deployment`、`ml dataset`、`ml webstudio`、`ml jupyter`、`ml service` 下的全部现有公开命令；其他未适配的业务命令会提示不支持。登录、业务选择和权限检查仍需完成，MLOps 与 WiseRec 使用相同保活方式，按 `auth.auto_ping` 配置自动启动，也可用 `ml auth ping` 管理。
+环境的 `platform_type` 支持 `wiserec` 和 `mlops`，未配置时默认 `wiserec`。MLOps 支持 `ml train list`、`ml train history list`、`ml train history logs download`、`ml train instance list`、`ml train instance logs download`，以及 `ml auth ping`、`ml user`、`ml mep`、`ml model`、`ml resource`、`ml deployment`、`ml dataset`、`ml webstudio`、`ml jupyter`、`ml service` 下的全部现有公开命令；其他未适配的业务命令会提示不支持。登录、业务选择和权限检查仍需完成，MLOps 与 WiseRec 使用相同保活方式，按 `auth.auto_ping` 配置自动启动，也可用 `ml auth ping` 管理。
 
 `list` 的 `--name` 按名称模糊查询，`--page` 默认 1，`--page-size` 默认 10，MLOps 每页最多 200 条。查询成功且总数为 0 时，表格提示“暂无训练任务”，JSON 返回 `count: 0` 和 `items: []`。列表时间按北京时间展示，大小从字节转换为 B、K、M、G，JSON 保留原始数值和额外字段。
 
@@ -623,7 +627,9 @@ ml train config update TASK_ID --customize-config VALUE
 
 `history logs download` 默认下载普通日志；使用 `--type plog` 下载 plog。无需提供 `target`，请求仅使用当前业务 ID、任务 ID 和作业 ID。两种下载均适用于 WiseRec 和 MLOps，JSON 返回本地文件路径、字节数及下载状态。
 
-配置导出为 YAML，日志默认下载为 ZIP；同名文件自动编号，`--file` 的父目录须存在。
+`instance logs download` 需先登录并选择业务，通过 `instance list` 获取作业 ID。命令先请求归档；未完成时提示“日志归档中，请稍后执行下载命令！”，稍后重新运行同一命令。已有记录时展示编号、任务名称、jobId、roleJobId、节点名称、归档状态及北京时间的开始和结束时间。只有归档成功的记录可下载，输入编号选择，多份使用英文逗号分隔，例如 `1,2,3`；中文逗号会提示重新输入，输入 `q` 取消。同名任务的不同归档分别编号。选中后展示 OBS 下载链接并保存 ZIP；部分失败会继续其余下载，最终汇总结果并返回失败状态。JSON 输出结果摘要，选择提示及进度写入标准错误；仍需交互输入编号。归档文件不保证包含归档时间之后新增的日志。
+
+两种日志下载均使用 `--directory DIR` 指定已存在的目录，不传时保存到当前目录，不再接受 `--file`。普通日志和 plog 均自动以 ZIP 文件名保存，同名文件自动编号。配置导出为 YAML，仍使用 `--file`，父目录须存在。
 
 ### 12.4 示例
 
@@ -633,7 +639,8 @@ ml train instance list TASK_ID
 ml train history list TASK_ID
 ml train start TASK_ID
 ml train config export TASK_ID --file ./task.yaml
-ml train history logs download TASK_ID JOB_ID --file ./logs.zip
+ml train history logs download TASK_ID JOB_ID --directory ./logs
+ml train instance logs download TASK_ID JOB_ID --directory ./logs
 ml train cancel TASK_ID
 ml train delete TASK_ID
 ml train clone TASK_ID --name 新任务 --customize-config 0096999

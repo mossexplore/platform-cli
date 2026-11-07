@@ -9,9 +9,11 @@
 
 启用权限校验后，CLI 在执行业务命令前向权限系统检查当前账号和环境的授权，通过后再调用平台接口。权限系统独立部署，数据保存在 MySQL；客户端校验不替代平台自身的权限控制。
 
-四个产品的版本统一记录在根目录 [`versions.toml`](versions.toml)，CLI、权限管理系统、Agent 和权限通知助手本次发布目标均为 **1.0.9.1**，以后可以独立递增。运行 `python scripts/sync_versions.py` 同步，再运行 `python scripts/sync_versions.py --check` 检查。各产品读取自身包内版本，详见 [版本号管理说明](docs/版本号管理说明.md)。
+四个产品的版本统一记录在根目录 [`versions.toml`](versions.toml)，CLI 当前源码版本为 **1.0.9.2**，权限管理系统、Agent 和权限通知助手仍为 **1.0.9.1**，各组件独立递增。运行 `python scripts/sync_versions.py` 同步，再运行 `python scripts/sync_versions.py --check` 检查。各产品读取自身包内版本，详见 [版本号管理说明](docs/版本号管理说明.md)。
 
-本次发布增加 MLOps 管理台适配、Plog 下载与环境禁止命令管理，见 [发布说明](docs/RELEASE_NOTES_1.0.9.1.md)。权限管理系统数据库要求结构 **13**；现有结构 12 必须按 [升级指南](docs/权限管理系统结构12升级至1.0.9.1指南.md) 备份、迁移并验收。正式交付以对应 GitHub Release 的发布状态与校验清单为准。本地开发参见 [Jupyter 本地开发指南](docs/Jupyter本地开发指南.md)。
+CLI 新增执行实例日志归档与批量下载，训练历史记录与执行实例的日志下载统一使用 `--directory`，原日志下载 `--file` 参数已移除，详见 [CLI 变更说明](docs/RELEASE_NOTES_1.0.9.2.md)。此源码更新尚未正式发布。
+
+此前发布目标增加 MLOps 管理台适配、Plog 下载与环境禁止命令管理，见 [发布说明](docs/RELEASE_NOTES_1.0.9.1.md)。权限管理系统数据库要求结构 **13**；现有结构 12 必须按 [升级指南](docs/权限管理系统结构12升级至1.0.9.1指南.md) 备份、迁移并验收。正式交付以对应 GitHub Release 的发布状态与校验清单为准。本地开发参见 [Jupyter 本地开发指南](docs/Jupyter本地开发指南.md)。
 
 新增本地命令历史：`ml history` 查看最近记录，`ml history clear` 清理。历史以文本保存在配置目录，最多保留 1000 条；`ml --no-history COMMAND` 可跳过本次记录。
 

@@ -182,13 +182,14 @@ class DownloadCommandTest(unittest.TestCase):
             with patch("wiserec_cli.cli.Runtime", return_value=runtime), patch(
                 "wiserec_cli.commands.train.runtime_from_context", return_value=runtime
             ), patch("wiserec_cli.commands.train.download_file", return_value=(path, 12)) as download:
-                result = runner.invoke(app, ["train", "history", "logs", "download", "t", "j", "--file", str(path)])
+                result = runner.invoke(app, ["train", "history", "logs", "download", "t", "j", "--directory", str(path.parent)])
                 self.assertEqual(result.exit_code, 0, result.output)
                 self.assertEqual(json.loads(result.stdout), {"taskId": "t", "jobId": "j", "path": str(path), "bytes": 12, "status": "downloaded"})
                 self.assertIn("https://files.example/log?signature=secret", result.stderr)
                 self.assertNotIn("signature=secret", result.stdout)
                 self.assertIn("认证提示", result.stderr)
                 path.write_text("existing")
-                result = runner.invoke(app, ["train", "history", "logs", "download", "t", "j", "--file", str(path)])
+                result = runner.invoke(app, ["train", "history", "logs", "download", "t", "j", "--directory", str(path.parent)])
                 self.assertEqual(result.exit_code, 0, result.output)
                 self.assertEqual(download.call_count, 2)
+                self.assertEqual(download.call_args.kwargs["directory"], path.parent)

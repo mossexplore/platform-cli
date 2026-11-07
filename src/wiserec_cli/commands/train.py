@@ -16,15 +16,17 @@ from rich.progress import Progress, BarColumn, DownloadColumn
 
 from .. import messages as msg
 from ..output import print_text, console, error_console, print_result
-from ..downloads import download_file
+from ..downloads import download_file, download_directory
 from ..services.train import TrainService
 from ..services.train_export import export_config
 from .common import fail, runtime_from_context
+from .train_logs import instance_logs_app
 
 
 train_app = typer.Typer(no_args_is_help=True, help="训练任务查询与执行管理")
-instance_app = typer.Typer(no_args_is_help=True, help="训练任务执行实例查询")
+instance_app = typer.Typer(no_args_is_help=True, help="训练任务执行实例查询与日志下载")
 train_app.add_typer(instance_app, name="instance")
+instance_app.add_typer(instance_logs_app, name="logs")
 history_app = typer.Typer(no_args_is_help=True, help="训练任务执行记录查询")
 train_app.add_typer(history_app, name="history")
 logs_app = typer.Typer(no_args_is_help=True, help="执行记录日志下载")
@@ -329,17 +331,14 @@ def download_logs(
     task_id: str = typer.Argument(..., help="所属训练任务 ID"),
     job_id: str = typer.Argument(..., help="执行记录 ID"),
     log_type: str = typer.Option("log", "--type", help="日志类型: log 或 plog，默认 log"),
-    file: Optional[Path] = typer.Option(None, "--file", help="本地保存路径，目录须已存在"),
+    directory: Optional[Path] = typer.Option(None, "--directory", help="已存在的保存目录，默认当前目录"),
     output: Optional[str] = typer.Option(None, "--output", "-o", help="结果摘要格式: table 或 json"),
 ) -> None:
     """获取日志地址并下载；发送 isApplicantPromise=true，不覆盖已有文件。"""
     try:
         if log_type not in {"log", "plog"}:
             raise ValueError("--type 仅支持 log 或 plog")
-        if file is not None:
-            file = file.expanduser().absolute()
-            if not file.parent.is_dir():
-                raise ValueError(f"目标目录不存在：{file.parent}")
+        directory = download_directory(directory)
         runtime = runtime_from_context(context)
         selected = selected_output(runtime, output)
         with redirect_stdout(sys.stderr):
@@ -353,7 +352,8 @@ def download_logs(
                       console=error_console) as progress:
             progress_id = progress.add_task("下载 plog 日志" if log_type == "plog" else "下载日志", total=None)
             path, size = download_file(
-                url, f"{job_id}-plog" if log_type == "plog" else job_id, file,
+                url, f"{job_id}-plog" if log_type == "plog" else job_id,
+                directory=directory,
                 progress=lambda done, total: progress.update(progress_id, completed=done, total=total),
             )
         print_result({"taskId": task_id, "jobId": job_id, "path": str(path),

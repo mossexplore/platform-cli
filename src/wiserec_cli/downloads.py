@@ -59,12 +59,24 @@ def download_error_details(error: BaseException) -> str:
     return "\n".join(details)
 
 
+def download_directory(directory: Optional[Path]) -> Path:
+    target = (directory if directory is not None else Path.cwd()).expanduser().absolute()
+    if not target.is_dir():
+        raise ValueError(f"保存目录不存在或不是目录：{target}")
+    return target
+
+
 def download_file(
     url: str, job_id: str, destination: Optional[Path] = None,
     *, progress: Optional[Callable[[int, Optional[int]], None]] = None,
     transport: Optional[httpx.BaseTransport] = None,
+    directory: Optional[Path] = None,
 ) -> Tuple[Path, int]:
     """流式下载至同目录临时文件，完成后以不覆盖方式发布。"""
+    if directory is not None:
+        directory = download_directory(directory)
+        if destination is not None:
+            raise ValueError("不能同时指定文件和目录")
     current = https_url(url)
     temporary = None
     try:
@@ -83,7 +95,7 @@ def download_file(
                         continue
                     if response.status_code != 200:
                         raise ApiError(f"日志下载失败：HTTP {response.status_code}")
-                    target = destination if destination is not None else Path(
+                    target = destination if destination is not None else (directory or Path.cwd()) / Path(
                         download_filename(response.headers.get("content-disposition", ""), job_id)
                     )
                     target = target.expanduser().absolute()
