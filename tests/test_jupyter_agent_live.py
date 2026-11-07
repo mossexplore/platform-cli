@@ -5,6 +5,7 @@ import secrets
 import socket
 import subprocess
 import sys
+from cli_test_support import cli_process_args
 import time
 from pathlib import Path
 
@@ -45,8 +46,7 @@ def test_agent_files_and_exec_roundtrip(tmp_path):
         [Department('d', 'D', (Tenant('agent-business', 'B', (), ()),))], browser_business_id='agent-business')
 
     def cli(*args, input=None, expected=0):
-        completed = subprocess.run([sys.executable, '-m', 'wiserec_cli.cli', '--config', str(config),
-            'jupyter', *args], input=input, capture_output=True, text=True, env=env, timeout=90)
+        completed = subprocess.run([sys.executable, *cli_process_args(str(config), ['jupyter', *args])], input=input, capture_output=True, text=True, env=env, timeout=90)
         assert completed.returncode == expected, (completed.stdout, completed.stderr)
         assert token not in completed.stdout + completed.stderr
         return json.loads(completed.stdout)

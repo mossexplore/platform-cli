@@ -20,6 +20,7 @@ from wiserec_cli.commands.model import display_value, render_list
 from wiserec_cli.errors import ApiError, BusinessError
 from wiserec_cli.models import Credentials
 from wiserec_cli.services.model import ModelService
+from cli_test_support import invoke_with_config
 
 MODEL_ID = 'f9786da8-13d3-45a9-ae77-41aaf635701a'
 MODEL = {'modelId': MODEL_ID, 'name': 'test_product', 'version': '16.0.11',
@@ -48,7 +49,7 @@ def invoke(rt):
         with patch('wiserec_cli.cli.Runtime', return_value=rt), \
              patch('wiserec_cli.runtime.PlatformClient', side_effect=lambda *a, **kw:
                    PlatformClient(*a, transport=httpx.MockTransport(handler), **kw)):
-            return CliRunner(**options).invoke(app, ['--config', str(rt.config.path), 'model', *args])
+            return invoke_with_config(CliRunner(**options), app, rt.config.path, ['model', *args])
     return run
 
 

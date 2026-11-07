@@ -245,7 +245,7 @@ ml
         └── config <set-id>           查看配置
 ```
 
-全局选项：`--config PATH`（等价于环境变量 `ML_CONFIG`）、`--version`、`--help`。
+全局选项：`--version`、`--help`。
 `ml` 不带参数或加 `--help` 会打印顶层帮助；各子命令使用 `--help` 查看参数。当前未配置 `-h` 别名。
 
 ### 常用示例
@@ -362,19 +362,11 @@ ml user info --output json | jq -r '.result.username'
 
 `config.json` 是默认配置的唯一来源。
 
-### 查找优先级
+### 用户配置目录
 
-1. 命令行 `--config PATH`
-2. 环境变量 `ML_CONFIG`
-3. 当前工作目录的 `config.json`
-4. 用户配置目录的 `config.json`
+Windows 使用 `%APPDATA%\ml\config.json`，macOS 使用 `~/Library/Application Support/ml/config.json`，Linux 使用 `${XDG_CONFIG_HOME:-~/.config}/ml/config.json`。用 `ml context --json` 核对实际路径。
 
-```powershell
-ml --config C:\path\to\config.json env show
-$env:ML_CONFIG = "C:\path\to\config.json"
-```
-
-> **安装会更新用户默认配置**：Windows 安装器每次运行都会用包内配置更新用户默认 config.json，包括同版本重装；只保留用户明确设置的 `auth.auto_ping` 和 `auth.ping_interval_minutes`。直接 pip 安装后，在读取默认配置时按版本、内容哈希和安装文件时间戳判断是否同步；普通后续运行不重复覆盖。升级前备份自定义环境和 access_control，安装后核对。显式 --config、ML_CONFIG 和当前目录配置是独立配置来源，不作为安装器覆盖目标。
+Windows 安装器使用包内配置更新用户配置，仅保留仍有效的 `current` 环境选择。直接安装 Wheel 后，可用同一 Python 运行 `python -m wiserec_cli.install_config` 初始化。
 
 ### 字段说明
 
@@ -498,7 +490,7 @@ ml/
 
 周边支撑：
 
-- `cli.py` — Typer 入口，注册全部命令组，`--config` / `--version` 回调。
+- `cli.py` — Typer 入口，注册全部命令组，`--version` 回调。
 - `runtime.py` — 运行时容器（配置、认证、业务、客户端）；`authenticated_call()` 实现"认证失效自动重试一次"。
 - `auth.py` / `credentials.py` — Edge 登录、认证信息读写。
 - `business.py` — `ai-businessList` 解析与业务上下文持久化。
@@ -617,7 +609,7 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass `
 | `等待登录超时（300 秒）…` | 未在时限内完成登录 | 重新执行，或在 Edge 里完成登录；必要时调大 `browser.login_timeout` |
 | `认证信息已被服务端拒绝，HTTP 401/403` | 会话失效或权限不足 | 已自动刷新重试一次；仍失败请确认平台侧环境授权 |
 | `接口请求被重定向…` | 认证失效导致跳登录页 | 同上，重新登录 |
-| `配置文件不存在: …` | 路径不对 | 用 `--config` 或 `ML_CONFIG` 指定 |
+| `配置文件不存在: …` | 路径不对 | 运行安装程序初始化用户配置 |
 | `profiles 中不存在 current 指定的环境: X` | `current` 与 `profiles` 不一致 | 修正 `config.json` |
 | `团队 'X' 当前状态为 '…'，不可选择` | 团队非 `available` | 换团队，或联系管理员 |
 | `Web Studio 响应缺少 region` | 管理台实例数据没有区域字段 | 核对 queryEnvList 响应及实例元数据 |

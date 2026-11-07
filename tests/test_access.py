@@ -5,11 +5,12 @@ from unittest.mock import Mock, patch
 import httpx
 import pytest
 from wiserec_cli.access import check_access, validate_settings
-from wiserec_cli.config import _sync_packaged_config
+from wiserec_cli.install_config import install_config
 from wiserec_cli.errors import AuthenticationError, ConfigError, MlError
 from wiserec_cli.models import Profile, Credentials
 from wiserec_cli.business import BusinessSelection
 from wiserec_cli.runtime import Runtime
+from cli_test_support import invoke_with_config
 
 
 @pytest.fixture
@@ -128,8 +129,8 @@ def test_upgrade_replaces_access_configuration(tmp_path):
     baseline = json.loads((Path(__file__).resolve().parents[1] / 'config.example.json').read_text())
     previous = dict(baseline, access_control=settings)
     target.write_text(json.dumps(previous))
-    with patch('wiserec_cli.config._packaged_config_text', return_value=json.dumps(baseline)):
-        _sync_packaged_config(target)
+    with patch('wiserec_cli.install_config.packaged_config_text', return_value=json.dumps(baseline)):
+        install_config(target)
     assert json.loads(target.read_text()) == baseline
 
 
@@ -154,7 +155,7 @@ def test_command_name_excludes_argument_values(tmp_path):
         commands.append(runtime.invocation_command)
         return 'job-id'
     with patch.object(Runtime, 'authenticated_call', capture):
-        result = CliRunner().invoke(app, ['--config', str(config), 'train', 'start', 'sensitive-task-id'])
+        result = invoke_with_config(CliRunner(), app, config, ['train', 'start', 'sensitive-task-id'])
     assert result.exit_code == 0, result.output
     assert commands == ['ml train start']
 

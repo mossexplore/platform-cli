@@ -6,14 +6,8 @@ from pathlib import Path
 from unittest.mock import patch
 
 from wiserec_cli.errors import ConfigError
-from wiserec_cli.access import access_enabled
-from wiserec_cli.config import (
-    ConfigManager,
-    _install_packaged_config,
-    _sync_packaged_config,
-    default_config_path,
-    reset_packaged_config,
-)
+from wiserec_cli.config import ConfigManager, default_config_path
+from wiserec_cli.install_config import install_config, reset_packaged_config
 
 
 class ConfigManagerTest(unittest.TestCase):
@@ -83,70 +77,24 @@ class ConfigManagerTest(unittest.TestCase):
         self.assertEqual(reloaded.current_name, "test")
         self.assertTrue(reloaded.verify_ssl)
 
-    def test_installs_packaged_config(self):
-        destination = Path(self.temporary.name) / "ml" / "config.json"
-
-        _install_packaged_config(destination)
-
-        self.assertTrue(destination.exists())
-        manager = ConfigManager(destination)
-        self.assertEqual(manager.current_name, "dev")
-        self.assertNotIn("enable", manager.access_control)
-        self.assertNotIn("enabled", manager.access_control)
-        self.assertTrue(access_enabled(manager.access_control))
-        self.assertEqual(
-            manager.current_profile().api_endpoint,
-            "https://console-dev.cloudtest.cn/dashboard",
-        )
-
-    def test_default_path_bootstraps_user_config(self):
+    def test_runtime_reads_existing_user_config_without_package(self):
         root = Path(self.temporary.name)
-        with patch.dict(
-            os.environ,
-            {"ML_CONFIG": ""},
-        ):
-            with patch(
-                "wiserec_cli.config.Path.cwd",
-                return_value=root / "working-directory",
-            ):
-                with patch(
-                    "wiserec_cli.config.user_config_dir",
-                    return_value=root / "ml",
-                ):
-                    path = default_config_path()
+        unrelated = root / "elsewhere"
+        unrelated.mkdir()
+        (unrelated / "config.json").write_text('{"current": "wrong"}')
+        with patch.dict(os.environ, {"ML_CONFIG": str(unrelated / "config.json")}), \
+             patch("wiserec_cli.config.Path.cwd", return_value=unrelated), \
+             patch("wiserec_cli.config.user_config_dir", return_value=root), \
+             patch("wiserec_cli.install_config.packaged_config_text", side_effect=AssertionError):
+            self.assertEqual(default_config_path(), self.path)
+            self.assertEqual(ConfigManager().current_name, "dev")
 
-        self.assertEqual(path, root / "ml" / "config.json")
-        self.assertTrue(path.exists())
-        self.assertEqual(ConfigManager(path).current_name, "dev")
-
-    def test_package_upgrade_preserves_selected_environment(self):
-        destination = Path(self.temporary.name) / "ml" / "config.json"
-
-        _sync_packaged_config(destination)
-
-        self.assertEqual(ConfigManager(destination).current_name, "dev")
-        manager = ConfigManager(destination)
-        manager.use_profile("test")
-
-        _sync_packaged_config(destination)
-        self.assertEqual(ConfigManager(destination).current_name, "test")
-
-        with patch("wiserec_cli.config.__version__", "999.0.0"):
-            _sync_packaged_config(destination)
-        self.assertEqual(ConfigManager(destination).current_name, "test")
-
-    def test_package_update_overwrites_manual_ping_settings(self):
-        destination = Path(self.temporary.name) / "ml" / "config.json"
-        _sync_packaged_config(destination)
-        user_config = json.loads(destination.read_text(encoding="utf-8"))
-        user_config["auth"].update(auto_ping=False, ping_interval_minutes=15)
-        destination.write_text(json.dumps(user_config), encoding="utf-8")
-
-        with patch("wiserec_cli.config.__version__", "999.0.0"):
-            _sync_packaged_config(destination)
-        manager = ConfigManager(destination)
-        self.assertTrue(manager.auto_ping)
-        self.assertEqual(manager.ping_interval_minutes, 10)
+    def test_runtime_does_not_create_missing_user_config(self):
+        self.path.unlink()
+        with patch("wiserec_cli.config.user_config_dir", return_value=self.path.parent):
+            with self.assertRaisesRegex(ConfigError, "配置文件不存在"):
+                ConfigManager()
+        self.assertFalse(self.path.exists())
 
     def test_ping_settings_reject_invalid_values(self):
         baseline = json.loads(self.path.read_text(encoding="utf-8"))
@@ -162,8 +110,8 @@ class ConfigManagerTest(unittest.TestCase):
     def test_installer_preserves_only_current_on_every_install(self):
         root = Path(self.temporary.name) / "user-config"
         template = self.path.read_text()
-        with patch("wiserec_cli.config.user_config_dir", return_value=root), \
-             patch("wiserec_cli.config._packaged_config_text", return_value=template):
+        with patch("wiserec_cli.install_config.user_config_dir", return_value=root), \
+             patch("wiserec_cli.install_config.packaged_config_text", return_value=template):
             destination = reset_packaged_config()
             ConfigManager(destination).use_profile("test")
             expected = dict(json.loads(template), current="test")
@@ -186,8 +134,8 @@ class ConfigManagerTest(unittest.TestCase):
         template = self.path.read_text()
         # Old fields may be invalid or obsolete because they are all replaced.
         destination.write_text(json.dumps({"current": "test", "auth": "obsolete", "profiles": None}))
-        with patch("wiserec_cli.config._packaged_config_text", return_value=template):
-            _sync_packaged_config(destination, force=True)
+        with patch("wiserec_cli.install_config.packaged_config_text", return_value=template):
+            install_config(destination)
         self.assertEqual(json.loads(destination.read_text()), dict(json.loads(template), current="test"))
 
     def test_invalid_local_config_uses_packaged_default(self):
@@ -199,9 +147,9 @@ class ConfigManagerTest(unittest.TestCase):
                          json.dumps(dict(baseline, current="unknown")),
                          json.dumps(dict(baseline, current=""))):
             with self.subTest(previous=previous), \
-                 patch("wiserec_cli.config._packaged_config_text", return_value=template):
+                 patch("wiserec_cli.install_config.packaged_config_text", return_value=template):
                 destination.write_text(previous)
-                _sync_packaged_config(destination, force=True)
+                install_config(destination)
                 self.assertEqual(json.loads(destination.read_text()), baseline)
                 self.assertEqual(ConfigManager(destination).current_name, baseline["current"])
 
@@ -212,46 +160,32 @@ class ConfigManagerTest(unittest.TestCase):
         template = json.dumps(baseline)
         destination.write_text(json.dumps({"current": "product", "profiles": [
             {"name": "product", "api_endpoint": "https://old.example"}]}))
-        with patch("wiserec_cli.config._packaged_config_text", return_value=template):
-            _sync_packaged_config(destination, force=True)
+        with patch("wiserec_cli.install_config.packaged_config_text", return_value=template):
+            install_config(destination)
         self.assertEqual(json.loads(destination.read_text()), baseline)
         self.assertEqual(ConfigManager(destination).current_profile().name, "test")
-
-    def test_same_version_reinstall_preserves_selection(self):
-        destination = Path(self.temporary.name) / "installed-config.json"
-        template = self.path.read_text()
-        with patch("wiserec_cli.config._packaged_config_text", return_value=template):
-            with patch("wiserec_cli.config._package_install_stamp", return_value="install-1"):
-                _sync_packaged_config(destination)
-                ConfigManager(destination).use_profile("test")
-                before = destination.read_bytes()
-                _sync_packaged_config(destination)
-                self.assertEqual(destination.read_bytes(), before)
-            with patch("wiserec_cli.config._package_install_stamp", return_value="install-2"):
-                _sync_packaged_config(destination)
-                self.assertEqual(ConfigManager(destination).current_name, "test")
 
     def test_changed_template_default_does_not_switch_existing_user(self):
         destination = Path(self.temporary.name) / "installed-config.json"
         template = self.path.read_text()
-        with patch("wiserec_cli.config._packaged_config_text", return_value=template):
-            _sync_packaged_config(destination)
+        with patch("wiserec_cli.install_config.packaged_config_text", return_value=template):
+            install_config(destination)
         updated = json.loads(template)
         updated["current"] = "test"
-        with patch("wiserec_cli.config._packaged_config_text", return_value=json.dumps(updated)):
-            _sync_packaged_config(destination)
+        with patch("wiserec_cli.install_config.packaged_config_text", return_value=json.dumps(updated)):
+            install_config(destination)
             self.assertEqual(ConfigManager(destination).current_name, "dev")
             fresh = destination.with_name("fresh.json")
-            _sync_packaged_config(fresh)
+            install_config(fresh)
             self.assertEqual(ConfigManager(fresh).current_name, "test")
 
     def test_invalid_candidate_does_not_replace_config(self):
         original = self.path.read_bytes()
         template = json.loads(original)
         template["api"]["verify_ssl"] = "invalid"
-        with patch("wiserec_cli.config._packaged_config_text", return_value=json.dumps(template)):
+        with patch("wiserec_cli.install_config.packaged_config_text", return_value=json.dumps(template)):
             with self.assertRaises(ConfigError):
-                _sync_packaged_config(self.path, force=True)
+                install_config(self.path)
         self.assertEqual(self.path.read_bytes(), original)
         self.assertFalse(self.path.with_name(".config.json.installed").exists())
 

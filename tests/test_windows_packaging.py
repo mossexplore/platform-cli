@@ -15,6 +15,7 @@ class WindowsPackagingScriptTest(unittest.TestCase):
             "build-release.ps1",
             "install.cmd",
             "install.ps1",
+            "verify_cli_install.py",
             "INSTALL.md",
         ):
             self.assertTrue((self.windows_scripts / name).is_file(), name)
@@ -73,7 +74,7 @@ class WindowsPackagingScriptTest(unittest.TestCase):
             '[Environment]::SetEnvironmentVariable("Path", $NewUserPath, "User")',
             script,
         )
-        self.assertIn('Invoke-Checked -Command $VirtualEnvironmentMl', script)
+        self.assertIn('"verify-launcher", "--launcher", $VirtualEnvironmentMl', script)
 
     def test_scripts_avoid_newer_or_ambiguous_powershell_syntax(self):
         ambiguous_variable = re.compile(

@@ -11,7 +11,8 @@ from rich.table import Table
 from rich.text import Text
 
 from .. import messages as msg
-from ..history_recording import config_location, safe_text
+from ..history_recording import safe_text
+from .. import config
 from ..history_store import HistoryStore
 from ..models import BEIJING_TIMEZONE
 from ..output import print_text, console, print_result
@@ -21,7 +22,7 @@ history_app = typer.Typer(invoke_without_command=True, help='查看和管理本�
 
 
 def store_for(context):
-    return HistoryStore(config_location(context.find_root().params.get('config')))
+    return HistoryStore(config.default_config_path())
 
 
 def selected(records, search='', env=None, status=None):

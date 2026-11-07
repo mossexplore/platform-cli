@@ -14,6 +14,7 @@ from wiserec_cli import messages as msg
 from wiserec_cli.cli import app
 from wiserec_cli.commands.common import fail
 from wiserec_cli.output import print_result
+from cli_test_support import invoke_with_config
 
 
 @pytest.fixture(autouse=True)
@@ -89,7 +90,7 @@ def runner():
 
 @pytest.mark.parametrize('args,expected', [
     (['--unknown'], '未知选项'), (['unknown'], '未知命令'),
-    (['--config'], '需要参数值'),
+    (['--config'], '未知选项'),
 ])
 def test_root_parser_errors_are_prefixed_and_chinese(args, expected):
     result = runner().invoke(app, args)
@@ -110,7 +111,7 @@ def test_nested_parser_errors(tmp_path, args, expected):
     config = tmp_path / 'config.json'
     config.write_text(json.dumps({'current': 'dev', 'access_control': {'enable': False},
         'profiles': [{'name': 'dev', 'api_endpoint': 'https://example.com'}]}))
-    result = runner().invoke(app, ['--config', str(config), *args])
+    result = invoke_with_config(runner(), app, config, [*args])
     assert result.exit_code == 2
     assert result.stdout == ''
     assert result.stderr.startswith('[错误] ')

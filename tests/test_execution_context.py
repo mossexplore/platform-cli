@@ -3,16 +3,18 @@ import json
 import os
 import subprocess
 import sys
+from cli_test_support import cli_process_args
 from pathlib import Path
 from typer.testing import CliRunner
 from wiserec_cli.cli import app
+from cli_test_support import invoke_with_config
 
 
 def test_context_offline_and_redacted(tmp_path):
     config = tmp_path/'config.json'
     config.write_text(json.dumps({'current': 'test', 'profiles': [{'name': 'test',
         'api_endpoint': 'https://user:context-password-probe@example.com/dashboard?token=context-query-probe#context-fragment-probe'}]}))
-    result = CliRunner().invoke(app, ['--config', str(config), 'context', '--json'])
+    result = invoke_with_config(CliRunner(), app, config, ['context', '--json'])
     assert result.exit_code == 0, result.output
     value = json.loads(result.stdout)
     assert value['运行模式'] == '真实平台'
@@ -24,7 +26,7 @@ def test_production_ignores_demo_environment(tmp_path):
     config = tmp_path/'config.json'
     config.write_text(json.dumps({'current': 'prod', 'profiles': [{'name': 'prod', 'api_endpoint': 'https://example.com'}]}))
     script = "from wiserec_cli.cli import app; import sys; assert not any(k.startswith('wiserec_cli_mock') for k in sys.modules); app()"
-    result = subprocess.run([sys.executable, '-c', script, '--config', str(config), 'context', '--json'],
+    result = subprocess.run([sys.executable, *cli_process_args(config, ['context', '--json'], script)],
         capture_output=True, text=True, env=dict(os.environ, WISEREC_DEMO_WORKSPACE='/missing/demo'))
     assert result.returncode == 0, result.stderr
     assert json.loads(result.stdout)['运行模式'] == '真实平台'

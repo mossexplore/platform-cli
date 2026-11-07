@@ -1,7 +1,6 @@
 """The only host that activates simulated dependencies."""
 import os
 import sys
-from pathlib import Path
 from .workspace import checked, validate_config
 from .storage import Store
 from .transport import Transport
@@ -13,7 +12,6 @@ def activate(root):
     root = checked(root)
     Store(root).validate()
     # Ignore inherited production settings; no system/user environment is changed.
-    os.environ['ML_CONFIG'] = str(root / 'config.json')
     os.environ['ML_CLIENT_STATE_DIR'] = str(root / 'client')
     os.environ.pop('ML_JUPYTER_TOKEN', None)
     os.environ['WISEREC_DEMO_WORKSPACE'] = str(root)
@@ -34,12 +32,7 @@ def activate(root):
 
 def main():
     try:
-        root = activate(os.environ['WISEREC_DEMO_WORKSPACE'])
-        # Reject external configuration before command history can touch its directory.
-        for i, arg in enumerate(sys.argv[1:], 1):
-            value = sys.argv[i+1] if arg == '--config' and i+1 < len(sys.argv) else arg.partition('=')[2] if arg.startswith('--config=') else None
-            if value is not None and Path(value).resolve() != root / 'config.json':
-                raise ValueError('演示环境禁止使用外部配置')
+        activate(os.environ['WISEREC_DEMO_WORKSPACE'])
         from wiserec_cli.cli import run
         run()
     except Exception as exc:

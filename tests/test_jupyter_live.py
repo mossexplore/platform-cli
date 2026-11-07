@@ -5,6 +5,7 @@ import select
 import shlex
 import subprocess
 import sys
+from cli_test_support import cli_process_args
 import time
 from pathlib import Path
 
@@ -27,8 +28,7 @@ def client():
 
 
 def run_cli(*args, timeout=60):
-    return subprocess.run([sys.executable, "-m", "wiserec_cli.cli", "--config", CONFIG,
-                           "jupyter", *args], capture_output=True, text=True, timeout=timeout)
+    return subprocess.run([sys.executable, *cli_process_args(CONFIG, ["jupyter", *args])], capture_output=True, text=True, timeout=timeout)
 
 
 @pytest.mark.parametrize("kind", ["success", "error", "timeout", "stdin"])
@@ -213,8 +213,7 @@ def test_cli_terminal_real_tty_detach(client, attempt):
     import pty
     name = client.request("POST", "api/terminals", {})["name"]
     master, slave = pty.openpty()
-    process = subprocess.Popen([sys.executable, "-m", "wiserec_cli.cli", "--config", CONFIG,
-                                "jupyter", "terminal", "attach", name], stdin=slave, stdout=slave, stderr=slave)
+    process = subprocess.Popen([sys.executable, *cli_process_args(CONFIG, ["jupyter", "terminal", "attach", name])], stdin=slave, stdout=slave, stderr=slave)
     os.close(slave)
     collected = b""
     try:

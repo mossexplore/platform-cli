@@ -8,6 +8,7 @@ from wiserec_cli.cli import app
 from wiserec_cli.client import PlatformClient
 from wiserec_cli.errors import MlError
 import test_runtime
+from cli_test_support import invoke_with_config
 
 
 @pytest.fixture
@@ -24,7 +25,7 @@ def invoke(runtime, handler, task='task-id'):
         return PlatformClient(**kwargs, transport=httpx.MockTransport(handler))
     with patch('wiserec_cli.commands.train.runtime_from_context', return_value=runtime), \
          patch('wiserec_cli.runtime.PlatformClient', side_effect=client):
-        return CliRunner().invoke(app, ['--config', str(runtime.config.path), 'train', 'start', task])
+        return invoke_with_config(CliRunner(), app, runtime.config.path, ['train', 'start', task])
 
 
 def test_exact_request_and_output(runtime):

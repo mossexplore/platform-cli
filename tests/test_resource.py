@@ -18,6 +18,7 @@ from wiserec_cli.business import Department, Tenant
 from wiserec_cli.models import Credentials
 from wiserec_cli.errors import BusinessError
 from wiserec_cli.services.resource import ResourceTemplateService
+from cli_test_support import invoke_with_config
 
 ID = '0d3dc78d-1511-4c45-aaf9-c5d17e830db1'
 CONFIG = {'jvm.args': {'HEAP_OPTS': '-Xms1g -Xmx1g'},
@@ -51,7 +52,7 @@ def invoke(rt):
         with patch('wiserec_cli.cli.Runtime', return_value=rt), \
              patch('wiserec_cli.runtime.PlatformClient', side_effect=lambda *a, **kw:
                    PlatformClient(*a, transport=httpx.MockTransport(handler), **kw)):
-            return CliRunner(**options).invoke(app, ['--config', str(rt.config.path), 'resource', 'template', *args])
+            return invoke_with_config(CliRunner(**options), app, rt.config.path, ['resource', 'template', *args])
     return run
 
 

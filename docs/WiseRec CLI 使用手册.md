@@ -208,7 +208,7 @@ ml business use
 
 ### 2.3 说明
 
-仓库根目录的 `config.example.json` 仅是样例。制作安装包前，必须将它复制为同目录的 `config.json` 并填写实际环境；打包仅使用正式 `config.json`，缺失时直接报错，不自动使用样例。安装包内及安装后的正式配置均使用 `config.json`，配置优先级和 `--config` 用法不变。
+仓库根目录的 `config.example.json` 仅是样例。制作安装包前，必须将它复制为同目录的 `config.json` 并填写实际环境；打包仅使用正式 `config.json`，缺失时直接报错，不自动使用样例。安装包内及安装后的正式配置均使用 `config.json`，CLI 运行时从当前用户的配置目录读取 `config.json`。Windows 路径为 `%APPDATA%\ml\config.json`，macOS 为 `~/Library/Application Support/ml/config.json`，Linux 为 `${XDG_CONFIG_HOME:-~/.config}/ml/config.json`。缺少配置时先运行安装程序初始化。
 
 首次安装采用包内默认环境。每次安装、同版本重装或升级均强制覆盖用户默认配置文件，仅保留原文件的 `current` 值。其余字段全部采用安装包内容，包括环境定义、管理台类型、地址、自动保活、本地禁止命令策略和权限系统配置；本地新增的字段、环境也会被移除。若原文件无法读取、不是 JSON 对象、`current` 无效或所选环境已被新包删除、改名，则自动采用安装包指定的默认 `current`，不因此中断安装。安装包配置无效或目标文件无法写入时会报错。
 
@@ -439,14 +439,13 @@ ml access status [--diagnose]
 
 公共证书服务推荐设置 `ca_source` 为 `certifi`，CMD 和 Agent 调用使用相同的公共 CA，不必每次清空证书环境变量。企业私有证书可选择 `env` 或 `custom`；`env` 优先读取非空的 `SSL_CERT_FILE`，其次读取 `SSL_CERT_DIR`，两者均未设置时使用默认公共 CA。目录须符合 OpenSSL CA 目录布局。`custom` 与 `certifi` 模式均不读取环境 CA，也不会合并或回退到其他来源。
 
-证书校验失败时核对 CA 来源及服务端证书链；CA 文件无法加载时修正对应配置。不要关闭 HTTPS 校验或权限检查。旧配置未添加此字段时保留环境 CA 行为；使用 `--config PATH` 或 `ML_CONFIG` 指定外部配置时，需在该配置中显式设置所需来源。此配置只作用于权限服务请求，不改变平台业务客户端和系统证书。
+证书校验失败时核对 CA 来源及服务端证书链；CA 文件无法加载时修正对应配置。不要关闭 HTTPS 校验或权限检查。旧配置未添加此字段时保留环境 CA 行为。此配置只作用于权限服务请求，不改变平台业务客户端和系统证书。
 
 ### 7.4 示例
 
 ```bash
 ml access status
 ml access status --diagnose
-ml --config CONFIG_PATH access status --diagnose
 ```
 
 公共证书权限服务的 `access_control` 配置示例，保留实际服务地址和其他配置：
@@ -1112,7 +1111,7 @@ ml --no-history COMMAND [ARGS]...
 
 `ml history` 和表格模式的 `ml history list` 在输入、输出均连接交互终端时启用翻页，每页 20 条，列表不显示序号。输入 `n` 后按回车查看下一页，`p` 返回上一页，`q` 或 Ctrl+C 退出。首尾页不循环，无效输入可重新输入。浏览使用进入时的固定记录快照，重新执行命令才能看到新记录。空列表直接返回；管道、重定向及 JSON 输出不等待输入。指定 `--limit` 时仅浏览该数量的匹配记录。
 
-历史自动保存到本次配置文件同级的 UTF-8 文本文件 `history.jsonl`，每行一条记录，最多保留最近 1000 条，超过后清理开始时间最早的记录。同目录的 `history.lock` 用于协调多个终端。使用 `--config` 或 `ML_CONFIG` 指定其他配置时，历史随配置目录隔离。同一目录下的配置共用一份历史。
+历史自动保存到本次配置文件同级的 UTF-8 文本文件 `history.jsonl`，每行一条记录，最多保留最近 1000 条，超过后清理开始时间最早的记录。同目录的 `history.lock` 用于协调多个终端。
 
 命令结束后记录开始时间、耗时、成功或失败状态、退出码、执行前后环境及经过脱敏的命令。正常 Ctrl+C 记录为中断；强制终止进程或断电可能不留记录，不显示执行中命令。时间按北京时间展示，不额外打印时区提示。环境切换记录中的环境列表示执行前环境，详情可查看切换后环境。
 
@@ -1133,7 +1132,6 @@ ml history clear --before "2026-10-01 00:00:00"
 ml history clear --env ENV_NAME --yes
 ml history clear --yes
 ml --no-history dataset list
-ml --config CONFIG_PATH history
 ```
 
 
@@ -1287,14 +1285,13 @@ ml model deploy MODEL_ID --template DEPLOY_TEMPLATE_ID --yes -o json
 ### 命令格式
 
 ```text
-ml [--config PATH] context [--json]
+ml context [--json]
 ```
 
 ### 参数与选项
 
 | 参数 | 说明 |
 | --- | --- |
-| `--config PATH` | 全局选项，指定配置文件；也可使用 ML_CONFIG |
 | `--json` | 输出结构化 JSON；默认输出表格 |
 
 ### 说明
@@ -1306,7 +1303,6 @@ ml [--config PATH] context [--json]
 ```bash
 ml context
 ml context --json
-ml --config /path/to/config.json context
 ```
 
 

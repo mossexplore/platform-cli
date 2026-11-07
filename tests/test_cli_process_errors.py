@@ -4,6 +4,7 @@ import os
 from pathlib import Path
 import subprocess
 import sys
+from cli_test_support import cli_process_args
 
 import pytest
 
@@ -27,8 +28,7 @@ def test_bad_input_in_real_process(tmp_path, arguments, message, help_command):
         'profiles': [{'name': 'dev', 'api_endpoint': 'https://example.com'}]}))
     source = Path(__file__).resolve().parents[1] / 'src'
     environment = dict(os.environ, ML_HISTORY='0', NO_COLOR='1', PYTHONPATH=str(source))
-    result = subprocess.run([sys.executable, '-m', 'wiserec_cli.cli', '--config', str(config),
-                             *arguments], capture_output=True, text=True, env=environment, timeout=15)
+    result = subprocess.run([sys.executable, *cli_process_args(str(config), [*arguments])], capture_output=True, text=True, env=environment, timeout=15)
     assert result.returncode == 2, result.stderr
     assert result.stdout == ''
     assert result.stderr.startswith('[错误] ')

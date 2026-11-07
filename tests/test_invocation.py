@@ -5,6 +5,7 @@ from typer.testing import CliRunner
 from wiserec_cli.cli import app
 from wiserec_cli.runtime import Runtime
 from wiserec_cli.invocation import format_invocation, MAX_COMMAND_LENGTH
+from cli_test_support import invoke_with_config
 
 
 def test_full_invocation_keeps_root_options_and_argument_values(tmp_path):
@@ -17,9 +18,9 @@ def test_full_invocation_keeps_root_options_and_argument_values(tmp_path):
         return 'job-id'
     with patch.object(Runtime, 'authenticated_call', capture):
         for task in ['task with spaces', 'second-task']:
-            result = CliRunner().invoke(app, ['--config', str(config), 'train', 'start', task])
+            result = invoke_with_config(CliRunner(), app, config, ['train', 'start', task])
             assert result.exit_code == 0, result.output
-    assert shlex.split(captured[0]) == ['ml', '--config', str(config), 'train', 'start', 'task with spaces']
+    assert shlex.split(captured[0]) == ['ml', 'train', 'start', 'task with spaces']
     assert 'second-task' in captured[1] and 'task with spaces' not in captured[1]
 
 

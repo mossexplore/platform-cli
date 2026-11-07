@@ -5,6 +5,7 @@ from wiserec_cli.access import check_access
 from wiserec_cli.access_diagnostics import AccessDiagnostics, endpoint
 from wiserec_cli.errors import MlError
 from test_access import inputs, response_mock
+from cli_test_support import invoke_with_config
 
 
 def test_504_diagnostics_and_redaction(inputs):
@@ -48,6 +49,6 @@ def test_diagnose_option_is_available(tmp_path):
     from wiserec_cli.cli import app
     config = tmp_path / 'config.json'
     config.write_text('{"current":"dev","profiles":[{"name":"dev","api_endpoint":"https://example.com"}]}')
-    result = CliRunner().invoke(app, ['--config', str(config), 'access', 'status', '--help'])
+    result = invoke_with_config(CliRunner(), app, config, ['access', 'status', '--help'])
     assert result.exit_code == 0
     assert '--diagnose' in result.output

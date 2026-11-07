@@ -6,6 +6,7 @@ from pathlib import Path
 from typer.testing import CliRunner
 
 from wiserec_cli.cli import app
+from cli_test_support import invoke_with_config
 
 
 class CliEnvironmentCommandTest(unittest.TestCase):
@@ -32,9 +33,7 @@ class CliEnvironmentCommandTest(unittest.TestCase):
         self.temporary.cleanup()
 
     def test_env_show_is_available(self):
-        result = self.runner.invoke(
-            app,
-            ["--config", str(self.config_path), "env", "show"],
+        result = invoke_with_config(self.runner, app, self.config_path, ["env", "show"],
         )
 
         self.assertEqual(result.exit_code, 0, result.output)
@@ -42,9 +41,7 @@ class CliEnvironmentCommandTest(unittest.TestCase):
         self.assertIn("https://dev.example.com/dashboard", result.output)
 
     def test_profile_command_is_no_longer_available(self):
-        result = self.runner.invoke(
-            app,
-            ["--config", str(self.config_path), "profile", "show"],
+        result = invoke_with_config(self.runner, app, self.config_path, ["profile", "show"],
         )
 
         self.assertNotEqual(result.exit_code, 0)
@@ -57,11 +54,7 @@ class CliEnvironmentCommandTest(unittest.TestCase):
         self.assertIn("ml 1.0.9.2", result.output)
 
     def test_offline_experiment_list_command_is_available(self):
-        result = self.runner.invoke(
-            app,
-            [
-                "--config",
-                str(self.config_path),
+        result = invoke_with_config(self.runner, app, self.config_path, [
                 "offline",
                 "experiment",
                 "list",
@@ -74,11 +67,7 @@ class CliEnvironmentCommandTest(unittest.TestCase):
         self.assertIn("--team-id", result.output)
 
     def test_offline_experiment_clone_command_is_available(self):
-        result = self.runner.invoke(
-            app,
-            [
-                "--config",
-                str(self.config_path),
+        result = invoke_with_config(self.runner, app, self.config_path, [
                 "offline",
                 "experiment",
                 "clone",
@@ -92,11 +81,7 @@ class CliEnvironmentCommandTest(unittest.TestCase):
         self.assertIn("--yes", result.output)
 
     def test_mtp_swanboard_commands_are_available(self):
-        result = self.runner.invoke(
-            app,
-            [
-                "--config",
-                str(self.config_path),
+        result = invoke_with_config(self.runner, app, self.config_path, [
                 "mtp",
                 "swanboard",
                 "experiment",
@@ -110,11 +95,7 @@ class CliEnvironmentCommandTest(unittest.TestCase):
         self.assertIn("experiment_id", result.output.lower())
 
     def test_offline_experiment_trial_list_command_is_available(self):
-        result = self.runner.invoke(
-            app,
-            [
-                "--config",
-                str(self.config_path),
+        result = invoke_with_config(self.runner, app, self.config_path, [
                 "offline",
                 "experiment",
                 "trial",

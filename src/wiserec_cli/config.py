@@ -4,13 +4,10 @@ from __future__ import annotations
 
 import json
 import os
-from hashlib import sha256
-from importlib import resources
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 from urllib.parse import quote, urlsplit
 
-from . import __version__
 from .access import validate_settings
 from .errors import ConfigError
 from .models import Profile
@@ -21,100 +18,7 @@ def default_config_path() -> Path:
     if current().config_path is not None:
         return current().config_path
 
-    configured = os.environ.get("ML_CONFIG")
-    if configured:
-        return Path(configured).expanduser().resolve()
-
-    preferred = user_config_dir() / "config.json"
-    _sync_packaged_config(preferred)
-
-    local_config = Path.cwd() / "config.json"
-    if local_config.exists():
-        return local_config.resolve()
-
-    return preferred
-
-
-def _packaged_config_text() -> str:
-    """读取当前安装包携带的默认配置。"""
-    try:
-        return resources.files("wiserec_cli").joinpath(
-            "config.json"
-        ).read_text(encoding="utf-8")
-    except (FileNotFoundError, ModuleNotFoundError) as exc:
-        source_config = Path(__file__).resolve().parents[2] / "config.example.json"
-        try:
-            return source_config.read_text(encoding="utf-8")
-        except FileNotFoundError:
-            raise ConfigError(
-                "安装包中缺少 config.json，请重新安装 wiserec-cli"
-            ) from exc
-
-
-def _install_packaged_config(destination: Path, template: Optional[str] = None) -> None:
-    """将安装包内的默认配置覆盖到用户配置目录。"""
-    template = template if template is not None else _packaged_config_text()
-    destination.parent.mkdir(parents=True, exist_ok=True)
-    temporary = destination.with_name(
-        f".{destination.name}.{os.getpid()}.tmp"
-    )
-    temporary.write_text(template, encoding="utf-8")
-    temporary.replace(destination)
-
-
-def _config_marker_path(destination: Path) -> Path:
-    return destination.with_name(f".{destination.name}.installed")
-
-
-def _package_install_stamp() -> str:
-    """安装文件时间戳区分相同版本、相同配置的重新安装。"""
-    installed = Path(__file__).stat()
-    return f"{installed.st_mtime_ns}:{installed.st_ctime_ns}"
-
-
-def reset_packaged_config() -> Path:
-    """安装器入口：强制更新默认配置，优先保留可用的本地 current。"""
-    destination = user_config_dir() / "config.json"
-    _sync_packaged_config(destination, force=True)
-    return destination
-
-
-def _sync_packaged_config(destination: Path, *, force: bool = False) -> None:
-    """用包内配置更新默认配置，本地 current 不可恢复时采用包内默认值。"""
-    template = _packaged_config_text()
-    signature = f"{__version__}:{sha256(template.encode('utf-8')).hexdigest()}:{_package_install_stamp()}"
-    marker = _config_marker_path(destination)
-    try:
-        installed_signature = marker.read_text(encoding="utf-8").strip()
-    except FileNotFoundError:
-        installed_signature = ""
-
-    if not force and destination.exists() and installed_signature == signature:
-        return
-
-    settings = json.loads(template)
-    candidate = ConfigManager.__new__(ConfigManager)
-    candidate.path = destination
-    candidate._data = settings
-    candidate._validate()
-    # The package must be usable on a fresh install before retaining local current.
-    candidate.current_profile()
-    preserved = False
-    if destination.exists():
-        try:
-            previous = json.loads(destination.read_text(encoding="utf-8"))
-        except (OSError, json.JSONDecodeError):
-            previous = {}
-        current = previous.get("current") if isinstance(previous, dict) else None
-        if isinstance(current, str) and any(item["name"] == current for item in settings["profiles"]):
-            settings["current"] = current
-            preserved = True
-    candidate._validate()
-    content = json.dumps(settings, ensure_ascii=False, indent=2) + "\n" if preserved else template
-    _install_packaged_config(destination, content)
-    temporary = marker.with_name(f".{marker.name}.{os.getpid()}.tmp")
-    temporary.write_text(signature + "\n", encoding="utf-8")
-    temporary.replace(marker)
+    return user_config_dir() / "config.json"
 
 
 def user_config_dir() -> Path:
@@ -124,8 +28,10 @@ def user_config_dir() -> Path:
 
 def _user_config_dir(application_name: str) -> Path:
     if os.name == "nt":
-        root = Path(os.environ.get("APPDATA", Path.home() / "AppData" / "Roaming"))
-        return root / application_name
+        appdata = os.environ.get("APPDATA")
+        if not appdata or not Path(appdata).is_absolute():
+            raise ConfigError("APPDATA 未设置为绝对路径，无法定位 Windows 用户配置")
+        return Path(appdata) / application_name
     if os.sys.platform == "darwin":
         return Path.home() / "Library" / "Application Support" / application_name
     root = Path(os.environ.get("XDG_CONFIG_HOME", Path.home() / ".config"))
@@ -136,7 +42,10 @@ class ConfigManager:
     def __init__(self, path: Optional[Path] = None):
         self.path = (path or default_config_path()).expanduser().resolve()
         self._data = self._read()
-        self._validate()
+        try:
+            self._validate()
+        except (ConfigError, ValueError) as exc:
+            raise ConfigError(f"配置文件无效: {self.path}（{exc}）") from exc
         from .execution import current
         if current().validate_config:
             current().validate_config(self)
@@ -147,12 +56,12 @@ class ConfigManager:
                 value = json.load(file)
         except FileNotFoundError as exc:
             raise ConfigError(
-                f"配置文件不存在: {self.path}。可通过 --config 或 ML_CONFIG 指定。"
+                f"配置文件不存在: {self.path}。请运行安装程序初始化用户配置。"
             ) from exc
         except json.JSONDecodeError as exc:
-            raise ConfigError(f"配置文件不是有效的 JSON: {exc}") from exc
+            raise ConfigError(f"配置文件不是有效的 JSON: {self.path}（{exc}）") from exc
         if not isinstance(value, dict):
-            raise ConfigError("配置文件顶层必须是 JSON 对象")
+            raise ConfigError(f"配置文件顶层必须是 JSON 对象: {self.path}")
         return value
 
     def _validate(self) -> None:

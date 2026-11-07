@@ -4,6 +4,7 @@ import os
 from pathlib import Path
 import subprocess
 import sys
+from cli_test_support import cli_process_args
 
 import pytest
 
@@ -30,8 +31,7 @@ sys.meta_path.insert(0, BlockNotebookDependencies())
 from wiserec_cli.cli import run
 run()
 '''
-    result = subprocess.run([sys.executable, "-c", script, "--config", str(config),
-                             *arguments], capture_output=True, text=True,
+    result = subprocess.run([sys.executable, *cli_process_args(config, [*arguments], script)], capture_output=True, text=True,
                             env=dict(os.environ, ML_HISTORY="0", NO_COLOR="1",
                                      PYTHONPATH=str(Path(__file__).resolve().parents[1] / "src")),
                             timeout=15)

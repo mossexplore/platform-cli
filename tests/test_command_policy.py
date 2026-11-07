@@ -6,9 +6,11 @@ import pytest
 from typer.testing import CliRunner
 
 from wiserec_cli.cli import app
-from wiserec_cli.config import ConfigManager, _sync_packaged_config
+from wiserec_cli.config import ConfigManager
+from wiserec_cli.install_config import install_config
 from wiserec_cli.command_policy import parse_policy, require_command
 from wiserec_cli.errors import ConfigError, MlError
+from cli_test_support import invoke_with_config
 
 DENY = ['jupyter files upload', 'jupyter files download']
 
@@ -34,7 +36,7 @@ def test_rejects_before_login_ping_or_jupyter(tmp_path, platform, rule, command,
          patch('wiserec_cli.cli.sys.stdin.isatty', return_value=True), \
          patch('wiserec_cli.cli.ping.auto_start', side_effect=AssertionError('must not ping')), \
          patch('wiserec_cli.commands.jupyter_files.operation', side_effect=AssertionError('must not connect')):
-        result = CliRunner().invoke(app, ['--config', str(config), 'jupyter', 'files', command, *args])
+        result = invoke_with_config(CliRunner(), app, config, ['jupyter', 'files', command, *args])
     assert result.exit_code == 1
     assert 'restricted' in result.output and '禁止执行 ml jupyter files ' + command in result.output
     assert '请查看 command_policy' not in result.output
@@ -44,7 +46,7 @@ def test_rejects_before_login_ping_or_jupyter(tmp_path, platform, rule, command,
 def test_tree_filter_marker_and_environment_switch(tmp_path):
     config = configuration(tmp_path)
     runner = CliRunner()
-    result = runner.invoke(app, ['--config', str(config), 'tree'])
+    result = invoke_with_config(runner, app, config, ['tree'])
     assert result.exit_code == 0, result.output
     # 精确检查文件组，避免匹配数据集的同名命令。
     from rich.tree import Tree
@@ -60,11 +62,11 @@ def test_tree_filter_marker_and_environment_switch(tmp_path):
         if row.label.plain.startswith(('upload ', 'download ')):
             assert row.label.plain.endswith('[当前环境禁用]')
             assert row.label.spans[-1].style == 'red'
-    result = runner.invoke(app, ['--config', str(config), 'tree', '--all'])
+    result = invoke_with_config(runner, app, config, ['tree', '--all'])
     assert result.exit_code == 0 and '[当前环境禁用]' in result.output
     manager = ConfigManager(config)
     manager.use_profile('allowed')
-    result = runner.invoke(app, ['--config', str(config), 'tree', '--all'])
+    result = invoke_with_config(runner, app, config, ['tree', '--all'])
     assert result.exit_code == 0 and '[当前环境禁用]' not in result.output
     for command in DENY:
         require_command(manager.current_profile(), command)
@@ -80,7 +82,7 @@ def test_other_commands_remain_allowed_and_help_available(tmp_path):
     for command in DENY:
         with pytest.raises(MlError, match='禁止执行'):
             require_command(profile, command)
-    result = CliRunner().invoke(app, ['--config', str(config), 'jupyter', 'files', 'upload', '--help'])
+    result = invoke_with_config(CliRunner(), app, config, ['jupyter', 'files', 'upload', '--help'])
     assert result.exit_code == 0, result.output
 
 
@@ -107,8 +109,8 @@ def test_reinstall_uses_packaged_profile_policy(tmp_path, platform):
     template = json.dumps({'current': 'allowed', 'profiles': [
         {'name': 'allowed', 'api_endpoint': 'https://new.example'},
         {'name': 'restricted', 'api_endpoint': 'https://template.example'}]})
-    with patch('wiserec_cli.config._packaged_config_text', return_value=template):
-        _sync_packaged_config(config, force=True)
+    with patch('wiserec_cli.install_config.packaged_config_text', return_value=template):
+        install_config(config)
     profile = ConfigManager(config).current_profile()
     assert ConfigManager(config).current_name == 'restricted'
     assert profile.denied_commands == ()
@@ -159,6 +161,6 @@ def test_parent_policy_tree_hides_subtree_and_marks_all_descendants(tmp_path):
     marked(jupyter)
     config = configuration(tmp_path, rule='ml jupyter')
     for args in [['tree'], ['tree', '--all']]:
-        result = CliRunner().invoke(app, ['--config', str(config), *args])
+        result = invoke_with_config(CliRunner(), app, config, [*args])
         assert result.exit_code == 0, result.output
         assert ('[当前环境禁用]' in result.output) == ('--all' in args)

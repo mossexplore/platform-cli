@@ -66,9 +66,7 @@ def show_tree(context: typer.Context, all_commands: bool = typer.Option(False, "
         raise typer.Exit(code=1)
     tree = Tree(Text("ml  WiseRec 命令行工具", style="bold"))
     from ..config import ConfigManager
-    from pathlib import Path
-    path = context.find_root().params.get("config")
-    config = ConfigManager(Path(path) if path else None)
+    config = ConfigManager()
     profile = config.current_profile()
     Console().print(f"当前环境：{profile.name} · 管理台类型：{profile.platform_type}")
     if not all_commands:

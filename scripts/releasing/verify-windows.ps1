@@ -45,10 +45,11 @@ manager.path.write_text(json.dumps(settings), encoding='utf-8')
 function Assert-PackagedConfig([string]$Python, [string]$CurrentName = "test") {
     $check = @'
 import json, sys
-from wiserec_cli.config import ConfigManager, _packaged_config_text
+from wiserec_cli.config import ConfigManager
+from wiserec_cli.install_config import packaged_config_text
 manager = ConfigManager()
 actual = json.loads(manager.path.read_text(encoding='utf-8'))
-expected = json.loads(_packaged_config_text())
+expected = json.loads(packaged_config_text())
 if sys.argv[1] != "__package_default__":
     expected['current'] = sys.argv[1]
 assert actual == expected, 'Installer must replace all config fields except local current'
@@ -114,9 +115,13 @@ if ($before -notmatch 'ml 1\.0\.7\.10$') { throw 'Wrong previous version' }
 & $python -c "from wiserec_cli.config import ConfigManager; ConfigManager().use_profile('test')"
 if ($LASTEXITCODE -ne 0) { throw 'Previous CLI environment selection failed' }
 Set-ConfigOverrideProbe $python
+$site = (& $python -c 'import sysconfig; print(sysconfig.get_path("purelib"))').Trim()
+$oldEditable = Join-Path $site '__editable__.wiserec_cli-1.0.3.8.pth'
+Set-Content -LiteralPath $oldEditable -Value '# stale editable installation probe' -Encoding ASCII
 $env:PIP_NO_INDEX = '1'
 $env:PIP_NO_CACHE_DIR = '1'
 & "$bundle/install.ps1" -InstallDirectory $upgrade
+if (Test-Path -LiteralPath $oldEditable) { throw 'Stale CLI editable installation survived upgrade' }
 $after = & "$upgrade/venv/Scripts/ml.exe" --version
 if ($LASTEXITCODE -ne 0 -or $after -notmatch "ml $version") { throw 'Upgrade failed' }
 

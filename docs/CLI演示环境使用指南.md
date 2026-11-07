@@ -273,7 +273,7 @@ python3 install-demo.py --permission-url https://PERMISSION_HOST --username YOUR
 | 业务 ID | 由 `client/business.json` 中当前环境选中业务产生，不要硬编码正式业务 ID |
 | 超时 | 核心权限配置可接受 `timeout_seconds`，范围 1–120 秒；未设置时默认 15 秒 |
 
-不支持通过 `ml --config` 引用正式配置或外部配置。工作区及其父路径不能是符号链接。不要把运行中的凭据、Jupyter token、真实权限账号配置或业务状态作为演示安装包重新分发。
+演示入口使用独立工作区的配置。工作区及其父路径不能是符号链接。不要把运行中的凭据、Jupyter token、真实权限账号配置或业务状态作为演示安装包重新分发。
 
 ## 7. 启动、检查与首次验收
 

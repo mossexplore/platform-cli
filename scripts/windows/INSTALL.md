@@ -20,7 +20,7 @@ ml login
 ```
 
 安装器会创建独立 Python 虚拟环境，不会污染用户现有项目的 Python 依赖，并将
-`ml.cmd` 所在目录移到当前用户 `PATH` 的首位，避免用户安装的其他 Python 入口抢先匹配。
+`ml.cmd` 所在目录移到当前用户 `PATH` 的首位，避免用户安装的其他 Python 入口抢先匹配。安装器会清理所选 Python 和安装虚拟环境中已识别的 wiserec-cli editable 安装，并校验最终 Wheel、版本和用户配置路径。
 
 ## 配置覆盖规则
 
@@ -32,8 +32,7 @@ ml login
 否则自动采用安装包指定的默认 `current`，不因此中断安装。其他旧字段不参与合并或校验。
 安装包配置无效或目标文件无法写入时仍会报错。
 
-`--config`、`ML_CONFIG` 和当前工作目录中的 `config.json` 仍可作为独立配置来源；
-这些任意路径的文件不在安装器覆盖范围内。默认配置以安装包内容为准。
+CLI 运行时只读取当前账号的 `%APPDATA%\ml\config.json`。配置缺失时重新运行安装程序。直接安装正式 Wheel 后，可使用同一 Python 运行 `python -m wiserec_cli.install_config` 初始化配置。
 
 ## PowerShell 安装方式
 

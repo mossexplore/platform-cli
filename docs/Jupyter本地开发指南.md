@@ -34,15 +34,14 @@ Windows 对应使用 `.venv\Scripts\python.exe` 和 `.venv\Scripts\ml.exe`。交
 
 ## 使用
 
-另开一个本机终端：
+另开一个本机终端，使用开发脚本的 `--cli` 入口执行本地 Jupyter 命令。此入口使用隔离的 `.jupyter-local/` 配置。
 
 ```bash
 source .venv/bin/activate
-export ML_CONFIG="$PWD/.jupyter-local/config.json"
 ml --version
-ml jupyter doctor
-ml jupyter notebook run examples/jupyter/hello.ipynb --download .jupyter-local/results
-ml jupyter terminal open
+python scripts/jupyter_local.py --cli doctor
+python scripts/jupyter_local.py --cli notebook run examples/jupyter/hello.ipynb --download .jupyter-local/results
+python scripts/jupyter_local.py --cli terminal open
 ```
 
 `doctor` 验证 HTTP 认证、Kernel 列表和 Terminal 接口，不创建 Kernel。WebSocket 在执行或连接 Terminal 时验证。结果文件按执行 UUID 分目录保存，失败也保留 Notebook 和 summary.json。
@@ -50,9 +49,9 @@ ml jupyter terminal open
 Terminal 中可输入普通命令；Ctrl+C 传给远程 Shell，Ctrl+D 发送 EOF，Ctrl+] 仅离开本地连接。另开终端可以执行：
 
 ```bash
-ml jupyter terminal list
-ml jupyter terminal attach 1
-ml jupyter terminal close 1
+python scripts/jupyter_local.py --cli terminal list
+python scripts/jupyter_local.py --cli terminal attach 1
+python scripts/jupyter_local.py --cli terminal close 1
 ```
 
 将 `1` 换成实际终端名称。close 会终止指定远程终端，可能影响其中的进程。退出客户端不承诺保留任务，重连不承诺完整历史回放。
@@ -108,9 +107,9 @@ ml business use
 ml webstudio list --status online
 ml webstudio login <envId>
 ml webstudio show
-ml jupyter doctor
-ml jupyter notebook run examples/jupyter/hello.ipynb --download results
-ml jupyter terminal open
+python scripts/jupyter_local.py --cli doctor
+python scripts/jupyter_local.py --cli notebook run examples/jupyter/hello.ipynb --download results
+python scripts/jupyter_local.py --cli terminal open
 ```
 
 所有 Jupyter 命令均支持 `--studio-id ENV_ID` 临时指定实例。未指定时使用 `webstudio login` 保存的默认实例；每次操作仍重新查询实例状态、region 和访问地址，不复用旧 Token。

@@ -15,6 +15,7 @@ from wiserec_cli.client import PlatformClient
 from wiserec_cli.business import Department, Tenant, Team
 from wiserec_cli.models import Credentials
 from wiserec_cli.services.model_deploy import PUBLISH_PATH
+from cli_test_support import invoke_with_config
 
 MODEL_ID = '4dc10845-cacb-4e6c-8e0d-8c6733cec9da'
 TEMPLATE_ID = 'f6a91681-da0a-441d-a5e1-48c507d6aac4'
@@ -58,7 +59,7 @@ def invoke(rt):
              patch('wiserec_cli.cli.ping.auto_start'), \
              patch('wiserec_cli.runtime.PlatformClient', side_effect=lambda *a, **kw:
                    PlatformClient(*a, transport=httpx.MockTransport(handler), **kw)):
-            return CliRunner(**options).invoke(app, ['--config', str(rt.config.path), 'model', 'deploy',
+            return invoke_with_config(CliRunner(**options), app, rt.config.path, ['model', 'deploy',
                                                        MODEL_ID, '--template', TEMPLATE_ID, *args], input=input)
     return run
 

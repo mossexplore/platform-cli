@@ -15,7 +15,7 @@ ml auth status
 - 在当前聊天内复用已确认的 CLI 路径、配置来源、环境、账号、业务 ID 和按需取得的名称。用户发来下一条意图、重新调用 `/ml` 或再次加载 skill，都不自动使上下文失效。普通查询直接执行，已确认的命令语法也直接复用。
 - 用户要求切换到另一环境时，运行对应的 `ml env use NAME`，再用上述两条命令更新上下文。与已确认环境相同时不重复切换；未指定环境时沿用已确认的当前环境，不擅自切换。切换用环境标识，显示名称可通过 `ml env list` 核对。开启自动保活时，目标环境未登录或登录过期会提示运行 `ml login`。
 - `ml env list` 隐藏已确认未授权的环境，保留授权状态未知的环境。列表可显示「已授权」「登录使用中」「登录已过期」或「授权状态未知」。管理台类型显示为「搜推广工程平台」或「WiseMLOps平台」。
-- Agent 必须使用 Windows 用户配置 `%APPDATA%\ml\config.json`，通常对应 `C:\Users\<用户名>\AppData\Roaming\ml\config.json`。CLI 安装包内的 `wiserec_cli/config.json` 用于初始化和同步这份用户配置。若实际配置路径不符，或此文件缺失，停止后续 CLI 操作并告知用户。
+- Agent 必须使用 Windows 用户配置 `%APPDATA%\ml\config.json`，通常对应 `C:\Users\<用户名>\AppData\Roaming\ml\config.json`。CLI 安装包内的 `wiserec_cli/config.json` 供安装程序初始化和更新这份用户配置。若实际配置路径不符，或此文件缺失，停止后续 CLI 操作并告知用户。
 
 ## 何时重新检查
 

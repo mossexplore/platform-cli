@@ -11,6 +11,7 @@ from wiserec_cli.cli import app
 from wiserec_cli.commands.business import console as business_console
 from wiserec_cli.credentials import CredentialStore
 from wiserec_cli.models import Credentials
+from cli_test_support import invoke_with_config
 
 
 class BusinessCommandTest(unittest.TestCase):
@@ -86,9 +87,7 @@ class BusinessCommandTest(unittest.TestCase):
             "wiserec_cli.business.user_config_dir",
             return_value=self.root,
         ):
-            return self.runner.invoke(
-                app,
-                ["--config", str(self.config_path), *arguments],
+            return invoke_with_config(self.runner, app, self.config_path, [*arguments],
                 input=input_value,
             )
 

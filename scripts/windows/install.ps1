@@ -116,6 +116,9 @@ if ($env:OS -ne "Windows_NT") {
 if (-not $env:LOCALAPPDATA) {
     throw "LOCALAPPDATA is not available for the current Windows user."
 }
+if (-not $env:APPDATA -or -not [System.IO.Path]::IsPathRooted($env:APPDATA)) {
+    throw "APPDATA must point to the current Windows user roaming directory."
+}
 if ([string]::IsNullOrWhiteSpace($InstallDirectory)) {
     $InstallDirectory = Join-Path $env:LOCALAPPDATA "Programs\WiseRecCLI"
 }
@@ -137,6 +140,8 @@ if ($Wheels.Count -ne 1) {
     throw "Expected exactly one wiserec-cli Wheel next to install.ps1, but found $($Wheels.Count)."
 }
 $WheelPath = $Wheels[0].FullName
+$WheelVersion = ($Wheels[0].Name -split "-")[1]
+$InstallCheck = Join-Path $BundleDirectory "verify_cli_install.py"
 
 Write-Host "[2/7] Checking Python..." -ForegroundColor Cyan
 $Python = Find-Python
@@ -245,12 +250,14 @@ if (-not (Test-Path -LiteralPath $VirtualEnvironmentPython)) {
 }
 
 Write-Host "[5/7] Installing wiserec-cli..." -ForegroundColor Cyan
-$UninstallArguments = @("-m", "pip", "uninstall", "--yes", "wiserec-cli")
+Invoke-Checked -Command $PythonCommand -Arguments ($PythonPrefix + @("-E", $InstallCheck, "cleanup"))
+Invoke-Checked -Command $VirtualEnvironmentPython -Arguments @("-I", $InstallCheck, "cleanup")
+$UninstallArguments = @("-I", "-m", "pip", "uninstall", "--yes", "wiserec-cli")
 Invoke-Checked -Command $VirtualEnvironmentPython -Arguments $UninstallArguments
 $PackagesDirectory = Join-Path $BundleDirectory "packages"
 if (Test-Path -LiteralPath $PackagesDirectory -PathType Container) {
     Invoke-Checked -Command $VirtualEnvironmentPython -Arguments @(
-        "-m", "pip", "install",
+        "-I", "-m", "pip", "install",
         "--no-index",
         "--find-links", $PackagesDirectory,
         "--upgrade",
@@ -258,7 +265,7 @@ if (Test-Path -LiteralPath $PackagesDirectory -PathType Container) {
     )
 } else {
     $InstallArguments = @(
-        "-m", "pip", "install",
+        "-I", "-m", "pip", "install",
         "--upgrade"
     )
     if (-not [string]::IsNullOrWhiteSpace($EffectiveIndexUrl)) {
@@ -276,11 +283,9 @@ if (Test-Path -LiteralPath $PackagesDirectory -PathType Container) {
     Invoke-Checked -Command $VirtualEnvironmentPython -Arguments $InstallArguments
 }
 
-# 每次运行均使用本次 Wheel 安装 CLI；保留用户的环境选择与明确设置的自动保活选项。
+Invoke-Checked -Command $VirtualEnvironmentPython -Arguments @("-I", $InstallCheck, "verify", "--version", $WheelVersion)
 Write-Host "Updating user config.json from the package..." -ForegroundColor Cyan
-Invoke-Checked -Command $VirtualEnvironmentPython -Arguments @(
-    "-c", "from wiserec_cli.config import reset_packaged_config; print(reset_packaged_config())"
-)
+Invoke-Checked -Command $VirtualEnvironmentPython -Arguments @("-I", "-m", "wiserec_cli.install_config")
 
 Write-Host "[6/7] Registering the ml command..." -ForegroundColor Cyan
 New-Item -ItemType Directory -Path $BinDirectory -Force | Out-Null
@@ -296,7 +301,9 @@ Write-Host "[7/7] Verifying installation..." -ForegroundColor Cyan
 if (-not (Test-Path -LiteralPath $VirtualEnvironmentMl)) {
     throw "ml.exe is missing from the isolated environment. Rerun install.cmd -Force to rebuild it."
 }
-Invoke-Checked -Command $VirtualEnvironmentMl -Arguments @("--version")
+Invoke-Checked -Command $VirtualEnvironmentPython -Arguments @(
+    "-I", $InstallCheck, "verify-launcher", "--launcher", $VirtualEnvironmentMl, "--version", $WheelVersion
+)
 
 Write-Host ""
 Write-Host "WiseRec CLI installation completed." -ForegroundColor Green

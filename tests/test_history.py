@@ -13,6 +13,7 @@ from wiserec_cli.cli import app
 from wiserec_cli.history_store import HistoryStore
 from wiserec_cli.history_recording import safe_command
 from wiserec_cli.runtime import Runtime
+from cli_test_support import invoke_with_config
 
 
 @pytest.fixture
@@ -26,7 +27,7 @@ def config(tmp_path, monkeypatch):
 
 def invoke(config, args, **kwargs):
     options = {"mix_stderr": False} if "mix_stderr" in inspect.signature(CliRunner).parameters else {}
-    return CliRunner(**options).invoke(app, ['--config', str(config)] + args, **kwargs)
+    return invoke_with_config(CliRunner(**options), app, config, [] + args, **kwargs)
 
 
 def record(index=0):
@@ -168,10 +169,9 @@ def test_clear_preserves_records_added_during_confirmation(config):
     assert [row['started_at'] for row in store.read()] == [2]
 
 
-def test_config_environment_variable_and_history_json(config, monkeypatch):
-    monkeypatch.setenv('ML_CONFIG', str(config))
-    assert CliRunner().invoke(app, ['env', 'show']).exit_code == 0
-    result = CliRunner().invoke(app, ['history', 'list', '-o', 'json'])
+def test_fixed_config_and_history_json(config):
+    assert invoke(config, ['env', 'show']).exit_code == 0
+    result = invoke(config, ['history', 'list', '-o', 'json'])
     rows = json.loads(result.stdout)
     assert len(rows) == 1 and rows[0]['env'] == 'dev'
 
@@ -191,16 +191,6 @@ def test_history_warning_does_not_pollute_json_stdout(config):
         assert json.loads(result.stdout) == {'items': [], 'total': 0}
     finally:
         fixture.tearDown()
-
-
-def test_history_location_default_and_explicit(tmp_path, monkeypatch):
-    from wiserec_cli.history_recording import config_location
-    monkeypatch.chdir(tmp_path)
-    with patch('wiserec_cli.history_recording.user_config_dir', return_value=tmp_path / 'user'):
-        assert config_location() == tmp_path / 'user' / 'config.json'
-        (tmp_path / 'config.json').touch()
-        assert config_location() == tmp_path / 'config.json'
-        assert config_location('other.json') == tmp_path / 'other.json'
 
 
 def test_list_keeps_literal_markup_in_command(config):

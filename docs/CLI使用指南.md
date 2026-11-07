@@ -33,7 +33,6 @@ ml - WiseRec平台命令行客户端
 用法：ml [OPTIONS] COMMAND [ARGS]...
 
 选项：
-  --config PATH      config.json 路径，也可使用 ML_CONFIG 环境变量
   --version          显示版本
   --help             显示帮助信息并退出
 
@@ -159,11 +158,9 @@ ml - WiseRec平台命令行客户端
 
 | 选项 | 环境变量 | 说明 |
 | --- | --- | --- |
-| `--config PATH` | `ML_CONFIG` | 指定 `config.json` 路径；文件必须存在且为合法 JSON |
 | `--version` | — | 打印 `ml <版本号>` 后退出 |
 | `--help` | — | 打印对应命令的用法后退出 |
 
-`--config` 必须写在子命令之前，例如 `ml --config ./config.json train list -o json`。
 
 `--output` 是部分末级命令的选项，不是全局选项。带 `-o` / `--output` 的命令可取 `table` 或 `json`，不传时跟随当前环境的默认输出格式。
 
@@ -285,7 +282,7 @@ ml access status [OPTIONS]
 ```bash
 ml access status
 ml access status --diagnose
-ml --config ./config.json access status
+ml access status
 ```
 
 ---
@@ -1002,7 +999,7 @@ ml train start [OPTIONS] TASK_ID
 
 ```bash
 ml train start TASK_ID
-ml --config ./config.json train start TASK_ID
+ml train start TASK_ID
 ```
 
 ### `ml train list`

@@ -8,6 +8,7 @@ from wiserec_cli.models import Profile
 from wiserec_cli.access import check_access
 from wiserec_cli.access import AccessDeniedError
 from wiserec_cli.server_command_policy import remember, load
+from cli_test_support import invoke_with_config
 
 
 def test_server_denial_without_local_command_policy(tmp_path):
@@ -57,7 +58,7 @@ def test_tree_displays_cached_server_policy_without_login(tmp_path, rule):
             'environment': 'prod', 'platform_origin': 'https://platform.example.com', 'revision': 1,
             'deny': [rule]}})
         with patch('wiserec_cli.auth.AuthManager.ensure_credentials', side_effect=AssertionError('must not login')):
-            result = CliRunner().invoke(app, ['--config', str(config), 'tree', '--all'])
+            result = invoke_with_config(CliRunner(), app, config, ['tree', '--all'])
         assert result.exit_code == 0, result.output
         assert '[当前环境禁用]' in result.output
         if rule == 'ml jupyter':

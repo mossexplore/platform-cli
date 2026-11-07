@@ -14,8 +14,7 @@ def show_context(context: typer.Context,
                  as_json: bool = typer.Option(False, "--json", help="输出 JSON")):
     """查看当前运行模式及生效配置路径"""
     try:
-        path = context.find_root().params.get("config")
-        config = ConfigManager(Path(path) if path else None)
+        config = ConfigManager()
         endpoint = urlsplit(config.current_profile().api_endpoint)
         # Drop credentials, query parameters and fragments.
         host = endpoint.hostname or ""

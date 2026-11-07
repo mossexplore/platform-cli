@@ -8,6 +8,7 @@ from typer.testing import CliRunner
 
 from wiserec_cli.cli import app
 from wiserec_cli.adapters.registry import SHARED_COMMANDS, require_supported, supported
+from cli_test_support import invoke_with_config
 
 
 def leaves(command, path):
@@ -44,7 +45,7 @@ def config_file(tmp_path):
 def test_shared_tree(tmp_path):
     config = config_file(tmp_path)
     for options in ([], ['--all']):
-        result = CliRunner().invoke(app, ['--config', str(config), 'tree', *options])
+        result = invoke_with_config(CliRunner(), app, config, ['tree', *options])
         assert result.exit_code == 0, result.output
         for group in ('webstudio', 'jupyter', 'service', 'user', 'mep', 'model', 'resource', 'deployment', 'dataset'):
             assert group in result.output
@@ -72,7 +73,7 @@ def test_cli_reaches_shared_implementation(tmp_path, args, module):
         seen.append(runtime.invocation_command)
         raise RuntimeError('shared-implementation-reached')
     with patch(f'wiserec_cli.commands.{module}.runtime_from_context', side_effect=observe):
-        result = CliRunner().invoke(app, ['--config', str(config_file(tmp_path)), *args])
+        result = invoke_with_config(CliRunner(), app, config_file(tmp_path), [*args])
     path = [value for value in args if value not in ('TASK_ID', 'JOB_ID')]
     assert seen == ['ml ' + ' '.join(path)]
     assert 'shared-implementation-reached' in result.output
@@ -120,7 +121,7 @@ def test_training_queries_use_shared_endpoint_and_current_business(tmp_path, kin
                         business_selection=SimpleNamespace(business_id='selected-business')) as client:
         with patch('wiserec_cli.cli.Runtime', return_value=runtime), \
              patch.object(runtime, 'authenticated_call', side_effect=lambda operation: operation(client)):
-            result = CliRunner().invoke(app, ['--config', str(config), 'train', kind,
+            result = invoke_with_config(CliRunner(), app, config, ['train', kind,
                                              'list', 'task', '-o', 'json'])
     assert result.exit_code == 0, result.output
     assert json.loads(result.stdout)['items'] == [{'jobId': 'job', 'extra': 'preserved'}]

@@ -3,8 +3,6 @@
 from __future__ import annotations
 
 import sys
-from pathlib import Path
-from typing import Optional
 
 import typer
 
@@ -86,16 +84,6 @@ def version_callback(value: bool) -> None:
 @app.callback()
 def initialize(
     context: typer.Context,
-    config: Optional[Path] = typer.Option(
-        None,
-        "--config",
-        envvar="ML_CONFIG",
-        exists=True,
-        dir_okay=False,
-        readable=True,
-        resolve_path=True,
-        help="config.json 路径，也可使用 ML_CONFIG 环境变量",
-    ),
     no_history: bool = typer.Option(False, "--no-history", help="不保存本次命令历史"),
     version: bool = typer.Option(
         False,
@@ -114,7 +102,7 @@ def initialize(
     try:
         from .adapters.registry import invocation_path
         from .command_policy import require_command
-        context.obj = Runtime(config_path=config)
+        context.obj = Runtime()
         profile = context.obj.config.current_profile()
         if (getattr(profile, "platform_type", "wiserec") == "mlops"
                 or getattr(profile, "denied_commands", ())):

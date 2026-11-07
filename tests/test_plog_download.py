@@ -14,6 +14,7 @@ from wiserec_cli.models import Profile, Credentials
 from wiserec_cli.runtime import Runtime
 from wiserec_cli.services.train import TrainService
 from wiserec_cli.errors import ApiError, BusinessError
+from cli_test_support import invoke_with_config
 
 
 @pytest.mark.parametrize('platform', ['wiserec', 'mlops'])
@@ -40,7 +41,7 @@ def test_plog_request_and_cli_download(tmp_path, platform):
         with patch('wiserec_cli.cli.Runtime', return_value=runtime), \
              patch.object(runtime, 'authenticated_call', side_effect=lambda operation: operation(client)), \
              patch('wiserec_cli.commands.train.download_file', return_value=(path, 123)) as download:
-            result = CliRunner(**({"mix_stderr": False} if "mix_stderr" in inspect.signature(CliRunner).parameters else {})).invoke(app, ['--config', str(config), 'train', 'history', 'logs',
+            result = invoke_with_config(CliRunner(**({"mix_stderr": False} if "mix_stderr" in inspect.signature(CliRunner).parameters else {})), app, config, ['train', 'history', 'logs',
                 'download', 'task', 'job', '--type', 'plog', '-o', 'json'])
     assert result.exit_code == 0, result.output
     assert json.loads(result.stdout) == dict(taskId='task', jobId='job', path=str(path),

@@ -12,6 +12,7 @@ from wiserec_cli.jupyter.connection import Connection, JupyterClient, JupyterErr
 from wiserec_cli.jupyter import files
 from wiserec_cli.jupyter.exec_worker import run_process
 from wiserec_cli.jupyter.execution import execute, MIME
+from cli_test_support import invoke_with_config
 
 
 def test_file_roundtrip_headers_overwrite_and_paths(tmp_path):
@@ -82,7 +83,8 @@ def cli_client(tmp_path):
     client.__enter__ = Mock(return_value=client)
     client.__exit__ = Mock(return_value=False)
     with patch('wiserec_cli.commands.jupyter.client_for', return_value=client):
-        yield ['--config', str(config), 'jupyter'], client
+        with patch('wiserec_cli.config.default_config_path', return_value=config):
+            yield ['jupyter'], client
 
 
 def test_write_stdin_and_json_envelope(cli_client):
@@ -175,6 +177,6 @@ def test_agent_commands_suppress_connection_token_diagnostics(tmp_path):
         report('https://host/lab?token=secret-token')
         return client
     with patch('wiserec_cli.commands.jupyter.client_for', side_effect=factory):
-        result = CliRunner().invoke(app, ['--config', str(config), 'jupyter', 'files', 'stat', 'a', '-o', 'json'])
+        result = invoke_with_config(CliRunner(), app, config, ['jupyter', 'files', 'stat', 'a', '-o', 'json'])
     assert result.exit_code == 0
     assert 'secret-token' not in result.output

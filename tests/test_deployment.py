@@ -18,6 +18,7 @@ from wiserec_cli.business import Department, Tenant
 from wiserec_cli.models import Credentials
 from wiserec_cli.errors import BusinessError
 from wiserec_cli.services.deployment import DeploymentTemplateService
+from cli_test_support import invoke_with_config
 
 ID = 'f6a91681-da0a-441d-a5e1-48c507d6aac4'
 COMPONENTS = [{'name': 'Custom', 'version': '1', 'businessId': 'template-business'},
@@ -57,7 +58,7 @@ def invoke(rt):
         with patch('wiserec_cli.cli.Runtime', return_value=rt), \
              patch('wiserec_cli.runtime.PlatformClient', side_effect=lambda *a, **kw:
                    PlatformClient(*a, transport=httpx.MockTransport(handler), **kw)):
-            return CliRunner(**options).invoke(app, ['--config', str(rt.config.path), 'deployment', 'template', *args])
+            return invoke_with_config(CliRunner(**options), app, rt.config.path, ['deployment', 'template', *args])
     return run
 
 

@@ -18,6 +18,7 @@ from wiserec_cli.services.webstudio import WebStudioService
 from wiserec_cli.webstudio.resolve import resolve, show
 from wiserec_cli.webstudio.store import SelectionStore
 from wiserec_cli.webstudio.urls import parse_access_url
+from cli_test_support import invoke_with_config
 
 ENV_ID = 'f925886d-072c-48fc-a4ec-636ab3ba9a60'
 ROUTE = '/explore-env/12963932-4ef3-44e3-9c53-b9180f5a59d2/'
@@ -209,8 +210,8 @@ def test_query_filters_and_extra_fields():
 def test_start_stop_requests_use_selected_business_and_current_operator(rt, requests):
     runner = CliRunner()
     with patch('wiserec_cli.commands.webstudio.runtime_from_context', return_value=rt):
-        start = runner.invoke(app, ['--config', str(rt.config.path), 'webstudio', 'start', ENV_ID])
-        stop = runner.invoke(app, ['--config', str(rt.config.path), 'webstudio', 'stop', ENV_ID])
+        start = invoke_with_config(runner, app, rt.config.path, ['webstudio', 'start', ENV_ID])
+        stop = invoke_with_config(runner, app, rt.config.path, ['webstudio', 'stop', ENV_ID])
     assert start.exit_code == 0, start.output
     assert stop.exit_code == 0, stop.output
     assert ENV_ID in start.output and ENV_ID in stop.output
@@ -234,7 +235,7 @@ def test_start_uses_longer_timeout_and_does_not_retry(rt):
 
     with patch('wiserec_cli.webstudio.resolve.PlatformClient', side_effect=create_client):
         with patch('wiserec_cli.commands.webstudio.runtime_from_context', return_value=rt):
-            result = CliRunner().invoke(app, ['--config', str(rt.config.path), 'webstudio', 'start', ENV_ID])
+            result = invoke_with_config(CliRunner(), app, rt.config.path, ['webstudio', 'start', ENV_ID])
     assert result.exit_code == 0, result.output
     assert seen[0][2] == 60_000
     assert seen[0][3] == 0
@@ -297,13 +298,13 @@ def test_invalid_gateway(base):
 def test_cli_json_and_narrow_id(rt, requests, monkeypatch, output_option):
     runner = CliRunner()
     with patch('wiserec_cli.commands.webstudio.runtime_from_context', return_value=rt):
-        result = runner.invoke(app, ['--config', str(rt.config.path), 'webstudio', 'list', output_option, 'json'])
+        result = invoke_with_config(runner, app, rt.config.path, ['webstudio', 'list', output_option, 'json'])
         assert result.exit_code == 0, result.output
         assert json.loads(result.stdout)['result']['envs'][0]['extraField']['keep'] is True
         console = Console(width=65, color_system=None)
         with patch('wiserec_cli.commands.webstudio.console', console):
             with console.capture() as capture:
-                result = runner.invoke(app, ['--config', str(rt.config.path), 'webstudio', 'list'])
+                result = invoke_with_config(runner, app, rt.config.path, ['webstudio', 'list'])
         assert result.exit_code == 0, result.output
         assert ENV_ID in capture.get()
 
@@ -311,7 +312,7 @@ def test_cli_json_and_narrow_id(rt, requests, monkeypatch, output_option):
 @pytest.mark.parametrize('args', [['doctor'], ['terminal', 'open'], ['terminal', 'attach', '1'],
                                  ['terminal', 'close', '1'], ['terminal', 'list'], ['notebook', 'run']])
 def test_jupyter_studio_option(args, rt):
-    result = CliRunner().invoke(app, ['--config', str(rt.config.path), 'jupyter', *args, '--help'])
+    result = invoke_with_config(CliRunner(), app, rt.config.path, ['jupyter', *args, '--help'])
     assert result.exit_code == 0
     assert '--studio-id' in result.output
 
@@ -358,7 +359,7 @@ def test_doctor_reports_kernel_success_before_terminal_failure(rt):
     with patch('wiserec_cli.commands.jupyter.client_for') as factory:
         factory.return_value.__enter__.return_value.request.side_effect = [
             {'kernelspecs': {'python3': {}}}, JupyterError('Jupyter GET api/terminals HTTP 403')]
-        result = CliRunner().invoke(app, ['--config', str(rt.config.path), 'jupyter', 'doctor'])
+        result = invoke_with_config(CliRunner(), app, rt.config.path, ['jupyter', 'doctor'])
     assert result.exit_code == 1
     assert 'Kernel 接口：通过' in result.output
     assert 'api/terminals' in result.output

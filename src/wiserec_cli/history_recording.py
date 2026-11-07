@@ -8,7 +8,8 @@ from datetime import datetime
 from pathlib import Path
 
 from . import __version__
-from .config import user_config_dir
+from . import config
+from .errors import ConfigError
 from .history_store import HistoryStore, warning
 from .models import BEIJING_TIMEZONE
 
@@ -30,38 +31,18 @@ def observe_runtime(runtime):
 
 
 def root_arguments(args):
-    config = os.environ.get('ML_CONFIG')
-    remaining = []
     disabled = os.environ.get('ML_HISTORY') == '0'
-    index = 0
-    while index < len(args):
-        arg = args[index]
-        if arg == '--config' and index + 1 < len(args):
-            config = args[index + 1]
-            index += 2
-            continue
-        if arg.startswith('--config='):
-            config = arg.split('=', 1)[1]
-        elif arg == '--no-history':
+    for index, arg in enumerate(args):
+        if arg == '--no-history':
             disabled = True
         elif not arg.startswith('-'):
-            remaining = args[index:]
-            break
-        index += 1
-    return config, remaining, disabled
-
-
-def config_location(config=None):
-    from .execution import current
-    if current().config_path is not None:
-        return current().config_path
-    if config:
-        return Path(config).expanduser().resolve()
-    local = Path.cwd() / 'config.json'
-    return local.resolve() if local.exists() else user_config_dir() / 'config.json'
+            return args[index:], disabled
+    return [], disabled
 
 
 def environment(path):
+    if path is None:
+        return None
     try:
         value = json.loads(path.read_text(encoding='utf-8')).get('current')
         return value if isinstance(value, str) else None
@@ -84,7 +65,7 @@ def safe_command(args, remaining):
 
 class InvocationRecord:
     def __init__(self, args):
-        config, remaining, disabled = root_arguments(args)
+        remaining, disabled = root_arguments(args)
         self.enabled = bool(remaining) and not disabled and remaining[0] not in {'history', 'tree'}
         if '--help' in (remaining[:remaining.index('--')] if '--' in remaining else remaining):
             self.enabled = False
@@ -93,7 +74,11 @@ class InvocationRecord:
         self.interrupted = False
         self.started = time.time()
         self.clock = time.monotonic()
-        self.path = config_location(config)
+        try:
+            self.path = config.default_config_path() if self.enabled else None
+        except ConfigError:
+            self.path = None
+            self.enabled = False
         self.before = environment(self.path)
         self.command = safe_command(args, remaining)
         self.cwd = str(Path.cwd())

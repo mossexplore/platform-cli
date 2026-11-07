@@ -174,7 +174,7 @@ try {
     Copy-Item -LiteralPath $Wheels[0].FullName -Destination $WheelPath
 
     Write-Host "[3/5] Copying installer files..." -ForegroundColor Cyan
-    foreach ($FileName in @("install.cmd", "install.ps1", "INSTALL.md")) {
+    foreach ($FileName in @("install.cmd", "install.ps1", "verify_cli_install.py", "INSTALL.md")) {
         Copy-Item -LiteralPath (Join-Path $ScriptDirectory $FileName) `
             -Destination (Join-Path $BundleDirectory $FileName)
     }

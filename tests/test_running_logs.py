@@ -18,6 +18,7 @@ from wiserec_cli.services.train_logs import RunningLogService
 from wiserec_cli.commands.train_logs import select_logs
 from wiserec_cli.downloads import download_file
 from wiserec_cli.errors import ApiError, BusinessError
+from cli_test_support import invoke_with_config
 
 
 RECORD = dict(businessId='selected', taskId='task', jobId='job', taskName='warmup',
@@ -64,7 +65,7 @@ def test_full_cli_contract(tmp_path, platform):
              patch.object(TrainService, 'find_task', return_value={'taskId': 'task'}), \
              patch.object(TrainService, 'all_instances', return_value=[RECORD]), \
              patch('wiserec_cli.commands.train_logs.download_file', return_value=(tmp_path/'result.zip', 12)) as download:
-            result = runner().invoke(app, ['--config', str(config), 'train', 'instance', 'logs',
+            result = invoke_with_config(runner(), app, config, ['train', 'instance', 'logs',
                 'download', 'task', 'job', '--directory', str(tmp_path), '-o', 'json'], input='1，2\n1,1,2\n')
     assert result.exit_code == 0, result.output
     summary = json.loads(result.stdout)

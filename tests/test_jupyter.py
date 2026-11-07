@@ -17,6 +17,7 @@ from wiserec_cli.jupyter.connection import Connection, JupyterClient, JupyterErr
 from wiserec_cli.jupyter.notebook import run_notebook
 from wiserec_cli.jupyter.protocol import KernelChannel, Outputs, decode_message, execute_cell
 from wiserec_cli.commands.jupyter import display_time
+from cli_test_support import invoke_with_config
 
 
 def runtime(tmp_path):
@@ -250,7 +251,7 @@ def test_partial_result_and_kernel_cleanup(tmp_path, failure, status):
 def test_terminal_open_without_tty_creates_no_resource(tmp_path):
     rt = runtime(tmp_path)
     with patch("wiserec_cli.commands.jupyter.client_for") as client:
-        result = CliRunner().invoke(app, ["--config", str(rt.config.path), "jupyter", "terminal", "open"])
+        result = invoke_with_config(CliRunner(), app, rt.config.path, ["jupyter", "terminal", "open"])
     assert result.exit_code != 0
     assert "真实终端" in result.output
     client.assert_not_called()

@@ -14,6 +14,7 @@ from wiserec_cli.business import BusinessSelection
 from wiserec_cli.services.train import TrainService
 from wiserec_cli.commands.train import display_value
 from wiserec_cli.errors import ApiError
+from cli_test_support import invoke_with_config
 
 
 def configuration(tmp_path):
@@ -58,17 +59,17 @@ def test_page_size_rejected_before_request(size):
 def test_tree_and_unsupported_command_offline(tmp_path):
     config = configuration(tmp_path)
     runner = CliRunner()
-    result = runner.invoke(app, ["--config", str(config), "tree"])
+    result = invoke_with_config(runner, app, config, ["tree"])
     assert result.exit_code == 0, result.output
     assert "mlops" in result.output and "── list" in result.output
     assert "立即执行指定训练任务" not in result.output and "── algorithm" not in result.output
-    result = runner.invoke(app, ["--config", str(config), "tree", "--all"])
+    result = invoke_with_config(runner, app, config, ["tree", "--all"])
     assert result.exit_code == 0, result.output
     assert "[不支持]" in result.output
     assert "start  不支持" not in result.output
     with patch("wiserec_cli.auth.AuthManager.ensure_credentials", side_effect=AssertionError("must not login")), \
          patch("wiserec_cli.cli.ping.auto_start", side_effect=AssertionError("must not ping")):
-        result = runner.invoke(app, ["--config", str(config), "train", "start", "TASK_ID"])
+        result = invoke_with_config(runner, app, config, ["train", "start", "TASK_ID"])
     assert result.exit_code == 1
     assert "不支持" in result.output
 
@@ -89,7 +90,7 @@ def test_platform_validation_and_help(tmp_path):
     from wiserec_cli.config import ConfigManager
     from wiserec_cli.errors import ConfigError
     path = configuration(tmp_path)
-    result = CliRunner().invoke(app, ["--config", str(path), "train", "start", "--help"])
+    result = invoke_with_config(CliRunner(), app, path, ["train", "start", "--help"])
     assert result.exit_code == 0, result.output
     settings = json.loads(path.read_text())
     settings["profiles"][0]["platform_type"] = []
@@ -113,12 +114,13 @@ def test_default_body_and_empty_result():
 
 
 def test_install_sync_uses_packaged_mlops_profile(tmp_path):
-    from wiserec_cli.config import _sync_packaged_config, ConfigManager
+    from wiserec_cli.config import ConfigManager
+    from wiserec_cli.install_config import install_config
     path = configuration(tmp_path)
-    with patch('wiserec_cli.config._packaged_config_text', return_value=json.dumps({
+    with patch('wiserec_cli.install_config.packaged_config_text', return_value=json.dumps({
             'current': 'new', 'profiles': [{'name': 'new', 'api_endpoint': 'https://new.example'},
             {'name': 'old', 'platform_type': 'mlops', 'api_endpoint': 'https://updated.example'}]})):
-        _sync_packaged_config(path, force=True)
+        install_config(path)
     assert ConfigManager(path).current_profile().platform_type == 'mlops'
     assert ConfigManager(path).current_name == 'old'
     assert ConfigManager(path).current_profile().api_endpoint == 'https://updated.example'
@@ -138,7 +140,7 @@ def test_cli_mlops_list_dispatch(tmp_path, fields, output):
     client = SimpleNamespace(platform_type='mlops', business_id='selected', request=request)
     with patch('wiserec_cli.cli.Runtime', return_value=runtime), \
          patch.object(runtime, 'authenticated_call', side_effect=lambda operation: operation(client)):
-        result = CliRunner().invoke(app, ['--config', str(config), 'train', 'list',
+        result = invoke_with_config(CliRunner(), app, config, ['train', 'list',
                                          '--name', 'alarm', '--page-size', '200', '-o', output])
     assert result.exit_code == 0, result.output
     if output == 'json':

@@ -14,6 +14,7 @@ from wiserec_cli.auth import AuthManager
 from wiserec_cli.jupyter.connection import JupyterClient, JupyterError
 from wiserec_cli.webstudio.cache import ConnectionCache, cache_ttl
 from wiserec_cli.webstudio.resolve import resolve
+from cli_test_support import invoke_with_config
 
 
 @pytest.fixture
@@ -282,7 +283,7 @@ def test_start_and_stop_discard_connection_cache(rt, requests):
         connection = resolve(rt, ENV_ID)
         assert connection.session.cache.path.exists()
         with patch('wiserec_cli.commands.webstudio.runtime_from_context', return_value=rt):
-            result = CliRunner().invoke(app, ['--config', str(rt.config.path), 'webstudio', command, ENV_ID])
+            result = invoke_with_config(CliRunner(), app, rt.config.path, ['webstudio', command, ENV_ID])
         assert result.exit_code == 0, result.output
         assert not connection.session.cache.path.exists()
 
@@ -350,7 +351,7 @@ def test_jupyter_target_name_and_id_on_fresh_and_cached_connections(rt, requests
          patch('wiserec_cli.commands.jupyter.JupyterClient',
                side_effect=lambda connection: JupyterClient(connection, transport=transport)):
         for _ in range(2):
-            result = CliRunner(**options).invoke(app, ['--config', str(rt.config.path), 'jupyter',
+            result = invoke_with_config(CliRunner(**options), app, rt.config.path, ['jupyter',
                                               *command, '--studio-id', ENV_ID])
             assert result.exit_code == 0, result.output
             assert expected in result.stderr

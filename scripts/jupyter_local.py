@@ -44,13 +44,22 @@ def prepare(root: Path, port: int):
 
 
 def main():
+    root = Path(__file__).resolve().parents[1] / ".jupyter-local"
+    if sys.argv[1:2] == ["--cli"]:
+        if not (root / "config.json").is_file():
+            raise SystemExit("请先启动本地 JupyterLab 或运行 --prepare-only")
+        from wiserec_cli.execution import ExecutionContext, configure
+        configure(ExecutionContext(mode="Jupyter 本地开发", state_dir=root))
+        from wiserec_cli.cli import run
+        sys.argv[1:2] = ["jupyter"]
+        run()
+        return
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--port", type=int, default=8888)
     parser.add_argument("--prepare-only", action="store_true")
     args = parser.parse_args()
     if not 1 <= args.port <= 65535:
         parser.error("port 必须在 1 到 65535 之间")
-    root = Path(__file__).resolve().parents[1] / ".jupyter-local"
     server_config = prepare(root, args.port)
     print(f"本地 CLI 配置：{root / 'config.json'}", flush=True)
     print(f"JupyterLab：http://127.0.0.1:{args.port}/lab （Token 保存在本地 token 文件）", flush=True)
