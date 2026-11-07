@@ -2,7 +2,7 @@
 
 本表列出全部命令，用于定位命令和判断风险；参数以 `ml <子命令> --help` 为准。`--config PATH` 是全局选项，放在子命令之前。只在帮助中列出 `--output`/`-o` 时才加 `-o json`。
 
-“确认”列为“是”的命令默认会询问确认，在 shell 工具中必须在用户授权后加 `--yes`。“副作用”列标出会改变平台、远端或本地状态的命令，执行前核对目标和授权，执行后核验。
+“确认”列为“是”的命令默认会询问确认，在 shell 工具中必须在用户授权后加 `--yes`。日志编号选择需由用户在交互终端完成。“副作用”列标出会改变平台、远端或本地状态的命令，执行前核对目标和授权，执行后核验。
 
 ## 会话、业务与本地记录
 
@@ -10,8 +10,8 @@
 | --- | --- | --- | --- |
 | `ml --version` | 查看实际调用的 CLI 版本 | | |
 | `ml context [--json]` | 查看运行模式、平台环境与实际配置路径，无需登录 | | |
-| `ml tree` | 当前安装版本的命令树，无需登录 | | |
-| `ml env list` / `ml env show` | 列出环境 / 查看当前环境 | | |
+| `ml tree [--all]` | 查看当前环境可用命令，无需登录。加 `--all` 显示全部命令及限制标记 | | |
+| `ml env list` / `ml env show` | 列出已授权及授权状态未知的环境 / 查看当前环境 | | |
 | `ml env use NAME` | 切换当前环境 | | 本地配置 |
 | `ml login` | 打开 Edge 登录，需用户操作；禁止 `--show-secrets` | | 本地凭据 |
 | `ml logout [--all] [--forget-browser]` | 清除当前或全部环境的认证 | | 本地凭据 |
@@ -49,8 +49,8 @@
 | `ml sample-task execution list TASK_ID` | 新旧样本任务共用执行记录查询，无需 `--source`，支持分页、`--include-history` 和 `-o json` | | |
 | `ml train instance list TASK_ID` | 执行实例 | | |
 | `ml train history list TASK_ID` | 执行记录 | | |
-| `ml train history logs download TASK_ID JOB_ID [--type log|plog] [--directory DIR]` | 下载普通或 plog 执行日志 | | 本地文件 |
-| `ml train instance logs download TASK_ID JOB_ID [--directory DIR]` | 归档并按编号选择下载执行实例日志 | | 本地 ZIP 文件 |
+| `ml train history logs download TASK_ID JOB_ID [--type log\|plog] [--directory DIR]` | 下载普通或 plog 执行日志 | | 本地文件 |
+| `ml train instance logs download TASK_ID JOB_ID [--directory DIR]` | 请求归档，在终端输入编号或 `all` 下载已归档日志 | 选择编号或 `all` | 平台归档、本地 ZIP 文件 |
 | `ml train start TASK_ID` | 立即启动任务 | | 启动作业 |
 | `ml train cancel TASK_ID` | 逐个取消全部执行实例 | 是 | 取消作业 |
 | `ml train delete TASK_ID` | 软删除任务 | 是 | 删除任务 |

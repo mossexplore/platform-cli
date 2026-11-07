@@ -13,7 +13,8 @@ ml auth status
 - `auth status` 不续期，显示 `profile`、`username`、`status`、`remaining_minutes`、`expires_at` 和 `businessId`。必须检查 `status=valid`，不能只看退出码；`profile` 应与 `context` 的环境一致。`businessId` 读取当前环境的 `selected.businessId`，可用于确认业务 ID；不使用其他来源或旧字段代替。
 - `businessId` 缺失、为空或为 `-` 时，用 `ml business show` 核对；需要租户/团队名称时也可查询。未选业务再进入选择流程，不在每次查询前列出全部业务。
 - 在当前聊天内复用已确认的 CLI 路径、配置来源、环境、账号、业务 ID 和按需取得的名称。用户发来下一条意图、重新调用 `/ml` 或再次加载 skill，都不自动使上下文失效。普通查询直接执行，已确认的命令语法也直接复用。
-- 用户要求切换到另一环境时，运行对应的 `ml env use dev|mirror|explore|product`，再用上述两条命令更新上下文。与已确认环境相同时不重复切换；未指定环境时沿用已确认的当前环境，不擅自切换。
+- 用户要求切换到另一环境时，运行对应的 `ml env use NAME`，再用上述两条命令更新上下文。与已确认环境相同时不重复切换；未指定环境时沿用已确认的当前环境，不擅自切换。切换用环境标识，显示名称可通过 `ml env list` 核对。开启自动保活时，目标环境未登录或登录过期会提示运行 `ml login`。
+- `ml env list` 隐藏已确认未授权的环境，保留授权状态未知的环境。列表可显示「已授权」「登录使用中」「登录已过期」或「授权状态未知」。管理台类型显示为「搜推广工程平台」或「WiseMLOps平台」。
 - 使用自定义配置时，`--config PATH` 放在子命令之前，例如 `ml --config 'C:\Work\config.json' context --json`；也可设置 `ML_CONFIG`。所有业务命令沿用已确认的同一配置来源，变更来源后重新确认。
 
 ## 何时重新检查
@@ -44,7 +45,7 @@ ml auth status
 - **无缓存或已过期**：运行 `ml login`，shell 工具 `timeout` 至少设为 10 分钟。命令会打开 Edge，由用户完成 SSO 或验证码，之后复查 `ml auth status`。不能代替用户输入凭据，也不要靠运行业务命令来触发登录。
 - **未选业务**：用 `ml business list` 取得当前环境的候选，按用户明确的选择运行 `ml business use --tenant TENANT_ID [--team TEAM_ID] [--department DEPARTMENT_ID]`，按命令结果更新当前业务；输出不足以确认时，再用 `ml business show` 核对一次。必须传 `--tenant`；不传 ID 会进入交互选择，在 shell 工具中无法完成。业务 ID 不从其他环境复制。
 - **业务目录缺失或失效**：`ml business refresh` 会打开 Edge 刷新目录，`timeout` 同样至少 10 分钟，刷新后重新核对选择。
-- **权限拒绝**：停止该业务操作并报告原因，可用 `ml access status` 检查。
+- **权限拒绝**：停止该业务操作并报告原因，可用 `ml access status` 检查。环境策略可禁用单个命令或整个命令分组，禁用分组会覆盖其子命令。`ml tree --all` 显示已知的 `[当前环境禁用]` 和平台的 `[不支持]` 标记。树使用已同步的服务端策略，实际执行以实时鉴权为准。
 - **退出登录**：`ml logout` 仅在用户要求或排障需要时运行。
 
 ## 失败分类

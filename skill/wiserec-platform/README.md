@@ -4,7 +4,7 @@
 
 ## 安装
 
-官方 Windows 安装包分两个阶段执行：先安装并验证 CLI，再安装 `wiserec-platform` skill 和 `/ml` command。第二阶段失败会显示原因，CLI 仍可正常使用；排除文件占用或目录权限问题后重新运行安装程序即可重试。直接通过 pip 安装 Wheel 不会安装 skill。
+官方 Windows 安装包分两个阶段执行：先安装并验证 CLI，再安装 `wiserec-platform` skill 和 `/ml` command。第二阶段失败会显示原因，CLI 仍可正常使用；排除文件占用或目录权限问题后重新运行安装程序即可重试。直接通过 pip 安装 Wheel 不会安装 skill。正式安装提供 `/ml`，仓库保留的 `/ml-lab` 属于实验入口。
 
 - skill 同时安装到当前用户的 `~/.config/opencode/skills/wiserec-platform` 和 `~/.cac/skills/wiserec-platform`。设置 `OPENCODE_CONFIG_DIR` 时仅替换 OpenCode 根目录，CAC 路径仍位于当前用户目录。`/ml` command 同时安装到 `~/.config/opencode/commands/ml.md` 和 `~/.cac/commands/ml.md`。
 - 每次安装都会完整替换两个目标目录中的 `skills/wiserec-platform`，以及两个目录中的 `commands/ml.md`。这些资源由安装程序管理，请勿直接修改；其他 skill、command 和 OpenCode 配置不受影响。
@@ -112,7 +112,7 @@ ml auth status
 
 `context` 已包含 CLI 版本、路径、环境与配置来源；`auth status` 包含账号、认证状态、`remaining_minutes`、`expires_at` 和当前环境选中的 `businessId`。需检查状态和实际字段，不能只看退出码。需要租户/团队名称或缺少有效业务 ID 时再查 `ml business show`。
 
-两套 skill 与 `/ml`、`/ml-lab` 均在同一聊天内跨用户消息复用已确认上下文，后续普通查询直接执行。环境、账号、业务、CLI 路径或配置来源变化时按影响补查；长任务只查认证有效期；提交写操作前重新核对实际环境、账号与业务并保留原确认要求。只读失败按认证、业务、权限或语法分类处理，不把每个新意图当作首次操作。CLI 自身的逐次认证及授权不变。
+`/ml` 在同一聊天内跨用户消息复用已确认上下文，后续普通查询直接执行。环境、账号、业务、CLI 路径或配置来源变化时按影响补查；长任务只查认证有效期；提交写操作前重新核对实际环境、账号与业务并保留原确认要求。只读失败按认证、业务、权限或语法分类处理，不把每个新意图当作首次操作。CLI 自身的逐次认证及授权不变。
 
 找不到 `ml` 时用 `Get-Command ml` 排查 PATH；安装或版本问题时按需使用 `ml --version`、`ml tree` 和对应命令的 `--help`。已确认的语法不重复查询帮助。`ml login` 需要 Edge 和图形界面，不能在无人值守环境中完成。旧 CLI 若不支持 context 或所需字段，按实际版本帮助核对或更新 CLI，不猜测字段含义。
 
