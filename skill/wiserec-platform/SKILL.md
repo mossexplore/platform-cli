@@ -35,7 +35,7 @@ metadata:
 
 ## 会话入口
 
-1. **首次确认一次**：当前聊天尚无已确认的 CLI 上下文时，运行 `ml context --json` 和 `ml auth status`。前者包含 CLI 版本、路径、当前环境和配置来源；后者包含账号、认证状态、有效期与当前选择的 `businessId`。检查退出码、`status=valid`，并确认 `profile` 与当前环境一致、`businessId` 有效。无需再固定运行 `ml --version`、`ml env show`、`ml business show`。
+1. **首次确认一次**：当前聊天尚无已确认的 CLI 上下文时，先运行 `ml context --json`，确认实际配置路径是当前账号的 `%APPDATA%\ml\config.json` 后再运行 `ml auth status`。配置缺失或路径不符时停止并告知用户。前者包含 CLI 版本、路径、当前环境和配置来源；后者包含账号、认证状态、有效期与当前选择的 `businessId`。检查退出码、`status=valid`，并确认 `profile` 与当前环境一致、`businessId` 有效。无需再固定运行 `ml --version`、`ml env show`、`ml business show`。
 2. **跨消息复用**：新的一条用户意图不视为新会话。同一聊天内，已确认的 CLI 路径、配置来源、环境、账号和业务未发生已知变化时，普通查询直接执行，不重复预检。只保留非敏感上下文，不将其写入凭据文件或跨聊天共享；上下文丢失或无法确认时重新建立。
 3. **按变化检查**：需要切换环境时运行 `ml env use <标识>`，随后重新确认上下文；已确认环境相同则不重复切换。环境标识通常为 dev/mirror/explore/product，以实际配置为准。登录、退出、切换账号或业务、变更配置来源后，更新受影响的上下文，不沿用旧环境的资源 ID。
 4. **按需补查**：长任务前只用 `ml auth status` 核对剩余时间；认证、业务或权限报错时只排查对应项。需要租户/团队名称、选择业务，或 `auth status` 未提供有效 `businessId` 时，才查询 `ml business show/list`。版本与帮助检查只用于首次确认或相关排障，具体规则见 [session.md](references/session.md)。

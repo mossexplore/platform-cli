@@ -2,7 +2,7 @@
 
 ## 首次确认与上下文复用
 
-当前聊天尚无已确认上下文时运行：
+当前聊天尚无已确认上下文时，先运行 `ml context --json` 核对实际配置路径。确认它是当前 Windows 账号的 `%APPDATA%\ml\config.json` 后，再运行 `ml auth status`。
 
 ```powershell
 ml context --json
@@ -15,7 +15,7 @@ ml auth status
 - 在当前聊天内复用已确认的 CLI 路径、配置来源、环境、账号、业务 ID 和按需取得的名称。用户发来下一条意图、重新调用 `/ml` 或再次加载 skill，都不自动使上下文失效。普通查询直接执行，已确认的命令语法也直接复用。
 - 用户要求切换到另一环境时，运行对应的 `ml env use NAME`，再用上述两条命令更新上下文。与已确认环境相同时不重复切换；未指定环境时沿用已确认的当前环境，不擅自切换。切换用环境标识，显示名称可通过 `ml env list` 核对。开启自动保活时，目标环境未登录或登录过期会提示运行 `ml login`。
 - `ml env list` 隐藏已确认未授权的环境，保留授权状态未知的环境。列表可显示「已授权」「登录使用中」「登录已过期」或「授权状态未知」。管理台类型显示为「搜推广工程平台」或「WiseMLOps平台」。
-- 使用自定义配置时，`--config PATH` 放在子命令之前，例如 `ml --config 'C:\Work\config.json' context --json`；也可设置 `ML_CONFIG`。所有业务命令沿用已确认的同一配置来源，变更来源后重新确认。
+- Agent 必须使用 Windows 用户配置 `%APPDATA%\ml\config.json`，通常对应 `C:\Users\<用户名>\AppData\Roaming\ml\config.json`。CLI 安装包内的 `wiserec_cli/config.json` 用于初始化和同步这份用户配置。若实际配置路径不符，或此文件缺失，停止后续 CLI 操作并告知用户。
 
 ## 何时重新检查
 
@@ -38,7 +38,6 @@ ml auth status
 - **找不到 `ml`**：shell 可能不加载 PowerShell 配置文件，`ml` 应位于系统或用户 PATH 中，不依赖配置文件中的 PATH 修改。用 `Get-Command ml` 核对。刚安装 CLI 时，OpenCode 进程仍是旧的 PATH，需要完全退出并重新打开 OpenCode。
 - **引号**：PowerShell 中含空格或反斜杠的路径用单引号包住。Windows PowerShell 5.1 和 PowerShell 7.3 之前的版本会去掉参数里嵌入的双引号；有文件参数时（如 `--from-file`、`--request-file`、`--request-sample-file`）先把文本写入本地文件再传入，必须直接传含双引号的值（如 JSON 形式的 `--customize-config`）时，在这些版本中把每个 `"` 写成 `\"`，执行后核对平台上的实际值。
 - **中文乱码**：在同一条命令前加 `[Console]::OutputEncoding = [System.Text.Encoding]::UTF8;` 再运行 `ml`。
-- **Git Bash**：路径改用正斜杠或单引号，例如 `ml --config 'C:/Work/config.json' env show`。
 
 ## 登录与业务选择
 
@@ -53,6 +52,8 @@ ml auth status
 | 现象 | 下一步 |
 | --- | --- |
 | `ml` 不存在或版本异常 | 检查安装和 PATH，不继续业务命令 |
+| `配置文件不存在` | 核对当前 Agent 账号的 `%APPDATA%\ml\config.json`。如果报错路径不同，告知用户实际路径并停止操作 |
+| `安装包中缺少 config.json` | 在报错的 Agent 终端运行 `Get-Command ml` 和 `ml --version`，核对实际调用的 CLI。若该安装缺少包内配置，用完整安装包重新安装 |
 | 认证过期或缺失 | 请用户登录后复查 |
 | 未选业务 | 列候选并按用户选择设置；空结果不等于平台无数据 |
 | 权限拒绝 | 停止并告知用户或管理员，不绕过检查 |
