@@ -54,6 +54,7 @@
       "ml sample-task period list*": "allow",
       "ml sample-task execution list*": "allow",
       "ml feature-task list*": "allow",
+      "ml feature-task detail*": "allow",
       "ml feature-task execution list*": "allow",
       "ml feature-task execution logs search*": "allow",
       "ml train list*": "allow",

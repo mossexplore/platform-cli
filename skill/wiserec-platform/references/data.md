@@ -14,11 +14,12 @@ ml dataset files upload DATASET_ID 'D:\data\sample.csv' --dir / -o json
 - 上传是追加单个文件，不会覆盖，也没有 `--overwrite`。仅支持 `.txt`、`.csv`、`.zip`、`.tar`、`.gz`、`.json`，大小不超过 2,000,000,000 字节；文件名须以英文字母或数字开头，只含英文字母、数字、下划线、短横线和点。
 - 上传默认网络超时 1800 秒，shell 工具 `timeout` 须大于该值。成功后重新 `files list` 核验；失败或超时不自动重传，先查远端是否已收到。
 
-## 特征任务与执行日志
+## 特征任务详情与执行日志
 
 ```powershell
 ml feature-task list --name NAME --create-user USER --page 1 --page-size 10 -o json
 ml feature-task list --category train_fi -o json
+ml feature-task detail TASK_ID -o json
 ml feature-task execution list TASK_ID --page 1 --page-size 10 -o json
 ml feature-task execution list TASK_ID --include-history -o json
 ml feature-task execution logs search JOB_ID
@@ -26,6 +27,7 @@ ml feature-task execution logs search JOB_ID --start-line 1 --end-line 2000 --ke
 ```
 
 - 特征任务列表默认 `--category dpp-all`，第 1 页、每页 10 条；类型枚举见 `ml feature-task list --help`。该命令与 `ml sample-task list` 是不同的任务入口，不混用筛选参数。
+- 查询特征任务的算法、数据集、特征集引用或参数时，使用 `ml feature-task detail TASK_ID`。WiseRec 中可先从列表获取 `taskId`，WiseMLOps 中从管理台或用户提供的信息获取。详情请求自动发送空的 `teamId`，无需询问团队 ID。表格中的创建时间为北京时间，`-o json` 保留详情响应 `result` 的原始字段。
 - 执行记录默认第 1 页、每页 10 条，不包含历史实例；使用 `--include-history` 包含历史实例。列表 JSON 为 `items`、`count`、`pageIndex`、`pageSize`。
 - 日志查询使用执行记录中的 `jobId`，不能传任务 ID。默认行范围为 1 到 2000；起止行均为正整数，结束行不得小于起始行。
 - `--keyword` 可重复指定。`--scope A|B|C` 分别表示关键词后、前、前后；`--scope-lines` 为正整数范围行数。不需要的筛选项不传。
