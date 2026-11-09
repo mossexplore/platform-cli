@@ -1,4 +1,4 @@
-"""当前业务下的特征任务分页查询。"""
+"""当前业务下的特征任务查询。"""
 from ..errors import ApiError, BusinessError
 
 TASK_TYPES = {
@@ -49,14 +49,33 @@ class FeatureTaskService:
                 "pageIndex": page_index, "pageSize": page_size, "running": False,
             },
         )
-        result = payload.get("result") if isinstance(payload, dict) else None
-        if not isinstance(result, dict):
-            raise ApiError("特征任务查询响应缺少有效的 result")
-        if type(result.get("code")) is not int or result["code"] != 0:
-            raise ApiError(f"特征任务查询失败: {result.get('des') or '未知错误'} (code={result.get('code')})")
+        result = self._query_result(payload)
         items, count = result.get("taskInfos"), result.get("count")
         if not isinstance(items, list) or not all(isinstance(item, dict) for item in items):
             raise ApiError("特征任务查询响应缺少有效的 taskInfos 数组")
         if type(count) is not int or count < 0:
             raise ApiError("特征任务查询响应缺少有效的 count")
         return {"items": items, "count": count, "pageIndex": page_index, "pageSize": page_size}
+
+    def detail(self, task_id):
+        if not task_id.strip():
+            raise ValueError("taskId 不能为空")
+        if not self.client.business_id.strip():
+            raise BusinessError("尚未选择租户或团队，请运行 ml business use")
+        payload = self.client.request(
+            "POST", "/ai/backend/mtp/traintask/queryDetail",
+            json_body={"taskId": task_id, "teamId": ""},
+        )
+        result = self._query_result(payload)
+        if not isinstance(result.get("taskInfo"), dict):
+            raise ApiError("特征任务详情响应缺少有效的 taskInfo")
+        return result
+
+    @staticmethod
+    def _query_result(payload):
+        result = payload.get("result") if isinstance(payload, dict) else None
+        if not isinstance(result, dict):
+            raise ApiError("特征任务查询响应缺少有效的 result")
+        if type(result.get("code")) is not int or result["code"] != 0:
+            raise ApiError(f"特征任务查询失败: {result.get('des') or '未知错误'} (code={result.get('code')})")
+        return result

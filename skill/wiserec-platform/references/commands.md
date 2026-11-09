@@ -91,6 +91,7 @@
 | `ml dataset files list DATASET_ID` | 数据集内部目录 | | |
 | `ml dataset files upload DATASET_ID LOCAL_FILE` | 追加单个文件 | | 上传文件 |
 | `ml feature-task list` | 特征任务列表，支持 `--name`、`--category`、`--create-user`、`--page`、`--page-size` 和 `-o json` | | |
+| `ml feature-task detail TASK_ID` | 查询特征任务详情，支持 `-o json` | | |
 | `ml feature-task execution list TASK_ID` | 分页查询执行记录，支持 `--include-history` | | |
 | `ml feature-task execution logs search JOB_ID` | 日志搜索，默认原样文本，可选 `-o json` | | |
 | `ml featureset wide list` / `ml featureset model list` | 宽表 / 模型特征集 | | |

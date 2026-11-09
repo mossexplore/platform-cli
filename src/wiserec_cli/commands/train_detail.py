@@ -127,8 +127,11 @@ def render_detail(data, output):
     ]
     render_grid("参数", grouped_fields(parameters, 3), 3)
 
+    render_custom_config(parameter.get("customizeConfig"))
+
+
+def render_custom_config(custom):
     print_text("自定义参数")
-    custom = parameter.get("customizeConfig")
     if isinstance(custom, str) and custom.strip():
         try:
             custom = json.dumps(json.loads(custom), ensure_ascii=False, indent=2)

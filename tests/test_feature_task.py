@@ -1,4 +1,5 @@
 import io
+import inspect
 import json
 from types import SimpleNamespace
 from unittest.mock import patch
@@ -93,15 +94,16 @@ def test_malformed_response(payload):
         FeatureTaskService(Client(payload)).list_tasks()
 
 
-def invoke(client, args, output="table"):
+def invoke(client, args, output="table", command="list"):
     def authenticated(operation):
-        print("正在刷新认证")
+        print("正在刷新认证", flush=True)
         return operation(client)
     runtime = SimpleNamespace(authenticated_call=authenticated,
         config=SimpleNamespace(current_profile=lambda: SimpleNamespace(output_format=output)))
+    options = {"mix_stderr": False} if "mix_stderr" in inspect.signature(CliRunner).parameters else {}
     with patch("wiserec_cli.cli.Runtime", return_value=runtime), patch(
         "wiserec_cli.commands.feature_task.runtime_from_context", return_value=runtime):
-        return CliRunner().invoke(app, ["feature-task", "list", *args])
+        return CliRunner(**options).invoke(app, ["feature-task", command, *args], env={"COLUMNS": "120"})
 
 
 def test_cli_json_keeps_raw_fields_and_filters():
@@ -150,3 +152,48 @@ def test_display_and_table():
     assert failed.exit_code == 1
     assert failed.stdout == ""
     assert "denied" in failed.stderr
+
+
+def test_detail_request_uses_current_business_and_empty_team():
+    result = {"code": 0, "taskInfo": {"taskId": ITEM["taskId"]}, "extra": {"keep": True}}
+
+    def handler(request):
+        assert request.method == "POST"
+        assert str(request.url) == "https://dev.example.com/ai/backend/mtp/traintask/queryDetail"
+        assert request.headers.get_list("businessid") == ["chosen"]
+        assert json.loads(request.content) == {"taskId": ITEM["taskId"], "teamId": ""}
+        return httpx.Response(200, json={"result": result})
+
+    selection = BusinessSelection(type="team", department_id="d", department_name="D",
+        tenant_id="t", tenant_name="T", team_id="selected-team", team_name="Team", business_id="chosen")
+    with PlatformClient(Profile("dev", "https://dev.example.com/dashboard"),
+        Credentials.create("dev", "session=a", "csrf", "jack", 1800), 30000, 0, True,
+        transport=httpx.MockTransport(handler), business_selection=selection) as client:
+        response = invoke(client, [ITEM["taskId"], "-o", "json"], command="detail")
+    assert response.exit_code == 0, response.output
+    assert json.loads(response.stdout) == result
+    assert "正在刷新认证" in response.stderr
+
+
+@pytest.mark.parametrize(("custom", "expected"), [(r"first\nsecond", "first\nsecond"),
+                                                    ('{"enabled":true}', '"enabled": true')])
+def test_detail_tables(custom, expected):
+    client = Client({"result": {
+        "code": 0, "algorithmInfo": {"algorithmName": "FeatureFlow", "algorithmVersion": "algo-ver"},
+        "taskInfo": {
+            "taskType": "train_fi", "region": "cn-north-2", "source": "wisemlops",
+            "createTime": 1788850476000, "acceptQueue": True, "autoArchive": False,
+            "trainTaskCron": {"cronTimeOut": 0}, "distFramework": "CustomFramework", "dmq": "topic",
+            "dataSets": [{"dir": "data", "dataSetList": [{"dataSetName": "first"}, {"dataSetName": "second"}]}],
+            "featureSetRefInfos": [{"setRefName": "features.json", "setName": "FeatureSet", "version": "latest"}],
+            "params": [{"paramKey": "dataVer", "paramValue": v} for v in ("v1", "v1", "v2")],
+            "customizeConfig": custom,
+        },
+    }})
+    result = invoke(client, [ITEM["taskId"]], command="detail")
+    assert result.exit_code == 0, result.output
+    for value in ("Train Fi", "北京二", "WiseMLOps", "2026-09-08 14:54:36", "FeatureFlow",
+                  "algo-ver", "CustomFramework", "topic", "first,second", "features.json", "latest", expected):
+        assert value in result.stdout
+    assert result.stdout.count("dataVer：v1") == 1
+    assert "dataVer：v2" in result.stdout

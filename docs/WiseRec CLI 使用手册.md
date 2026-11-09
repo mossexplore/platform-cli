@@ -118,6 +118,7 @@ ml                                              WiseRec 命令行工具
 │       └── upload                              向指定目录追加文件
 ├── feature-task                                特征任务
 │   ├── list                                    分页查询当前业务下的特征任务
+│   ├── detail                                  查询特征任务详情
 │   └── execution                               特征任务执行记录
 │       ├── list                                分页查询特征任务的执行记录
 │       └── logs                                执行记录日志
@@ -211,7 +212,7 @@ ml business use
 
 仓库根目录的 `config.example.json` 仅是样例。制作安装包前，必须将它复制为同目录的 `config.json` 并填写实际环境；打包仅使用正式 `config.json`，缺失时直接报错，不自动使用样例。安装包内及安装后的正式配置均使用 `config.json`，CLI 运行时从当前用户的配置目录读取 `config.json`。Windows 路径为 `%APPDATA%\ml\config.json`，macOS 为 `~/Library/Application Support/ml/config.json`，Linux 为 `${XDG_CONFIG_HOME:-~/.config}/ml/config.json`。缺少配置时先运行安装程序初始化。
 
-首次安装采用包内默认环境。每次安装、同版本重装或升级均强制覆盖用户默认配置文件，仅保留原文件的 `current` 值。其余字段全部采用安装包内容，包括环境定义、管理台类型、地址、自动保活、本地禁止命令策略和权限系统配置；本地新增的字段、环境也会被移除。若原文件无法读取、不是 JSON 对象、`current` 无效或所选环境已被新包删除、改名，则自动采用安装包指定的默认 `current`，不因此中断安装。安装包配置无效或目标文件无法写入时会报错。
+首次安装采用包内默认环境。每次运行安装程序都会覆盖用户默认配置文件，仅保留原文件的 `current` 值。其余字段全部采用安装包内容，包括环境定义、管理台类型、地址、自动保活、本地禁止命令策略和权限系统配置；本地新增的字段、环境也会被移除。若原文件无法读取、不是 JSON 对象、`current` 无效或所选环境已被新包删除、改名，则自动采用安装包指定的默认 `current`，不因此中断安装。安装包配置无效或目标文件无法写入时会报错。
 
 OpenCode/codeagent 集成分两个阶段：先安装并验证 CLI，再安装正式 skill `wiserec-platform` 和 `/ml` 快捷入口。不安装 `skill-lab` 详细版。第二阶段失败时 CLI 仍可使用，修复文件权限或占用问题后重新运行安装程序。
 
@@ -1372,6 +1373,37 @@ ml feature-task list
 ml feature-task list --name TASK_NAME --category train_fi
 ml feature-task list --create-user USER --page 2 --page-size 20
 ml feature-task list --category feature_generate -o json
+```
+
+
+## 特征任务详情
+
+### 命令格式
+
+```text
+ml feature-task detail TASK_ID [--output table|json]
+```
+
+### 参数与选项
+
+| 参数 | 默认值 | 说明 |
+| --- | --- | --- |
+| `TASK_ID` | 必填 | 特征任务 ID，可从管理台或 WiseRec 环境下的 `ml feature-task list` 获取 |
+| `--output`、`-o` | 当前环境配置 | `table` 或 `json` |
+
+### 说明
+
+适用于 WiseRec 和 WiseMLOps 管理台。先选择环境、登录并使用 `ml business use` 选择业务。查询始终使用当前环境已选业务。
+
+表格依次展示基本信息、数据集、特征集引用、参数和自定义参数。创建时间按北京时间显示为 `YYYY-MM-DD HH:mm:ss`。同一目录下的多个数据集名称用英文逗号分隔，同名同值的参数仅展示一次。自定义参数支持 JSON 缩进和普通文本换行。缺失值显示 `-`。
+
+JSON 输出保留接口 `result` 的原始字段、时间戳和参数记录。
+
+### 示例
+
+```bash
+ml feature-task detail TASK_ID
+ml feature-task detail TASK_ID -o json
 ```
 
 

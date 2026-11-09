@@ -12,6 +12,7 @@ from ..output import console, print_result, print_text
 from ..services.feature_task import FeatureTaskService, TASK_TYPES
 from .common import fail, runtime_from_context
 from .feature_execution import execution_app
+from .feature_task_detail import render_detail
 
 feature_task_app = typer.Typer(no_args_is_help=True, help="特征任务")
 feature_task_app.add_typer(execution_app, name="execution")
@@ -80,5 +81,26 @@ def list_tasks(
                 lambda client: FeatureTaskService(client).list_tasks(page, page_size, name, category, create_user)
             )
         render_page(result, selected)
+    except Exception as exc:
+        fail(exc)
+
+
+@feature_task_app.command("detail")
+def detail(
+    context: typer.Context,
+    task_id: str = typer.Argument(..., help="特征任务的完整 taskId"),
+    output: Optional[str] = typer.Option(None, "--output", "-o", help="输出格式: table 或 json"),
+) -> None:
+    """查询特征任务详情"""
+    try:
+        runtime = runtime_from_context(context)
+        selected = (output or runtime.config.current_profile().output_format).lower()
+        if selected not in {"table", "json"}:
+            raise ValueError("output 仅支持 table 或 json")
+        with redirect_stdout(sys.stderr):
+            result = runtime.authenticated_call(
+                lambda client: FeatureTaskService(client).detail(task_id)
+            )
+        render_detail(result, selected)
     except Exception as exc:
         fail(exc)

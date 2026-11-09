@@ -26,6 +26,8 @@ def test_all_existing_shared_commands_supported():
     actual.update(leaves(root.commands["train"].commands["history"], "train history"))
     actual.update(leaves(root.commands["train"].commands["instance"], "train instance"))
     actual.update(leaves(root.commands["auth"].commands["ping"], "auth ping"))
+    assert "detail" in root.commands["feature-task"].commands
+    actual.add("feature-task detail")
     assert actual == SHARED_COMMANDS
     for path in actual:
         require_supported('mlops', path)
@@ -33,6 +35,7 @@ def test_all_existing_shared_commands_supported():
     assert not supported('mlops', 'service future-operation')
     assert not supported('mlops', 'train start')
     assert not supported('mlops', 'algorithm list')
+    assert not supported('mlops', 'feature-task list')
 
 
 def config_file(tmp_path):
@@ -63,6 +66,7 @@ def test_shared_tree(tmp_path):
     (['train', 'history', 'list', 'TASK_ID'], 'train'),
     (['train', 'instance', 'list', 'TASK_ID'], 'train'),
     (['train', 'history', 'logs', 'download', 'TASK_ID', 'JOB_ID'], 'train'),
+    (['feature-task', 'detail', 'TASK_ID'], 'feature_task'),
 ])
 def test_cli_reaches_shared_implementation(tmp_path, args, module):
     from wiserec_cli.commands.common import runtime_from_context
