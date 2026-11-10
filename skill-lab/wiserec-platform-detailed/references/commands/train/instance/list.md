@@ -28,11 +28,11 @@ ml train instance list TASK_ID [OPTIONS]
 
 ## 边界与组合规则
 
-先在当前业务查找 taskId，再查询指定页的执行实例，按接口返回顺序展示。
+先在当前业务查找 taskId，再按 `periodDate` 升序查询指定页的执行实例，按接口返回顺序展示。
 
 ## 响应与展示
 
-`{count: integer, pageIndex: integer, pageSize: integer, items: object[]}`。分页值来自请求，count 为总数，空结果 items=[]；条目扩展字段保留。 `result.jobs → items`；常用 jobId、algorithmName、status、createTime、hostIp、poolName。表格执行时长按开始时间到查询时刻的整分钟数计算，和排队时长使用同一显示格式，例如 125 分钟显示为 `2h5min`。JSON 不添加该计算值。
+`{count: integer, pageIndex: integer, pageSize: integer, items: object[]}`。分页值来自请求，count 为总数，空结果 items=[]；条目扩展字段保留。 `result.jobs → items`；常用 jobId、algorithmName、status、createTime、hostIp、poolName。表格执行时长按开始时间到查询时刻的整分钟数计算，和排队时长使用同一显示格式，例如 125 分钟显示为 `2h5min`。 三种时长满 24 小时均使用 `day`，例如 `1day8h22min` 或 `1day8h22min31s`。JSON 不添加该计算值。
 
 仅将明确标注类型和存在条件的字段视为本地实现保证；展示字段清单不等于完整接口 schema。未约束字段的类型、可空性和服务端枚举待接口契约或脱敏实测确认。
 

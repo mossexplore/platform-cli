@@ -114,9 +114,9 @@ class TrainService:
         body = {
             "taskId": task["taskId"], "businessId": task["businessId"],
             "jobType": task["taskType"], "pageIndex": page, "pageSize": size,
+            "sortField": "createTime" if ordered_for_cancel else "periodDate",
+            "sortOrder": "ascend",
         }
-        if ordered_for_cancel:
-            body.update(sortField="createTime", sortOrder="ascend")
         payload = self.client.request(
             "POST", "/ai/backend/mtp/traintask/queryJobInstanceByTaskId", json_body=body,
         )

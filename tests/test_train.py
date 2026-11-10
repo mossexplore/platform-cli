@@ -105,7 +105,7 @@ class TrainServiceTest(unittest.TestCase):
         self.assertEqual(client.calls[2], (
             "POST", "/ai/backend/mtp/traintask/queryJobInstanceByTaskId",
             {"taskId": "target", "businessId": "task-business", "jobType": "other",
-             "pageIndex": 1, "pageSize": 10},
+             "pageIndex": 1, "pageSize": 10, "sortField": "periodDate", "sortOrder": "ascend"},
         ))
         self.assertEqual(result["items"], [job])
 
@@ -159,7 +159,7 @@ class TrainOutputTest(unittest.TestCase):
 
         now_ms = 1785466975500
         items = [
-            {"createTime": now_ms - 7500000, "runningTime": 999, "queueTime": 157, "waitTime": 3631},
+            {"createTime": now_ms - 116520000, "runningTime": 999, "queueTime": 157, "waitTime": 3631},
             {"createTime": None, "runningTime": 999, "waitTime": 0},
             {"createTime": ""}, {},
             {"createTime": now_ms + 1000},
@@ -176,7 +176,7 @@ class TrainOutputTest(unittest.TestCase):
                      if isinstance(call.args[0], Table))
         duration = next(column for column in table.columns if column.header == "执行时长")
         self.assertEqual([cell.plain for cell in duration._cells],
-                         ["2h5min", "-", "-", "-", "0min", display_value("runningTime", now_ms // 60000),
+                         ["1day8h22min", "-", "-", "-", "0min", display_value("runningTime", now_ms // 60000),
                           "0min", "1min"])
         clock.assert_called_once_with()
         self.assertEqual(items[0]["runningTime"], 999)
@@ -295,6 +295,15 @@ class TrainOutputTest(unittest.TestCase):
         for field in ("gpuSize", "cpuSize", "memorySize", "infraSize"):
             self.assertEqual(display_value(field, 0), "0")
 
+    def test_duration_day_boundaries(self):
+        for field in ("runningTime", "queueTime"):
+            self.assertEqual(display_value(field, 1439), "23h59min")
+            self.assertEqual(display_value(field, 1440), "1day0h0min")
+            self.assertEqual(display_value(field, 1942), "1day8h22min")
+        self.assertEqual(display_value("waitTime", 86399), "23h59min59s")
+        self.assertEqual(display_value("waitTime", 86400), "1day0h0min0s")
+        self.assertEqual(display_value("waitTime", 116551), "1day8h22min31s")
+
     def test_time_is_milliseconds_in_shanghai(self):
         self.assertEqual(display_value("checkTime", 1785466890000), "2026-07-31 11:01:30")
         self.assertEqual(display_value("createTime", 0), "1970-01-01 08:00:00")
@@ -371,6 +380,7 @@ class TrainOutputTest(unittest.TestCase):
             self.assertEqual(result.exit_code, 0, result.output)
             self.assertEqual(client.calls[-1][2], {
                 "taskId": "t", "businessId": "b", "jobType": "train", "pageIndex": 2, "pageSize": 200,
+                "sortField": "periodDate", "sortOrder": "ascend",
             })
             if output == "json":
                 self.assertEqual(json.loads(result.stdout), {

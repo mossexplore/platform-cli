@@ -68,13 +68,18 @@ def display_value(field: str, value: Any) -> str:
     if value is None or value == "":
         return "-"
     if field in {"runningTime", "queueTime"}:
-        hours, minutes = divmod(float(value), 60)
-        return f"{hours:g}h{minutes:g}min" if hours else f"{minutes:g}min"
+        days, remainder = divmod(float(value), 1440)
+        hours, minutes = divmod(remainder, 60)
+        duration = f"{hours:g}h{minutes:g}min" if days or hours else f"{minutes:g}min"
+        return f"{days:g}day{duration}" if days else duration
     if field == "waitTime":
-        hours, remainder = divmod(float(value), 3600)
+        days, remainder = divmod(float(value), 86400)
+        hours, remainder = divmod(remainder, 3600)
         minutes, seconds = divmod(remainder, 60)
-        duration = f"{minutes:g}min{seconds:g}s" if hours or minutes else f"{seconds:g}s"
-        return f"{hours:g}h{duration}" if hours else duration
+        duration = f"{minutes:g}min{seconds:g}s" if days or hours or minutes else f"{seconds:g}s"
+        if days or hours:
+            duration = f"{hours:g}h{duration}"
+        return f"{days:g}day{duration}" if days else duration
     if field == "fileSize":
         if value == 0:
             return "0B"

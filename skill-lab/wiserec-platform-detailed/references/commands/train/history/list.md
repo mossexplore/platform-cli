@@ -36,7 +36,7 @@ ml train history list TASK_ID [OPTIONS]
 
 仅将明确标注类型和存在条件的字段视为本地实现保证；展示字段清单不等于完整接口 schema。未约束字段的类型、可空性和服务端枚举待接口契约或脱敏实测确认。
 
-WiseRec 和 MLOps 的 `history list` 表格的最后三列依次是“执行时长”“排队时长”和“配额等待时间”。`runningTime` 和 `queueTime` 原值为分钟，例如 `157` 显示为 `2h37min`。`waitTime` 原值为秒，例如 `3631` 显示为 `1h0min31s`。前两列的零值显示为 `0min`，配额等待时间的零值显示为 `0s`，缺失值显示 `-`。`-o json` 保留原始字段和值。
+WiseRec 和 MLOps 的 `history list` 表格的最后三列依次是“执行时长”“排队时长”和“配额等待时间”。`runningTime` 和 `queueTime` 原值为分钟，例如 `157` 显示为 `2h37min`。`waitTime` 原值为秒，例如 `3631` 显示为 `1h0min31s`。满 24 小时使用 `day`，例如 `1day8h22min` 或 `1day8h22min31s`。前两列的零值显示为 `0min`，配额等待时间的零值显示为 `0s`，缺失值显示 `-`。`-o json` 保留原始字段和值。
 
 ### 展示字段定位
 
