@@ -187,7 +187,7 @@ class TrainOutputTest(unittest.TestCase):
         item = {"jobId": "job-id", "algorithmId": "algo-id", "algorithmName": "algo-name",
                 "cpuSize": 32, "gpuSize": 0, "memorySize": 256,
                 "status": "CANCELED", "poolName": "pool", "infraSize": 1,
-                "runningTime": 11, "fileSize": 97726898,
+                "runningTime": 11, "queueTime": 0, "waitTime": 2.5, "fileSize": 97726898,
                 "checkTime": 1785466890000, "createTime": 1785466890000,
                 "statusTime": 1785466890000, "actionType": "manual",
                 "bucketName": "history-bucket"}
@@ -195,28 +195,32 @@ class TrainOutputTest(unittest.TestCase):
              patch("wiserec_cli.commands.train.print_text") as messages:
             render_page({"count": 11, "pageIndex": 1, "pageSize": 10,
                          "items": [item, {"gpuSize": 0, "fileSize": 0,
-                                          "algorithmId": None, "algorithmName": ""}]},
+                                          "algorithmId": None, "algorithmName": "",
+                                          "waitTime": None}]},
                         "table", history_task_id="task-id")
         table = next(call.args[0] for call in output.print.call_args_list
                      if isinstance(call.args[0], Table))
         self.assertEqual([column.header for column in table.columns], [
             "作业ID", "算法名称", "CPU", "GPU", "内存", "状态", "集群",
-            "节点数", "执行时长", "大小", "检查时间", "开始时间", "结束时间",
+            "节点数", "执行时长", "排队时长", "配额等待时间", "大小",
+            "检查时间", "开始时间", "结束时间",
             "触发方式", "存储桶",
         ])
         self.assertEqual([column._cells[0].plain for column in table.columns], [
             "job-id",
             "algo-name", "32", "0", "256", "CANCELED", "pool",
-            "1", "11", "93.20M", *(["2026-07-31 11:01:30"] * 3),
+            "1", "11", "0min", "2.5min", "93.20M", *(["2026-07-31 11:01:30"] * 3),
             "manual", "history-bucket",
         ])
         self.assertEqual([column._cells[1].plain for column in table.columns],
-                         ["-", "-", "-", "0", "-", "-", "-", "-", "-", "0B", "-", "-", "-", "-", "-"])
+                         ["-", "-", "-", "0", "-", "-", "-", "-", "-", "-", "-", "0B",
+                          "-", "-", "-", "-", "-"])
         output.print.assert_any_call("任务 ID：task-id", markup=False)
         messages.assert_any_call("当前仅展示第 1 页 10 条，暂不支持翻页；按开始时间倒序排列。")
 
     def test_history_cli_json_and_empty_results(self):
-        job = {"jobId": "j", "fileSize": 97726898, "checkTime": None}
+        job = {"jobId": "j", "fileSize": 97726898, "checkTime": None,
+               "queueTime": 0, "waitTime": 2.5}
         client = FakeClient({"result": {"code": 0, "count": 1, "jobs": [job]}})
         result = self.invoke(client, ["train", "history", "list", "t", "-o", "json"])
         self.assertEqual(result.exit_code, 0, result.output)

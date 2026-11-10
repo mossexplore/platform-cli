@@ -34,6 +34,8 @@ ml train history list TASK_ID [OPTIONS]
 
 仅将明确标注类型和存在条件的字段视为本地实现保证；展示字段清单不等于完整接口 schema。未约束字段的类型、可空性和服务端枚举待接口契约或脱敏实测确认。
 
+WiseRec 和 MLOps 的表格均展示排队时长和配额等待时间。数值后附 `min`，例如 `0min`。字段缺失、为 null 或空字符串时显示 `-`。`-o json` 保留原始字段和值。
+
 ### 展示字段定位
 
 下表描述展示使用的字段；它不是必填字段 schema。除上文明确校验者外，内部字段类型/可空性未由客户端完整约束，缺失时按该命令展示逻辑处理。表格可能转换原值，不应反向重建 JSON。
@@ -49,6 +51,8 @@ ml train history list TASK_ID [OPTIONS]
 | `items[].poolName` | 集群 |
 | `items[].infraSize` | 节点数 |
 | `items[].runningTime` | 执行时长 |
+| `items[].queueTime` | 排队时长 |
+| `items[].waitTime` | 配额等待时间 |
 | `items[].fileSize` | 大小 |
 | `items[].checkTime` | 检查时间 |
 | `items[].createTime` | 开始时间 |

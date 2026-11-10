@@ -51,7 +51,8 @@ HISTORY_COLUMNS = (
     ("作业ID", "jobId"), ("算法名称", "algorithmName"),
     ("CPU", "cpuSize"), ("GPU", "gpuSize"), ("内存", "memorySize"),
     ("状态", "status"), ("集群", "poolName"), ("节点数", "infraSize"),
-    ("执行时长", "runningTime"), ("大小", "fileSize"),
+    ("执行时长", "runningTime"), ("排队时长", "queueTime"),
+    ("配额等待时间", "waitTime"), ("大小", "fileSize"),
     ("检查时间", "checkTime"), ("开始时间", "createTime"), ("结束时间", "statusTime"),
     ("触发方式", "actionType"), ("存储桶", "bucketName"),
 )
@@ -63,6 +64,8 @@ DISPLAY_TIMEZONE = timezone(timedelta(hours=8), name="Asia/Shanghai")
 def display_value(field: str, value: Any) -> str:
     if value is None or value == "":
         return "-"
+    if field in {"queueTime", "waitTime"}:
+        return f"{value}min"
     if field == "fileSize":
         if value == 0:
             return "0B"

@@ -68,7 +68,7 @@ ml                                              WiseRec 命令行工具
 │   │   └── logs                                执行实例日志归档与下载
 │   │       └── download                        归档并下载执行实例日志
 │   ├── history                                 执行记录
-│   │   ├── list                                查看执行记录
+│   │   ├── list                                查看执行记录及排队和配额等待时长
 │   │   └── logs                                执行日志
 │   │       └── download                        下载日志
 │   ├── start                                   执行任务
@@ -627,6 +627,8 @@ ml train config update TASK_ID --customize-config VALUE
 WiseRec 可用 `detail` 查询指定训练任务。先登录并选择业务，再使用任务 ID 查询。表格展示基本信息、首个样本的数据集、输出引用（输出目录和输出名称）、首个样本的配置引用、算法参数和自定义参数，时间按北京时间显示。自定义参数为 JSON 时缩进展示，普通文本按行显示。使用 `-o json` 获取完整原始详情。
 
 先用 `list` 获取任务 ID，`history list` 获取作业 ID。实例和执行记录默认展示第一页 10 条；`start` 返回作业 ID，不代表训练完成。
+
+WiseRec 和 MLOps 的 `history list` 表格均展示“排队时长”和“配额等待时间”，分别取自 `queueTime` 和 `waitTime`，数值后附 `min`，例如 `0min`。缺少值时显示 `-`，`-o json` 保留原始字段和值。
 
 `cancel` 取消查询到的执行实例；`delete` 软删除任务；`clone` 创建副本；`config update` 更新自定义参数。操作结果不明时先查询状态。
 
