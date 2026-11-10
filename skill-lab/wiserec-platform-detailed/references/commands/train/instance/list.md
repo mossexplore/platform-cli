@@ -52,6 +52,7 @@ ml train instance list TASK_ID [OPTIONS]
 | `items[].createTime` | 开始时间 |
 | `items[].runningTime` | 执行时长（表格动态计算，JSON 不保证存在） |
 | `items[].bucketName` | 存储桶 |
+| `items[].waitTime` | 配额等待时间（最后一列，按秒换算，如 `3631` 显示为 `1h0min31s`，零值为 `0s`，缺失为 `-`，JSON 保留原值） |
 
 
 ## 错误与核验

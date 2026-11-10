@@ -159,8 +159,8 @@ class TrainOutputTest(unittest.TestCase):
 
         now_ms = 1785466975500
         items = [
-            {"createTime": now_ms - 85999, "runningTime": 999},
-            {"createTime": None, "runningTime": 999},
+            {"createTime": now_ms - 85999, "runningTime": 999, "waitTime": 3631},
+            {"createTime": None, "runningTime": 999, "waitTime": 0},
             {"createTime": ""}, {},
             {"createTime": now_ms + 1000},
             {"createTime": 0},
@@ -180,6 +180,10 @@ class TrainOutputTest(unittest.TestCase):
                           "0min", "1min"])
         clock.assert_called_once_with()
         self.assertEqual(items[0]["runningTime"], 999)
+        wait_time = table.columns[-1]
+        self.assertEqual(wait_time.header, "配额等待时间")
+        self.assertEqual([cell.plain for cell in wait_time._cells],
+                         ["1h0min31s", "0s", "-", "-", "-", "-", "-", "-"])
 
     def test_history_table_columns_values_and_pagination(self):
         from rich.table import Table
@@ -187,7 +191,7 @@ class TrainOutputTest(unittest.TestCase):
         item = {"jobId": "job-id", "algorithmId": "algo-id", "algorithmName": "algo-name",
                 "cpuSize": 32, "gpuSize": 0, "memorySize": 256,
                 "status": "CANCELED", "poolName": "pool", "infraSize": 1,
-                "runningTime": 11, "queueTime": 0, "waitTime": 2.5, "fileSize": 97726898,
+                "runningTime": 11, "queueTime": 157, "waitTime": 3631, "fileSize": 97726898,
                 "checkTime": 1785466890000, "createTime": 1785466890000,
                 "statusTime": 1785466890000, "actionType": "manual",
                 "bucketName": "history-bucket"}
@@ -196,25 +200,29 @@ class TrainOutputTest(unittest.TestCase):
             render_page({"count": 11, "pageIndex": 1, "pageSize": 10,
                          "items": [item, {"gpuSize": 0, "fileSize": 0,
                                           "algorithmId": None, "algorithmName": "",
-                                          "waitTime": None}]},
+                                          "waitTime": None},
+                                   {"queueTime": 0, "waitTime": 0},
+                                   {"queueTime": 2.5, "waitTime": 125}]},
                         "table", history_task_id="task-id")
         table = next(call.args[0] for call in output.print.call_args_list
                      if isinstance(call.args[0], Table))
         self.assertEqual([column.header for column in table.columns], [
             "作业ID", "算法名称", "CPU", "GPU", "内存", "状态", "集群",
-            "节点数", "执行时长", "排队时长", "配额等待时间", "大小",
+            "节点数", "执行时长", "大小",
             "检查时间", "开始时间", "结束时间",
-            "触发方式", "存储桶",
+            "触发方式", "存储桶", "排队时长", "配额等待时间",
         ])
         self.assertEqual([column._cells[0].plain for column in table.columns], [
             "job-id",
             "algo-name", "32", "0", "256", "CANCELED", "pool",
-            "1", "11", "0min", "2.5min", "93.20M", *(["2026-07-31 11:01:30"] * 3),
-            "manual", "history-bucket",
+            "1", "11", "93.20M", *(["2026-07-31 11:01:30"] * 3),
+            "manual", "history-bucket", "2h37min", "1h0min31s",
         ])
         self.assertEqual([column._cells[1].plain for column in table.columns],
-                         ["-", "-", "-", "0", "-", "-", "-", "-", "-", "-", "-", "0B",
-                          "-", "-", "-", "-", "-"])
+                         ["-", "-", "-", "0", "-", "-", "-", "-", "-", "0B",
+                          "-", "-", "-", "-", "-", "-", "-"])
+        self.assertEqual([column._cells[2].plain for column in table.columns[-2:]], ["0min", "0s"])
+        self.assertEqual([column._cells[3].plain for column in table.columns[-2:]], ["2.5min", "2min5s"])
         output.print.assert_any_call("任务 ID：task-id", markup=False)
         messages.assert_any_call("当前仅展示第 1 页 10 条，暂不支持翻页；按开始时间倒序排列。")
 

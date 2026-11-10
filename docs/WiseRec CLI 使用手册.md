@@ -64,7 +64,7 @@ ml                                              WiseRec 命令行工具
 │   ├── list                                    查看任务列表
 │   ├── detail                                  查询训练任务详情
 │   ├── instance                                执行实例
-│   │   ├── list                                查看实例列表
+│   │   ├── list                                查看实例列表及配额等待时间
 │   │   └── logs                                执行实例日志归档与下载
 │   │       └── download                        归档并下载执行实例日志
 │   ├── history                                 执行记录
@@ -628,7 +628,9 @@ WiseRec 可用 `detail` 查询指定训练任务。先登录并选择业务，�
 
 先用 `list` 获取任务 ID，`history list` 获取作业 ID。实例和执行记录默认展示第一页 10 条；`start` 返回作业 ID，不代表训练完成。
 
-WiseRec 和 MLOps 的 `history list` 表格均展示“排队时长”和“配额等待时间”，分别取自 `queueTime` 和 `waitTime`，数值后附 `min`，例如 `0min`。缺少值时显示 `-`，`-o json` 保留原始字段和值。
+WiseRec 和 MLOps 的 `history list` 表格的最后两列是“排队时长”和“配额等待时间”。`queueTime` 原值为分钟，例如 `157` 显示为 `2h37min`。`waitTime` 原值为秒，例如 `3631` 显示为 `1h0min31s`。零值分别显示为 `0min` 和 `0s`，缺失值显示 `-`。`-o json` 保留原始字段和值。
+
+`instance list` 表格的最后一列也是“配额等待时间”，沿用相同的 `waitTime` 换算规则。
 
 `cancel` 取消查询到的执行实例；`delete` 软删除任务；`clone` 创建副本；`config update` 更新自定义参数。操作结果不明时先查询状态。
 

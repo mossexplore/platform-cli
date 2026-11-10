@@ -34,7 +34,7 @@ ml train history list TASK_ID [OPTIONS]
 
 仅将明确标注类型和存在条件的字段视为本地实现保证；展示字段清单不等于完整接口 schema。未约束字段的类型、可空性和服务端枚举待接口契约或脱敏实测确认。
 
-WiseRec 和 MLOps 的表格均展示排队时长和配额等待时间。数值后附 `min`，例如 `0min`。字段缺失、为 null 或空字符串时显示 `-`。`-o json` 保留原始字段和值。
+WiseRec 和 MLOps 的 `history list` 表格的最后两列是“排队时长”和“配额等待时间”。`queueTime` 原值为分钟，例如 `157` 显示为 `2h37min`。`waitTime` 原值为秒，例如 `3631` 显示为 `1h0min31s`。零值分别显示为 `0min` 和 `0s`，缺失值显示 `-`。`-o json` 保留原始字段和值。
 
 ### 展示字段定位
 
@@ -51,14 +51,14 @@ WiseRec 和 MLOps 的表格均展示排队时长和配额等待时间。数值�
 | `items[].poolName` | 集群 |
 | `items[].infraSize` | 节点数 |
 | `items[].runningTime` | 执行时长 |
-| `items[].queueTime` | 排队时长 |
-| `items[].waitTime` | 配额等待时间 |
 | `items[].fileSize` | 大小 |
 | `items[].checkTime` | 检查时间 |
 | `items[].createTime` | 开始时间 |
 | `items[].statusTime` | 结束时间 |
 | `items[].actionType` | 触发方式 |
 | `items[].bucketName` | 存储桶 |
+| `items[].queueTime` | 排队时长 |
+| `items[].waitTime` | 配额等待时间 |
 
 
 ## 错误与核验

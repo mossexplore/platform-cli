@@ -44,7 +44,8 @@ ml train instance logs download TASK_ID JOB_ID --select all --directory 'D:\logs
 - WiseRec 和 MLOps 均支持训练任务列表、执行实例列表、执行记录列表及两种日志下载。先用 `ml tree` 查看当前环境支持的其他训练命令。
 - `detail` 仅适用于 WiseRec。使用 `train list` 中的任务 ID，结果含基本信息、首个样本的数据集、输出引用及首个样本的配置引用、算法参数及自定义参数。
 - `instance list` 和 `history list` 只返回第一页 10 条。按日志来源从对应列表取得 `jobId`。执行记录默认下载普通日志，加 `--type plog` 下载 plog。
-- `history list -o table` 展示排队时长和配额等待时间，分别取自 `queueTime` 和 `waitTime`。数值后附 `min`，例如 `0min`。缺失值显示 `-`。`-o json` 保留原始字段和值。
+- `history list -o table` 的最后两列是“排队时长”和“配额等待时间”。`queueTime` 原值为分钟，例如 `157` 显示为 `2h37min`。`waitTime` 原值为秒，例如 `3631` 显示为 `1h0min31s`。零值分别显示为 `0min` 和 `0s`，缺失值显示 `-`。`-o json` 保留原始字段和值。
+- `instance list -o table` 的最后一列也是“配额等待时间”，沿用相同的 `waitTime` 换算规则。
 - `ml train start TASK_ID` 返回 `jobId` 只表示请求已被接受，之后用 `history list` 确认状态。
 - `cancel`、`delete`、`clone` 默认询问确认，授权后加 `--yes`。`cancel` 逐个取消全部执行实例，需看逐条结果和退出码，没有实例时退出 1。`clone` 成功后可能返回新任务 ID。
 - `ml train config update TASK_ID --customize-config VALUE` 不询问确认，直接修改任务；值按字符串原样传递，含双引号时注意 [session.md](session.md) 的引号说明，更新后导出配置核对。

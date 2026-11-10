@@ -46,15 +46,16 @@ INSTANCE_COLUMNS = (
     ("状态", "status"), ("执行节点", "hostIp"), ("集群", "poolName"),
     ("触发方式", "actionType"), ("开始时间", "createTime"),
     ("执行时长", "runningTime"), ("存储桶", "bucketName"),
+    ("配额等待时间", "waitTime"),
 )
 HISTORY_COLUMNS = (
     ("作业ID", "jobId"), ("算法名称", "algorithmName"),
     ("CPU", "cpuSize"), ("GPU", "gpuSize"), ("内存", "memorySize"),
     ("状态", "status"), ("集群", "poolName"), ("节点数", "infraSize"),
-    ("执行时长", "runningTime"), ("排队时长", "queueTime"),
-    ("配额等待时间", "waitTime"), ("大小", "fileSize"),
+    ("执行时长", "runningTime"), ("大小", "fileSize"),
     ("检查时间", "checkTime"), ("开始时间", "createTime"), ("结束时间", "statusTime"),
     ("触发方式", "actionType"), ("存储桶", "bucketName"),
+    ("排队时长", "queueTime"), ("配额等待时间", "waitTime"),
 )
 TIME_FIELDS = {"updateTime", "latestRunTime", "checkTime", "createTime", "statusTime"}
 # 现代上海时间固定 UTC+08:00，避免 Windows 额外依赖系统 IANA 时区数据库。
@@ -64,8 +65,14 @@ DISPLAY_TIMEZONE = timezone(timedelta(hours=8), name="Asia/Shanghai")
 def display_value(field: str, value: Any) -> str:
     if value is None or value == "":
         return "-"
-    if field in {"queueTime", "waitTime"}:
-        return f"{value}min"
+    if field == "queueTime":
+        hours, minutes = divmod(float(value), 60)
+        return f"{hours:g}h{minutes:g}min" if hours else f"{minutes:g}min"
+    if field == "waitTime":
+        hours, remainder = divmod(float(value), 3600)
+        minutes, seconds = divmod(remainder, 60)
+        duration = f"{minutes:g}min{seconds:g}s" if hours or minutes else f"{seconds:g}s"
+        return f"{hours:g}h{duration}" if hours else duration
     if field == "fileSize":
         if value == 0:
             return "0B"
