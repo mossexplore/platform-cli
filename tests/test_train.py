@@ -39,7 +39,8 @@ class TrainServiceTest(unittest.TestCase):
         result = TrainService(client).list_history(" task-id ")
         self.assertEqual(client.calls, [(
             "POST", "/ai/backend/mtp/traintask/queryScheduleTaskList",
-            {"pageIndex": 1, "pageSize": 10, "taskId": "task-id", "source": "history",
+            {"pageIndex": 1, "pageSize": 10, "sortField": "statusTime", "sortOrder": "ascend",
+             "taskId": "task-id", "source": "history",
              "latestFlag": "true", "status": []},
         )])
         self.assertEqual(result, {"count": 1, "pageIndex": 1, "pageSize": 10, "items": [job]})
@@ -259,7 +260,8 @@ class TrainOutputTest(unittest.TestCase):
             "count": 202, "pageIndex": 2, "pageSize": 200, "items": jobs,
         })
         self.assertEqual(client.calls[0][2], {
-            "pageIndex": 2, "pageSize": 200, "taskId": "t", "source": "history",
+            "pageIndex": 2, "pageSize": 200, "sortField": "statusTime", "sortOrder": "ascend",
+            "taskId": "t", "source": "history",
             "latestFlag": "true", "status": [],
         })
         client = FakeClient({"result": {"code": 0, "count": 202, "jobs": jobs}})

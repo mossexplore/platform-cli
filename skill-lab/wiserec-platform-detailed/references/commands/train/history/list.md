@@ -28,7 +28,7 @@ ml train history list TASK_ID [OPTIONS]
 
 ## 边界与组合规则
 
-按 taskId 查询指定页，按接口返回顺序展示。
+按 taskId 查询指定页，请求按状态时间升序，按接口返回顺序展示。
 
 ## 响应与展示
 

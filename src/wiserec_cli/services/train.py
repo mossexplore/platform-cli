@@ -251,6 +251,7 @@ class TrainService:
             "POST", "/ai/backend/mtp/traintask/queryScheduleTaskList",
             json_body={
                 "pageIndex": page_index, "pageSize": page_size,
+                "sortField": "statusTime", "sortOrder": "ascend",
                 "taskId": task_id, "source": "history",
                 "latestFlag": "true", "status": [],
             },
