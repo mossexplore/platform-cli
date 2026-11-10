@@ -48,8 +48,8 @@
 | `ml sample-task list` | 样本任务列表，默认旧任务管理；`--source new` 查询新版，支持分页、名称、创建者、修改者和重复 `--type` 筛选，`--status` 仅旧版可用 | | |
 | `ml sample-task period list TASK_ID` | 新旧样本任务共用执行周期查询，无需 `--source`，四列网格；支持分页、北京时间范围及重复 `--state` | | |
 | `ml sample-task execution list TASK_ID` | 新旧样本任务共用执行记录查询，无需 `--source`，支持分页、`--include-history` 和 `-o json` | | |
-| `ml train instance list TASK_ID` | 执行实例 | | |
-| `ml train history list TASK_ID` | 执行记录 | | |
+| `ml train instance list TASK_ID` | 分页查询执行实例 | | |
+| `ml train history list TASK_ID` | 分页查询执行记录 | | |
 | `ml train history logs download TASK_ID JOB_ID [--type log\|plog] [--directory DIR]` | 下载普通或 plog 执行日志 | | 本地文件 |
 | `ml train instance logs download TASK_ID JOB_ID [--select SELECTION] [--directory DIR]` | 请求归档并下载已归档日志 | 可用 `--select` 传编号或 `all` | 平台归档、本地 ZIP 文件 |
 | `ml train start TASK_ID` | 立即启动任务 | | 启动作业 |

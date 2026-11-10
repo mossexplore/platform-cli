@@ -1,6 +1,6 @@
 # `ml train history list`
 
-直接查询执行记录；固定第 1 页 10 条，开始时间倒序。
+分页查询训练任务执行记录。
 
 ## 使用前提
 
@@ -19,6 +19,8 @@ ml train history list TASK_ID [OPTIONS]
 | 参数 / 别名 | 类型 | 必填 | 缺省值 | 约束与用途 |
 | --- | --- | --- | --- | --- |
 | `task_id` | TEXT | 是 | 无，必填 | 训练任务的完整 taskId |
+| `--page` | INTEGER | 否 | 1 | 页码，从 1 开始 |
+| `--page-size` | INTEGER | 否 | 10 | 每页记录数，1 至 200 |
 | `--output` / `-o` | TEXT | 否 | 未指定（None） | 输出格式: table 或 json；缺省读取当前环境 output_format |
 | `--help` | 开关 | 否 | false | 显示本命令帮助并退出 |
 
@@ -26,7 +28,7 @@ ml train history list TASK_ID [OPTIONS]
 
 ## 边界与组合规则
 
-直接按 taskId 查询；固定第 1 页、每页 10 条，开始时间倒序；没有翻页参数。
+按 taskId 查询指定页，按接口返回顺序展示。
 
 ## 响应与展示
 
@@ -34,7 +36,7 @@ ml train history list TASK_ID [OPTIONS]
 
 仅将明确标注类型和存在条件的字段视为本地实现保证；展示字段清单不等于完整接口 schema。未约束字段的类型、可空性和服务端枚举待接口契约或脱敏实测确认。
 
-WiseRec 和 MLOps 的 `history list` 表格的最后两列是“排队时长”和“配额等待时间”。`queueTime` 原值为分钟，例如 `157` 显示为 `2h37min`。`waitTime` 原值为秒，例如 `3631` 显示为 `1h0min31s`。零值分别显示为 `0min` 和 `0s`，缺失值显示 `-`。`-o json` 保留原始字段和值。
+WiseRec 和 MLOps 的 `history list` 表格的最后三列依次是“执行时长”“排队时长”和“配额等待时间”。`runningTime` 和 `queueTime` 原值为分钟，例如 `157` 显示为 `2h37min`。`waitTime` 原值为秒，例如 `3631` 显示为 `1h0min31s`。前两列的零值显示为 `0min`，配额等待时间的零值显示为 `0s`，缺失值显示 `-`。`-o json` 保留原始字段和值。
 
 ### 展示字段定位
 
@@ -50,13 +52,13 @@ WiseRec 和 MLOps 的 `history list` 表格的最后两列是“排队时长”�
 | `items[].status` | 状态 |
 | `items[].poolName` | 集群 |
 | `items[].infraSize` | 节点数 |
-| `items[].runningTime` | 执行时长 |
 | `items[].fileSize` | 大小 |
 | `items[].checkTime` | 检查时间 |
 | `items[].createTime` | 开始时间 |
 | `items[].statusTime` | 结束时间 |
 | `items[].actionType` | 触发方式 |
 | `items[].bucketName` | 存储桶 |
+| `items[].runningTime` | 执行时长 |
 | `items[].queueTime` | 排队时长 |
 | `items[].waitTime` | 配额等待时间 |
 
@@ -72,7 +74,7 @@ WiseRec 和 MLOps 的 `history list` 表格的最后两列是“排队时长”�
 以下为语法示例，替换资源与路径占位符后使用；写操作须先确认目标及用户授权，不作为自动执行清单。
 
 ```text
-ml train history list TASK_ID -o json
+ml train history list TASK_ID --page 2 --page-size 20 -o json
 ```
 
 ### 响应示例

@@ -64,11 +64,11 @@ ml                                              WiseRec 命令行工具
 │   ├── list                                    查看任务列表
 │   ├── detail                                  查询训练任务详情
 │   ├── instance                                执行实例
-│   │   ├── list                                查看实例列表及配额等待时间
+│   │   ├── list                                分页查看实例列表及配额等待时间
 │   │   └── logs                                执行实例日志归档与下载
 │   │       └── download                        归档并下载执行实例日志
 │   ├── history                                 执行记录
-│   │   ├── list                                查看执行记录及排队和配额等待时长
+│   │   ├── list                                分页查看执行记录及排队和配额等待时长
 │   │   └── logs                                执行日志
 │   │       └── download                        下载日志
 │   ├── start                                   执行任务
@@ -591,8 +591,8 @@ ml offline experiment clone PROJECT_ID --name 训练副本
 ```text
 ml train list [OPTIONS]
 ml train detail TASK_ID [--output table|json]
-ml train instance list TASK_ID
-ml train history list TASK_ID
+ml train instance list TASK_ID [--page PAGE] [--page-size PAGE_SIZE] [-o table|json]
+ml train history list TASK_ID [--page PAGE] [--page-size PAGE_SIZE] [-o table|json]
 ml train start TASK_ID
 ml train config export TASK_ID [--file PATH]
 ml train history logs download TASK_ID JOB_ID [--type log|plog] [--directory DIR]
@@ -609,7 +609,7 @@ ml train config update TASK_ID --customize-config VALUE
 | --- | --- |
 | `list` | `--name`、`--page`、`--page-size`、`--output` / `-o` |
 | `detail` | 必填 `TASK_ID`；可选 `--output` / `-o` |
-| `instance list`、`history list` | 必填 `TASK_ID`；可选 `--output` / `-o` |
+| `instance list`、`history list` | 必填 `TASK_ID`；`--page` 默认 1，`--page-size` 默认 10，可设为 1 至 200；可选 `--output` / `-o` |
 | `start` | 必填 `TASK_ID`；执行后显示作业 ID |
 | `config export` | 必填 `TASK_ID`；可选 `--file PATH` 指定保存位置 |
 | `history logs download` | 必填 `TASK_ID`、`JOB_ID`；`--type` 默认 `log`，也可选 `plog`；可选 `--directory DIR`、`--output` / `-o` |
@@ -626,11 +626,11 @@ ml train config update TASK_ID --customize-config VALUE
 
 WiseRec 可用 `detail` 查询指定训练任务。先登录并选择业务，再使用任务 ID 查询。表格展示基本信息、首个样本的数据集、输出引用（输出目录和输出名称）、首个样本的配置引用、算法参数和自定义参数，时间按北京时间显示。自定义参数为 JSON 时缩进展示，普通文本按行显示。使用 `-o json` 获取完整原始详情。
 
-先用 `list` 获取任务 ID，`history list` 获取作业 ID。实例和执行记录默认展示第一页 10 条；`start` 返回作业 ID，不代表训练完成。
+先用 `list` 获取任务 ID，`history list` 获取作业 ID。执行实例和执行记录按接口返回顺序展示所请求的页，并显示总条数。`start` 返回作业 ID，不代表训练完成。
 
-WiseRec 和 MLOps 的 `history list` 表格的最后两列是“排队时长”和“配额等待时间”。`queueTime` 原值为分钟，例如 `157` 显示为 `2h37min`。`waitTime` 原值为秒，例如 `3631` 显示为 `1h0min31s`。零值分别显示为 `0min` 和 `0s`，缺失值显示 `-`。`-o json` 保留原始字段和值。
+WiseRec 和 MLOps 的 `history list` 表格的最后三列依次是“执行时长”“排队时长”和“配额等待时间”。`runningTime` 和 `queueTime` 原值为分钟，例如 `157` 显示为 `2h37min`。`waitTime` 原值为秒，例如 `3631` 显示为 `1h0min31s`。前两列的零值显示为 `0min`，配额等待时间的零值显示为 `0s`，缺失值显示 `-`。`-o json` 保留原始字段和值。
 
-`instance list` 表格的最后一列也是“配额等待时间”，沿用相同的 `waitTime` 换算规则。
+`instance list` 表格末尾也依次显示“执行时长”“排队时长”和“配额等待时间”。执行时长按开始时间到查询时刻的整分钟数计算，例如 125 分钟显示为 `2h5min`。排队时长和配额等待时间沿用执行记录的换算规则。
 
 `cancel` 取消查询到的执行实例；`delete` 软删除任务；`clone` 创建副本；`config update` 更新自定义参数。操作结果不明时先查询状态。
 
@@ -646,8 +646,8 @@ WiseRec 和 MLOps 的 `history list` 表格的最后两列是“排队时长”�
 ml train list --name demo
 ml train detail TASK_ID
 ml train detail TASK_ID -o json
-ml train instance list TASK_ID
-ml train history list TASK_ID
+ml train instance list TASK_ID --page 2 --page-size 20
+ml train history list TASK_ID --page 2 --page-size 20
 ml train start TASK_ID
 ml train config export TASK_ID --file ./task.yaml
 ml train history logs download TASK_ID JOB_ID --directory ./logs

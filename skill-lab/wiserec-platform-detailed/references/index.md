@@ -88,9 +88,9 @@
 | `ml train config export` | 导出并下载训练任务的 YAML 配置。 | [详情](commands/train/config/export.md) |
 | `ml train config update` | 获取训练任务详情，保留完整 taskInfo 后更新自定义参数。 | [详情](commands/train/config/update.md) |
 | `ml train delete` | 软删除当前业务下的训练任务。 | [详情](commands/train/delete.md) |
-| `ml train history list` | 直接查询执行记录；固定第 1 页 10 条，开始时间倒序。 | [详情](commands/train/history/list.md) |
+| `ml train history list` | 分页查询训练任务执行记录 | [详情](commands/train/history/list.md) |
 | `ml train history logs download` | 获取日志地址并下载；发送 isApplicantPromise=true，不覆盖已有文件。 | [详情](commands/train/history/logs/download.md) |
-| `ml train instance list` | 查找训练任务并查询执行实例；固定第 1 页 10 条，开始时间升序。 | [详情](commands/train/instance/list.md) |
+| `ml train instance list` | 分页查询训练任务执行实例 | [详情](commands/train/instance/list.md) |
 | `ml train list` | 分页查询当前业务下的训练任务。 | [详情](commands/train/list.md) |
 | `ml train start` | 立即执行指定训练任务，返回作业 ID；不预先查询任务列表。 | [详情](commands/train/start.md) |
 | `ml tree` | 显示当前安装版本的完整命令树。 | [详情](commands/tree.md) |

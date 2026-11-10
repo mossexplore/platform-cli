@@ -45,17 +45,19 @@ INSTANCE_COLUMNS = (
     ("CPU", "cpuSize"), ("GPU", "gpuSize"), ("内存", "memorySize"),
     ("状态", "status"), ("执行节点", "hostIp"), ("集群", "poolName"),
     ("触发方式", "actionType"), ("开始时间", "createTime"),
-    ("执行时长", "runningTime"), ("存储桶", "bucketName"),
+    ("存储桶", "bucketName"),
+    ("执行时长", "runningTime"), ("排队时长", "queueTime"),
     ("配额等待时间", "waitTime"),
 )
 HISTORY_COLUMNS = (
     ("作业ID", "jobId"), ("算法名称", "algorithmName"),
     ("CPU", "cpuSize"), ("GPU", "gpuSize"), ("内存", "memorySize"),
     ("状态", "status"), ("集群", "poolName"), ("节点数", "infraSize"),
-    ("执行时长", "runningTime"), ("大小", "fileSize"),
+    ("大小", "fileSize"),
     ("检查时间", "checkTime"), ("开始时间", "createTime"), ("结束时间", "statusTime"),
     ("触发方式", "actionType"), ("存储桶", "bucketName"),
-    ("排队时长", "queueTime"), ("配额等待时间", "waitTime"),
+    ("执行时长", "runningTime"), ("排队时长", "queueTime"),
+    ("配额等待时间", "waitTime"),
 )
 TIME_FIELDS = {"updateTime", "latestRunTime", "checkTime", "createTime", "statusTime"}
 # 现代上海时间固定 UTC+08:00，避免 Windows 额外依赖系统 IANA 时区数据库。
@@ -65,7 +67,7 @@ DISPLAY_TIMEZONE = timezone(timedelta(hours=8), name="Asia/Shanghai")
 def display_value(field: str, value: Any) -> str:
     if value is None or value == "":
         return "-"
-    if field == "queueTime":
+    if field in {"runningTime", "queueTime"}:
         hours, minutes = divmod(float(value), 60)
         return f"{hours:g}h{minutes:g}min" if hours else f"{minutes:g}min"
     if field == "waitTime":
@@ -116,7 +118,8 @@ def render_page(
         for _, field in columns:
             if task is not None and history_task_id is None and field == "runningTime":
                 start = item.get("createTime")
-                rendered = "-" if start is None or start == "" else f"{max(0, int((now_ms - start) // 60000))}min"
+                minutes = None if start is None or start == "" else max(0, int((now_ms - start) // 60000))
+                rendered = display_value(field, minutes)
             else:
                 rendered = display_value(field, item.get(field))
             cells.append(Text(rendered))
@@ -126,9 +129,6 @@ def render_page(
         empty_message = "暂无执行实例" if task is not None else "暂无训练任务"
         print_text("暂无执行记录" if history_task_id is not None else empty_message)
     print_text(f"第 {result['pageIndex']} 页 · 每页 {result['pageSize']} 条 · 共 {result['count']} 条")
-    if (task is not None or history_task_id is not None) and result["count"] > 10:
-        order = "倒序" if history_task_id is not None else "升序"
-        print_text(f"当前仅展示第 1 页 10 条，暂不支持翻页；按开始时间{order}排列。")
 
 
 def selected_output(runtime: Any, output: Optional[str]) -> str:
@@ -377,9 +377,11 @@ def download_logs(
 def list_history(
     context: typer.Context,
     task_id: str = typer.Argument(..., help="训练任务的完整 taskId"),
+    page: int = typer.Option(1, "--page", min=1, help="页码"),
+    page_size: int = typer.Option(10, "--page-size", min=1, max=200, help="每页记录数"),
     output: Optional[str] = typer.Option(None, "--output", "-o", help="输出格式: table 或 json"),
 ) -> None:
-    """直接查询执行记录；固定第 1 页 10 条，开始时间倒序。"""
+    """分页查询训练任务执行记录"""
     try:
         task_id = task_id.strip()
         if not task_id:
@@ -388,7 +390,7 @@ def list_history(
         selected = selected_output(runtime, output)
         with redirect_stdout(sys.stderr):
             result = runtime.authenticated_call(
-                lambda client: TrainService(client).list_history(task_id)
+                lambda client: TrainService(client).list_history(task_id, page, page_size)
             )
         render_page(result, selected, history_task_id=task_id)
     except Exception as exc:
@@ -440,9 +442,11 @@ def list_tasks(
 def list_instances(
     context: typer.Context,
     task_id: str = typer.Argument(..., help="训练任务的完整 taskId"),
+    page: int = typer.Option(1, "--page", min=1, help="页码"),
+    page_size: int = typer.Option(10, "--page-size", min=1, max=200, help="每页记录数"),
     output: Optional[str] = typer.Option(None, "--output", "-o", help="输出格式: table 或 json"),
 ) -> None:
-    """查找训练任务并查询执行实例；固定第 1 页 10 条，开始时间升序。"""
+    """分页查询训练任务执行实例"""
     try:
         if not task_id.strip():
             raise ValueError("taskId 不能为空")
@@ -452,7 +456,7 @@ def list_instances(
         def query(client):
             service = TrainService(client)
             task = service.find_task(task_id)
-            return task, service.list_instances(task)
+            return task, service.list_instances(task, page, page_size)
 
         with redirect_stdout(sys.stderr):
             task, result = runtime.authenticated_call(query)

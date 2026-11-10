@@ -102,17 +102,23 @@ class TrainService:
             page += 1
         raise ApiError(f"当前业务下未找到训练任务 {task_id}")
 
-    def list_instances(self, task: Dict[str, Any], page: int = 1, size: int = 10) -> Dict[str, Any]:
+    def list_instances(
+        self, task: Dict[str, Any], page: int = 1, size: int = 10, *,
+        ordered_for_cancel: bool = False,
+    ) -> Dict[str, Any]:
+        if page < 1 or not 1 <= size <= 200:
+            raise ValueError("page 必须大于等于 1，page-size 必须为 1 到 200")
         for field in ("taskId", "businessId", "taskType"):
             if not isinstance(task.get(field), str) or not task[field].strip():
                 raise ApiError(f"训练任务缺少有效的 {field}")
+        body = {
+            "taskId": task["taskId"], "businessId": task["businessId"],
+            "jobType": task["taskType"], "pageIndex": page, "pageSize": size,
+        }
+        if ordered_for_cancel:
+            body.update(sortField="createTime", sortOrder="ascend")
         payload = self.client.request(
-            "POST", "/ai/backend/mtp/traintask/queryJobInstanceByTaskId",
-            json_body={
-                "taskId": task["taskId"], "businessId": task["businessId"],
-                "jobType": task["taskType"], "pageIndex": page, "pageSize": size,
-                "sortField": "createTime", "sortOrder": "ascend",
-            },
+            "POST", "/ai/backend/mtp/traintask/queryJobInstanceByTaskId", json_body=body,
         )
         return self._page(self._result(payload), "jobs", page, size)
 
@@ -122,7 +128,7 @@ class TrainService:
         seen: set[str] = set()
         page = 1
         while True:
-            result = self.list_instances(task, page)
+            result = self.list_instances(task, page, ordered_for_cancel=True)
             batch = result["items"]
             for item in batch:
                 job_id = item.get("jobId")
@@ -232,8 +238,10 @@ class TrainService:
             raise ApiError(f"{action}失败：code={result.get('code')}，des={result.get('des')}")
         return result
 
-    def list_history(self, task_id: str) -> Dict[str, Any]:
-        """直接查询任务执行记录，固定第一页，按创建时间倒序。"""
+    def list_history(self, task_id: str, page_index: int = 1, page_size: int = 10) -> Dict[str, Any]:
+        """分页查询任务执行记录，保留接口返回顺序。"""
+        if page_index < 1 or not 1 <= page_size <= 200:
+            raise ValueError("page 必须大于等于 1，page-size 必须为 1 到 200")
         task_id = task_id.strip()
         if not task_id:
             raise ValueError("taskId 不能为空")
@@ -242,12 +250,12 @@ class TrainService:
         payload = self.client.request(
             "POST", "/ai/backend/mtp/traintask/queryScheduleTaskList",
             json_body={
-                "pageIndex": 1, "pageSize": 10, "sortField": "createTime",
-                "sortOrder": "descend", "taskId": task_id, "source": "history",
+                "pageIndex": page_index, "pageSize": page_size,
+                "taskId": task_id, "source": "history",
                 "latestFlag": "true", "status": [],
             },
         )
-        return self._page(self._result(payload), "jobs", 1, 10)
+        return self._page(self._result(payload), "jobs", page_index, page_size)
 
     def update_config(self, task_id: str, customize_config: str, update_user: str) -> None:
         if not task_id.strip():

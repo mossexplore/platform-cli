@@ -1,6 +1,6 @@
 # `ml train instance list`
 
-查找训练任务并查询执行实例；固定第 1 页 10 条，开始时间升序。
+分页查询训练任务执行实例。
 
 ## 使用前提
 
@@ -19,6 +19,8 @@ ml train instance list TASK_ID [OPTIONS]
 | 参数 / 别名 | 类型 | 必填 | 缺省值 | 约束与用途 |
 | --- | --- | --- | --- | --- |
 | `task_id` | TEXT | 是 | 无，必填 | 训练任务的完整 taskId |
+| `--page` | INTEGER | 否 | 1 | 页码，从 1 开始 |
+| `--page-size` | INTEGER | 否 | 10 | 每页记录数，1 至 200 |
 | `--output` / `-o` | TEXT | 否 | 未指定（None） | 输出格式: table 或 json；缺省读取当前环境 output_format |
 | `--help` | 开关 | 否 | false | 显示本命令帮助并退出 |
 
@@ -26,11 +28,11 @@ ml train instance list TASK_ID [OPTIONS]
 
 ## 边界与组合规则
 
-先在当前业务查找 taskId，再查询执行实例；固定第 1 页、每页 10 条，开始时间升序；没有 --page 或 --page-size。
+先在当前业务查找 taskId，再查询指定页的执行实例，按接口返回顺序展示。
 
 ## 响应与展示
 
-`{count: integer, pageIndex: integer, pageSize: integer, items: object[]}`。分页值来自请求，count 为总数，空结果 items=[]；条目扩展字段保留。 `result.jobs → items`；常用 jobId、algorithmName、status、createTime、hostIp、poolName。表格 runningTime 按当前时间计算分钟数，JSON 不添加该计算值。
+`{count: integer, pageIndex: integer, pageSize: integer, items: object[]}`。分页值来自请求，count 为总数，空结果 items=[]；条目扩展字段保留。 `result.jobs → items`；常用 jobId、algorithmName、status、createTime、hostIp、poolName。表格执行时长按开始时间到查询时刻的整分钟数计算，和排队时长使用同一显示格式，例如 125 分钟显示为 `2h5min`。JSON 不添加该计算值。
 
 仅将明确标注类型和存在条件的字段视为本地实现保证；展示字段清单不等于完整接口 schema。未约束字段的类型、可空性和服务端枚举待接口契约或脱敏实测确认。
 
@@ -50,8 +52,9 @@ ml train instance list TASK_ID [OPTIONS]
 | `items[].poolName` | 集群 |
 | `items[].actionType` | 触发方式 |
 | `items[].createTime` | 开始时间 |
-| `items[].runningTime` | 执行时长（表格动态计算，JSON 不保证存在） |
 | `items[].bucketName` | 存储桶 |
+| `items[].createTime` 与查询时刻 | 执行时长 |
+| `items[].queueTime` | 排队时长（原值为分钟） |
 | `items[].waitTime` | 配额等待时间（最后一列，按秒换算，如 `3631` 显示为 `1h0min31s`，零值为 `0s`，缺失为 `-`，JSON 保留原值） |
 
 
@@ -66,7 +69,7 @@ ml train instance list TASK_ID [OPTIONS]
 以下为语法示例，替换资源与路径占位符后使用；写操作须先确认目标及用户授权，不作为自动执行清单。
 
 ```text
-ml train instance list TASK_ID -o json
+ml train instance list TASK_ID --page 2 --page-size 20 -o json
 ```
 
 ### 响应示例

@@ -26,7 +26,8 @@
 | 查询数据集，page-size=0 或 1 | 0 被解析拒绝；1 合法，不编造最大 100 |
 | 上传恰好 2,000,000,000 字节，或多 1 字节 | 前者通过本地大小边界，后者拒绝；不保证前者一定被服务器接受；用 mock stat，不创建大文件 |
 | 数据集筛选纯空白，bucket-name 未提供/空字符串 | 前者拒绝；后两者明确区分 |
-| 要求训练执行记录第 2 页 | 指出命令固定第 1 页 10 条，不能构造 --page 2 |
+| 要求训练执行记录第 2 页 | 使用 `ml train history list TASK_ID --page 2 -o json`，默认每页 10 条 |
+| 要求训练执行实例第 2 页、每页 200 条 | 使用 `ml train instance list TASK_ID --page 2 --page-size 200 -o json`，按接口顺序解读 `items` |
 | 样本任务 source=new 并传 status=started | 指出组合非法；new 不支持 status |
 | 周期开始结束相等，或开始晚于结束 | 相等允许；倒置拒绝；服务端是否包含端点不猜测 |
 | 特征日志 start=10/end=9 或 scope=D | 拒绝；合法 scope 为 A/B/C |

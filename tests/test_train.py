@@ -39,8 +39,7 @@ class TrainServiceTest(unittest.TestCase):
         result = TrainService(client).list_history(" task-id ")
         self.assertEqual(client.calls, [(
             "POST", "/ai/backend/mtp/traintask/queryScheduleTaskList",
-            {"pageIndex": 1, "pageSize": 10, "sortField": "createTime",
-             "sortOrder": "descend", "taskId": "task-id", "source": "history",
+            {"pageIndex": 1, "pageSize": 10, "taskId": "task-id", "source": "history",
              "latestFlag": "true", "status": []},
         )])
         self.assertEqual(result, {"count": 1, "pageIndex": 1, "pageSize": 10, "items": [job]})
@@ -105,7 +104,7 @@ class TrainServiceTest(unittest.TestCase):
         self.assertEqual(client.calls[2], (
             "POST", "/ai/backend/mtp/traintask/queryJobInstanceByTaskId",
             {"taskId": "target", "businessId": "task-business", "jobType": "other",
-             "pageIndex": 1, "pageSize": 10, "sortField": "createTime", "sortOrder": "ascend"},
+             "pageIndex": 1, "pageSize": 10},
         ))
         self.assertEqual(result["items"], [job])
 
@@ -159,7 +158,7 @@ class TrainOutputTest(unittest.TestCase):
 
         now_ms = 1785466975500
         items = [
-            {"createTime": now_ms - 85999, "runningTime": 999, "waitTime": 3631},
+            {"createTime": now_ms - 7500000, "runningTime": 999, "queueTime": 157, "waitTime": 3631},
             {"createTime": None, "runningTime": 999, "waitTime": 0},
             {"createTime": ""}, {},
             {"createTime": now_ms + 1000},
@@ -176,10 +175,13 @@ class TrainOutputTest(unittest.TestCase):
                      if isinstance(call.args[0], Table))
         duration = next(column for column in table.columns if column.header == "执行时长")
         self.assertEqual([cell.plain for cell in duration._cells],
-                         ["1min", "-", "-", "-", "0min", f"{now_ms // 60000}min",
+                         ["2h5min", "-", "-", "-", "0min", display_value("runningTime", now_ms // 60000),
                           "0min", "1min"])
         clock.assert_called_once_with()
         self.assertEqual(items[0]["runningTime"], 999)
+        self.assertEqual([column.header for column in table.columns[-3:]],
+                         ["执行时长", "排队时长", "配额等待时间"])
+        self.assertEqual(table.columns[-2]._cells[0].plain, "2h37min")
         wait_time = table.columns[-1]
         self.assertEqual(wait_time.header, "配额等待时间")
         self.assertEqual([cell.plain for cell in wait_time._cells],
@@ -191,7 +193,7 @@ class TrainOutputTest(unittest.TestCase):
         item = {"jobId": "job-id", "algorithmId": "algo-id", "algorithmName": "algo-name",
                 "cpuSize": 32, "gpuSize": 0, "memorySize": 256,
                 "status": "CANCELED", "poolName": "pool", "infraSize": 1,
-                "runningTime": 11, "queueTime": 157, "waitTime": 3631, "fileSize": 97726898,
+                "runningTime": 125, "queueTime": 157, "waitTime": 3631, "fileSize": 97726898,
                 "checkTime": 1785466890000, "createTime": 1785466890000,
                 "statusTime": 1785466890000, "actionType": "manual",
                 "bucketName": "history-bucket"}
@@ -201,30 +203,30 @@ class TrainOutputTest(unittest.TestCase):
                          "items": [item, {"gpuSize": 0, "fileSize": 0,
                                           "algorithmId": None, "algorithmName": "",
                                           "waitTime": None},
-                                   {"queueTime": 0, "waitTime": 0},
+                                   {"runningTime": 0, "queueTime": 0, "waitTime": 0},
                                    {"queueTime": 2.5, "waitTime": 125}]},
                         "table", history_task_id="task-id")
         table = next(call.args[0] for call in output.print.call_args_list
                      if isinstance(call.args[0], Table))
         self.assertEqual([column.header for column in table.columns], [
             "作业ID", "算法名称", "CPU", "GPU", "内存", "状态", "集群",
-            "节点数", "执行时长", "大小",
+            "节点数", "大小",
             "检查时间", "开始时间", "结束时间",
-            "触发方式", "存储桶", "排队时长", "配额等待时间",
+            "触发方式", "存储桶", "执行时长", "排队时长", "配额等待时间",
         ])
         self.assertEqual([column._cells[0].plain for column in table.columns], [
             "job-id",
             "algo-name", "32", "0", "256", "CANCELED", "pool",
-            "1", "11", "93.20M", *(["2026-07-31 11:01:30"] * 3),
-            "manual", "history-bucket", "2h37min", "1h0min31s",
+            "1", "93.20M", *(["2026-07-31 11:01:30"] * 3),
+            "manual", "history-bucket", "2h5min", "2h37min", "1h0min31s",
         ])
         self.assertEqual([column._cells[1].plain for column in table.columns],
-                         ["-", "-", "-", "0", "-", "-", "-", "-", "-", "0B",
-                          "-", "-", "-", "-", "-", "-", "-"])
-        self.assertEqual([column._cells[2].plain for column in table.columns[-2:]], ["0min", "0s"])
+                         ["-", "-", "-", "0", "-", "-", "-", "-", "0B",
+                          "-", "-", "-", "-", "-", "-", "-", "-"])
+        self.assertEqual([column._cells[2].plain for column in table.columns[-3:]], ["0min", "0min", "0s"])
         self.assertEqual([column._cells[3].plain for column in table.columns[-2:]], ["2.5min", "2min5s"])
         output.print.assert_any_call("任务 ID：task-id", markup=False)
-        messages.assert_any_call("当前仅展示第 1 页 10 条，暂不支持翻页；按开始时间倒序排列。")
+        messages.assert_called_once_with("第 1 页 · 每页 10 条 · 共 11 条")
 
     def test_history_cli_json_and_empty_results(self):
         job = {"jobId": "j", "fileSize": 97726898, "checkTime": None,
@@ -247,7 +249,26 @@ class TrainOutputTest(unittest.TestCase):
             else:
                 self.assertEqual(json.loads(result.stdout)["items"], [])
 
-    def test_history_cli_error_and_fixed_options(self):
+    def test_history_cli_pagination_preserves_api_order(self):
+        jobs = [{"jobId": "earlier", "createTime": 1000}, {"jobId": "later", "createTime": 2000}]
+        client = FakeClient({"result": {"code": 0, "count": 202, "jobs": jobs}})
+        args = ["train", "history", "list", "t", "--page", "2", "--page-size", "200"]
+        result = self.invoke(client, args + ["-o", "json"])
+        self.assertEqual(result.exit_code, 0, result.output)
+        self.assertEqual(json.loads(result.stdout), {
+            "count": 202, "pageIndex": 2, "pageSize": 200, "items": jobs,
+        })
+        self.assertEqual(client.calls[0][2], {
+            "pageIndex": 2, "pageSize": 200, "taskId": "t", "source": "history",
+            "latestFlag": "true", "status": [],
+        })
+        client = FakeClient({"result": {"code": 0, "count": 202, "jobs": jobs}})
+        result = self.invoke(client, args + ["-o", "table"])
+        self.assertEqual(result.exit_code, 0, result.output)
+        self.assertLess(result.stdout.index("earlier"), result.stdout.index("later"))
+        self.assertIn("第 2 页 · 每页 200 条 · 共 202 条", result.stdout)
+
+    def test_history_cli_error_and_invalid_options(self):
         result = self.invoke(FakeClient({"result": {"code": 1, "des": "无权限"}}),
                              ["train", "history", "list", "t", "-o", "json"])
         self.assertEqual(result.exit_code, 1)
@@ -255,7 +276,9 @@ class TrainOutputTest(unittest.TestCase):
         self.assertIn("无权限", result.stderr)
         for args in (["train", "history", "list"],
                      ["train", "history", "list", " "],
-                     ["train", "history", "list", "t", "--page", "2"],
+                     ["train", "history", "list", "t", "--page", "0"],
+                     ["train", "history", "list", "t", "--page-size", "0"],
+                     ["train", "history", "list", "t", "--page-size", "201"],
                      ["train", "history", "list", "t", "--status", "CANCELED"]):
             client = FakeClient()
             self.assertNotEqual(self.invoke(client, args).exit_code, 0)
@@ -267,7 +290,7 @@ class TrainOutputTest(unittest.TestCase):
                                 (3858541639, "3.59G"), (145755572, "139.00M")):
             with self.subTest(value=value):
                 self.assertEqual(display_value("fileSize", value), expected)
-        for field in ("gpuSize", "runningTime", "cpuSize", "memorySize", "infraSize"):
+        for field in ("gpuSize", "cpuSize", "memorySize", "infraSize"):
             self.assertEqual(display_value(field, 0), "0")
 
     def test_time_is_milliseconds_in_shanghai(self):
@@ -275,7 +298,7 @@ class TrainOutputTest(unittest.TestCase):
         self.assertEqual(display_value("createTime", 0), "1970-01-01 08:00:00")
         self.assertEqual(display_value("statusTime", None), "-")
 
-    def test_empty_and_fixed_page_messages(self):
+    def test_empty_and_page_summary_messages(self):
         stream = io.StringIO()
         with patch("wiserec_cli.commands.train.console", Console(file=stream, width=240)), \
              patch("wiserec_cli.output.console", Console(file=stream, width=240)):
@@ -284,7 +307,7 @@ class TrainOutputTest(unittest.TestCase):
                         "table", {"taskId": "t", "taskName": "[bold]literal"})
         self.assertIn("暂无训练任务", stream.getvalue())
         self.assertIn("暂无执行实例", stream.getvalue())
-        self.assertIn("当前仅展示第 1 页 10 条", stream.getvalue())
+        self.assertIn("第 1 页 · 每页 10 条 · 共 11 条", stream.getvalue())
         self.assertIn("[bold]literal", stream.getvalue())
 
     def test_table_formats_records_without_mutating_them(self):
@@ -335,12 +358,35 @@ class TrainOutputTest(unittest.TestCase):
         self.assertEqual(result.exit_code, 0, result.output)
         self.assertEqual(json.loads(result.stdout)["items"], [{"jobId": "j", "runningTime": 0}])
 
+    def test_cli_instance_pagination_preserves_api_order(self):
+        task = {"taskId": "t", "businessId": "b", "taskType": "train"}
+        jobs = [{"jobId": "middle", "createTime": 2000}, {"jobId": "earlier", "createTime": 1000},
+                {"jobId": "later", "createTime": 3000}]
+        args = ["train", "instance", "list", "t", "--page", "2", "--page-size", "200"]
+        for output in ("json", "table"):
+            client = FakeClient(tasks([task]), {"result": {"code": 0, "count": 203, "jobs": jobs}})
+            result = self.invoke(client, args + ["-o", output])
+            self.assertEqual(result.exit_code, 0, result.output)
+            self.assertEqual(client.calls[-1][2], {
+                "taskId": "t", "businessId": "b", "jobType": "train", "pageIndex": 2, "pageSize": 200,
+            })
+            if output == "json":
+                self.assertEqual(json.loads(result.stdout), {
+                    "count": 203, "pageIndex": 2, "pageSize": 200, "items": jobs,
+                })
+            else:
+                positions = [result.stdout.index(job["jobId"]) for job in jobs]
+                self.assertEqual(positions, sorted(positions))
+                self.assertIn("第 2 页 · 每页 200 条 · 共 203 条", result.stdout)
+
     def test_cli_rejects_invalid_options_before_api_call(self):
         for args in (["train", "list", "--page", "0"],
                      ["train", "list", "--page-size", "0"],
                      ["train", "list", "-o", "csv"],
                      ["train", "instance", "list"],
-                     ["train", "instance", "list", "t", "--page", "2"]):
+                     ["train", "instance", "list", "t", "--page", "0"],
+                     ["train", "instance", "list", "t", "--page-size", "0"],
+                     ["train", "instance", "list", "t", "--page-size", "201"]):
             client = FakeClient()
             result = self.invoke(client, args)
             with self.subTest(args=args):
