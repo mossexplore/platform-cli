@@ -1,17 +1,18 @@
 # WiseRec Platform skill
 
-本目录是供 Windows 上的 OpenCode 使用的 Agent Skill，指导 Agent 通过 WiseRec `ml` CLI 操作平台。本文件面向安装和分发人员，不随 skill 安装；Agent 使用的内容在 `SKILL.md` 和 `references/` 中。
+本目录提供各 Agent/harness 共用的 WiseRec CLI 操作说明，不绑定 Agent 产品或版本。当前安装流程面向 Windows，以下记录现有分发方式；未来接入不复制业务规则。本文件面向安装和分发人员，不随 skill 安装；Agent 使用的内容在 `SKILL.md` 和 `references/` 中。
 
 ## 安装
 
-官方 Windows 安装包分两个阶段执行：先安装并验证 CLI，再安装 `wiserec-platform` skill 和 `/ml` command。第二阶段失败会显示原因，CLI 仍可正常使用；排除文件占用或目录权限问题后重新运行安装程序即可重试。直接通过 pip 安装 Wheel 不会安装 skill。正式安装提供 `/ml`，仓库保留的 `/ml-lab` 属于实验入口。
+官方 Windows 安装包分两个阶段执行：先安装并验证 CLI，再安装 `wiserec-platform` skill 和 `/ml` command。第二阶段失败会显示原因，CLI 仍可正常使用；排除文件占用或目录权限问题后重新运行安装程序即可重试。直接通过 pip 安装 Wheel 不会安装 skill。正式安装提供 `/ml`。实验版已停止维护，仅在仓库 `skill-lab/` 保存历史资料，不再提供活跃的 `/ml-lab` 入口。
 
-- skill 同时安装到当前用户的 `~/.config/opencode/skills/wiserec-platform` 和 `~/.cac/skills/wiserec-platform`。设置 `OPENCODE_CONFIG_DIR` 时仅替换 OpenCode 根目录，CAC 路径仍位于当前用户目录。`/ml` command 同时安装到 `~/.config/opencode/commands/ml.md` 和 `~/.cac/commands/ml.md`。
-- 每次安装都会完整替换两个目标目录中的 `skills/wiserec-platform`，以及两个目录中的 `commands/ml.md`。这些资源由安装程序管理，请勿直接修改；其他 skill、command 和 OpenCode 配置不受影响。
+- 正式 skill 安装到 `~/.agents/skills/wiserec-platform` 和 `~/.cac/skills/wiserec-platform`。`/ml` 位于当前 OpenCode 配置目录的 `commands/ml.md` 和 `~/.cac/commands/ml.md`。OpenCode 配置目录默认 `~/.config/opencode`，`OPENCODE_CONFIG_DIR` 只改变该配置目录，不改变共享 skill 或 CAC 路径。
+- 每次安装替换上述正式资源；成功后清理相应管理目录中的历史详细版、`ml-lab.md` 和当前 OpenCode 配置目录中的旧正式 skill。历史上使用过的其他配置目录不会被遍历。其他资源保留。
+- 安装先校验资源，预校验失败保留旧文件；替换阶段失败会清理残留，不恢复已删除的旧资源。请修复问题后重跑安装程序，不把此行为视为自动回滚。
 - 项目目录或兼容目录中的同名副本需自行移除，以免 OpenCode 加载旧副本。
 - 安装后完全退出并重新打开 OpenCode，使其获得新的 PATH，然后输入 `/ml 查询当前业务下的模型`；只输入 `/ml` 会检查使用上下文并显示用法。
 
-手工分发时，把 `SKILL.md` 和 `references/` 复制到 `skills/wiserec-platform`，并把仓库中的 `skill/commands/ml.md` 复制到 OpenCode 的 `commands/ml.md`。
+正式 Windows 安装方式见 [安装说明](../../scripts/windows/INSTALL.md)。通用正文为 `SKILL.md` 与 `references/`；`/ml` 只是现有接入入口，工具加载与权限配置不属于通用业务规则。本次不更改既有权限示例或新增 harness 映射，下面示例保留待单独验证。
 
 ## 建议的权限配置
 
@@ -102,20 +103,15 @@
 - `--yes`、`-y` 规则放在放行规则之后，确保同时带 `--dry-run` 和 `--yes` 的命令仍需审批。
 - 以上只列出 `ml` 相关规则，其他命令按团队要求另行配置。OpenCode 对 PowerShell 命令的解析方式（例如命令前加了编码设置时）可能影响匹配结果，正式分发前请在 OpenCode 中实测：只读命令直接执行，写操作弹出审批，被禁止的命令被拒绝。
 
-## 上下文检查与本机核对
+## 操作规则与维护
 
-首次缺少上下文时，先运行 `ml context --json`，确认实际配置是当前账号的 `%APPDATA%\ml\config.json` 后再运行 `ml auth status`。
+会话预检、写前核对、禁止改码及异常处理统一见 [SKILL.md](SKILL.md)；字段、Windows shell 示例与排障见 [会话参考](references/session.md)。本文件不再维护另一套会话规则。
 
-```powershell
-ml context --json
-ml auth status
-```
+业务任务中不得修改 CLI、依赖、业务代码、脚本或 Notebook 代码单元；程序缺陷交由独立开发流程处理。该限制是 Agent 行为要求，不代表安装器已实现文件系统隔离。
 
-`context` 已包含 CLI 版本、路径、环境与配置来源；`auth status` 包含账号、认证状态、`remaining_minutes`、`expires_at` 和当前环境选中的 `businessId`。需检查状态和实际字段，不能只看退出码。需要租户/团队名称或缺少有效业务 ID 时再查 `ml business show`。
+命令索引由维护者运行 `python scripts/sync_skill_index.py` 生成，`--check` 检查漂移。人工语义保存在仓库 `scripts/skill_index/commands.md.in`，命令与选项存在性、叶子命令覆盖及确认列由当前 Click 命令树校验或生成。不自动推断 JSON 语义、敏感性或权限策略。
 
-`/ml` 在同一聊天内跨用户消息复用已确认上下文，后续普通查询直接执行。环境、账号、业务、CLI 路径或配置来源变化时按影响补查；长任务只查认证有效期；提交写操作前重新核对实际环境、账号与业务并保留原确认要求。只读失败按认证、业务、权限或语法分类处理，不把每个新意图当作首次操作。CLI 自身的逐次认证及授权不变。
-
-PATH 中找不到 `ml` 时，直接调用默认安装目录的 `%LOCALAPPDATA%\Programs\WiseRecCLI\venv\Scripts\ml.exe`。Git Bash、PowerShell 和自定义安装目录的用法见 [会话参考](references/session.md)。安装或版本问题时按需使用 `ml --version`、`ml tree` 和对应命令的 `--help`。已确认的语法不重复查询帮助。`ml login` 需要 Edge 和图形界面，不能在无人值守环境中完成。旧 CLI 若不支持 context 或所需字段，按实际版本帮助核对或更新 CLI，不猜测字段含义。
+构建时在正式 `SKILL.md` 的 metadata 中写入 `source_cli_version` 和 `source_sha256`，不修改源文件中的版本。前者来自 `versions.toml`，后者标识构建前全部正式资源的内容。它们用于排查来源，不是 Agent 版本门槛；版本一致不代表加载路径或文件一定正确。
 
 ## 分发边界
 

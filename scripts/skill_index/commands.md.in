@@ -1,0 +1,136 @@
+# `ml` 命令速查
+
+本表列出全部命令，用于定位命令和判断风险；参数以 `ml <子命令> --help` 为准。通过本 skill 调用时必须使用当前账号的 `%APPDATA%\ml\config.json`。仅在命令明确支持 JSON 输出时使用相应选项；`context` 用 `--json`，特征集配置固定输出 JSON，`auth status` 和服务日志不接受 `-o json`。
+
+“确认”列为“是”的命令默认会询问确认，非交互调用必须在用户授权后加 `--yes`。执行实例日志下载使用 `--select` 非交互选择；编号选择不是 `--yes` 确认。“副作用”列标出会改变平台、远端或本地状态的命令，执行前核对目标和授权，执行后核验。
+
+## 会话、业务与本地记录
+
+| 命令 | 用途 | 确认 | 副作用 |
+| --- | --- | --- | --- |
+| `ml --version` | 查看实际调用的 CLI 版本 | {{confirm}} | |
+| `ml context [--json]` | 查看运行模式、平台环境与实际配置路径，无需登录 | {{confirm}} | |
+| `ml tree [--all]` | 查看当前环境可用命令，无需登录。加 `--all` 显示全部命令及限制标记 | {{confirm}} | |
+| `ml env list` / `ml env show` | 列出已授权及授权状态未知的环境 / 查看当前环境 | {{confirm}} | |
+| `ml env use NAME` | 切换当前环境 | {{confirm}} | 本地配置 |
+| `ml login` | 打开 Edge 登录，需用户操作；禁止 `--show-secrets` | {{confirm}} | 本地凭据 |
+| `ml logout [--all] [--forget-browser]` | 清除当前或全部环境的认证 | {{confirm}} | 本地凭据 |
+| `ml auth status` | 本地认证状态 | {{confirm}} | |
+| `ml auth ping start` / `stop` / `status` | 终端保活；非 TTY 环境中 start 不生效 | {{confirm}} | 本地进程 |
+| `ml access status [--diagnose]` | 检查 CLI 访问授权 | {{confirm}} | |
+| `ml business list` / `ml business show` | 业务候选 / 当前业务 | {{confirm}} | |
+| `ml business use --tenant ID [--team ID] [--department ID]` | 选择业务；必须传 `--tenant` | {{confirm}} | 本地配置 |
+| `ml business refresh` | 打开 Edge 刷新业务目录 | {{confirm}} | 本地配置 |
+| `ml user info` | 当前账号 | {{confirm}} | |
+| `ml mep config get [KEY]` | 查询一个 MEP 配置项 | {{confirm}} | |
+| `ml history list -o json` | 本地调用记录，不证明远端结果 | {{confirm}} | |
+| `ml history clear [--env NAME] [--before TIME] --yes` | 删除本地调用记录 | {{confirm}} | 本地记录 |
+
+## 训练与实验
+
+详见 [training.md](training.md)。
+
+| 命令 | 用途 | 确认 | 副作用 |
+| --- | --- | --- | --- |
+| `ml mtp swanboard project list` | 训练看板项目 | {{confirm}} | |
+| `ml mtp swanboard project namespace list PROJECT_ID` | 项目空间 | {{confirm}} | |
+| `ml mtp swanboard project experiment list PROJECT_ID NAMESPACE_ID` | 空间下的实验 | {{confirm}} | |
+| `ml mtp swanboard experiment feature list EXPERIMENT_ID` | 实验特性 | {{confirm}} | |
+| `ml mtp swanboard experiment environment get EXPERIMENT_ID` | 实验环境 | {{confirm}} | |
+| `ml mtp swanboard experiment metrics EXPERIMENT_ID` | 指标统计 | {{confirm}} | |
+| `ml mtp swanboard experiment config list EXPERIMENT_ID` | 实验配置 | {{confirm}} | |
+| `ml mtp swanboard experiment inspect EXPERIMENT_ID` | 一次查询特性、环境、指标和配置 | {{confirm}} | |
+| `ml offline experiment list` | 离线实验 | {{confirm}} | |
+| `ml offline experiment trial list PROJECT_ID` | 实验下的 trial | {{confirm}} | |
+| `ml offline experiment clone PROJECT_ID --name NAME` | 克隆实验，可先 `--dry-run` | {{confirm}} | 创建实验 |
+| `ml train list` | 训练任务 | {{confirm}} | |
+| `ml train detail TASK_ID` | 查询 WiseRec 训练任务详情，可用 `-o json` 获取完整详情 | {{confirm}} | |
+| `ml sample-task list` | 样本任务列表，默认旧任务管理；`--source new` 查询新版，支持分页、名称、创建者、修改者和重复 `--type` 筛选，`--status` 仅旧版可用 | {{confirm}} | |
+| `ml sample-task period list TASK_ID` | 新旧样本任务共用执行周期查询，无需 `--source`，四列网格；支持分页、北京时间范围及重复 `--state` | {{confirm}} | |
+| `ml sample-task execution list TASK_ID` | 新旧样本任务共用执行记录查询，无需 `--source`，支持分页、`--include-history` 和 `-o json` | {{confirm}} | |
+| `ml train instance list TASK_ID` | 分页查询执行实例 | {{confirm}} | |
+| `ml train history list TASK_ID` | 分页查询执行记录 | {{confirm}} | |
+| `ml train history logs download TASK_ID JOB_ID [--type log\|plog] [--directory DIR]` | 下载普通或 plog 执行日志 | {{confirm}} | 本地文件 |
+| `ml train instance logs download TASK_ID JOB_ID [--select SELECTION] [--directory DIR]` | 请求归档并下载已归档日志，`--select` 传编号或 `all` | {{confirm}} | 平台归档、本地 ZIP 文件 |
+| `ml train start TASK_ID` | 立即启动任务 | {{confirm}} | 启动作业 |
+| `ml train cancel TASK_ID` | 逐个取消全部执行实例 | {{confirm}} | 取消作业 |
+| `ml train delete TASK_ID` | 软删除任务 | {{confirm}} | 删除任务 |
+| `ml train clone TASK_ID --name NAME` | 复制任务 | {{confirm}} | 创建任务 |
+| `ml train config export TASK_ID [--file PATH]` | 导出 YAML 配置 | {{confirm}} | 本地文件 |
+| `ml train config update TASK_ID --customize-config VALUE` | 更新自定义参数 | {{confirm}} | 修改任务 |
+| `ml algorithm list` | 算法仓 | {{confirm}} | |
+| `ml algorithm download ALGORITHM_ID [--file PATH]` | 下载算法仓 ZIP | {{confirm}} | 本地文件 |
+| `ml algorithm clone ALGORITHM_ID --name NAME --version VERSION` | 克隆算法仓 | {{confirm}} | 创建算法仓 |
+
+## 模型、模板与服务
+
+详见 [deployment.md](deployment.md) 和 [services.md](services.md)。
+
+| 命令 | 用途 | 确认 | 副作用 |
+| --- | --- | --- | --- |
+| `ml model list` | 当前业务的模型 | {{confirm}} | |
+| `ml model detail MODEL_ID` | 模型详情 | {{confirm}} | |
+| `ml model source MODEL_ID [--train-task]` | 模型溯源，或关联训练任务 | {{confirm}} | |
+| `ml model deploy MODEL_ID --template DEPLOY_TEMPLATE_ID` | 部署为服务，先 `--dry-run` 预览 | {{confirm}} | 创建服务 |
+| `ml resource template list` / `detail RESOURCE_TEMPLATE_ID` | 资源模板 | {{confirm}} | |
+| `ml deployment template list` / `detail DEPLOY_TEMPLATE_ID` | 部署模板 | {{confirm}} | |
+| `ml service list` | 服务 | {{confirm}} | |
+| `ml service mock SERVICE_ID [--request-sample-file PATH] [--transmission-tag 0\|1]` | 使用文档或 JSON 文件样例测试服务，默认不调用透传接口 | {{confirm}} | 调用一次服务 |
+| `ml service logs SERVICE_ID --no-input` | 日志文件列表或正文 | {{confirm}} | |
+| `ml service host list SERVICE_ID [--pod-ip IP]` | 主机视图，可按 Pod IP 筛选 | {{confirm}} | |
+| `ml service host mock SERVICE_ID --pod-ip POD_IP [--request-sample-file PATH] [--transmission-tag 0\|1]` | 先按 Pod IP 查询主机，再使用文档或文件样例测试 | {{confirm}} | 调用一次服务 |
+| `ml service deployment list SERVICE_ID` | 部署视图 | {{confirm}} | |
+
+## 数据集与特征集
+
+详见 [data.md](data.md)。
+
+| 命令 | 用途 | 确认 | 副作用 |
+| --- | --- | --- | --- |
+| `ml dataset list` / `ml dataset detail DATASET_ID` | 数据集列表 / 详情 | {{confirm}} | |
+| `ml dataset files list DATASET_ID` | 数据集内部目录 | {{confirm}} | |
+| `ml dataset files upload DATASET_ID LOCAL_FILE` | 追加单个文件 | {{confirm}} | 上传文件 |
+| `ml feature-task list` | 特征任务列表，支持 `--name`、`--category`、`--create-user`、`--page`、`--page-size` 和 `-o json` | {{confirm}} | |
+| `ml feature-task detail TASK_ID` | 查询特征任务详情，支持 `-o json` | {{confirm}} | |
+| `ml feature-task execution list TASK_ID` | 分页查询执行记录，支持 `--include-history` | {{confirm}} | |
+| `ml feature-task execution logs search JOB_ID` | 日志搜索，默认原样文本，可选 `-o json` | {{confirm}} | |
+| `ml featureset wide list` / `ml featureset model list` | 宽表 / 模型特征集 | {{confirm}} | |
+| `ml featureset wide config SET_ID` / `ml featureset model config SET_ID` | 特征集配置 | {{confirm}} | |
+| `ml featureset wide export SET_ID` / `ml featureset model export SET_ID` | 导出特征 CSV，重名自动编号；支持 `--lang zh_cn\|en_us`、`--file PATH`、`--output text\|json` | {{confirm}} | 本地文件 |
+
+## 质量监控报告
+
+详见 [data.md](data.md)。
+
+| 命令 | 用途 | 确认 | 副作用 |
+| --- | --- | --- | --- |
+| `ml quality feature list` | 特征质量分页查询，支持名称、表名、特征值类型、指标类型筛选 | {{confirm}} | |
+| `ml quality wide-featureset list` | 质量监控宽表特征集分页查询，支持名称筛选 | {{confirm}} | |
+| `ml quality wide-featureset feature-assemble list --set-id SET_ID` | 特征装配样本定义列表，不分页 | {{confirm}} | |
+| `ml quality wide-featureset label-assemble list --set-id SET_ID` | 标签装配样本定义列表，不分页 | {{confirm}} | |
+| `ml quality wide-featureset feature-assemble feature list --set-id SET_ID --definition-id DEFINITION_ID` | 特征装配样本定义下的特征分页查询 | {{confirm}} | |
+| `ml quality wide-featureset label-assemble feature list --set-id SET_ID --definition-id DEFINITION_ID` | 标签装配样本定义下的特征分页查询 | {{confirm}} | |
+
+## Web Studio 与 Jupyter
+
+以下文件写入和执行能力不得用于创建或修改代码，具体限制见 [jupyter.md](jupyter.md)。
+
+详见 [jupyter.md](jupyter.md)。
+
+| 命令 | 用途 | 确认 | 副作用 |
+| --- | --- | --- | --- |
+| `ml webstudio list` | 实例列表 | {{confirm}} | |
+| `ml webstudio show` | 默认实例绑定与缓存，不代表实时状态 | {{confirm}} | |
+| `ml webstudio login ENV_ID [--refresh]` | 建立连接并设为默认实例 | {{confirm}} | 本地缓存 |
+| `ml webstudio start ENV_ID` | 启动实例 | {{confirm}} | 启动实例 |
+| `ml webstudio stop ENV_ID` | 停止实例，可能中断运行中的任务 | {{confirm}} | 停止实例 |
+| `ml jupyter doctor` | 检查 Kernel 与终端管理接口 | {{confirm}} | |
+| `ml jupyter files list` / `stat` / `read` | 列目录 / 元数据 / 读文本 | {{confirm}} | |
+| `ml jupyter files write` / `mkdir` / `upload` / `move` / `copy` | 写入、建目录、上传、移动、复制 | {{confirm}} | 远端文件 |
+| `ml jupyter files delete PATH` | 立即删除，无确认 | {{confirm}} | 删除远端文件 |
+| `ml jupyter files download REMOTE LOCAL` | 下载单文件 | {{confirm}} | 本地文件 |
+| `ml jupyter exec --cwd PATH -- PROGRAM [ARGS...]` | 非交互执行远端程序 | {{confirm}} | 远端进程 |
+| `ml jupyter notebook run SOURCE` | 执行本地 Notebook | {{confirm}} | 远端执行、本地结果 |
+| `ml jupyter terminal list` | 列出远程终端 | {{confirm}} | |
+| `ml jupyter terminal close NAME` | 关闭远程终端及其中进程，无确认 | {{confirm}} | 结束远端进程 |
+| `ml jupyter terminal open` / `attach NAME` | 交互终端，**禁止使用** | {{confirm}} | |

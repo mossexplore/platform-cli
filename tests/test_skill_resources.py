@@ -59,9 +59,9 @@ def test_skill_name_matches_directory():
     assert re.search(r"^name: (\S+)$", header, re.M).group(1) == SKILL_DIR.name
 
 
-def test_detailed_skill_is_repository_only():
+def test_only_formal_skill_has_an_active_entry():
     root = SKILL_DIR.parents[1]
-    assert (root / 'skill-lab/wiserec-platform-detailed/SKILL.md').is_file()
+    assert not (root / 'skill/commands/ml-lab.md').exists()
     from wiserec_cli.opencode_install import SKILLS, COMMANDS
     assert SKILLS == ('wiserec-platform',)
     assert COMMANDS == ('ml',)

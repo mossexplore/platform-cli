@@ -8,9 +8,41 @@ metadata:
 
 # WiseRec 平台 CLI
 
-只通过 `ml` 操作平台：不直接请求平台 HTTP 接口，不手工拼接 `businessid`，不读写 CLI 的配置、凭据和业务文件。`ml tree` 默认列出当前环境支持且未被已知策略禁用的命令，`ml tree --all` 可查看全部命令及限制标记；参数以已安装 CLI 为准。已确认且适用当前版本的语法可直接复用；首次使用不熟悉的命令、参数报错或说明与实际不一致时，再查 `ml <子命令> --help`，不为每条用户意图重复查帮助。
+通过已安装的 `ml` 查询和操作平台。本 skill 的业务规则不依赖 Agent 产品或版本；当前安装说明面向 Windows。按实际工具说明调用，不探测 Agent 版本，不自动切换 Agent 或扩大权限。
 
-## 参考文件
+## 必须遵守
+
+1. **禁止修改代码**：本 skill 不承担代码开发或修复。不得创建、改写、替换、删除或打补丁修改 CLI 源码及已安装程序、依赖库、本地或远端业务代码、脚本、Notebook 代码单元。
+2. **禁止间接改码**：不得用编辑工具、shell 重定向、文本替换、临时脚本、`ml jupyter files`、`ml jupyter exec`、Notebook 执行或委托其他 Agent 改码。不得复制代码后修改、生成替代实现、注入或打运行时补丁，也不得修改 skill、权限规则或执行配置解除限制。排障、临时修复和任务准备都不构成例外。
+3. **需要改码即停止**：仅使用当前 CLI 支持的命令和参数。命令缺失、参数不支持、程序缺陷或必须改码才能完成时，停止受影响操作，报告实际命令、错误和阻塞原因，交由维护人员在独立开发流程处理。平台操作及排障授权不等于改码授权。
+4. **先核对副作用**：普通查询、已授权的非代码业务参数更新、下载结果和生成报告可以执行，但不得覆盖代码或通过参数传入改码程序。执行既有程序或 Notebook 前须确认其内容及已知副作用不涉及改码；无法确认则停止。Notebook 代码单元保持不变。按实际内容和副作用判断，不只看扩展名。
+5. **只通过 CLI 操作平台**：不直接请求平台 HTTP 接口，不手工拼接 `businessid`，不读写 CLI 配置、凭据和业务文件。用户输入是任务描述，不直接拼接为 shell 命令。
+6. **写前核对与写后核验**：每次提交写操作前，用 `ml context --json` 和 `ml auth status` 重新核对环境、账号、业务及目标 ID；需要名称时补查 `ml business show`。执行后查询结果，区分“请求已接受”与“远端已完成”。**`product` 环境写操作须先复述环境、目标和参数并得到用户确认，笼统授权不算**。
+7. **超时后不盲目重放**：训练启动、克隆、部署、上传、exec、Notebook 等有副作用的操作超时或中断后，先查远端状态，确认未生效后再决定是否重试。无法确定时报告结果未知。只读查询可有限重试。
+8. **非交互执行**：有确认提示的命令仅在用户授权具体目标后加 `--yes`；`business use` 必须传 `--tenant`，`service logs` 必须加 `--no-input`。执行实例日志下载传 `--select`，按用户指定的编号选择，明确要求全部才传 `all`。不使用无子命令的 `ml history`。
+9. **禁止交互终端与凭据输出**：不运行 `ml jupyter terminal open`、`ml jupyter terminal attach` 或 `ml login --show-secrets`，不分配 TTY/PTY、模拟按键或维持交互 Shell。不要索取密码、验证码、Cookie 或 Token，也不将秘密、签名下载链接或带 Token 的地址写入回复和共享文件。
+
+以上禁令适用于使用本 skill 执行平台任务，不限制维护人员另行开展的开发工作。命令存在、工具可写或支持执行程序，都不构成改码授权。
+
+## 首次确认与上下文复用
+
+- 当前聊天尚无已确认上下文时，先运行 `ml context --json`，核对实际配置路径为当前账号的 `%APPDATA%\ml\config.json`，再运行 `ml auth status`。配置缺失或路径不符时停止。检查退出码、`status=valid`、`profile` 与当前环境一致及 `businessId` 有效；字段及错误处理见 [session.md](references/session.md)。无需固定再查版本、环境或业务列表。
+- 后续消息复用未发生已知变化的 CLI 路径、配置来源、环境、账号和业务。只保留当前聊天的非敏感上下文，不跨聊天共享；上下文丢失或无法确认时重新建立。写操作仍执行上面的写前核对。
+- 切换环境用 `ml env use NAME` 后重新确认上下文；环境相同不重复切换。环境标识以实际配置为准。登录、退出、切换账号或业务、变更配置来源后更新受影响项，不沿用其他环境的资源 ID。
+- 长任务前查 `auth status` 的剩余有效期；认证、业务或权限报错只排查对应项。需要业务名称、选择业务或缺少有效 `businessId` 时才查 `business show/list`。CLI 逐次认证与授权不因上下文复用而减少。
+
+## 调用与结果
+
+- 参数以已安装 CLI 为准。`ml tree` 显示当前可用命令，`ml tree --all` 显示全部命令与限制标记。不熟悉、参数报错或文档不一致时查对应 `--help`，已确认的语法不重复查询。
+- 以实际 shell 的引号规则调用；PATH 找不到 `ml` 时，按 [session.md](references/session.md) 的 PowerShell 或 Git Bash 示例调用已有程序，不自行修改或重建程序。
+- 为长任务安排足够执行等待时间，具体工具参数名和单位以工具说明为准。exec 和 Notebook 按 CLI 的 `--startup-timeout` 加 `--timeout` 再留至少 60 秒；上传按 `--timeout` 留余量；登录和刷新业务需等待用户操作 Edge，至少预留 10 分钟。能力不足时报告限制，不通过改码规避。
+- 非 TTY 环境下自动保活及 `ml auth ping start` 不会启动。认证时间不足时请用户重新登录，或在其自己的终端运行保活。
+- 有准确 ID 时直接使用；否则用最窄条件定位，名称不唯一时由用户选择。任务、作业、模型、模板、Pod 等 ID 不互换；列表默认分页，第一页不代表全部。
+- 支持 JSON 的命令优先用 JSON，检查退出码和 stderr；`context` 用 `--json`，`auth status` 当前仅表格。stdout 混有认证提示时先处理认证，不硬解析。结果仅提取任务所需字段。
+- 本地导出或下载先核对路径和覆盖行为；训练配置、日志和算法仓下载要求父目录已存在。不覆盖同名文件，不覆盖代码；特征集 CSV 重名自动编号。
+- 回复说明环境、业务、目标 ID、实际命令及可观察结果。转述带时区时间时换算为北京时间 `YYYY-MM-DD HH:mm:ss`。模板详情与部署预览可能含 Secret，日志、文件和程序输出也可能含秘密；只提取必要字段。`access status --diagnose` 仅用于排障。
+
+## 按任务读取参考
 
 按任务读取必要的参考文件，不预先通读全部；例如部署时遇到认证问题，同时参考部署和会话两份：
 
@@ -23,33 +55,3 @@ metadata:
 | 服务与主机查询、样例报文测试及服务日志 | [services.md](references/services.md) |
 | 数据集目录文件、特征任务详情及执行日志、特征集与 CSV 导出、质量监控及装配样本定义和特征列表 | [data.md](references/data.md) |
 | Web Studio、Jupyter 文件、exec、Notebook | [jupyter.md](references/jupyter.md) |
-
-## 运行约束
-
-1. **shell 工具**：以 shell 工具说明中的 shell 为准，Windows 上常见为 PowerShell，本 skill 示例按 PowerShell 编写；实际为其他 shell 时按其引号规则调整。若 PATH 中找不到 `ml`，直接使用 `%LOCALAPPDATA%\Programs\WiseRecCLI\venv\Scripts\ml.exe`。Git Bash 和 PowerShell 调用示例见 [session.md](references/session.md)。
-2. **没有交互输入**：shell 工具不提供可交互的标准输入，确认提示会直接中止命令。会询问确认的命令（见 [commands.md](references/commands.md) 的“确认”列）在用户已明确授权具体目标后加 `--yes`；未获授权时先问用户，不要运行命令去触发提示。`ml business use` 必须传 `--tenant`，`ml service logs` 必须加 `--no-input`，不使用无子命令的 `ml history` 交互浏览。执行实例日志下载须传 `--select`，按用户指定的表格编号选择，用户明确要求全部时传 `--select all`。
-3. **禁止交互终端**：不运行 `ml jupyter terminal open` 和 `ml jupyter terminal attach`，不设法分配 TTY/PTY 或模拟按键。远端操作只用 `ml jupyter files`、`ml jupyter exec` 和 `ml jupyter notebook run`；无法非交互完成时向用户报告限制。
-4. **显式设置工具超时**：shell 工具会在默认超时后终止命令，默认值以工具 `timeout` 参数的说明为准，常见约 2 分钟且可能被配置修改。预计超过默认值的命令必须设置工具的 `timeout`（毫秒），取 CLI 自身时限之和再加至少 60 秒：`jupyter exec` 为 `--startup-timeout` 与 `--timeout` 之和，`jupyter notebook run` 同理，`dataset files upload` 按 `--timeout`；`ml login`、`ml business refresh` 需等待用户在 Edge 中操作，至少设 10 分钟。
-5. **超时后不重放写操作**：工具超时或中断后，即使工具建议加大超时重试，对训练启动、克隆、部署、上传、exec、Notebook 等有副作用的命令，也必须先用只读命令查询远端状态，确认未生效后再决定是否重新执行。只读查询可以加大超时后重试。
-6. **自动保活不生效**：shell 工具中 `ml` 检测不到交互终端，自动保活和 `ml auth ping start` 都不会启动。长任务前用 `ml auth status` 查看剩余时间；不够时请用户重新登录，或在用户自己的终端运行 `ml auth ping start`。
-
-## 会话入口
-
-1. **首次确认一次**：当前聊天尚无已确认的 CLI 上下文时，先运行 `ml context --json`，确认实际配置路径是当前账号的 `%APPDATA%\ml\config.json` 后再运行 `ml auth status`。配置缺失或路径不符时停止并告知用户。前者包含 CLI 版本、路径、当前环境和配置来源；后者包含账号、认证状态、有效期与当前选择的 `businessId`。检查退出码、`status=valid`，并确认 `profile` 与当前环境一致、`businessId` 有效。无需再固定运行 `ml --version`、`ml env show`、`ml business show`。
-2. **跨消息复用**：新的一条用户意图不视为新会话。同一聊天内，已确认的 CLI 路径、配置来源、环境、账号和业务未发生已知变化时，普通查询直接执行，不重复预检。只保留非敏感上下文，不将其写入凭据文件或跨聊天共享；上下文丢失或无法确认时重新建立。
-3. **按变化检查**：需要切换环境时运行 `ml env use <标识>`，随后重新确认上下文；已确认环境相同则不重复切换。环境标识通常为 dev/mirror/explore/product，以实际配置为准。登录、退出、切换账号或业务、变更配置来源后，更新受影响的上下文，不沿用旧环境的资源 ID。
-4. **按需补查**：长任务前只用 `ml auth status` 核对剩余时间；认证、业务或权限报错时只排查对应项。需要租户/团队名称、选择业务，或 `auth status` 未提供有效 `businessId` 时，才查询 `ml business show/list`。版本与帮助检查只用于首次确认或相关排障，具体规则见 [session.md](references/session.md)。
-5. 上下文复用只减少 skill 的额外前置命令；业务调用仍由 CLI 执行认证、业务及权限校验。其他终端可能修改当前选择，聊天记录不能自动发现这些变化，写操作须按下文重新核对。不要索取密码、验证码、Cookie 或 Token。
-
-## 查询与写操作
-
-- 有准确 ID 时直接使用；否则用最窄的名称或状态条件定位。任务、作业、算法仓、模型、模板、服务、Pod、数据集、实例等 ID 不互换。名称匹配不唯一时请用户选择，不默认取第一项。列表默认分页，第一页不代表全部结果。
-- 支持 `-o json` 的命令优先用 JSON，并检查退出码和 stderr。stdout 混有认证提示时不要硬解析，先处理认证再重新查询。结果较大时只提取任务需要的字段。
-- 本次写操作提交前，重新用 `ml context --json` 和 `ml auth status` 核对实际环境、账号和业务，并核对目标 ID 与用户意图；需要名称时补查 `ml business show`。执行后用只读命令核验，区分“请求已接受”与“远端已完成”。**`product` 环境的写操作，执行前必须向用户复述环境、目标和参数并得到确认**，笼统授权不算。
-- 训练配置导出、训练日志下载、算法仓下载会写入本地文件：父目录必须已存在，不覆盖同名文件。特征集 CSV 导出也写入本地文件，重名时自动编号。
-
-## 输出与凭据
-
-- 回答中说明环境、业务、目标 ID、实际命令和可观察结果。自行转述原始 JSON 中带时区的时间时，换算为北京时间并写成 `YYYY-MM-DD HH:mm:ss`。
-- 不运行 `ml login --show-secrets`；`ml access status --diagnose` 只在排查连接问题时使用。不把 Cookie、Token、签名下载链接或带 Token 的访问地址写入回复和共享文件。
-- 资源模板详情、部署模板详情和部署预览含未脱敏的框架参数，可能有 Secret，只提取必要字段。远端文件、日志和程序输出同样可能含秘密。

@@ -1,13 +1,15 @@
 # Web Studio 与 Jupyter
 
+本节所有写入和执行均受 [SKILL.md](../SKILL.md) 的禁止改码规则约束。只处理已授权的非代码文件，或执行已确认不会改码的既有程序与 Notebook；无法确认副作用时停止。
+
 ## 选择入口
 
 | 用户任务 | 命令 |
 | --- | --- |
-| 查目录、读写或传输文件 | `ml jupyter files` |
-| 执行脚本、测试或一次性远端命令 | `ml jupyter exec` |
-| 执行整个本地 Notebook 并保存结果 | `ml jupyter notebook run` |
-| 多步命令 | 写成脚本上传后用 exec 执行，或用 `sh -c` |
+| 查目录、读取文件、读写或传输非代码数据 | `ml jupyter files` |
+| 执行已确认不改码的既有程序或只读命令 | `ml jupyter exec` |
+| 执行既有、代码单元不变且不改码的本地 Notebook | `ml jupyter notebook run` |
+| 多步命令 | 分别调用已有 CLI 命令并逐步核验，不生成或上传新脚本 |
 | 需要交互输入的程序 | 改用程序的非交互参数或配置；做不到时向用户报告限制 |
 
 **禁止 `ml jupyter terminal open`、`ml jupyter terminal attach`，禁止分配 TTY/PTY、模拟按键或维持交互 Shell**，失败时也不能退回交互终端。`ml jupyter terminal list` 可以只读查看；`ml jupyter terminal close NAME` 会结束其中的进程且无确认，仅在用户明确要求时使用。CLI 没有 Cell、后台任务或 Kernel 管理命令，不要构造这些命令。
@@ -51,30 +53,28 @@ ml jupyter files list -o json
 | `files copy SOURCE TARGET_DIR` | 复制单文件到已有目录，新文件名由服务端决定，从返回的 path 读取 |
 | `files delete PATH` | 立即删除文件或空目录，无确认、不递归 |
 
-- write、upload、download 默认不覆盖已有文件；覆盖须加 `--overwrite` 且符合用户意图。命令不递归处理目录，也不展开通配符。
-- 编辑远端文件：先 read，在本地准备完整内容，用 `write --from-file --overwrite` 写回，再 read 核验。Windows 上优先 `--from-file`，避免 `--stdin` 的编码问题。避免与用户在浏览器中同时编辑同一文件。
+- write、upload、download 默认不覆盖已有文件；覆盖非代码文件须加 `--overwrite` 且符合用户意图；不得覆盖代码。命令不递归处理目录，也不展开通配符。
+- 编辑已授权的远端非代码文件：先 read，确认内容与路径不是代码或用于改码的程序，在本地准备完整数据，用 `write --from-file --overwrite` 写回，再 read 核验。Windows 上优先 `--from-file`，避免 `--stdin` 的编码问题。避免与用户在浏览器中同时编辑同一文件。
 - read 和传输会把整个文件读入内存，不适合超大文件。
 - 成功 JSON 为 `{server_url, studio_id, business_id, result}`：目录子项在 `result.content`（数组），read 的正文也在 `result.content`（字符串）。失败退出 1 并返回 `{status: "FAILED", error: ...}`；参数错误退出 2，可能只有用法文本。
 
 ```powershell
 ml jupyter files list workspace -o json
-ml jupyter files write workspace/main.py --from-file '.\main.py' --overwrite -o json
-ml jupyter files read workspace/main.py -o json
+ml jupyter files write workspace/report.txt --from-file '.\report.txt' --overwrite -o json
+ml jupyter files read workspace/report.txt -o json
 ml jupyter files download workspace/data.csv '.\data.csv' -o json
 ```
 
 ## 非交互执行
 
 ```powershell
-ml jupyter exec --cwd workspace -o json -- python main.py
-ml jupyter exec --cwd workspace --timeout 600 -o json -- python -m pytest -q
 ml jupyter exec --cwd workspace -o json -- sh -c 'pwd && ls -la'
 ```
 
 - 远端须是 POSIX 系统且有 Python Kernel，本地 Windows 可以连接。每次调用使用独立 Kernel，不继承 Notebook 变量或上一次 exec 的 `cd`、`export`，每次都显式传 `--cwd`。程序按远端 PATH 查找，Kernel 可用不代表某个命令或虚拟环境可用。
-- PROGRAM 与 ARGS 放在 `--` 之后，CLI 不隐式使用 Shell；需要管道或重定向时显式用 `sh -c`。注意本地 PowerShell 和远端 sh 两层引号，复杂命令写成脚本上传后执行。
+- PROGRAM 与 ARGS 放在 `--` 之后，CLI 不隐式使用 Shell；需要管道或重定向时显式用 `sh -c`。注意本地 PowerShell 和远端 sh 两层引号；不能用管道、重定向或脚本生成来修改代码。复杂任务无法通过已有程序安全完成时报告限制。
 - 标准输入关闭，不能用于密码提示或交互程序。stdout、stderr 在结束后一次返回；各自默认最多保留 1 MiB（`--max-output`），超出截断并标记 `truncated`；`output_incomplete=true` 表示输出未收齐。
-- 时限：`--startup-timeout`（Kernel 就绪，默认 60 秒）加 `--timeout`（程序执行，默认 60 秒）。shell 工具的 `timeout` 设为两者之和再加至少 60 秒。
+- 时限：`--startup-timeout`（Kernel 就绪，默认 60 秒）加 `--timeout`（程序执行，默认 60 秒）。执行工具的等待时限按两者之和再加至少 60 秒设置，具体参数名和单位以工具说明为准。
 - exec 结束或超时会清理同一进程组，不适合启动后台常驻服务。
 
 执行结果在 JSON 的 `result` 中：
@@ -82,7 +82,7 @@ ml jupyter exec --cwd workspace -o json -- sh -c 'pwd && ls -la'
 | `result.status` | CLI 退出码 | 处理 |
 | --- | --- | --- |
 | `SUCCEEDED` | 0 | 核对 stdout、stderr 和预期产物 |
-| `FAILED` | 原始退出码 1–123，其余为 1 | 查看 error、stderr 和 `exit_code`，修正后再执行 |
+| `FAILED` | 原始退出码 1–123，其余为 1 | 查看 error、stderr 和 `exit_code`；仅可修正调用参数，需改码则停止交维护人员处理 |
 | `TIMED_OUT` | 124 | 远端已终止进程组，仍需核对副作用 |
 | `LOST` | 2 | 结果未知，不当作参数错误，不自动重跑 |
 | `INTERRUPTED` | 130 | 本地中断，不能断言远端已停止 |
@@ -95,8 +95,8 @@ ml jupyter exec --cwd workspace -o json -- sh -c 'pwd && ls -la'
 ml jupyter notebook run '.\analysis.ipynb' --download '.\results' -o json
 ```
 
-- 上传本地 `.ipynb` 并按顺序执行全部单元格，失败也保存部分结果；结果写入 `--download` 目录下每次新建的子目录（默认相对当前目录的 `results`）。
-- 时限为 `--startup-timeout`（默认 60 秒）加 `--timeout`（全部单元格，默认 600 秒），shell 工具的 `timeout` 相应设为两者之和再加至少 60 秒。
+- 仅执行既有且已确认不修改代码的 `.ipynb`，不得新增或改写代码单元。CLI 上传并按顺序执行全部单元格，失败也保存部分结果；结果写入 `--download` 目录下每次新建的子目录（默认相对当前目录的 `results`）。
+- 时限为 `--startup-timeout`（默认 60 秒）加 `--timeout`（全部单元格，默认 600 秒），执行工具相应预留两者之和再加至少 60 秒。
 - 失败或超时检查摘要和远端状态，不自动重跑。
 
 ## 凭据

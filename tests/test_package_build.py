@@ -1,11 +1,46 @@
 """Build real wheels from a checkout containing obsolete build outputs."""
 import json
+import hashlib
+import os
 from pathlib import Path
 import runpy
 import shutil
 import subprocess
 import sys
 import zipfile
+
+
+def check_skill_provenance(archive, project):
+    prefix = "wiserec_cli/opencode_resources/"
+    manifest = json.loads(archive.read(prefix + "manifest.json"))
+    sources = {"commands/ml.md": project / "skill/commands/ml.md"}
+    directory = project / "skill/wiserec-platform"
+    for path in [directory / "SKILL.md", *sorted((directory / "references").rglob("*.md"))]:
+        sources["skills/wiserec-platform/" + path.relative_to(directory).as_posix()] = path
+    assert manifest.keys() == sources.keys()
+    source_hashes = {name: hashlib.sha256(path.read_bytes()).hexdigest()
+                     for name, path in sources.items()}
+    digest = hashlib.sha256(json.dumps(
+        source_hashes, sort_keys=True, separators=(",", ":"),
+    ).encode("utf-8")).hexdigest()
+    version = runpy.run_path(str(project / "scripts/sync_versions.py"))["read_versions"](project)[0]["cli"]
+    source_skill = (directory / "SKILL.md").read_text(encoding="utf-8")
+    assert "source_cli_version:" not in source_skill
+    for name, path in sources.items():
+        data = archive.read(prefix + name)
+        assert hashlib.sha256(data).hexdigest() == manifest[name]
+        if path.name == "SKILL.md":
+            stamped = data.decode("utf-8")
+            assert f'  source_cli_version: "{version}"\n' in stamped
+            assert f'  source_sha256: "{digest}"\n' in stamped
+            assert stamped.replace(f'  source_cli_version: "{version}"\n', "").replace(
+                f'  source_sha256: "{digest}"\n', "") == source_skill
+        else:
+            assert data == path.read_bytes()
+    metadata, = [name for name in archive.namelist() if name.endswith(".dist-info/METADATA")]
+    assert f"Version: {version}\n" in archive.read(metadata).decode()
+    assert f'__version__ = "{version}"' in archive.read("wiserec_cli/__init__.py").decode()
+    return version
 
 
 def test_wheel_excludes_stale_build_modules(tmp_path):
@@ -19,7 +54,7 @@ def test_wheel_excludes_stale_build_modules(tmp_path):
     (project / 'config.json').write_text(json.dumps(custom))
     (project / 'scripts').mkdir()
     shutil.copy2(root / 'scripts/sync_versions.py', project / 'scripts/sync_versions.py')
-    for name in ("src", "skill", "skill-lab"):
+    for name in ("src", "skill"):
         shutil.copytree(root / name, project / name,
                         ignore=shutil.ignore_patterns("*.egg-info", "__pycache__"))
 
@@ -46,6 +81,7 @@ def test_wheel_excludes_stale_build_modules(tmp_path):
             assert "wiserec_cli/cli.py" in names
             assert archive.read("wiserec_cli/config.json") == (project / "config.json").read_bytes()
             assert "wiserec_cli/opencode_resources/manifest.json" in names
+            check_skill_provenance(archive, project)
     (project / 'config.json').unlink()
     result = subprocess.run([sys.executable, 'setup.py', 'bdist_wheel'], cwd=project,
                             capture_output=True, text=True)
@@ -69,6 +105,10 @@ def test_sdist_excludes_lab_and_builds_formal_skill(tmp_path):
     shutil.copy2(root / "scripts/sync_versions.py", project / "scripts/sync_versions.py")
     for name in ("src", "skill"):
         shutil.copytree(root / name, project / name, ignore=shutil.ignore_patterns("*.egg-info", "__pycache__"))
+    # Exclusion must hold even if an archive or old entry is present in a checkout.
+    (project / "skill-lab/commands").mkdir(parents=True)
+    (project / "skill-lab/commands/ml-lab.md").write_text("archived")
+    (project / "skill/commands/ml-lab.md").write_text("obsolete")
     result = subprocess.run([sys.executable, "setup.py", "sdist"], cwd=project, capture_output=True, text=True)
     assert result.returncode == 0, result.stdout + result.stderr
     archive, = (project / "dist").glob("*.tar.gz")
@@ -87,3 +127,21 @@ def test_sdist_excludes_lab_and_builds_formal_skill(tmp_path):
         assert source.read("wiserec_cli/config.json") == packaged_config
         assert "wiserec_cli/opencode_resources/skills/wiserec-platform/SKILL.md" in names
         assert not any("wiserec-platform-detailed" in name or "ml-lab.md" in name for name in names)
+        version = check_skill_provenance(source, restored)
+        installed = tmp_path / "installed"
+        source.extractall(installed)
+    # Check the exact built resources through the real installer in isolated paths.
+    from wiserec_cli.opencode_install import install_resources
+    resources = installed / "wiserec_cli/opencode_resources"
+    for name in ("opencode", "cac"):
+        destination = tmp_path / name
+        install_resources(destination, resources)
+        skill = "skills/wiserec-platform/SKILL.md"
+        assert (destination / skill).read_bytes() == (resources / skill).read_bytes()
+    result = subprocess.run(
+        [sys.executable, "-c", "from wiserec_cli.cli import run; run()", "--version"],
+        cwd=tmp_path, env=dict(os.environ, PYTHONPATH=str(installed)),
+        capture_output=True, text=True,
+    )
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.strip() == f"ml {version}"

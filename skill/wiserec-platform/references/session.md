@@ -9,8 +9,8 @@ ml context --json
 ml auth status
 ```
 
-- `context` 无需登录、不访问网络，包含运行模式、CLI 版本和路径、当前环境、实际配置路径。使用 `--json`，不加 `-o json`；只查看报告的路径，不读取配置、凭据或业务文件。它已经提供版本和环境，无需另外运行 `ml --version`、`ml env show`。
-- `auth status` 不续期，显示 `profile`、`username`、`status`、`remaining_minutes`、`expires_at` 和 `businessId`。必须检查 `status=valid`，不能只看退出码；`profile` 应与 `context` 的环境一致。`businessId` 读取当前环境的 `selected.businessId`，可用于确认业务 ID；不使用其他来源或旧字段代替。
+- `context` 无需登录、不访问网络，包含运行模式、CLI 版本和路径、当前环境、实际配置路径。使用 `--json`，不加 `-o json`；只查看报告的路径，不读取配置、凭据或业务文件。JSON 键为“运行模式”“CLI 版本”“CLI 路径”“当前环境”“配置路径”等；将“当前环境”与 `auth status` 的 `profile` 对照，无需另外运行 `ml --version`、`ml env show`。
+- `auth status` 当前仅输出表格，没有 `-o json` 选项；不续期，显示 `profile`、`username`、`status`、`remaining_minutes`、`expires_at` 和 `businessId`。必须检查 `status=valid`，不能只看退出码；`profile` 应与 `context` 的环境一致。`businessId` 读取当前环境的 `selected.businessId`，可用于确认业务 ID；不使用其他来源或旧字段代替。
 - `businessId` 缺失、为空或为 `-` 时，用 `ml business show` 核对；需要租户/团队名称时也可查询。未选业务再进入选择流程，不在每次查询前列出全部业务。
 - 在当前聊天内复用已确认的 CLI 路径、配置来源、环境、账号、业务 ID 和按需取得的名称。用户发来下一条意图、重新调用 `/ml` 或再次加载 skill，都不自动使上下文失效。普通查询直接执行，已确认的命令语法也直接复用。
 - 用户要求切换到另一环境时，运行对应的 `ml env use NAME`，再用上述两条命令更新上下文。与已确认环境相同时不重复切换；未指定环境时沿用已确认的当前环境，不擅自切换。切换用环境标识，显示名称可通过 `ml env list` 核对。开启自动保活时，目标环境未登录或登录过期会提示运行 `ml login`。
@@ -33,11 +33,11 @@ ml auth status
 
 ## Windows shell
 
-实际使用的 shell 以 shell 工具说明为准。OpenCode 在 Windows 上通常优先选用 PowerShell（`pwsh` 或 Windows PowerShell），其次是 Git Bash 和 cmd；从 Git Bash 启动 OpenCode 或在配置中指定了 shell 时，可能使用该 shell。具体选择规则可能随 OpenCode 版本变化。
+实际使用的 shell 以工具说明为准，不根据 Agent 名称或版本推断。以下仅提供现有 Windows 安装的调用示例，不改变工具权限或加载配置。
 
 - **找不到 `ml`**：官方 Windows 安装器的默认根目录为 `%LOCALAPPDATA%\Programs\WiseRecCLI`。PATH 注册的是根目录下的 `bin`，启动器是 `bin\ml.cmd`，实际程序是 `venv\Scripts\ml.exe`。当前 shell 找不到 `ml` 时，按下面的示例直接调用实际程序。刚安装后也可以完全退出并重新打开 Agent，让它继承更新后的 PATH。
 - **引号**：PowerShell 中含空格或反斜杠的路径用单引号包住。Windows PowerShell 5.1 和 PowerShell 7.3 之前的版本会去掉参数里嵌入的双引号；有文件参数时（如 `--from-file`、`--request-file`、`--request-sample-file`）先把文本写入本地文件再传入，必须直接传含双引号的值（如 JSON 形式的 `--customize-config`）时，在这些版本中把每个 `"` 写成 `\"`，执行后核对平台上的实际值。
-- **中文乱码**：在同一条命令前加 `[Console]::OutputEncoding = [System.Text.Encoding]::UTF8;` 再运行 `ml`。
+- **中文乱码**：CLI 对 Windows 重定向输出使用 UTF-8；接收端仍需使用一致的解码方式。仅在发生乱码时核对实际 shell 和输出接收方式。在 PowerShell 中可按需要设置 `[Console]::OutputEncoding = [System.Text.Encoding]::UTF8;` 并验证结果，不为每条命令固定添加前缀，不修改 CLI 代码解决编码问题。
 
 Windows Git Bash 使用 `cygpath` 转换当前账号的安装路径：
 
@@ -56,9 +56,9 @@ PowerShell 可直接运行：
 
 ## 登录与业务选择
 
-- **无缓存或已过期**：运行 `ml login`，shell 工具 `timeout` 至少设为 10 分钟。命令会打开 Edge，由用户完成 SSO 或验证码，之后复查 `ml auth status`。不能代替用户输入凭据，也不要靠运行业务命令来触发登录。
-- **未选业务**：用 `ml business list` 取得当前环境的候选，按用户明确的选择运行 `ml business use --tenant TENANT_ID [--team TEAM_ID] [--department DEPARTMENT_ID]`，按命令结果更新当前业务；输出不足以确认时，再用 `ml business show` 核对一次。必须传 `--tenant`；不传 ID 会进入交互选择，在 shell 工具中无法完成。业务 ID 不从其他环境复制。
-- **业务目录缺失或失效**：`ml business refresh` 会打开 Edge 刷新目录，`timeout` 同样至少 10 分钟，刷新后重新核对选择。
+- **无缓存或已过期**：运行 `ml login`，为执行工具至少预留 10 分钟，工具参数名和单位以其说明为准。命令会打开 Edge，由用户完成 SSO 或验证码，之后复查 `ml auth status`。不能代替用户输入凭据，也不要靠运行业务命令来触发登录。
+- **未选业务**：用 `ml business list` 取得当前环境的候选，按用户明确的选择运行 `ml business use --tenant TENANT_ID [--team TEAM_ID] [--department DEPARTMENT_ID]`，按命令结果更新当前业务；输出不足以确认时，再用 `ml business show` 核对一次。必须传 `--tenant`；不传 ID 会进入交互选择，不符合本 skill 的非交互执行要求。业务 ID 不从其他环境复制。
+- **业务目录缺失或失效**：`ml business refresh` 会打开 Edge 刷新目录，同样预留至少 10 分钟，刷新后重新核对选择。
 - **权限拒绝**：停止该业务操作并报告原因，可用 `ml access status` 检查。环境策略可禁用单个命令或整个命令分组，禁用分组会覆盖其子命令。`ml tree --all` 显示已知的 `[当前环境禁用]` 和平台的 `[不支持]` 标记。树使用已同步的服务端策略，实际执行以实时鉴权为准。
 - **退出登录**：`ml logout` 仅在用户要求或排障需要时运行。
 
@@ -75,8 +75,8 @@ PowerShell 可直接运行：
 | 权限拒绝 | 停止并告知用户或管理员，不绕过检查 |
 | 权限服务证书校验失败 | 使用 `ml access status --diagnose` 核对 CA 来源；公共证书请用户或管理员在实际配置的 `access_control` 中选择 `ca_source: certifi`；私有 CA 使用 `env` 或 `custom`，不反复重试或关闭校验 |
 | 输出 `Aborted!` | 先确认中止原因：输出中 `Aborted!` 前紧跟确认提示（如 `确认克隆？ [y/N]:`）时，说明请求尚未提交，用户仍要求执行才补充 `--yes`；没有确认提示或无法确定时（如用户中断），按结果未知处理，先查远端状态 |
-| 用法错误（退出码 2） | 查 `ml <子命令> --help` 修正参数，不按网络问题重试 |
-| 工具超时 | 只读查询加大 `timeout` 重试；写操作先查远端是否已生效 |
+| 用法错误（退出码 2） | 查 `ml <子命令> --help` 修正调用参数，不按网络问题重试；缺失能力或程序缺陷交维护人员处理，不改码 |
+| 工具超时 | 只读查询延长执行等待时间后有限重试；写操作先查远端是否已生效 |
 | 网络超时 | 只读查询可有限重试；写操作先查远端状态 |
 | 结果为空 | 核对环境、业务、筛选条件和分页，如实报告 |
 
