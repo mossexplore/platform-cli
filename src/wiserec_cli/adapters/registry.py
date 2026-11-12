@@ -13,7 +13,7 @@ SHARED_COMMANDS = frozenset({
     "deployment template list", "deployment template detail",
     "dataset list", "dataset detail", "dataset files list", "dataset files upload",
     "feature-task detail",
-    "train history list", "train history logs download", "train instance list", "train instance logs download",
+    "train history list", "train history detail", "train history logs download", "train instance list", "train instance logs download",
     "webstudio list", "webstudio login", "webstudio start", "webstudio stop", "webstudio show",
     "jupyter exec", "jupyter doctor",
     "jupyter files list", "jupyter files stat", "jupyter files read", "jupyter files write",

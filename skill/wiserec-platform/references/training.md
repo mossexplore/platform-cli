@@ -35,15 +35,20 @@ ml train list --name NAME -o json
 ml train detail TASK_ID -o json
 ml train instance list TASK_ID --page 2 --page-size 20 -o json
 ml train history list TASK_ID --page 2 --page-size 20 -o json
+ml train history detail TASK_ID JOB_ID -o json
 ml train history logs download TASK_ID JOB_ID --directory 'D:\logs' -o json
+ml train history logs download TASK_ID JOB_ID --role-job-id ROLE_JOB_ID --directory 'D:\logs' -o json
+ml train history logs download TASK_ID JOB_ID --select all --wait-timeout 300 --directory 'D:\logs' -o json
 ml train instance logs download TASK_ID JOB_ID --select 2 --directory 'D:\logs' -o json
 ml train instance logs download TASK_ID JOB_ID --select '1,3' --directory 'D:\logs' -o json
 ml train instance logs download TASK_ID JOB_ID --select all --directory 'D:\logs' -o json
 ```
 
-- WiseRec 和 MLOps 均支持训练任务列表、执行实例列表、执行记录列表及两种日志下载。先用 `ml tree` 查看当前环境支持的其他训练命令。
+- WiseRec 和 MLOps 均支持训练任务列表、执行实例列表、执行记录列表与详情及两种日志下载。先用 `ml tree` 查看当前环境支持的其他训练命令。
 - `detail` 仅适用于 WiseRec。使用 `train list` 中的任务 ID，结果含基本信息、首个样本的数据集、输出引用及首个样本的配置引用、算法参数及自定义参数。
 - `instance list` 和 `history list` 默认返回第一页 10 条，支持 `--page` 和 `--page-size`（每页 1 至 200 条），按接口返回顺序展示。按日志来源从对应列表取得 `jobId`。执行记录默认下载普通日志，加 `--type plog` 下载 plog。
+- `history detail` 自动翻页查找记录。`jobType=dps-train` 时展示角色列表，首列为完整角色作业 ID；JSON 保留角色及额外字段。下载分布式普通日志须明确使用 `--role-job-id` 或 `--select`，二者互斥；编号以本次查询为准，精确选择优先使用角色 ID。普通训练不接受角色选择参数。
+- `history logs download` 下载普通日志前先查询是否存在，不存在则按作业归档并等待，每次获取下载链接前重新检查。同次命令内同一作业最多归档一次。`--wait-timeout` 默认每条日志 120 秒，0 表示提交必要归档后不等待。超时返回 `not_ready` 和非零退出码，稍后重试；批量下载须核对每个角色结果。plog 不使用该归档流程，也不支持角色选择或自定义等待时间。
 - `history list -o table` 的最后三列依次是“执行时长”“排队时长”和“配额等待时间”。`runningTime` 和 `queueTime` 原值为分钟，例如 `157` 显示为 `2h37min`。`waitTime` 原值为秒，例如 `3631` 显示为 `1h0min31s`。满 24 小时使用 `day`，例如 `1day8h22min` 或 `1day8h22min31s`。前两列的零值显示为 `0min`，配额等待时间的零值显示为 `0s`，缺失值显示 `-`。`-o json` 保留原始字段和值。
 - `instance list -o table` 的最后三列顺序相同。执行时长按开始时间到查询时刻的整分钟数计算，使用与 `queueTime` 相同的显示格式。
 - `ml train start TASK_ID` 返回 `jobId` 只表示请求已被接受，之后用 `history list` 确认状态。

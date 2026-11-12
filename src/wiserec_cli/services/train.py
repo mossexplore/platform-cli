@@ -299,25 +299,10 @@ class TrainService:
         return result
 
     def get_log_url(self, task_id: str, job_id: str) -> str:
-        """直接提交用户 ID，由下载地址接口验证其有效性。"""
-        payload = self.client.request(
-            "GET", "/ai/backend/mtp/traintask/downloadLogUrl",
-            params={"jobId": job_id, "taskId": task_id,
-                    "businessId": self.client.business_id,
-                    "isApplicantPromise": "true"},
-            headers={"businessid": self.client.business_id},
-        )
-        result = payload.get("result") if isinstance(payload, dict) else None
-        if not isinstance(result, dict):
-            raise ApiError("无法获取下载日志地址：响应缺少 result")
-        summary = f"code={result.get('code')}，des={result.get('des')}"
-        if type(result.get("code")) is not int or result["code"] != 0 or result.get("des") != "success":
-            raise ApiError(f"无法获取下载日志地址：{summary}")
-        try:
-            https_url(result.get("url"))
-        except ApiError as exc:
-            raise ApiError(f"无法获取下载日志地址：{summary}；{exc}") from None
-        return result["url"]
+        """确认普通日志已存在后获取下载地址。"""
+        from .train_history_logs import HistoryLogService
+
+        return HistoryLogService(self.client).download_url(task_id, job_id)
 
     def get_plog_url(self, task_id: str, job_id: str) -> str:
         """获取 plog 地址，以业务成功码为准，不限定描述文案。"""

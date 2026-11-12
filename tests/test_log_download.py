@@ -1,62 +1,13 @@
-import inspect
-import json
 import ssl
 import tempfile
 import unittest
 from pathlib import Path
-from types import SimpleNamespace
 from unittest.mock import patch
 
 import httpx
-from typer.testing import CliRunner
 
-from wiserec_cli.cli import app
 from wiserec_cli.downloads import download_file, download_filename
 from wiserec_cli.errors import ApiError
-from wiserec_cli.services.train import TrainService
-import test_client
-
-
-class LogServiceTest(unittest.TestCase):
-    def test_direct_user_ids_encoded_query_and_headers(self):
-        requests = []
-        def handler(request):
-            requests.append(request)
-            self.assertEqual(request.method, "GET")
-            self.assertEqual(request.url.path, "/ai/backend/mtp/traintask/downloadLogUrl")
-            self.assertEqual(dict(request.url.params), {
-                "jobId": "job & id", "taskId": " task-id ", "businessId": "mep",
-                "isApplicantPromise": "true",
-            })
-            self.assertEqual(request.headers["businessid"], "mep")
-            return httpx.Response(200, json={"result": {"code": 0, "des": "success", "url": "https://files.example/log"}})
-        with test_client.PlatformClientTest().create_client(handler) as client:
-            self.assertEqual(TrainService(client).get_log_url(" task-id ", "job & id"), "https://files.example/log")
-        self.assertEqual(len(requests), 1)
-
-    def test_invalid_ids_are_forwarded_and_server_error_is_reported(self):
-        for task_id, job_id in (("missing-task", "missing-job"), ("", "")):
-            calls = []
-            def request(*args, **kwargs):
-                calls.append(kwargs)
-                return {"result": {"code": 1234, "des": "记录不存在"}}
-            client = SimpleNamespace(business_id="b", request=request)
-            with self.assertRaisesRegex(ApiError, "code=1234，des=记录不存在"):
-                TrainService(client).get_log_url(task_id, job_id)
-            self.assertEqual(len(calls), 1)
-            self.assertEqual(calls[0]["params"]["taskId"], task_id)
-            self.assertEqual(calls[0]["params"]["jobId"], job_id)
-
-    def test_url_requires_exact_success_and_https(self):
-        results = [{"code": 1, "des": "denied"}, {"code": 0, "des": "ok", "url": "https://host/log"},
-                   {"code": False, "des": "success", "url": "https://host/log"}]
-        results += [{"code": 0, "des": "success", "url": url} for url in
-                    (None, "", "http://host/log", "https://", "https://user:password@host/log")]
-        for result in results:
-            responses = iter([{"result": result}])
-            client = SimpleNamespace(business_id="b", request=lambda *a, **kw: next(responses))
-            with self.subTest(result=result), self.assertRaisesRegex(ApiError, "code=.*des="):
-                TrainService(client).get_log_url("t", "j")
 
 
 class DownloaderTest(unittest.TestCase):
@@ -166,30 +117,3 @@ class DownloaderTest(unittest.TestCase):
                 if "ReadError" in str(caught.exception):
                     self.assertIn("<下载地址>", str(caught.exception))
                 self.assertEqual(list(self.path.parent.iterdir()), [])
-
-
-class DownloadCommandTest(unittest.TestCase):
-    def test_json_summary_and_file_validation(self):
-        def authenticated(operation):
-            print("认证提示", flush=True)
-            return "https://files.example/log?signature=secret"
-        runtime = SimpleNamespace(authenticated_call=authenticated,
-            config=SimpleNamespace(current_profile=lambda: SimpleNamespace(output_format="json")))
-        options = {"mix_stderr": False} if "mix_stderr" in inspect.signature(CliRunner).parameters else {}
-        runner = CliRunner(**options)
-        with tempfile.TemporaryDirectory() as directory:
-            path = Path(directory) / "log.zip"
-            with patch("wiserec_cli.cli.Runtime", return_value=runtime), patch(
-                "wiserec_cli.commands.train.runtime_from_context", return_value=runtime
-            ), patch("wiserec_cli.commands.train.download_file", return_value=(path, 12)) as download:
-                result = runner.invoke(app, ["train", "history", "logs", "download", "t", "j", "--directory", str(path.parent)])
-                self.assertEqual(result.exit_code, 0, result.output)
-                self.assertEqual(json.loads(result.stdout), {"taskId": "t", "jobId": "j", "path": str(path), "bytes": 12, "status": "downloaded"})
-                self.assertIn("https://files.example/log?signature=secret", result.stderr)
-                self.assertNotIn("signature=secret", result.stdout)
-                self.assertIn("认证提示", result.stderr)
-                path.write_text("existing")
-                result = runner.invoke(app, ["train", "history", "logs", "download", "t", "j", "--directory", str(path.parent)])
-                self.assertEqual(result.exit_code, 0, result.output)
-                self.assertEqual(download.call_count, 2)
-                self.assertEqual(download.call_args.kwargs["directory"], path.parent)

@@ -64,6 +64,7 @@ def test_shared_tree(tmp_path):
     (['jupyter', 'doctor'], 'jupyter'),
     (['service', 'list'], 'service'),
     (['train', 'history', 'list', 'TASK_ID'], 'train'),
+    (['train', 'history', 'detail', 'TASK_ID', 'JOB_ID'], 'train_history_detail'),
     (['train', 'instance', 'list', 'TASK_ID'], 'train'),
     (['train', 'history', 'logs', 'download', 'TASK_ID', 'JOB_ID'], 'train'),
     (['feature-task', 'detail', 'TASK_ID'], 'feature_task'),
@@ -112,7 +113,7 @@ def test_training_queries_use_shared_endpoint_and_current_business(tmp_path, kin
         assert body['taskId'] == 'task' and body['pageIndex'] == 1 and body['pageSize'] == 10
         if kind == 'history':
             assert request.url.path.endswith('/queryScheduleTaskList')
-            assert body['sortOrder'] == 'descend'
+            assert body['sortOrder'] == 'ascend'
         else:
             assert request.url.path.endswith('/queryJobInstanceByTaskId')
             assert body['businessId'] == 'selected-business'

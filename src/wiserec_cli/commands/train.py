@@ -22,6 +22,8 @@ from ..services.train_export import export_config
 from .common import fail, runtime_from_context
 from .train_logs import instance_logs_app
 from .train_detail import render_detail
+from .train_history_detail import history_detail
+from .train_history_logs import download_history_logs
 
 
 train_app = typer.Typer(no_args_is_help=True, help="训练任务查询与执行管理")
@@ -349,31 +351,47 @@ def download_logs(
     log_type: str = typer.Option("log", "--type", help="日志类型: log 或 plog，默认 log"),
     directory: Optional[Path] = typer.Option(None, "--directory", help="已存在的保存目录，默认当前目录"),
     output: Optional[str] = typer.Option(None, "--output", "-o", help="结果摘要格式: table 或 json"),
+    role_job_id: Optional[str] = typer.Option(None, "--role-job-id", help="分布式角色作业 ID，与 --select 互斥"),
+    selection: Optional[str] = typer.Option(None, "--select", help="分布式角色编号，多个用英文逗号分隔，或 all"),
+    wait_timeout: int = typer.Option(120, "--wait-timeout", min=0, help="每条日志等待就绪的秒数，0 表示不等待"),
 ) -> None:
-    """获取日志地址并下载；发送 isApplicantPromise=true，不覆盖已有文件。"""
+    """检查归档并下载执行记录日志"""
     try:
         if log_type not in {"log", "plog"}:
             raise ValueError("--type 仅支持 log 或 plog")
+        task_id, job_id = task_id.strip(), job_id.strip()
+        if not task_id or not job_id:
+            raise ValueError("taskId 和 jobId 不能为空")
+        if role_job_id is not None and not role_job_id.strip():
+            raise ValueError("roleJobId 不能为空")
+        if role_job_id is not None and selection is not None:
+            raise ValueError("--role-job-id 与 --select 互斥")
+        if log_type == "plog" and (role_job_id is not None or selection is not None or wait_timeout != 120):
+            raise ValueError("plog 不支持角色选择或归档等待选项")
         directory = download_directory(directory)
         runtime = runtime_from_context(context)
         selected = selected_output(runtime, output)
+        if log_type == "log":
+            download_history_logs(runtime, task_id, job_id, directory, selected,
+                                  role_job_id.strip() if role_job_id else None, selection, wait_timeout)
+            return
         with redirect_stdout(sys.stderr):
             url = runtime.authenticated_call(
-                lambda client: (TrainService(client).get_plog_url(task_id, job_id)
-                                if log_type == "plog" else
-                                TrainService(client).get_log_url(task_id, job_id))
+                lambda client: TrainService(client).get_plog_url(task_id, job_id)
             )
         msg.detail(f"下载地址：{url}")
         with Progress(msg.MessageColumn(), BarColumn(), DownloadColumn(),
                       console=error_console) as progress:
-            progress_id = progress.add_task("下载 plog 日志" if log_type == "plog" else "下载日志", total=None)
+            progress_id = progress.add_task("下载 plog 日志", total=None)
             path, size = download_file(
-                url, f"{job_id}-plog" if log_type == "plog" else job_id,
+                url, f"{job_id}-plog",
                 directory=directory,
                 progress=lambda done, total: progress.update(progress_id, completed=done, total=total),
             )
         print_result({"taskId": task_id, "jobId": job_id, "path": str(path),
                       "bytes": size, "status": "downloaded"}, selected)
+    except typer.Exit:
+        raise
     except Exception as exc:
         fail(exc)
 
@@ -400,6 +418,9 @@ def list_history(
         render_page(result, selected, history_task_id=task_id)
     except Exception as exc:
         fail(exc)
+
+
+history_app.command("detail")(history_detail)
 
 
 @train_app.command("detail")

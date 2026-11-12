@@ -69,8 +69,9 @@ ml                                              WiseRec 命令行工具
 │   │       └── download                        归档并下载执行实例日志
 │   ├── history                                 执行记录
 │   │   ├── list                                分页查看执行记录及排队和配额等待时长
+│   │   ├── detail                              查询执行记录详情及分布式角色列表
 │   │   └── logs                                执行日志
-│   │       └── download                        下载日志
+│   │       └── download                        检查归档并下载执行记录日志
 │   ├── start                                   执行任务
 │   ├── config                                  任务配置
 │   │   ├── export                              导出配置
@@ -593,9 +594,10 @@ ml train list [OPTIONS]
 ml train detail TASK_ID [--output table|json]
 ml train instance list TASK_ID [--page PAGE] [--page-size PAGE_SIZE] [-o table|json]
 ml train history list TASK_ID [--page PAGE] [--page-size PAGE_SIZE] [-o table|json]
+ml train history detail TASK_ID JOB_ID [-o table|json]
 ml train start TASK_ID
 ml train config export TASK_ID [--file PATH]
-ml train history logs download TASK_ID JOB_ID [--type log|plog] [--directory DIR]
+ml train history logs download TASK_ID JOB_ID [--type log|plog] [--role-job-id ROLE_JOB_ID | --select SELECTION] [--wait-timeout SECONDS] [--directory DIR] [-o table|json]
 ml train instance logs download TASK_ID JOB_ID [--select SELECTION] [--directory DIR]
 ml train cancel TASK_ID [--yes]
 ml train delete TASK_ID [--yes]
@@ -610,9 +612,10 @@ ml train config update TASK_ID --customize-config VALUE
 | `list` | `--name`、`--page`、`--page-size`、`--output` / `-o` |
 | `detail` | 必填 `TASK_ID`；可选 `--output` / `-o` |
 | `instance list`、`history list` | 必填 `TASK_ID`；`--page` 默认 1，`--page-size` 默认 10，可设为 1 至 200；可选 `--output` / `-o` |
+| `history detail` | 必填 `TASK_ID`、`JOB_ID`；可选 `--output` / `-o` |
 | `start` | 必填 `TASK_ID`；执行后显示作业 ID |
 | `config export` | 必填 `TASK_ID`；可选 `--file PATH` 指定保存位置 |
-| `history logs download` | 必填 `TASK_ID`、`JOB_ID`；`--type` 默认 `log`，也可选 `plog`；可选 `--directory DIR`、`--output` / `-o` |
+| `history logs download` | 必填 `TASK_ID`、`JOB_ID`；`--type` 默认 `log`，也可选 `plog`；`--role-job-id ROLE_JOB_ID` 与 `--select SELECTION` 互斥，仅用于分布式普通日志；`--wait-timeout SECONDS` 默认 120，每条日志的等待上限，0 表示不等待；可选 `--directory DIR`、`--output` / `-o` |
 | `instance logs download` | 必填 `TASK_ID`、`JOB_ID`；可选 `--select SELECTION`、`--directory DIR`、`--output` / `-o` |
 | `cancel`、`delete` | 必填 `TASK_ID`；可选 `--yes` / `-y` 跳过确认 |
 | `clone` | 必填 `TASK_ID`、`--name NAME`；可选 `--customize-config VALUE`、`--yes` / `-y` |
@@ -620,7 +623,7 @@ ml train config update TASK_ID --customize-config VALUE
 
 ### 12.3 说明
 
-环境的 `platform_type` 支持 `wiserec` 和 `mlops`，未配置时默认 `wiserec`。MLOps 支持 `ml train list`、`ml train history list`、`ml train history logs download`、`ml train instance list`、`ml train instance logs download`，以及 `ml auth ping`、`ml user`、`ml mep`、`ml model`、`ml resource`、`ml deployment`、`ml dataset`、`ml webstudio`、`ml jupyter`、`ml service` 下的全部现有公开命令；其他未适配的业务命令会提示不支持。登录、业务选择和权限检查仍需完成，MLOps 与 WiseRec 使用相同保活方式，按 `auth.auto_ping` 配置自动启动，也可用 `ml auth ping` 管理。
+环境的 `platform_type` 支持 `wiserec` 和 `mlops`，未配置时默认 `wiserec`。MLOps 支持 `ml train list`、`ml train history list`、`ml train history detail`、`ml train history logs download`、`ml train instance list`、`ml train instance logs download`，以及 `ml auth ping`、`ml user`、`ml mep`、`ml model`、`ml resource`、`ml deployment`、`ml dataset`、`ml webstudio`、`ml jupyter`、`ml service` 下的全部现有公开命令；其他未适配的业务命令会提示不支持。登录、业务选择和权限检查仍需完成，MLOps 与 WiseRec 使用相同保活方式，按 `auth.auto_ping` 配置自动启动，也可用 `ml auth ping` 管理。
 
 `list` 的 `--name` 按名称模糊查询，`--page` 默认 1，`--page-size` 默认 10，MLOps 每页最多 200 条。查询成功且总数为 0 时，表格提示“暂无训练任务”，JSON 返回 `count: 0` 和 `items: []`。列表时间按北京时间展示，大小从字节转换为 B、K、M、G，JSON 保留原始数值和额外字段。
 
@@ -634,7 +637,15 @@ WiseRec 和 MLOps 的 `history list` 表格的最后三列依次是“执行时�
 
 `cancel` 取消查询到的执行实例；`delete` 软删除任务；`clone` 创建副本；`config update` 更新自定义参数。操作结果不明时先查询状态。
 
-`history logs download` 默认下载普通日志；使用 `--type plog` 下载 plog。无需提供 `target`，请求仅使用当前业务 ID、任务 ID 和作业 ID。两种下载均适用于 WiseRec 和 MLOps，JSON 返回本地文件路径、字节数及下载状态。
+`history detail` 查询指定执行记录，自动翻页查找作业。普通训练展示该记录；分布式训练（`jobType=dps-train`）展示角色列表，依次为角色作业 ID、名称、算法名称、状态、节点数、CPU、GPU、内存、执行节点和开始时间。首列角色作业 ID 完整显示，时间按北京时间展示，空值显示 `-`，零值保留。JSON 保留该执行记录及角色的完整原始字段。
+
+`history logs download` 需先登录并选择业务。WiseRec 和 MLOps 的普通训练、分布式训练下载普通日志前，均先检查日志是否存在；日志不存在时按作业提交手动归档，再每 5 秒检查一次。只有确认日志存在才获取下载链接。归档请求成功不代表日志已经就绪；超时提示稍后重新执行命令，不会重复提交本次已请求的同一作业归档。`--wait-timeout 0` 在日志不存在时提交必要的归档请求后立即返回未就绪状态。
+
+分布式训练可从 `history detail` 复制角色作业 ID，使用 `--role-job-id` 精确下载；也可用 `--select 1,2` 或 `--select all` 选择本次查询列表中的角色。未指定选择参数时，交互终端显示角色作业 ID 在首列、编号在第二列的列表，输入编号、`all` 或 `q` 取消。脚本和 JSON 模式必须明确指定角色选择参数。普通训练不接受角色选择参数。角色标识缺失或不属于当前记录时不能下载。
+
+普通训练的 JSON 下载摘要包含本地路径、字节数及状态；分布式训练返回逐角色结果和成功、失败数量。批量下载中单个角色失败会继续处理其余角色。状态 `downloaded` 表示成功，`not_ready` 表示等待超时或不等待时日志尚未就绪，`failed` 表示失败；全部成功返回退出码 0，否则返回非零。表格、选择提示和进度写入标准错误。
+
+使用 `--type plog` 下载 plog，沿用直接获取 plog 地址的流程，不支持角色选择或自定义归档等待时间。两种日志类型均无需提供 `target`。
 
 `instance logs download` 需先登录并选择业务，通过 `instance list` 获取作业 ID。命令先请求归档；未完成时提示“日志归档中，请稍后执行下载命令！”，稍后重新运行同一命令。已有记录时，以表格展示编号、任务名称、jobId、roleJobId、节点名称、归档状态及北京时间的开始和结束时间，每条记录占一行。只有归档成功的记录可下载，输入编号选择，多份使用英文逗号分隔，例如 `1,2,3`；中文逗号会提示重新输入。输入 `all` 下载所有归档成功的记录，输入 `q` 取消。同名任务的不同归档分别编号。传 `--select` 可跳过编号提示，值为本次表格中的编号、英文逗号分隔的多个编号或 `all`。不可下载或无效的编号会报错。选中后展示 OBS 下载链接并保存 ZIP；部分失败会继续其余下载，最终汇总结果并返回失败状态。JSON 输出结果摘要，表格、选择提示和进度写入标准错误。归档文件不保证包含归档时间之后新增的日志。
 
@@ -648,9 +659,16 @@ ml train detail TASK_ID
 ml train detail TASK_ID -o json
 ml train instance list TASK_ID --page 2 --page-size 20
 ml train history list TASK_ID --page 2 --page-size 20
+ml train history detail TASK_ID JOB_ID
+ml train history detail TASK_ID JOB_ID -o json
 ml train start TASK_ID
 ml train config export TASK_ID --file ./task.yaml
 ml train history logs download TASK_ID JOB_ID --directory ./logs
+ml train history logs download TASK_ID JOB_ID --role-job-id ROLE_JOB_ID --directory ./logs
+ml train history logs download TASK_ID JOB_ID --select 1,2 --directory ./logs
+ml train history logs download TASK_ID JOB_ID --select all --wait-timeout 300 -o json
+ml train history logs download TASK_ID JOB_ID --wait-timeout 0
+ml train history logs download TASK_ID JOB_ID --type plog --directory ./logs
 ml train instance logs download TASK_ID JOB_ID --directory ./logs
 ml train instance logs download TASK_ID JOB_ID --select 1 --directory ./logs
 ml train instance logs download TASK_ID JOB_ID --select "1,3" --directory ./logs
