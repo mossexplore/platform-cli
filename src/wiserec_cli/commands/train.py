@@ -24,7 +24,7 @@ from .train_logs import instance_logs_app
 from .train_detail import render_detail
 from .train_history_detail import history_detail
 from .train_history_logs import download_history_logs
-from .train_instance_display import running_status, show_running_instances
+from .train_instance_display import ANIMATED_STATUSES, instance_status_spinner, show_animated_instances
 
 
 train_app = typer.Typer(no_args_is_help=True, help="训练任务查询与执行管理")
@@ -131,7 +131,7 @@ def render_page(
         else:
             table.add_column(title, overflow="fold", min_width=1)
     now_ms = int(time.time() * 1000)
-    has_running = False
+    has_animation = False
     for item in result["items"]:
         cells = []
         for _, field in columns:
@@ -141,9 +141,9 @@ def render_page(
                 rendered = display_value(field, minutes)
             else:
                 rendered = display_value(field, item.get(field))
-            if is_instance and field == "status" and rendered == "RUNNING":
-                cells.append(running_status())
-                has_running = True
+            if is_instance and field == "status" and rendered in ANIMATED_STATUSES:
+                cells.append(instance_status_spinner(rendered))
+                has_animation = True
             elif translate_history_status and field == "status":
                 label, color = HISTORY_STATUS_LABELS.get(rendered, (rendered, ""))
                 cells.append(Text(label, style=color))
@@ -151,8 +151,8 @@ def render_page(
                 cells.append(Text(rendered))
         table.add_row(*cells)
     pagination = f"第 {result['pageIndex']} 页 · 每页 {result['pageSize']} 条 · 共 {result['count']} 条"
-    if has_running:
-        show_running_instances(console, table, pagination)
+    if has_animation:
+        show_animated_instances(console, table, pagination)
         return
     console.print(table)
     if not result["items"]:

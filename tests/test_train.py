@@ -376,16 +376,18 @@ class TrainOutputTest(unittest.TestCase):
         self.assertEqual(result.exit_code, 0, result.output)
         self.assertEqual(json.loads(result.stdout)["items"], [{"jobId": "j", "runningTime": 0, "status": "RUNNING"}])
 
-    def test_cli_instance_running_status_is_yellow_and_static_when_redirected(self):
+    def test_cli_instance_status_colors_and_static_output_when_redirected(self):
         task = {"taskId": "t", "businessId": "b", "taskType": "train"}
-        jobs = [{"jobId": "j", "status": "RUNNING"}, {"jobId": "k", "status": "FAILED"}]
-        client = FakeClient(tasks([task]), {"result": {"code": 0, "count": 2, "jobs": jobs}})
+        jobs = [{"jobId": "j", "status": "RUNNING"}, {"jobId": "k", "status": "FAILED"},
+                {"jobId": "q", "status": "QUEUE"}]
+        client = FakeClient(tasks([task]), {"result": {"code": 0, "count": len(jobs), "jobs": jobs}})
         stream = io.StringIO()
         terminal = Console(file=stream, width=200, force_terminal=True, color_system="standard", no_color=False)
         with patch("wiserec_cli.commands.train.console", terminal):
             result = self.invoke(client, ["train", "instance", "list", "t", "-o", "table"])
         self.assertEqual(result.exit_code, 0, result.output)
-        self.assertRegex(stream.getvalue(), r"\x1b\[33m[◴◷◶◵]\x1b\[0m \x1b\[33m执行中\x1b\[0m")
+        self.assertRegex(stream.getvalue(), r"\x1b\[33m[◐◓◑◒]\x1b\[0m \x1b\[33m执行中\x1b\[0m")
+        self.assertRegex(stream.getvalue(), r"\x1b\[34m[◐◓◑◒]\x1b\[0m \x1b\[34m排队中\x1b\[0m")
         self.assertIn("FAILED", stream.getvalue())
         self.assertNotIn("停止动画", stream.getvalue())
 
