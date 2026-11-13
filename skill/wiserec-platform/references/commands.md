@@ -53,7 +53,7 @@
 | `ml train instance list TASK_ID` | 分页查询执行实例 | | |
 | `ml train history list TASK_ID` | 分页查询执行记录 | | |
 | `ml train history detail TASK_ID JOB_ID [-o json]` | 查询执行记录及分布式角色详情 | | |
-| `ml train history logs download TASK_ID JOB_ID [--type log\|plog] [--directory DIR] [--role-job-id ROLE_JOB_ID] [--select SELECTION]` | 日志就绪时下载，未就绪则提交归档并提示稍后重试，角色选择仅用于分布式普通日志 | | 服务端日志归档及本地文件 |
+| `ml train history logs download TASK_ID JOB_ID [--type log\|plog] [--directory DIR] [--role-job-id ROLE_JOB_ID] [--select SELECTION]` | 下载执行记录日志，普通日志未就绪时提交归档，分布式训练支持按角色下载普通日志和 plog | | 服务端日志归档及本地文件 |
 | `ml train instance logs download TASK_ID JOB_ID [--select SELECTION] [--directory DIR]` | 请求归档并下载已归档日志，`--select` 传编号或 `all` | | 平台归档、本地 ZIP 文件 |
 | `ml train start TASK_ID` | 立即启动任务 | | 启动作业 |
 | `ml train cancel TASK_ID` | 逐个取消全部执行实例 | 是 | 取消作业 |

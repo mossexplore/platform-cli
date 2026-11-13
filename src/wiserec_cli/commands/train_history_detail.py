@@ -10,7 +10,7 @@ from rich.table import Table
 from rich.text import Text
 
 from ..output import console, error_console, print_result
-from ..services.train_history_logs import HistoryLogService, role_records
+from ..services.train_history_logs import HistoryLogService, has_role_plog, role_records
 from .common import fail, runtime_from_context
 
 
@@ -40,7 +40,7 @@ def role_value(field, value):
     return str(value)
 
 
-def show_roles(roles, *, selection=False):
+def show_roles(roles, *, selection=False, plog=False):
     table = Table(header_style='bold cyan')
     table.add_column('角色作业 ID', width=36, min_width=36, max_width=36,
                      no_wrap=True, overflow='ignore')
@@ -48,11 +48,15 @@ def show_roles(roles, *, selection=False):
         table.add_column('编号', justify='right')
     for title, _ in ROLE_COLUMNS:
         table.add_column(title, overflow='fold', min_width=4)
+    if plog:
+        table.add_column('plog', no_wrap=True)
     for index, role in enumerate(roles, 1):
         cells = [Text(role_value('roleJobId', role.get('roleJobId')))]
         if selection:
             cells.append(str(index))
         cells.extend(Text(role_value(field, role.get(field))) for _, field in ROLE_COLUMNS)
+        if plog:
+            cells.append('可下载' if has_role_plog(role) else '不可下载')
         table.add_row(*cells)
     target = error_console if selection else console
     Console(file=target.file, width=max(target.width, 165)).print(table)

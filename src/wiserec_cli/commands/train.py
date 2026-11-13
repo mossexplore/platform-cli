@@ -16,14 +16,14 @@ from rich.progress import Progress, BarColumn, DownloadColumn
 
 from .. import messages as msg
 from ..output import print_text, console, error_console, print_result
-from ..downloads import download_file, download_directory
+from ..downloads import download_directory
 from ..services.train import TrainService
 from ..services.train_export import export_config
 from .common import fail, runtime_from_context
 from .train_logs import instance_logs_app
 from .train_detail import render_detail
 from .train_history_detail import history_detail
-from .train_history_logs import download_history_logs, download_plog_logs
+from .train_history_logs import download_history_logs
 
 
 train_app = typer.Typer(no_args_is_help=True, help="训练任务查询与执行管理")
@@ -61,6 +61,12 @@ HISTORY_COLUMNS = (
     ("执行时长", "runningTime"), ("排队时长", "queueTime"),
     ("配额等待时间", "waitTime"),
 )
+HISTORY_STATUS_LABELS = {
+    "FAILED": ("执行失败", "red"),
+    "COMPLETED": ("执行完成", "green"),
+    "CANCELED": ("取消", "yellow"),
+    "TIMEOUT": ("超时", "yellow"),
+}
 TIME_FIELDS = {"updateTime", "latestRunTime", "checkTime", "createTime", "statusTime"}
 # 现代上海时间固定 UTC+08:00，避免 Windows 额外依赖系统 IANA 时区数据库。
 DISPLAY_TIMEZONE = timezone(timedelta(hours=8), name="Asia/Shanghai")
@@ -98,7 +104,7 @@ def display_value(field: str, value: Any) -> str:
 
 def render_page(
     result: Dict[str, Any], output: str, task: Optional[Dict[str, Any]] = None,
-    *, history_task_id: Optional[str] = None,
+    *, history_task_id: Optional[str] = None, translate_history_status: bool = False,
 ) -> None:
     if output == "json":
         print_result(result, output)
@@ -129,7 +135,11 @@ def render_page(
                 rendered = display_value(field, minutes)
             else:
                 rendered = display_value(field, item.get(field))
-            cells.append(Text(rendered))
+            if translate_history_status and field == "status":
+                label, color = HISTORY_STATUS_LABELS.get(rendered, (rendered, ""))
+                cells.append(Text(label, style=color))
+            else:
+                cells.append(Text(rendered))
         table.add_row(*cells)
     console.print(table)
     if not result["items"]:
@@ -366,16 +376,14 @@ def download_logs(
             raise ValueError("roleJobId 不能为空")
         if role_job_id is not None and selection is not None:
             raise ValueError("--role-job-id 与 --select 互斥")
-        if log_type == "plog" and (role_job_id is not None or selection is not None or wait_timeout != 120):
-            raise ValueError("plog 不支持角色选择或归档等待选项")
+        if log_type == "plog" and wait_timeout != 120:
+            raise ValueError("plog 不支持归档等待选项")
         directory = download_directory(directory)
         runtime = runtime_from_context(context)
         selected = selected_output(runtime, output)
-        if log_type == "log":
-            download_history_logs(runtime, task_id, job_id, directory, selected,
-                                  role_job_id.strip() if role_job_id else None, selection)
-            return
-        download_plog_logs(runtime, task_id, job_id, directory, selected, download_file)
+        download_history_logs(runtime, task_id, job_id, directory, selected,
+                              role_job_id.strip() if role_job_id else None, selection,
+                              log_type=log_type)
     except typer.Exit:
         raise
     except Exception as exc:
@@ -401,7 +409,7 @@ def list_history(
             result = runtime.authenticated_call(
                 lambda client: TrainService(client).list_history(task_id, page, page_size)
             )
-        render_page(result, selected, history_task_id=task_id)
+        render_page(result, selected, history_task_id=task_id, translate_history_status=True)
     except Exception as exc:
         fail(exc)
 

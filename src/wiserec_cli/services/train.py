@@ -304,14 +304,17 @@ class TrainService:
 
         return HistoryLogService(self.client).download_url(task_id, job_id)
 
-    def get_plog_url(self, task_id: str, job_id: str) -> str:
+    def get_plog_url(self, task_id: str, job_id: str, role_job_id: Optional[str] = None) -> str:
         """获取 plog 地址，以业务成功码为准，不限定描述文案。"""
         if not self.client.business_id:
             raise BusinessError("尚未选择租户或团队，请运行 ml business use")
+        params = {"jobId": job_id, "taskId": task_id,
+                  "businessId": self.client.business_id, "isApplicantPromise": "true"}
+        if role_job_id is not None:
+            params["roleJobId"] = role_job_id
         payload = self.client.request(
             "GET", "/ai/backend/mtp/traintask/downloadPlog",
-            params={"jobId": job_id, "taskId": task_id,
-                    "businessId": self.client.business_id, "isApplicantPromise": "true"},
+            params=params,
             headers={"businessid": self.client.business_id},
         )
         result = self._action_result(payload, "获取 plog 下载地址")

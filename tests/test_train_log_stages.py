@@ -1,8 +1,11 @@
 """日志阶段必须对应实际请求，并在失败和 JSON 摘要中保留定位信息。"""
 import json
 import re
+from io import StringIO
+from unittest.mock import patch
 
 import pytest
+from rich.console import Console
 
 from test_train_history_logs import invoke, response, roles, ROLE_ID
 from wiserec_cli.errors import ApiError
@@ -51,6 +54,18 @@ def test_archive_stages_order_and_json_separation(tmp_path, distributed):
     for (_, line), stage in zip(numbered_lines, stages):
         assert line.startswith(stage)
     assert 'jobId=' not in result.stderr and 'roleJobId=' not in result.stderr
+
+
+def test_archive_pending_is_red_in_color_terminal(tmp_path, monkeypatch):
+    monkeypatch.delenv('NO_COLOR', raising=False)
+    stream = StringIO()
+    console = Console(file=stream, force_terminal=True, color_system='standard')
+    with patch('wiserec_cli.messages.error_console', console):
+        result, _ = invoke(tmp_path, handler_for(missing=True),
+                           ['logs', 'download', 'task', 'job', '-o', 'json'])
+    assert result.exit_code == 1
+    assert re.search(r'\x1b\[31m\[\d+\] 手动归档中，请稍后再次下载日志！\x1b\[0m', stream.getvalue())
+    assert json.loads(result.stdout)['status'] == 'not_ready'
 
 
 @pytest.mark.parametrize('failure,stage,label', [

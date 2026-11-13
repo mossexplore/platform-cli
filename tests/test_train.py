@@ -205,8 +205,10 @@ class TrainOutputTest(unittest.TestCase):
                                           "algorithmId": None, "algorithmName": "",
                                           "waitTime": None},
                                    {"runningTime": 0, "queueTime": 0, "waitTime": 0},
-                                   {"queueTime": 2.5, "waitTime": 125}]},
-                        "table", history_task_id="task-id")
+                                   {"queueTime": 2.5, "waitTime": 125},
+                                   {"status": "FAILED"}, {"status": "COMPLETED"},
+                                   {"status": "TIMEOUT"}, {"status": "RUNNING"}]},
+                        "table", history_task_id="task-id", translate_history_status=True)
         table = next(call.args[0] for call in output.print.call_args_list
                      if isinstance(call.args[0], Table))
         self.assertEqual([column.header for column in table.columns], [
@@ -217,7 +219,7 @@ class TrainOutputTest(unittest.TestCase):
         ])
         self.assertEqual([column._cells[0].plain for column in table.columns], [
             "job-id",
-            "algo-name", "32", "0", "256", "CANCELED", "pool",
+            "algo-name", "32", "0", "256", "取消", "pool",
             "1", "93.20M", *(["2026-07-31 11:01:30"] * 3),
             "manual", "history-bucket", "2h5min", "2h37min", "1h0min31s",
         ])
@@ -226,12 +228,16 @@ class TrainOutputTest(unittest.TestCase):
                           "-", "-", "-", "-", "-", "-", "-", "-"])
         self.assertEqual([column._cells[2].plain for column in table.columns[-3:]], ["0min", "0min", "0s"])
         self.assertEqual([column._cells[3].plain for column in table.columns[-2:]], ["2.5min", "2min5s"])
+        self.assertEqual([(cell.plain, cell.style) for cell in table.columns[5]._cells], [
+            ("取消", "yellow"), ("-", ""), ("-", ""), ("-", ""),
+            ("执行失败", "red"), ("执行完成", "green"), ("超时", "yellow"), ("RUNNING", ""),
+        ])
         output.print.assert_any_call("任务 ID：task-id", markup=False)
         messages.assert_called_once_with("第 1 页 · 每页 10 条 · 共 11 条")
 
     def test_history_cli_json_and_empty_results(self):
         job = {"jobId": "j", "fileSize": 97726898, "checkTime": None,
-               "queueTime": 0, "waitTime": 2.5}
+               "queueTime": 0, "waitTime": 2.5, "status": "COMPLETED"}
         client = FakeClient({"result": {"code": 0, "count": 1, "jobs": [job]}})
         result = self.invoke(client, ["train", "history", "list", "t", "-o", "json"])
         self.assertEqual(result.exit_code, 0, result.output)

@@ -249,7 +249,7 @@ def test_invalid_or_missing_selection_never_checks_logs(tmp_path, options):
 
 
 @pytest.mark.parametrize('options', [['--select', 'all', '--role-job-id', ROLE_ID],
-    ['--type', 'plog', '--select', 'all'], ['--type', 'plog', '--role-job-id', ROLE_ID],
+    ['--type', 'plog', '--wait-timeout', '0'],
     ['--wait-timeout', '-1'], ['--role-job-id', ' ']])
 def test_invalid_options_never_request(tmp_path, options):
     result, download = invoke(tmp_path, lambda r: pytest.fail('must not request'),
@@ -369,9 +369,9 @@ def test_interactive_cancel_or_retry_and_preserve_selection_order(tmp_path, answ
     with patch('wiserec_cli.commands.train_history_logs.sys.stdin.isatty', return_value=True):
         # CliRunner replaces stdin, so patch selection's TTY check at invocation time.
         from wiserec_cli.commands.train_history_logs import choose_roles
-        def interactive(*args):
+        def interactive(*args, **kwargs):
             with patch('sys.stdin.isatty', return_value=True):
-                return choose_roles(*args)
+                return choose_roles(*args, **kwargs)
         with patch('wiserec_cli.commands.train_history_logs.choose_roles', side_effect=interactive):
             result, download = invoke(tmp_path, handler, ['logs', 'download', 'task', 'job', '-o', 'table'], input=answer)
     assert result.exit_code == 0, result.output

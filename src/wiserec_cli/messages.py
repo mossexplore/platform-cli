@@ -53,9 +53,10 @@ def info(message: object) -> None:
     emit(message)
 
 
-def detail(message: object) -> None:
+def detail(message: object, *, style: str = "") -> None:
     """辅助上下文、进度和操作引导，不额外标记消息级别。"""
-    error_console.print(Text(_CONTROL.sub("", str(message))), highlight=False, soft_wrap=True)
+    color = style if error_console.is_terminal and "NO_COLOR" not in os.environ else ""
+    error_console.print(Text(_CONTROL.sub("", str(message)), style=color), highlight=False, soft_wrap=True)
 
 
 def success(message: object) -> None:

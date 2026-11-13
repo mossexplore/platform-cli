@@ -1,4 +1,5 @@
 """执行记录查找及普通、分布式训练日志协议。"""
+import json
 from uuid import uuid4
 
 from ..downloads import https_url
@@ -14,6 +15,17 @@ def role_records(record):
     if not isinstance(roles, list) or not all(isinstance(role, dict) for role in roles):
         raise ApiError('分布式执行记录缺少有效的 roleJobInfo 数组')
     return roles
+
+
+def has_role_plog(role):
+    params = role.get('sysParam')
+    if not isinstance(params, str):
+        return False
+    try:
+        parsed = json.loads(params)
+    except (ValueError, RecursionError):
+        return False
+    return isinstance(parsed, dict) and parsed.get('plogUploadSuccess') == '1'
 
 
 def require_ids(record, distributed=False):

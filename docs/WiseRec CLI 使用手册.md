@@ -615,7 +615,7 @@ ml train config update TASK_ID --customize-config VALUE
 | `history detail` | 必填 `TASK_ID`、`JOB_ID`；可选 `--output` / `-o` |
 | `start` | 必填 `TASK_ID`；执行后显示作业 ID |
 | `config export` | 必填 `TASK_ID`；可选 `--file PATH` 指定保存位置 |
-| `history logs download` | 必填 `TASK_ID`、`JOB_ID`；`--type` 默认 `log`，也可选 `plog`；`--role-job-id ROLE_JOB_ID` 与 `--select SELECTION` 互斥，仅用于分布式普通日志；可选 `--directory DIR`、`--output` / `-o` |
+| `history logs download` | 必填 `TASK_ID`、`JOB_ID`；`--type` 默认 `log`，也可选 `plog`；`--role-job-id ROLE_JOB_ID` 与 `--select SELECTION` 互斥，仅用于分布式训练；可选 `--directory DIR`、`--output` / `-o` |
 | `instance logs download` | 必填 `TASK_ID`、`JOB_ID`；可选 `--select SELECTION`、`--directory DIR`、`--output` / `-o` |
 | `cancel`、`delete` | 必填 `TASK_ID`；可选 `--yes` / `-y` 跳过确认 |
 | `clone` | 必填 `TASK_ID`、`--name NAME`；可选 `--customize-config VALUE`、`--yes` / `-y` |
@@ -631,6 +631,8 @@ WiseRec 可用 `detail` 查询指定训练任务。先登录并选择业务，�
 
 先用 `list` 获取任务 ID，`history list` 获取作业 ID。执行实例和执行记录按接口返回顺序展示所请求的页，并显示总条数。执行实例按 `periodDate` 升序查询，执行记录按状态时间升序查询。`start` 返回作业 ID，不代表训练完成。
 
+`history list` 的状态列将 `FAILED` 显示为红色“执行失败”，`COMPLETED` 显示为绿色“执行完成”，`CANCELED` 显示为黄色“取消”，`TIMEOUT` 显示为黄色“超时”。其他状态按原值展示，空值显示 `-`。
+
 WiseRec 和 MLOps 的 `history list` 表格的最后三列依次是“执行时长”“排队时长”和“配额等待时间”。`runningTime` 和 `queueTime` 原值为分钟，例如 `157` 显示为 `2h37min`。`waitTime` 原值为秒，例如 `3631` 显示为 `1h0min31s`。满 24 小时使用 `day`，例如 `1day8h22min` 或 `1day8h22min31s`。前两列的零值显示为 `0min`，配额等待时间的零值显示为 `0s`，缺失值显示 `-`。`-o json` 保留原始字段和值。
 
 `instance list` 表格末尾也依次显示“执行时长”“排队时长”和“配额等待时间”。执行时长按开始时间到查询时刻的整分钟数计算，例如 125 分钟显示为 `2h5min`。排队时长和配额等待时间沿用执行记录的换算规则。
@@ -645,9 +647,9 @@ WiseRec 和 MLOps 的 `history list` 表格的最后三列依次是“执行时�
 
 普通训练的 JSON 下载摘要包含本地路径、字节数及状态；分布式训练返回逐角色结果和成功、失败数量。批量下载中单个角色失败会继续处理其余角色。状态 `downloaded` 表示下载成功，`not_ready` 表示手动归档中，`failed` 表示失败。批量结果的失败数量包含未就绪条目。全部下载成功返回退出码 0，否则返回非零。表格、选择提示和进度写入标准错误。
 
-下载过程逐阶段提示执行记录查询、日志存在性检查、日志未就绪、手动归档、获取及校验下载地址、开始下载和保存完成。进度按 [1]、[2] 等步骤连续编号。批量下载开始处理每条日志时提示当前条目。出错时显示步骤编号、失败阶段及原始原因，便于区分权限检查、归档、地址校验和文件下载问题。逐条失败的 JSON 摘要新增 `stage`：`check_log` 为日志检查、`archive_log` 为归档、`get_download_url` 为获取地址、`validate_download_url` 为校验地址、`download_file` 为文件下载。阶段提示均写入标准错误，不混入 JSON 结果。
+下载过程逐阶段提示执行记录查询、日志存在性检查、日志未就绪、手动归档、获取及校验下载地址、开始下载和保存完成。进度按 [1]、[2] 等步骤连续编号。批量下载开始处理每条日志时提示当前条目。出错时显示步骤编号、失败阶段及原始原因，便于区分权限检查、归档、地址校验和文件下载问题。在支持颜色的终端中，下载失败和手动归档中的提示以红色显示。逐条失败的 JSON 摘要新增 `stage`：`check_log` 为日志检查、`archive_log` 为归档、`get_download_url` 为获取地址、`validate_download_url` 为校验地址、`download_file` 为文件下载。阶段提示均写入标准错误，不混入 JSON 结果。
 
-使用 `--type plog` 下载 plog，沿用直接获取 plog 地址的流程，不支持角色选择。plog 显示带步骤编号的获取地址、开始下载和保存完成等提示，失败时标明所在阶段。两种日志类型均无需提供 `target`。
+使用 `--type plog` 下载 plog。普通训练按执行记录下载。分布式训练的角色选择表会显示 plog 是否可下载。使用 `--role-job-id` 或编号选中的角色都须有 plog；`--select all` 仅下载可用的角色。选中项缺少 plog，或没有任何可用角色时，以红色提示“该记录没有plog日志，停止下载”，并返回非零退出码。plog 直接获取下载地址，进度带步骤编号。两种日志类型均无需提供 `target`。
 
 `instance logs download` 需先登录并选择业务，通过 `instance list` 获取作业 ID。命令先请求归档；未完成时提示“日志归档中，请稍后执行下载命令！”，稍后重新运行同一命令。已有记录时，以表格展示编号、任务名称、jobId、roleJobId、节点名称、归档状态及北京时间的开始和结束时间，每条记录占一行。只有归档成功的记录可下载，输入编号选择，多份使用英文逗号分隔，例如 `1,2,3`；中文逗号会提示重新输入。输入 `all` 下载所有归档成功的记录，输入 `q` 取消。同名任务的不同归档分别编号。传 `--select` 可跳过编号提示，值为本次表格中的编号、英文逗号分隔的多个编号或 `all`。不可下载或无效的编号会报错。选中后展示 OBS 下载链接并保存 ZIP；部分失败会继续其余下载，最终汇总结果并返回失败状态。JSON 输出结果摘要，表格、选择提示和进度写入标准错误。归档文件不保证包含归档时间之后新增的日志。
 
@@ -670,6 +672,8 @@ ml train history logs download TASK_ID JOB_ID --role-job-id ROLE_JOB_ID --direct
 ml train history logs download TASK_ID JOB_ID --select 1,2 --directory ./logs
 ml train history logs download TASK_ID JOB_ID --select all -o json
 ml train history logs download TASK_ID JOB_ID --type plog --directory ./logs
+ml train history logs download TASK_ID JOB_ID --type plog --role-job-id ROLE_JOB_ID --directory ./logs
+ml train history logs download TASK_ID JOB_ID --type plog --select all -o json
 ml train instance logs download TASK_ID JOB_ID --directory ./logs
 ml train instance logs download TASK_ID JOB_ID --select 1 --directory ./logs
 ml train instance logs download TASK_ID JOB_ID --select "1,3" --directory ./logs
