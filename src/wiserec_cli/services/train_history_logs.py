@@ -87,14 +87,12 @@ class HistoryLogService:
         report('check_log', '开始查询日志是否存在')
         if not self.exists(job_id, role_job_id):
             raise LogNotReady('日志尚未就绪')
-        report('check_log', '日志已就绪')
         params = {'businessId': self.client.business_id, 'taskId': task_id,
                   'jobId': job_id, 'isApplicantPromise': 'true'}
         if role_job_id is not None:
             params['roleJobId'] = role_job_id
-        report('get_download_url', '开始获取日志下载地址')
+        report('get_download_url', '日志已就绪，开始获取日志下载地址')
         result = self.request('GET', 'downloadLogUrl', params=params)
-        report('validate_download_url', '已获取接口响应，开始校验下载地址')
+        report('validate_download_url', '开始校验下载地址')
         https_url(result.get('url'))
-        report('validate_download_url', '下载地址校验通过')
         return result['url']

@@ -1,6 +1,6 @@
 """日志阶段必须对应实际请求，并在失败和 JSON 摘要中保留定位信息。"""
 import json
-from unittest.mock import patch
+import re
 
 import pytest
 
@@ -33,20 +33,24 @@ def test_archive_stages_order_and_json_separation(tmp_path, distributed):
     args = ['logs', 'download', 'task', 'job', '-o', 'json']
     if distributed:
         args += ['--role-job-id', ROLE_ID]
-    with patch('wiserec_cli.commands.train_history_logs.time.sleep'):
-        result, _ = invoke(tmp_path, handler_for(distributed=distributed, missing=True), args)
-    assert result.exit_code == 0, result.output
-    assert json.loads(result.stdout)['status'] == 'downloaded'
+    result, download = invoke(tmp_path, handler_for(distributed=distributed, missing=True), args)
+    assert result.exit_code == 1, result.output
+    output = json.loads(result.stdout)
+    summary = output['items'][0] if distributed else output
+    assert summary['status'] == 'not_ready'
+    assert summary['message'] == '手动归档中，请稍后再次下载日志！'
+    download.assert_not_called()
     assert '开始' not in result.stdout and 'signature=secret' not in result.stdout
-    stages = ['开始查询执行记录', '执行记录查询成功', '开始查询日志是否存在', '日志未就绪',
-              '正在手动归档', '手动归档请求成功', '等待日志就绪，', '准备第 2 次日志检查',
-              '开始查询日志是否存在', '日志已就绪', '开始获取日志下载地址',
-              '开始校验下载地址', '下载地址校验通过', '开始下载日志', '日志下载完成']
-    offset = 0
-    for stage in stages:
-        offset = result.stderr.index(stage, offset) + len(stage)
+    stages = ['开始查询执行记录']
     if distributed:
-        assert f'worker roleJobId={ROLE_ID}' in result.stderr
+        stages.append('已找到分布式训练记录，选择日志角色')
+    stages += ['开始校验', '开始查询日志是否存在', '日志未就绪，准备手动归档',
+               '手动归档中，请稍后再次下载日志！']
+    numbered_lines = re.findall(r'^\[(\d+)\] (.*)$', result.stderr, re.M)
+    assert [int(number) for number, _ in numbered_lines] == list(range(1, len(stages) + 1))
+    for (_, line), stage in zip(numbered_lines, stages):
+        assert line.startswith(stage)
+    assert 'jobId=' not in result.stderr and 'roleJobId=' not in result.stderr
 
 
 @pytest.mark.parametrize('failure,stage,label', [
@@ -65,26 +69,31 @@ def test_failure_identifies_stage_and_does_not_announce_completion(tmp_path, fai
     assert summary['stage'] == stage
     assert f'阶段「{label}」失败' in summary['error']
     assert f'阶段「{label}」失败' in result.stderr
+    last_step = re.findall(r'^\[(\d+)\] ', result.stderr, re.M)[-1]
+    assert summary['error'].startswith(f'[{last_step}] ')
     assert '日志下载完成' not in result.stderr
     if failure != 'file':
         download.assert_not_called()
         assert '开始下载日志' not in result.stderr
 
 
-@pytest.mark.parametrize('call,stage', [(2, 'check_log'), (3, 'archive_log'), (4, 'check_log')])
+@pytest.mark.parametrize('call,stage', [(2, 'check_log'), (3, 'archive_log')])
 def test_permission_502_identifies_pending_stage(tmp_path, call, stage):
-    with patch('wiserec_cli.commands.train_history_logs.time.sleep'):
-        result, download = invoke(tmp_path, handler_for(missing=True),
-            ['logs', 'download', 'task', 'job', '-o', 'json'], permission_failure_at=call)
+    requests = []
+    handler = handler_for(missing=True)
+
+    def track(request):
+        requests.append(request.url.path.rsplit('/', 1)[-1])
+        return handler(request)
+
+    result, download = invoke(tmp_path, track,
+        ['logs', 'download', 'task', 'job', '-o', 'json'], permission_failure_at=call)
     assert result.exit_code == 1
     summary = json.loads(result.stdout)
     assert summary['stage'] == stage
     assert 'HTTP 502' in summary['error']
     download.assert_not_called()
-    if call == 2:
-        assert '开始查询日志是否存在' not in result.stderr
-    if call == 3:
-        assert '正在手动归档' not in result.stderr
+    assert requests == ['queryScheduleTaskList', 'queryJobLogIsExist', 'manualArchiveLog'][:call - 1]
 
 
 def test_lookup_permission_failure_identified_before_any_platform_request(tmp_path):
@@ -96,17 +105,6 @@ def test_lookup_permission_failure_identified_before_any_platform_request(tmp_pa
     download.assert_not_called()
 
 
-def test_no_wait_has_distinct_wait_stage_and_no_download(tmp_path):
-    result, download = invoke(tmp_path, handler_for(missing=True),
-        ['logs', 'download', 'task', 'job', '--wait-timeout', '0', '-o', 'json'])
-    assert result.exit_code == 1
-    summary = json.loads(result.stdout)
-    assert summary['stage'] == 'wait_log' and summary['status'] == 'not_ready'
-    assert '阶段「等待日志就绪」失败' in result.stderr
-    assert '开始下载日志' not in result.stderr
-    download.assert_not_called()
-
-
 def test_ready_path_has_no_archive_or_wait_messages(tmp_path):
     result, _ = invoke(tmp_path, handler_for(), ['logs', 'download', 'task', 'job', '-o', 'json'])
     assert result.exit_code == 0
@@ -114,10 +112,13 @@ def test_ready_path_has_no_archive_or_wait_messages(tmp_path):
     assert '归档' not in result.stderr and '等待日志就绪' not in result.stderr
 
 
-def test_batch_messages_identify_each_role(tmp_path):
+def test_batch_steps_keep_numbering_across_roles(tmp_path):
     result, _ = invoke(tmp_path, handler_for(distributed=True),
                        ['logs', 'download', 'task', 'job', '--select', 'all', '-o', 'json'])
     assert result.exit_code == 0
-    for label in (f'1/2 jobId=role-job worker roleJobId={ROLE_ID}', '2/2 jobId=role-job server roleJobId=server-id'):
-        assert f'[{label}] 开始查询日志是否存在' in result.stderr
-        assert f'[{label}] 开始下载日志' in result.stderr
+    lines = re.findall(r'^\[(\d+)\] (.*)$', result.stderr, re.M)
+    assert [int(number) for number, _ in lines] == list(range(1, len(lines) + 1))
+    assert [line for _, line in lines if line.startswith('开始处理')] == [
+        '开始处理第 1/2 条日志', '开始处理第 2/2 条日志',
+    ]
+    assert 'jobId=' not in result.stderr and 'roleJobId=' not in result.stderr

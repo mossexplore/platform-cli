@@ -2,7 +2,6 @@
 from contextlib import redirect_stdout
 import re
 import sys
-import time
 
 import typer
 from rich.progress import Progress, BarColumn, DownloadColumn
@@ -18,7 +17,7 @@ from .train_history_detail import show_roles
 STAGE_NAMES = {
     'query_record': '查询执行记录', 'select_role': '选择日志角色',
     'validate_role': '校验角色信息', 'check_log': '查询日志是否存在',
-    'archive_log': '手动归档', 'wait_log': '等待日志就绪',
+    'archive_log': '手动归档',
     'get_download_url': '获取下载地址', 'validate_download_url': '校验下载地址',
     'download_file': '下载日志文件',
 }
@@ -26,19 +25,21 @@ STAGE_NAMES = {
 
 class DownloadStages:
     """进度写入 stderr，保留当前阶段以标注失败原因。"""
-    def __init__(self, label):
-        self.label = label
+    def __init__(self):
+        self.number = 0
         self.stage = 'query_record'
 
-    def start(self, stage, message):
+    def start(self, stage, message=None):
+        self.number += 1
         self.stage = stage
-        self.note(message)
+        if message:
+            msg.detail(f'[{self.number}] {message}')
 
     def note(self, message):
-        msg.detail(f'[{self.label}] {message}')
+        self.start(self.stage, message)
 
     def error(self, exc):
-        return f'[{self.label}] 阶段「{STAGE_NAMES[self.stage]}」失败：{exc}'
+        return f'[{self.number}] 阶段「{STAGE_NAMES[self.stage]}」失败：{exc}'
 
 
 def select_roles(value, roles):
@@ -75,63 +76,51 @@ def choose_roles(roles, role_job_id, selection, output):
             msg.error(str(exc))
 
 
-def ready_url(runtime, record, timeout, archives, stages=None):
-    deadline = time.monotonic() + timeout
+def ready_url(runtime, record, archives, stages=None):
     job_id = record['jobId']
-    stages = stages or DownloadStages(f'jobId={job_id}')
-    attempt = 0
-    while True:
-        attempt += 1
-        stages.start('check_log', f'准备第 {attempt} 次日志检查，正在检查访问权限')
-        try:
-            return runtime.authenticated_call(lambda client: HistoryLogService(client).download_url(
-                record['taskId'], job_id, record.get('roleJobId'), on_stage=stages.start))
-        except LogNotReady:
-            stages.note('日志未就绪')
-            if job_id not in archives:
-                # 写操作结果不明时禁止重放；同一 job 的后续角色也不能再次提交。
-                archives[job_id] = '归档请求结果未确认'
-                stages.start('archive_log', '准备手动归档，正在检查访问权限')
-                def archive(client):
-                    stages.start('archive_log', '正在手动归档')
-                    HistoryLogService(client).archive(job_id)
-                try:
-                    runtime.authenticated_call(archive, retry_auth=False)
-                except Exception as exc:
-                    archives[job_id] = str(exc)
-                    raise
-                archives[job_id] = None
-                stages.note(f'作业 {job_id} 手动归档请求成功，等待日志就绪')
-            elif archives[job_id] is not None:
-                stages.start('archive_log', '同一作业此前归档请求未成功确认')
-                raise ApiError(f'本次归档未成功确认，不重复提交：{archives[job_id]}')
-            else:
-                stages.note(f'作业 {job_id} 本次已提交归档，不重复提交')
-            remaining = deadline - time.monotonic()
-            stages.stage = 'wait_log'
-            if remaining <= 0:
-                raise LogNotReady('日志尚未就绪，已达到等待上限；请稍后重新执行下载命令')
-            interval = min(5, remaining)
-            stages.note(f'等待日志就绪，{interval:g} 秒后重查，剩余等待时间 {remaining:.0f} 秒')
-            time.sleep(interval)
+    stages = stages or DownloadStages()
+
+    def report(stage, message):
+        # 首次查询已在权限检查前提示。认证重试回到查询阶段时再次提示。
+        if stage != 'check_log' or stages.stage != 'check_log':
+            stages.start(stage, message)
+
+    stages.start('check_log', '开始查询日志是否存在（含权限检查）')
+    try:
+        return runtime.authenticated_call(lambda client: HistoryLogService(client).download_url(
+            record['taskId'], job_id, record.get('roleJobId'), on_stage=report))
+    except LogNotReady:
+        if job_id not in archives:
+            # 同一命令内，写操作结果未确认时也不重新提交。
+            stages.start('archive_log', '日志未就绪，准备手动归档（含权限检查）')
+            try:
+                runtime.authenticated_call(
+                    lambda client: HistoryLogService(client).archive(job_id), retry_auth=False)
+            except Exception as exc:
+                archives[job_id] = str(exc)
+                raise
+            archives[job_id] = None
+        elif archives[job_id] is not None:
+            stages.start('archive_log')
+            raise ApiError(f'本次归档未成功确认，不重复提交：{archives[job_id]}')
+        return None
 
 
 def download_history_logs(runtime, task_id, job_id, directory, output,
-                          role_job_id=None, selection=None, wait_timeout=120):
-    stages = DownloadStages(f'jobId={job_id}')
+                          role_job_id=None, selection=None):
+    stages = DownloadStages()
     stages.start('query_record', '开始查询执行记录（含权限检查）')
     try:
         with redirect_stdout(sys.stderr):
             record = runtime.authenticated_call(
                 lambda client: HistoryLogService(client).find_record(task_id, job_id))
         distributed = record.get('jobType') == 'dps-train'
-        stages.note('执行记录查询成功，任务类型：' + ('分布式训练' if distributed else '普通训练'))
-        stages.stage = 'select_role'
         if distributed:
-            stages.start('select_role', '开始选择日志角色')
+            stages.start('select_role', '已找到分布式训练记录，选择日志角色')
             records = choose_roles(role_records(record), role_job_id, selection, output)
         else:
             if role_job_id is not None or selection is not None:
+                stages.start('select_role')
                 raise ValueError('普通训练不支持 --role-job-id 或 --select')
             records = [{'taskId': task_id, 'jobId': job_id}]
         if not records:
@@ -145,16 +134,19 @@ def download_history_logs(runtime, task_id, job_id, directory, output,
         raise ApiError(stages.error(exc)) from exc
     summaries, archives = [], {}
     for index, item in enumerate(records, 1):
-        label = f'{index}/{len(records)} jobId={item["jobId"]}'
-        if distributed:
-            label += f' {item.get("roleType") or "角色"} roleJobId={item["roleJobId"]}'
-        stages = DownloadStages(label)
+        if len(records) > 1:
+            stages.note(f'开始处理第 {index}/{len(records)} 条日志')
         summary = {'taskId': item['taskId'], 'jobId': item['jobId']}
         if distributed:
             summary.update(roleJobId=item['roleJobId'], roleType=item.get('roleType'))
         try:
             with redirect_stdout(sys.stderr):
-                url = ready_url(runtime, item, wait_timeout, archives, stages)
+                url = ready_url(runtime, item, archives, stages)
+            if url is None:
+                message = '手动归档中，请稍后再次下载日志！'
+                stages.start('archive_log', message)
+                summaries.append({**summary, 'status': 'not_ready', 'stage': stages.stage, 'message': message})
+                continue
             msg.detail(f'下载地址：{url}')
             stages.start('download_file', '开始下载日志')
             with Progress(msg.MessageColumn(), BarColumn(), DownloadColumn(), console=error_console) as progress:
@@ -169,8 +161,7 @@ def download_history_logs(runtime, task_id, job_id, directory, output,
             summary.update(path=str(path), bytes=size, status='downloaded')
             stages.note(f'日志下载完成，保存到：{path}，共 {size} 字节')
         except Exception as exc:
-            summary.update(status='not_ready' if isinstance(exc, LogNotReady) else 'failed',
-                           stage=stages.stage, error=stages.error(exc))
+            summary.update(status='failed', stage=stages.stage, error=stages.error(exc))
             msg.error(summary['error'])
         summaries.append(summary)
     failed = sum(item['status'] != 'downloaded' for item in summaries)
@@ -184,12 +175,11 @@ def download_history_logs(runtime, task_id, job_id, directory, output,
 def download_plog_logs(runtime, task_id, job_id, directory, output, downloader):
     from ..services.train import TrainService
 
-    stages = DownloadStages(f'plog jobId={job_id}')
+    stages = DownloadStages()
     stages.start('get_download_url', '开始获取 plog 下载地址（含权限检查及地址校验）')
     try:
         with redirect_stdout(sys.stderr):
             url = runtime.authenticated_call(lambda client: TrainService(client).get_plog_url(task_id, job_id))
-        stages.note('plog 下载地址校验通过')
         msg.detail(f'下载地址：{url}')
         stages.start('download_file', '开始下载 plog 日志')
         with Progress(msg.MessageColumn(), BarColumn(), DownloadColumn(), console=error_console) as progress:

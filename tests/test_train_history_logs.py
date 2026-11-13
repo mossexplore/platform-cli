@@ -110,8 +110,8 @@ def test_ready_logs_always_checked_before_url(tmp_path, platform, distributed):
 
 @pytest.mark.parametrize('missing', [{'isExistLog': False}, {'failedUploadSwitch': False}])
 @pytest.mark.parametrize('distributed', [False, True])
-def test_archive_then_poll_and_download(tmp_path, missing, distributed):
-    calls, states = [], iter([missing, missing, {'isExistLog': True}])
+def test_archive_ends_download_until_next_invocation(tmp_path, missing, distributed):
+    calls, states = [], iter([missing, {'isExistLog': True}])
     def handler(request):
         action = request.url.path.rsplit('/', 1)[-1]
         calls.append(action)
@@ -132,15 +132,20 @@ def test_archive_then_poll_and_download(tmp_path, missing, distributed):
     args = ['logs', 'download', 'task', 'job', '-o', 'json']
     if distributed:
         args += ['--select', '1']
-    with patch('wiserec_cli.commands.train_history_logs.time.sleep') as sleep:
-        result, download = invoke(tmp_path, handler, args)
+    result, download = invoke(tmp_path, handler, args)
+    assert result.exit_code == 1, result.output
+    assert '手动归档中，请稍后再次下载日志！' in result.stderr
+    assert calls == ['queryScheduleTaskList', 'queryJobLogIsExist', 'manualArchiveLog']
+    download.assert_not_called()
+
+    calls.clear()
+    result, download = invoke(tmp_path, handler, args)
     assert result.exit_code == 0, result.output
-    assert calls == ['queryScheduleTaskList', 'queryJobLogIsExist', 'manualArchiveLog',
-                     'queryJobLogIsExist', 'queryJobLogIsExist', 'downloadLogUrl']
-    assert sleep.call_count == 2 and download.call_count == 1
+    assert calls == ['queryScheduleTaskList', 'queryJobLogIsExist', 'downloadLogUrl']
+    download.assert_called_once()
 
 
-def test_batch_timeout_deduplicates_archive_and_continues(tmp_path):
+def test_batch_deduplicates_archive_and_continues(tmp_path):
     calls = []
     def handler(request):
         action = request.url.path.rsplit('/', 1)[-1]
@@ -152,7 +157,7 @@ def test_batch_timeout_deduplicates_archive_and_continues(tmp_path):
         assert action == 'manualArchiveLog'
         return response()
     result, download = invoke(tmp_path, handler, ['logs', 'download', 'task', 'job',
-        '--select', 'all', '--wait-timeout', '0', '-o', 'json'])
+        '--select', 'all', '-o', 'json'])
     assert result.exit_code == 1
     output = json.loads(result.stdout)
     assert output['failed'] == 2
@@ -161,25 +166,21 @@ def test_batch_timeout_deduplicates_archive_and_continues(tmp_path):
     download.assert_not_called()
 
 
-def test_batch_archive_once_and_partial_download_failure(tmp_path):
-    checks, calls = {}, []
+def test_batch_downloads_ready_role_after_requesting_archive(tmp_path):
+    calls = []
     def handler(request):
         action = request.url.path.rsplit('/', 1)[-1]
         calls.append(action)
         if action == 'queryScheduleTaskList':
             return response(count=1, jobs=[{'jobId': 'job', 'jobType': 'dps-train', 'roleJobInfo': roles()}])
         if action == 'queryJobLogIsExist':
-            role_id = request.url.params['roleJobId']
-            checks[role_id] = checks.get(role_id, 0) + 1
-            return response(isExistLog=checks[role_id] > 1)
+            return response(isExistLog=request.url.params['roleJobId'] != ROLE_ID)
         if action == 'manualArchiveLog':
             return response()
         assert action == 'downloadLogUrl'
-        if request.url.params['roleJobId'] == ROLE_ID:
-            return response(code=5, des='日志获取失败')
+        assert request.url.params['roleJobId'] == 'server-id'
         return response(url='https://files.example/log')
-    with patch('wiserec_cli.commands.train_history_logs.time.sleep'):
-        result, download = invoke(tmp_path, handler, ['logs', 'download', 'task', 'job', '--select', 'all', '-o', 'json'])
+    result, download = invoke(tmp_path, handler, ['logs', 'download', 'task', 'job', '--select', 'all', '-o', 'json'])
     assert result.exit_code == 1
     output = json.loads(result.stdout)
     assert (output['succeeded'], output['failed']) == (1, 1)
@@ -214,9 +215,9 @@ def test_archive_auth_failure_is_not_replayed_for_next_role():
     runtime = SimpleNamespace(authenticated_call=authenticated)
     archives = {}
     with pytest.raises(AuthenticationError):
-        ready_url(runtime, roles()[0], 120, archives)
+        ready_url(runtime, roles()[0], archives)
     with pytest.raises(ApiError, match='不重复提交'):
-        ready_url(runtime, roles()[1], 120, archives)
+        ready_url(runtime, roles()[1], archives)
     assert seen == [{}, {'retry_auth': False}, {}]
 
 
@@ -297,22 +298,6 @@ def test_missing_business_never_requests():
     client = SimpleNamespace(business_id='', request=lambda *a, **kw: pytest.fail('must not request'))
     with pytest.raises(BusinessError):
         HistoryLogService(client).download_url('t', 'j')
-
-
-def test_wait_deadline_is_bounded_without_repeated_archive():
-    operations = []
-    def authenticated(operation, **kwargs):
-        if kwargs.get('retry_auth') is False:
-            operations.append('archive')
-            return
-        operations.append('check')
-        raise LogNotReady('missing')
-    with patch('wiserec_cli.commands.train_history_logs.time.monotonic', side_effect=[0, 0, 6]), \
-         patch('wiserec_cli.commands.train_history_logs.time.sleep') as sleep:
-        with pytest.raises(LogNotReady, match='等待上限'):
-            ready_url(SimpleNamespace(authenticated_call=authenticated), roles()[0], 6, {})
-    assert operations == ['check', 'archive', 'check']
-    sleep.assert_called_once_with(5)
 
 
 def test_check_repeated_for_each_url_and_ids_encoded():

@@ -353,7 +353,7 @@ def download_logs(
     output: Optional[str] = typer.Option(None, "--output", "-o", help="结果摘要格式: table 或 json"),
     role_job_id: Optional[str] = typer.Option(None, "--role-job-id", help="分布式角色作业 ID，与 --select 互斥"),
     selection: Optional[str] = typer.Option(None, "--select", help="分布式角色编号，多个用英文逗号分隔，或 all"),
-    wait_timeout: int = typer.Option(120, "--wait-timeout", min=0, help="每条日志等待就绪的秒数，0 表示不等待"),
+    wait_timeout: int = typer.Option(120, "--wait-timeout", min=0, hidden=True),
 ) -> None:
     """检查归档并下载执行记录日志"""
     try:
@@ -373,7 +373,7 @@ def download_logs(
         selected = selected_output(runtime, output)
         if log_type == "log":
             download_history_logs(runtime, task_id, job_id, directory, selected,
-                                  role_job_id.strip() if role_job_id else None, selection, wait_timeout)
+                                  role_job_id.strip() if role_job_id else None, selection)
             return
         download_plog_logs(runtime, task_id, job_id, directory, selected, download_file)
     except typer.Exit:
