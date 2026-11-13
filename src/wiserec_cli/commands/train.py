@@ -23,7 +23,7 @@ from .common import fail, runtime_from_context
 from .train_logs import instance_logs_app
 from .train_detail import render_detail
 from .train_history_detail import history_detail
-from .train_history_logs import download_history_logs
+from .train_history_logs import download_history_logs, download_plog_logs
 
 
 train_app = typer.Typer(no_args_is_help=True, help="训练任务查询与执行管理")
@@ -375,21 +375,7 @@ def download_logs(
             download_history_logs(runtime, task_id, job_id, directory, selected,
                                   role_job_id.strip() if role_job_id else None, selection, wait_timeout)
             return
-        with redirect_stdout(sys.stderr):
-            url = runtime.authenticated_call(
-                lambda client: TrainService(client).get_plog_url(task_id, job_id)
-            )
-        msg.detail(f"下载地址：{url}")
-        with Progress(msg.MessageColumn(), BarColumn(), DownloadColumn(),
-                      console=error_console) as progress:
-            progress_id = progress.add_task("下载 plog 日志", total=None)
-            path, size = download_file(
-                url, f"{job_id}-plog",
-                directory=directory,
-                progress=lambda done, total: progress.update(progress_id, completed=done, total=total),
-            )
-        print_result({"taskId": task_id, "jobId": job_id, "path": str(path),
-                      "bytes": size, "status": "downloaded"}, selected)
+        download_plog_logs(runtime, task_id, job_id, directory, selected, download_file)
     except typer.Exit:
         raise
     except Exception as exc:

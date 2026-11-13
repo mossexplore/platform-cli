@@ -47,6 +47,10 @@ def test_plog_request_and_cli_download(tmp_path, platform):
     assert json.loads(result.stdout) == dict(taskId='task', jobId='job', path=str(path),
                                            bytes=123, status='downloaded')
     assert download.call_args.args[:3] == ('https://files.example/plog', 'job-plog')
+    assert '开始获取 plog 下载地址' in result.stderr
+    assert '开始下载 plog 日志' in result.stderr
+    assert 'plog 日志下载完成' in result.stderr
+    assert '归档' not in result.stderr
 
 
 @pytest.mark.parametrize('options', [

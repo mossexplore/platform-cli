@@ -16,7 +16,7 @@ from wiserec_cli.cli import app
 from wiserec_cli.client import PlatformClient
 from wiserec_cli.commands.train_history_detail import show_roles, role_value
 from wiserec_cli.commands.train_history_logs import ready_url
-from wiserec_cli.errors import ApiError, AuthenticationError, BusinessError
+from wiserec_cli.errors import ApiError, AuthenticationError, BusinessError, MlError
 from wiserec_cli.models import Credentials, Profile
 from wiserec_cli.runtime import Runtime
 from wiserec_cli.services.train import TrainService
@@ -33,7 +33,8 @@ def roles():
             dict(roleJobId='server-id', roleType='server', taskId='role-task', jobId='role-job')]
 
 
-def invoke(tmp_path, handler, args, platform='wiserec', **kwargs):
+def invoke(tmp_path, handler, args, platform='wiserec', *, download_error=None,
+           permission_failure_at=None, **kwargs):
     config = tmp_path / 'config.json'
     config.write_text(json.dumps({'current': 'dev', 'profiles': [
         {'name': 'dev', 'platform_type': platform, 'api_endpoint': 'https://current.example'},
@@ -44,14 +45,21 @@ def invoke(tmp_path, handler, args, platform='wiserec', **kwargs):
         assert request.url.host == 'current.example'
         assert request.headers['businessid'] == 'selected'
         return handler(request)
+    auth_calls = 0
+    def authenticated(operation, **options):
+        nonlocal auth_calls
+        auth_calls += 1
+        if auth_calls == permission_failure_at:
+            raise MlError('权限检查失败，HTTP 502，业务请求已停止，请联系管理员')
+        return operation(client)
     with PlatformClient(Profile('dev', 'https://current.example', platform_type=platform),
                         Credentials.create('dev', 'cookie', 'csrf', 'user', 60), 1000, 0, True,
                         transport=httpx.MockTransport(checked),
                         business_selection=SimpleNamespace(business_id='selected')) as client:
         with patch('wiserec_cli.cli.Runtime', return_value=runtime), \
-             patch.object(runtime, 'authenticated_call', side_effect=lambda op, **kw: op(client)), \
+             patch.object(runtime, 'authenticated_call', side_effect=authenticated), \
              patch('wiserec_cli.commands.train_history_logs.download_file',
-                   return_value=(tmp_path / 'log.zip', 12)) as download:
+                   return_value=(tmp_path / 'log.zip', 12), side_effect=download_error) as download:
             runner = CliRunner(**({'mix_stderr': False} if 'mix_stderr' in inspect.signature(CliRunner).parameters else {}))
             result = invoke_with_config(runner, app, config, ['train', 'history', *args], **kwargs)
     return result, download

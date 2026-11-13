@@ -49,6 +49,7 @@ ml train instance logs download TASK_ID JOB_ID --select all --directory 'D:\logs
 - `instance list` 和 `history list` 默认返回第一页 10 条，支持 `--page` 和 `--page-size`（每页 1 至 200 条），按接口返回顺序展示。按日志来源从对应列表取得 `jobId`。执行记录默认下载普通日志，加 `--type plog` 下载 plog。
 - `history detail` 自动翻页查找记录。`jobType=dps-train` 时展示角色列表，首列为完整角色作业 ID；JSON 保留角色及额外字段。下载分布式普通日志须明确使用 `--role-job-id` 或 `--select`，二者互斥；编号以本次查询为准，精确选择优先使用角色 ID。普通训练不接受角色选择参数。
 - `history logs download` 下载普通日志前先查询是否存在，不存在则按作业归档并等待，每次获取下载链接前重新检查。同次命令内同一作业最多归档一次。`--wait-timeout` 默认每条日志 120 秒，0 表示提交必要归档后不等待。超时返回 `not_ready` 和非零退出码，稍后重试；批量下载须核对每个角色结果。plog 不使用该归档流程，也不支持角色选择或自定义等待时间。
+- 历史日志下载逐阶段提示查询记录、检查日志、归档、等待、获取和校验地址及文件下载。提示包含当前作业、分布式角色及检查次数，均写入 stderr。逐条失败的 JSON 摘要含 `stage` 和带阶段名称的 `error`；按失败阶段排查，不把权限检查或地址校验失败解释为日志不存在。plog 同样显示地址获取和下载阶段。
 - `history list -o table` 的最后三列依次是“执行时长”“排队时长”和“配额等待时间”。`runningTime` 和 `queueTime` 原值为分钟，例如 `157` 显示为 `2h37min`。`waitTime` 原值为秒，例如 `3631` 显示为 `1h0min31s`。满 24 小时使用 `day`，例如 `1day8h22min` 或 `1day8h22min31s`。前两列的零值显示为 `0min`，配额等待时间的零值显示为 `0s`，缺失值显示 `-`。`-o json` 保留原始字段和值。
 - `instance list -o table` 的最后三列顺序相同。执行时长按开始时间到查询时刻的整分钟数计算，使用与 `queueTime` 相同的显示格式。
 - `ml train start TASK_ID` 返回 `jobId` 只表示请求已被接受，之后用 `history list` 确认状态。
