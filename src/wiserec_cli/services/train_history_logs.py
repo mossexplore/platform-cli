@@ -17,8 +17,8 @@ def role_records(record):
     return roles
 
 
-def has_role_plog(role):
-    params = role.get('sysParam')
+def has_plog(record):
+    params = record.get('sysParam')
     if not isinstance(params, str):
         return False
     try:

@@ -374,8 +374,7 @@ def download_logs(
     log_type: str = typer.Option("log", "--type", help="日志类型: log 或 plog，默认 log"),
     directory: Optional[Path] = typer.Option(None, "--directory", help="已存在的保存目录，默认当前目录"),
     output: Optional[str] = typer.Option(None, "--output", "-o", help="结果摘要格式: table 或 json"),
-    role_job_id: Optional[str] = typer.Option(None, "--role-job-id", help="分布式角色作业 ID，与 --select 互斥"),
-    selection: Optional[str] = typer.Option(None, "--select", help="分布式角色编号，多个用英文逗号分隔，或 all"),
+    role_job_id: Optional[str] = typer.Option(None, "--role-job-id", help="分布式角色作业 ID，非交互下载时必填"),
     wait_timeout: int = typer.Option(120, "--wait-timeout", min=0, hidden=True),
 ) -> None:
     """检查归档并下载执行记录日志"""
@@ -387,15 +386,13 @@ def download_logs(
             raise ValueError("taskId 和 jobId 不能为空")
         if role_job_id is not None and not role_job_id.strip():
             raise ValueError("roleJobId 不能为空")
-        if role_job_id is not None and selection is not None:
-            raise ValueError("--role-job-id 与 --select 互斥")
         if log_type == "plog" and wait_timeout != 120:
             raise ValueError("plog 不支持归档等待选项")
         directory = download_directory(directory)
         runtime = runtime_from_context(context)
         selected = selected_output(runtime, output)
         download_history_logs(runtime, task_id, job_id, directory, selected,
-                              role_job_id.strip() if role_job_id else None, selection,
+                              role_job_id.strip() if role_job_id else None,
                               log_type=log_type)
     except typer.Exit:
         raise

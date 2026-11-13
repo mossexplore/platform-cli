@@ -11,7 +11,7 @@ from ..downloads import download_file, download_filename, zip_filename
 from ..errors import ApiError
 from ..output import error_console, print_result
 from ..services.train import TrainService
-from ..services.train_history_logs import HistoryLogService, LogNotReady, has_role_plog, require_ids, role_records
+from ..services.train_history_logs import HistoryLogService, LogNotReady, has_plog, require_ids, role_records
 from .train_history_detail import show_roles
 
 
@@ -46,7 +46,7 @@ class DownloadStages:
 
 def select_roles(value, roles, *, plog=False):
     if value.strip().lower() == 'all':
-        return [index for index, role in enumerate(roles) if not plog or has_role_plog(role)]
+        return [index for index, role in enumerate(roles) if not plog or has_plog(role)]
     if not re.fullmatch(r'\s*[0-9]+\s*(,\s*[0-9]+\s*)*', value):
         raise ValueError('请输入有效编号，多个编号使用英文逗号分隔，例如 1,2')
     indices = list(dict.fromkeys(int(part.strip()) - 1 for part in value.split(',')))
@@ -55,8 +55,8 @@ def select_roles(value, roles, *, plog=False):
     return indices
 
 
-def choose_roles(roles, role_job_id, selection, output, *, plog=False):
-    if plog and not any(has_role_plog(role) for role in roles):
+def choose_roles(roles, role_job_id, output, *, plog=False):
+    if plog and not any(has_plog(role) for role in roles):
         raise ApiError(NO_PLOG)
     if not roles:
         raise ApiError('暂无角色信息，无法下载日志')
@@ -65,11 +65,9 @@ def choose_roles(roles, role_job_id, selection, output, *, plog=False):
         if len(matches) != 1:
             raise ValueError('roleJobId 不属于当前执行记录或匹配了多条角色')
         return matches
-    show_roles(roles, selection=True, plog=plog)
-    if selection is not None:
-        return [roles[index] for index in select_roles(selection, roles, plog=plog)]
     if output == 'json' or not sys.stdin.isatty():
-        raise ValueError('非交互或 JSON 模式请指定 --role-job-id 或 --select')
+        raise ValueError('非交互或 JSON 模式请指定 --role-job-id')
+    show_roles(roles, selection=True, plog=plog)
     while True:
         all_label = '全部可下载 plog' if plog else '全部'
         value = typer.prompt(f'请输入角色编号，多个用英文逗号分隔；all 下载{all_label}；q 取消', err=True)
@@ -112,7 +110,7 @@ def ready_url(runtime, record, archives, stages=None):
 
 
 def download_history_logs(runtime, task_id, job_id, directory, output,
-                          role_job_id=None, selection=None, *, log_type='log'):
+                          role_job_id=None, *, log_type='log'):
     plog = log_type == 'plog'
     stages = DownloadStages()
     stages.start('query_record', '开始查询执行记录')
@@ -123,18 +121,19 @@ def download_history_logs(runtime, task_id, job_id, directory, output,
         distributed = record.get('jobType') == 'dps-train'
         if distributed:
             stages.start('select_role', '已找到分布式训练记录，选择日志角色')
-            records = choose_roles(role_records(record), role_job_id, selection, output, plog=plog)
+            records = choose_roles(role_records(record), role_job_id, output, plog=plog)
         else:
-            if role_job_id is not None or selection is not None:
+            if role_job_id is not None:
                 stages.start('select_role')
-                raise ValueError('普通训练不支持 --role-job-id 或 --select')
+                raise ValueError('普通训练不支持 --role-job-id')
             records = [{'taskId': task_id, 'jobId': job_id}]
         if not records:
             stages.note('已取消日志下载')
             return
         # 所有选中项先检查，避免参数错误时已经开始部分归档。
         stages.start('validate_role', f'开始校验 {len(records)} 条待下载日志的信息')
-        if plog and distributed and not all(has_role_plog(item) for item in records):
+        plog_records = records if distributed else [record]
+        if plog and not all(has_plog(item) for item in plog_records):
             raise ApiError(NO_PLOG)
         for item in records:
             require_ids(item, distributed)

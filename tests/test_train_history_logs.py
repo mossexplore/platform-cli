@@ -34,7 +34,7 @@ def roles():
 
 
 def invoke(tmp_path, handler, args, platform='wiserec', *, download_error=None,
-           permission_failure_at=None, **kwargs):
+           permission_failure_at=None, interactive=False, **kwargs):
     config = tmp_path / 'config.json'
     config.write_text(json.dumps({'current': 'dev', 'profiles': [
         {'name': 'dev', 'platform_type': platform, 'api_endpoint': 'https://current.example'},
@@ -61,7 +61,17 @@ def invoke(tmp_path, handler, args, platform='wiserec', *, download_error=None,
              patch('wiserec_cli.commands.train_history_logs.download_file',
                    return_value=(tmp_path / 'log.zip', 12), side_effect=download_error) as download:
             runner = CliRunner(**({'mix_stderr': False} if 'mix_stderr' in inspect.signature(CliRunner).parameters else {}))
-            result = invoke_with_config(runner, app, config, ['train', 'history', *args], **kwargs)
+            if interactive:
+                from wiserec_cli.commands.train_history_logs import choose_roles
+
+                def choose_in_terminal(*args, **kwargs):
+                    with patch('sys.stdin.isatty', return_value=True):
+                        return choose_roles(*args, **kwargs)
+
+                with patch('wiserec_cli.commands.train_history_logs.choose_roles', side_effect=choose_in_terminal):
+                    result = invoke_with_config(runner, app, config, ['train', 'history', *args], **kwargs)
+            else:
+                result = invoke_with_config(runner, app, config, ['train', 'history', *args], **kwargs)
     return result, download
 
 
@@ -134,7 +144,7 @@ def test_archive_ends_download_until_next_invocation(tmp_path, missing, distribu
         return response(url='https://files.example/log')
     args = ['logs', 'download', 'task', 'job', '-o', 'json']
     if distributed:
-        args += ['--select', '1']
+        args += ['--role-job-id', ROLE_ID]
     archived = False
     result, download = invoke(tmp_path, handler, args)
     assert result.exit_code == 1, result.output
@@ -169,10 +179,10 @@ def test_batch_deduplicates_archive_and_continues(tmp_path, needs_archive_from_u
             return response(des='success', failedUploadSwitch=False)
         assert action == 'manualArchiveLog'
         return response()
-    result, download = invoke(tmp_path, handler, ['logs', 'download', 'task', 'job',
-        '--select', 'all', '-o', 'json'])
+    with patch('wiserec_cli.commands.train_history_logs.print_result') as render:
+        result, download = invoke(tmp_path, handler, ['logs', 'download', 'task', 'job', '-o', 'table'], interactive=True, input='all\n')
     assert result.exit_code == 1
-    output = json.loads(result.stdout)
+    output = render.call_args.args[0]
     assert output['failed'] == 2
     assert all(item['status'] == 'not_ready' for item in output['items'])
     check_calls = ['queryJobLogIsExist']
@@ -196,9 +206,10 @@ def test_batch_downloads_ready_role_after_requesting_archive(tmp_path):
         assert action == 'downloadLogUrl'
         assert request.url.params['roleJobId'] == 'server-id'
         return response(url='https://files.example/log')
-    result, download = invoke(tmp_path, handler, ['logs', 'download', 'task', 'job', '--select', 'all', '-o', 'json'])
+    with patch('wiserec_cli.commands.train_history_logs.print_result') as render:
+        result, download = invoke(tmp_path, handler, ['logs', 'download', 'task', 'job', '-o', 'table'], interactive=True, input='all\n')
     assert result.exit_code == 1
-    output = json.loads(result.stdout)
+    output = render.call_args.args[0]
     assert (output['succeeded'], output['failed']) == (1, 1)
     assert calls.count('manualArchiveLog') == 1 and download.call_count == 1
 
@@ -237,8 +248,7 @@ def test_archive_auth_failure_is_not_replayed_for_next_role():
     assert seen == [{}, {'retry_auth': False}, {}]
 
 
-@pytest.mark.parametrize('options', [['--select', '0'], ['--select', '3'], ['--select', '1，2'],
-                                   ['--role-job-id', 'missing'], [], ['--select', '']])
+@pytest.mark.parametrize('options', [['--role-job-id', 'missing'], []])
 def test_invalid_or_missing_selection_never_checks_logs(tmp_path, options):
     def handler(request):
         assert request.url.path.endswith('/queryScheduleTaskList')
@@ -248,7 +258,7 @@ def test_invalid_or_missing_selection_never_checks_logs(tmp_path, options):
     download.assert_not_called()
 
 
-@pytest.mark.parametrize('options', [['--select', 'all', '--role-job-id', ROLE_ID],
+@pytest.mark.parametrize('options', [['--select', 'all'],
     ['--type', 'plog', '--wait-timeout', '0'],
     ['--wait-timeout', '-1'], ['--role-job-id', ' ']])
 def test_invalid_options_never_request(tmp_path, options):
@@ -263,7 +273,7 @@ def test_invalid_role_data_never_falls_back_to_parent(tmp_path, role_info):
     def handler(request):
         assert request.url.path.endswith('/queryScheduleTaskList')
         return response(count=1, jobs=[{'jobId': 'job', 'jobType': 'dps-train', 'roleJobInfo': role_info}])
-    result, download = invoke(tmp_path, handler, ['logs', 'download', 'task', 'job', '--select', 'all'])
+    result, download = invoke(tmp_path, handler, ['logs', 'download', 'task', 'job', '--role-job-id', ROLE_ID])
     assert result.exit_code != 0
     download.assert_not_called()
 
@@ -347,9 +357,10 @@ def test_failed_archive_cannot_download_or_repeat(tmp_path, code):
             return response(isExistLog=False)
         assert action == 'manualArchiveLog'
         return response(code=code, des='归档失败')
-    result, download = invoke(tmp_path, handler, ['logs', 'download', 'task', 'job', '--select', 'all', '-o', 'json'])
+    with patch('wiserec_cli.commands.train_history_logs.print_result') as render:
+        result, download = invoke(tmp_path, handler, ['logs', 'download', 'task', 'job', '-o', 'table'], interactive=True, input='all\n')
     assert result.exit_code == 1
-    assert json.loads(result.stdout)['failed'] == 2
+    assert render.call_args.args[0]['failed'] == 2
     assert calls.count('manualArchiveLog') == 1
     download.assert_not_called()
 
@@ -366,14 +377,8 @@ def test_interactive_cancel_or_retry_and_preserve_selection_order(tmp_path, answ
             return response(isExistLog=True)
         assert action == 'downloadLogUrl'
         return response(url='https://files.example/log')
-    with patch('wiserec_cli.commands.train_history_logs.sys.stdin.isatty', return_value=True):
-        # CliRunner replaces stdin, so patch selection's TTY check at invocation time.
-        from wiserec_cli.commands.train_history_logs import choose_roles
-        def interactive(*args, **kwargs):
-            with patch('sys.stdin.isatty', return_value=True):
-                return choose_roles(*args, **kwargs)
-        with patch('wiserec_cli.commands.train_history_logs.choose_roles', side_effect=interactive):
-            result, download = invoke(tmp_path, handler, ['logs', 'download', 'task', 'job', '-o', 'table'], input=answer)
+    result, download = invoke(tmp_path, handler, ['logs', 'download', 'task', 'job', '-o', 'table'],
+                              interactive=True, input=answer)
     assert result.exit_code == 0, result.output
     assert download.call_count == expected
     assert requested_roles == (['server-id', ROLE_ID] if expected else [])

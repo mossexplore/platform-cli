@@ -129,7 +129,7 @@ def test_ready_path_has_no_archive_or_wait_messages(tmp_path):
 
 def test_batch_steps_keep_numbering_across_roles(tmp_path):
     result, _ = invoke(tmp_path, handler_for(distributed=True),
-                       ['logs', 'download', 'task', 'job', '--select', 'all', '-o', 'json'])
+                       ['logs', 'download', 'task', 'job', '-o', 'table'], interactive=True, input='all\n')
     assert result.exit_code == 0
     lines = re.findall(r'^\[(\d+)\] (.*)$', result.stderr, re.M)
     assert [int(number) for number, _ in lines] == list(range(1, len(lines) + 1))

@@ -29,7 +29,8 @@ def test_plog_request_and_cli_download(tmp_path, platform):
         assert request.url.host == 'current.example'
         assert request.headers['businessid'] == 'selected'
         if request.url.path.endswith('/queryScheduleTaskList'):
-            return response(count=1, jobs=[{'jobId': 'job', 'jobType': 'train'}])
+            return response(count=1, jobs=[{'jobId': 'job', 'jobType': 'train',
+                                            'sysParam': '{"plogUploadSuccess":"1"}'}])
         assert request.method == 'GET'
         assert request.url.path == '/ai/backend/mtp/traintask/downloadPlog'
         assert dict(request.url.params) == dict(businessId='selected', jobId='job',
@@ -86,8 +87,8 @@ def test_missing_business_never_requests():
         TrainService(client).get_plog_url('t', 'j')
 
 
-@pytest.mark.parametrize('options', [['--role-job-id', ROLE_ID], ['--select', '1'], ['--select', 'all']])
-def test_distributed_plog_uses_role_ids_and_skips_ordinary_log_apis(tmp_path, options):
+@pytest.mark.parametrize('answer', [None, '1\n', 'all\n'])
+def test_distributed_plog_uses_role_ids_and_skips_ordinary_log_apis(tmp_path, answer):
     records = roles()
     records[0]['sysParam'] = '{"plogUploadSuccess":"1"}'
     calls = []
@@ -105,25 +106,29 @@ def test_distributed_plog_uses_role_ids_and_skips_ordinary_log_apis(tmp_path, op
         }
         return response(des='get plog success', plogUrl='https://files.example/role-plog')
 
-    result, download = invoke(tmp_path, handler, [
-        'logs', 'download', 'task', 'job', '--type', 'plog', '-o', 'json', *options,
-    ])
+    args = ['logs', 'download', 'task', 'job', '--type', 'plog']
+    if answer is None:
+        args += ['-o', 'json', '--role-job-id', ROLE_ID]
+    else:
+        args += ['-o', 'table']
+    result, download = invoke(tmp_path, handler, args, interactive=answer is not None, input=answer)
     assert result.exit_code == 0, result.output
     assert calls == ['queryScheduleTaskList', 'downloadPlog']
-    assert json.loads(result.stdout)['items'][0]['roleJobId'] == ROLE_ID
+    if answer is None:
+        assert json.loads(result.stdout)['items'][0]['roleJobId'] == ROLE_ID
     assert download.call_args.args[0] == 'https://files.example/role-plog'
     assert download.call_args.kwargs['destination'].name == f'{ROLE_ID}_plog.zip'
-    if options[0] == '--select':
+    if answer is not None:
         assert 'plog' in result.stderr and '不可下载' in result.stderr
 
 
-@pytest.mark.parametrize('sys_param,selection', [
-    (None, ['--select', 'all']),
-    ('not json', ['--role-job-id', 'server-id']),
-    ('{"plogUploadSuccess":1}', ['--select', '1,2']),
-    ('{"plogUploadSuccess":"0"}', ['--select', '1,2']),
+@pytest.mark.parametrize('sys_param,answer', [
+    (None, 'all\n'),
+    ('not json', None),
+    ('{"plogUploadSuccess":1}', '1,2\n'),
+    ('{"plogUploadSuccess":"0"}', '1,2\n'),
 ])
-def test_missing_role_plog_stops_before_requesting_any_link(tmp_path, sys_param, selection):
+def test_missing_role_plog_stops_before_requesting_any_link(tmp_path, sys_param, answer):
     records = roles()
     if sys_param is not None:
         records[0]['sysParam'] = '{"plogUploadSuccess":"1"}'
@@ -133,11 +138,31 @@ def test_missing_role_plog_stops_before_requesting_any_link(tmp_path, sys_param,
         assert request.url.path.endswith('/queryScheduleTaskList')
         return response(count=1, jobs=[{'jobId': 'job', 'jobType': 'dps-train', 'roleJobInfo': records}])
 
-    result, download = invoke(tmp_path, handler, [
-        'logs', 'download', 'task', 'job', '--type', 'plog', '-o', 'json', *selection,
-    ])
+    args = ['logs', 'download', 'task', 'job', '--type', 'plog']
+    if answer is None:
+        args += ['-o', 'json', '--role-job-id', 'server-id']
+    else:
+        args += ['-o', 'table']
+    result, download = invoke(tmp_path, handler, args, interactive=answer is not None, input=answer)
     assert result.exit_code == 1, result.output
     assert '[错误]' in result.stderr
     assert '该记录没有plog日志，停止下载' in result.stderr
     assert result.stdout == ''
+    download.assert_not_called()
+
+
+@pytest.mark.parametrize('job_fields', [
+    {'jobType': 'train'},
+    {'jobType': 'other', 'sysParam': 'not json'},
+    {'sysParam': '{"plogUploadSuccess":"0"}'},
+    {'jobType': 'train', 'sysParam': '{"plogUploadSuccess":1}'},
+])
+def test_missing_record_plog_stops_before_requesting_link(tmp_path, job_fields):
+    def handler(request):
+        assert request.url.path.endswith('/queryScheduleTaskList')
+        return response(count=1, jobs=[{'jobId': 'job', **job_fields}])
+
+    result, download = invoke(tmp_path, handler, ['logs', 'download', 'task', 'job', '--type', 'plog', '-o', 'json'])
+    assert result.exit_code == 1, result.output
+    assert '该记录没有plog日志，停止下载' in result.stderr
     download.assert_not_called()

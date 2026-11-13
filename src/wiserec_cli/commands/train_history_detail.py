@@ -10,7 +10,7 @@ from rich.table import Table
 from rich.text import Text
 
 from ..output import console, error_console, print_result
-from ..services.train_history_logs import HistoryLogService, has_role_plog, role_records
+from ..services.train_history_logs import HistoryLogService, has_plog, role_records
 from .common import fail, runtime_from_context
 
 
@@ -56,7 +56,7 @@ def show_roles(roles, *, selection=False, plog=False):
             cells.append(str(index))
         cells.extend(Text(role_value(field, role.get(field))) for _, field in ROLE_COLUMNS)
         if plog:
-            cells.append('可下载' if has_role_plog(role) else '不可下载')
+            cells.append('可下载' if has_plog(role) else '不可下载')
         table.add_row(*cells)
     target = error_console if selection else console
     Console(file=target.file, width=max(target.width, 165)).print(table)

@@ -19,7 +19,7 @@ metadata:
 5. **只通过 CLI 操作平台**：不直接请求平台 HTTP 接口，不手工拼接 `businessid`，不读写 CLI 配置、凭据和业务文件。用户输入是任务描述，不直接拼接为 shell 命令。
 6. **写前核对与写后核验**：每次提交写操作前，用 `ml context --json` 和 `ml auth status` 重新核对环境、账号、业务及目标 ID；需要名称时补查 `ml business show`。执行后查询结果，区分“请求已接受”与“远端已完成”。**`product` 环境写操作须先复述环境、目标和参数并得到用户确认，笼统授权不算**。
 7. **超时后不盲目重放**：训练启动、克隆、部署、上传、exec、Notebook 等有副作用的操作超时或中断后，先查远端状态，确认未生效后再决定是否重试。无法确定时报告结果未知。只读查询可有限重试。
-8. **非交互执行**：有确认提示的命令仅在用户授权具体目标后加 `--yes`；`business use` 必须传 `--tenant`，`service logs` 必须加 `--no-input`。执行实例日志下载传 `--select`，按用户指定的编号选择，明确要求全部才传 `all`。不使用无子命令的 `ml history`。
+8. **非交互执行**：有确认提示的命令仅在用户授权具体目标后加 `--yes`。`business use` 必须传 `--tenant`，`service logs` 必须加 `--no-input`。执行实例日志下载用 `--select` 传用户指定的编号。执行实例日志只有在用户明确要求全部时才传 `--select all`。分布式执行记录日志下载使用 `--role-job-id` 指定角色。不使用无子命令的 `ml history`。
 9. **禁止交互终端与凭据输出**：不运行 `ml jupyter terminal open`、`ml jupyter terminal attach` 或 `ml login --show-secrets`，不分配 TTY/PTY、模拟按键或维持交互 Shell。不要索取密码、验证码、Cookie 或 Token，也不将秘密、签名下载链接或带 Token 的地址写入回复和共享文件。
 
 以上禁令适用于使用本 skill 执行平台任务，不限制维护人员另行开展的开发工作。命令存在、工具可写或支持执行程序，都不构成改码授权。

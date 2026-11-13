@@ -597,7 +597,7 @@ ml train history list TASK_ID [--page PAGE] [--page-size PAGE_SIZE] [-o table|js
 ml train history detail TASK_ID JOB_ID [-o table|json]
 ml train start TASK_ID
 ml train config export TASK_ID [--file PATH]
-ml train history logs download TASK_ID JOB_ID [--type log|plog] [--role-job-id ROLE_JOB_ID | --select SELECTION] [--directory DIR] [-o table|json]
+ml train history logs download TASK_ID JOB_ID [--type log|plog] [--role-job-id ROLE_JOB_ID] [--directory DIR] [-o table|json]
 ml train instance logs download TASK_ID JOB_ID [--select SELECTION] [--directory DIR]
 ml train cancel TASK_ID [--yes]
 ml train delete TASK_ID [--yes]
@@ -615,7 +615,7 @@ ml train config update TASK_ID --customize-config VALUE
 | `history detail` | 必填 `TASK_ID`、`JOB_ID`；可选 `--output` / `-o` |
 | `start` | 必填 `TASK_ID`；执行后显示作业 ID |
 | `config export` | 必填 `TASK_ID`；可选 `--file PATH` 指定保存位置 |
-| `history logs download` | 必填 `TASK_ID`、`JOB_ID`；`--type` 默认 `log`，也可选 `plog`；`--role-job-id ROLE_JOB_ID` 与 `--select SELECTION` 互斥，仅用于分布式训练；可选 `--directory DIR`、`--output` / `-o` |
+| `history logs download` | 必填 `TASK_ID`、`JOB_ID`；`--type` 默认 `log`，也可选 `plog`；`--role-job-id ROLE_JOB_ID` 仅用于分布式训练，脚本和 JSON 模式必填；可选 `--directory DIR`、`--output` / `-o` |
 | `instance logs download` | 必填 `TASK_ID`、`JOB_ID`；可选 `--select SELECTION`、`--directory DIR`、`--output` / `-o` |
 | `cancel`、`delete` | 必填 `TASK_ID`；可选 `--yes` / `-y` 跳过确认 |
 | `clone` | 必填 `TASK_ID`、`--name NAME`；可选 `--customize-config VALUE`、`--yes` / `-y` |
@@ -645,13 +645,13 @@ WiseRec 和 MLOps 的 `history list` 表格的最后三列依次是“执行时�
 
 `history logs download` 需先登录并选择业务。WiseRec 和 MLOps 的普通训练、分布式训练下载普通日志前，均先检查日志是否存在；日志存在时获取下载链接。日志未就绪，或下载链接接口返回需要归档（`failedUploadSwitch=false`）时，按作业提交手动归档。提交成功后立即提示“手动归档中，请稍后再次下载日志！”。稍后重新运行下载命令。批量下载仍处理其他选中角色，同一次命令内每个作业只提交一次归档请求。
 
-分布式训练可从 `history detail` 复制角色作业 ID，使用 `--role-job-id` 精确下载；也可用 `--select 1,2` 或 `--select all` 选择本次查询列表中的角色。未指定选择参数时，交互终端显示角色作业 ID 在首列、编号在第二列的列表，输入编号、`all` 或 `q` 取消。脚本和 JSON 模式必须明确指定角色选择参数。普通训练不接受角色选择参数。角色标识缺失或不属于当前记录时不能下载。
+分布式训练可从 `history detail` 复制角色作业 ID，使用 `--role-job-id` 精确下载。未指定角色 ID 时，交互终端显示角色作业 ID 在首列、编号在第二列的列表，可输入编号、逗号分隔的多个编号、`all` 下载全部或 `q` 取消。脚本和 JSON 模式必须传 `--role-job-id`。普通训练不接受此参数。角色标识缺失或不属于当前记录时不能下载。
 
 普通训练的 JSON 下载摘要包含本地路径、字节数及状态；分布式训练返回逐角色结果和成功、失败数量。批量下载中单个角色失败会继续处理其余角色。状态 `downloaded` 表示下载成功，`not_ready` 表示手动归档中，`failed` 表示失败。批量结果的失败数量包含未就绪条目。全部下载成功返回退出码 0，否则返回非零。表格、选择提示和进度写入标准错误。
 
 下载过程逐阶段提示执行记录查询、日志存在性检查、日志未就绪、手动归档、获取及校验下载地址、开始下载和保存完成。进度按 [1]、[2] 等步骤连续编号。批量下载开始处理每条日志时提示当前条目。出错时显示步骤编号、失败阶段及原始原因，便于区分权限检查、归档、地址校验和文件下载问题。在支持颜色的终端中，下载失败和手动归档中的提示以红色显示。逐条失败的 JSON 摘要新增 `stage`：`check_log` 为日志检查、`archive_log` 为归档、`get_download_url` 为获取地址、`validate_download_url` 为校验地址、`download_file` 为文件下载。阶段提示均写入标准错误，不混入 JSON 结果。
 
-使用 `--type plog` 下载 plog。普通训练按执行记录下载。分布式训练的角色选择表会显示 plog 是否可下载。使用 `--role-job-id` 或编号选中的角色都须有 plog；`--select all` 仅下载可用的角色。选中项缺少 plog，或没有任何可用角色时，以红色提示“该记录没有plog日志，停止下载”，并返回非零退出码。plog 直接获取下载地址，进度带步骤编号。两种日志类型均无需提供 `target`。
+使用 `--type plog` 下载 plog。下载前先检查 plog 是否可用。`sysParam` 中的 `plogUploadSuccess` 须为字符串 `"1"`。普通训练检查执行记录自身，分布式训练检查所选角色，角色选择表显示 plog 是否可下载。使用 `--role-job-id` 或编号选中的角色都须有 plog。在交互提示中输入 `all` 时仅下载可用的角色。选中项缺少 plog，或没有任何可用角色时，以红色提示“该记录没有plog日志，停止下载”，并返回非零退出码。plog 直接获取下载地址，进度带步骤编号。两种日志类型均无需提供 `target`。
 
 `instance logs download` 需先登录并选择业务，通过 `instance list` 获取作业 ID。命令先请求归档；未完成时提示“日志归档中，请稍后执行下载命令！”，稍后重新运行同一命令。已有记录时，以表格展示编号、任务名称、jobId、roleJobId、节点名称、归档状态及北京时间的开始和结束时间，每条记录占一行。只有归档成功的记录可下载，输入编号选择，多份使用英文逗号分隔，例如 `1,2,3`；中文逗号会提示重新输入。输入 `all` 下载所有归档成功的记录，输入 `q` 取消。同名任务的不同归档分别编号。传 `--select` 可跳过编号提示，值为本次表格中的编号、英文逗号分隔的多个编号或 `all`。不可下载或无效的编号会报错。选中后展示 OBS 下载链接并保存 ZIP；部分失败会继续其余下载，最终汇总结果并返回失败状态。JSON 输出结果摘要，表格、选择提示和进度写入标准错误。归档文件不保证包含归档时间之后新增的日志。
 
@@ -671,11 +671,8 @@ ml train start TASK_ID
 ml train config export TASK_ID --file ./task.yaml
 ml train history logs download TASK_ID JOB_ID --directory ./logs
 ml train history logs download TASK_ID JOB_ID --role-job-id ROLE_JOB_ID --directory ./logs
-ml train history logs download TASK_ID JOB_ID --select 1,2 --directory ./logs
-ml train history logs download TASK_ID JOB_ID --select all -o json
 ml train history logs download TASK_ID JOB_ID --type plog --directory ./logs
 ml train history logs download TASK_ID JOB_ID --type plog --role-job-id ROLE_JOB_ID --directory ./logs
-ml train history logs download TASK_ID JOB_ID --type plog --select all -o json
 ml train instance logs download TASK_ID JOB_ID --directory ./logs
 ml train instance logs download TASK_ID JOB_ID --select 1 --directory ./logs
 ml train instance logs download TASK_ID JOB_ID --select "1,3" --directory ./logs
