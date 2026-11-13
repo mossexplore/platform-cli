@@ -51,6 +51,7 @@ ml train instance logs download TASK_ID JOB_ID --select all --directory 'D:\logs
 - `history logs download` 下载普通日志前先查询是否存在。日志未就绪，或下载链接接口返回 `failedUploadSwitch=false` 时，按作业提交手动归档。提交成功后立即提示“手动归档中，请稍后再次下载日志！”，返回 `not_ready` 和非零退出码。稍后重试时重新检查日志是否存在。同次命令内同一作业最多归档一次，批量下载继续处理其余选中角色。分布式 plog 可用 `--role-job-id` 或 `--select` 选择角色并直接获取下载地址。`--select all` 仅下载可用的 plog。选中项缺少 plog 或无可用角色时提示“该记录没有plog日志，停止下载”。
 - 历史日志下载逐阶段提示查询记录、检查日志、归档、获取和校验地址及文件下载。提示按步骤连续编号，批量下载会提示当前条目，均写入 stderr。逐条失败的 JSON 摘要含 `stage` 和带阶段名称的 `error`；按失败阶段排查，不把权限检查或地址校验失败解释为日志不存在。plog 同样显示地址获取和下载阶段。
 - `history list -o table` 的最后三列依次是“执行时长”“排队时长”和“配额等待时间”。`runningTime` 和 `queueTime` 原值为分钟，例如 `157` 显示为 `2h37min`。`waitTime` 原值为秒，例如 `3631` 显示为 `1h0min31s`。满 24 小时使用 `day`，例如 `1day8h22min` 或 `1day8h22min31s`。前两列的零值显示为 `0min`，配额等待时间的零值显示为 `0s`，缺失值显示 `-`。`-o json` 保留原始字段和值。
+- `instance list` 表格将 `RUNNING` 显示为黄色“执行中”。交互终端中，文字前的黄色圆圈会持续顺时针旋转，按 Ctrl+C 停止动画并返回。表格展示本次查询的结果。重定向时只输出一次表格，JSON 保留原始状态值。
 - `instance list -o table` 的最后三列顺序相同。执行时长按开始时间到查询时刻的整分钟数计算，使用与 `queueTime` 相同的显示格式。
 - `ml train start TASK_ID` 返回 `jobId` 只表示请求已被接受，之后用 `history list` 确认状态。
 - `cancel`、`delete`、`clone` 默认询问确认，授权后加 `--yes`。`cancel` 逐个取消全部执行实例，需看逐条结果和退出码，没有实例时退出 1。`clone` 成功后可能返回新任务 ID。

@@ -112,7 +112,7 @@ def test_distributed_plog_uses_role_ids_and_skips_ordinary_log_apis(tmp_path, op
     assert calls == ['queryScheduleTaskList', 'downloadPlog']
     assert json.loads(result.stdout)['items'][0]['roleJobId'] == ROLE_ID
     assert download.call_args.args[0] == 'https://files.example/role-plog'
-    assert download.call_args.kwargs['destination'].name == f'role-job-worker-{ROLE_ID}-plog-logs.zip'
+    assert download.call_args.kwargs['destination'].name == f'{ROLE_ID}_plog.zip'
     if options[0] == '--select':
         assert 'plog' in result.stderr and '不可下载' in result.stderr
 

@@ -28,7 +28,10 @@ def https_url(value: object) -> httpx.URL:
 def download_filename(disposition: str, job_id: str) -> str:
     message = Message()
     message["Content-Disposition"] = disposition
-    filename = message.get_filename() or f"{job_id}-logs"
+    return zip_filename(message.get_filename() or f"{job_id}-logs")
+
+
+def zip_filename(filename: str) -> str:
     filename = filename.replace("\\", "/").rsplit("/", 1)[-1]
     filename = re.sub(r'[<>:"/\\|?*\x00-\x1f\x7f]', "_", filename).strip(" .")
     if not filename:

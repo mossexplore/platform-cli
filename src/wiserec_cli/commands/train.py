@@ -24,6 +24,7 @@ from .train_logs import instance_logs_app
 from .train_detail import render_detail
 from .train_history_detail import history_detail
 from .train_history_logs import download_history_logs
+from .train_instance_display import running_status, show_running_instances
 
 
 train_app = typer.Typer(no_args_is_help=True, help="训练任务查询与执行管理")
@@ -66,6 +67,7 @@ HISTORY_STATUS_LABELS = {
     "COMPLETED": ("执行完成", "green"),
     "CANCELED": ("取消", "yellow"),
     "TIMEOUT": ("超时", "yellow"),
+    "LACK_RESOURCE": ("资源不足", "yellow"),
 }
 TIME_FIELDS = {"updateTime", "latestRunTime", "checkTime", "createTime", "statusTime"}
 # 现代上海时间固定 UTC+08:00，避免 Windows 额外依赖系统 IANA 时区数据库。
@@ -116,6 +118,7 @@ def render_page(
         console.print(f"任务 ID：{history_task_id}", markup=False)
         columns = HISTORY_COLUMNS
     table = Table(show_header=True, header_style="bold cyan")
+    is_instance = columns is INSTANCE_COLUMNS
     for title, field in columns:
         if field == "jobId":
             table.add_column(title, width=36, min_width=36, max_width=36,
@@ -123,9 +126,12 @@ def render_page(
         elif field == "taskId" and task is None and history_task_id is None:
             table.add_column(title, width=36, min_width=36, max_width=36,
                              no_wrap=True, overflow="ignore")
+        elif is_instance and field == "status":
+            table.add_column(title, min_width=8, overflow="fold")
         else:
             table.add_column(title, overflow="fold", min_width=1)
     now_ms = int(time.time() * 1000)
+    has_running = False
     for item in result["items"]:
         cells = []
         for _, field in columns:
@@ -135,17 +141,24 @@ def render_page(
                 rendered = display_value(field, minutes)
             else:
                 rendered = display_value(field, item.get(field))
-            if translate_history_status and field == "status":
+            if is_instance and field == "status" and rendered == "RUNNING":
+                cells.append(running_status())
+                has_running = True
+            elif translate_history_status and field == "status":
                 label, color = HISTORY_STATUS_LABELS.get(rendered, (rendered, ""))
                 cells.append(Text(label, style=color))
             else:
                 cells.append(Text(rendered))
         table.add_row(*cells)
+    pagination = f"第 {result['pageIndex']} 页 · 每页 {result['pageSize']} 条 · 共 {result['count']} 条"
+    if has_running:
+        show_running_instances(console, table, pagination)
+        return
     console.print(table)
     if not result["items"]:
         empty_message = "暂无执行实例" if task is not None else "暂无训练任务"
         print_text("暂无执行记录" if history_task_id is not None else empty_message)
-    print_text(f"第 {result['pageIndex']} 页 · 每页 {result['pageSize']} 条 · 共 {result['count']} 条")
+    print_text(pagination)
 
 
 def selected_output(runtime: Any, output: Optional[str]) -> str:

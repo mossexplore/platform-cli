@@ -7,7 +7,7 @@ import typer
 from rich.progress import Progress, BarColumn, DownloadColumn
 
 from .. import messages as msg
-from ..downloads import download_file, download_filename
+from ..downloads import download_file, download_filename, zip_filename
 from ..errors import ApiError
 from ..output import error_console, print_result
 from ..services.train import TrainService
@@ -167,10 +167,11 @@ def download_history_logs(runtime, task_id, job_id, directory, output,
             with Progress(msg.MessageColumn(), BarColumn(), DownloadColumn(), console=error_console) as progress:
                 progress_id = progress.add_task(download_label, total=None)
                 options = {'directory': directory}
-                if distributed:
+                if distributed and plog:
+                    name = zip_filename(f"{item['roleJobId']}_plog.zip")
+                    options = {'destination': directory / name}
+                elif distributed:
                     parts = [str(item.get(key) or '') for key in ('jobId', 'roleType', 'roleJobId')]
-                    if plog:
-                        parts.append('plog')
                     options = {'destination': directory / download_filename('', '-'.join(parts))}
                 download_id = f"{item['jobId']}-plog" if plog else item['jobId']
                 path, size = download_file(url, download_id, **options,

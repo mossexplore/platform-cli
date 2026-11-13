@@ -207,7 +207,7 @@ class TrainOutputTest(unittest.TestCase):
                                    {"runningTime": 0, "queueTime": 0, "waitTime": 0},
                                    {"queueTime": 2.5, "waitTime": 125},
                                    {"status": "FAILED"}, {"status": "COMPLETED"},
-                                   {"status": "TIMEOUT"}, {"status": "RUNNING"}]},
+                                   {"status": "TIMEOUT"}, {"status": "RUNNING"}, {"status": "LACK_RESOURCE"}]},
                         "table", history_task_id="task-id", translate_history_status=True)
         table = next(call.args[0] for call in output.print.call_args_list
                      if isinstance(call.args[0], Table))
@@ -231,6 +231,7 @@ class TrainOutputTest(unittest.TestCase):
         self.assertEqual([(cell.plain, cell.style) for cell in table.columns[5]._cells], [
             ("取消", "yellow"), ("-", ""), ("-", ""), ("-", ""),
             ("执行失败", "red"), ("执行完成", "green"), ("超时", "yellow"), ("RUNNING", ""),
+            ("资源不足", "yellow"),
         ])
         output.print.assert_any_call("任务 ID：task-id", markup=False)
         messages.assert_called_once_with("第 1 页 · 每页 10 条 · 共 11 条")
@@ -370,10 +371,23 @@ class TrainOutputTest(unittest.TestCase):
     def test_cli_instance_json_uses_config_and_preserves_job_id(self):
         task = {"taskId": "t", "businessId": "b", "taskType": "train"}
         result = self.invoke(FakeClient(tasks([task]), {"result": {"code": 0, "count": 1,
-                            "jobs": [{"jobId": "j", "runningTime": 0}]}}),
+                            "jobs": [{"jobId": "j", "runningTime": 0, "status": "RUNNING"}]}}),
                              ["train", "instance", "list", "t"], "json")
         self.assertEqual(result.exit_code, 0, result.output)
-        self.assertEqual(json.loads(result.stdout)["items"], [{"jobId": "j", "runningTime": 0}])
+        self.assertEqual(json.loads(result.stdout)["items"], [{"jobId": "j", "runningTime": 0, "status": "RUNNING"}])
+
+    def test_cli_instance_running_status_is_yellow_and_static_when_redirected(self):
+        task = {"taskId": "t", "businessId": "b", "taskType": "train"}
+        jobs = [{"jobId": "j", "status": "RUNNING"}, {"jobId": "k", "status": "FAILED"}]
+        client = FakeClient(tasks([task]), {"result": {"code": 0, "count": 2, "jobs": jobs}})
+        stream = io.StringIO()
+        terminal = Console(file=stream, width=200, force_terminal=True, color_system="standard", no_color=False)
+        with patch("wiserec_cli.commands.train.console", terminal):
+            result = self.invoke(client, ["train", "instance", "list", "t", "-o", "table"])
+        self.assertEqual(result.exit_code, 0, result.output)
+        self.assertRegex(stream.getvalue(), r"\x1b\[33m[◴◷◶◵]\x1b\[0m \x1b\[33m执行中\x1b\[0m")
+        self.assertIn("FAILED", stream.getvalue())
+        self.assertNotIn("停止动画", stream.getvalue())
 
     def test_cli_instance_pagination_preserves_api_order(self):
         task = {"taskId": "t", "businessId": "b", "taskType": "train"}
