@@ -89,10 +89,10 @@ def ready_url(runtime, record, archives, stages=None):
     try:
         return runtime.authenticated_call(lambda client: HistoryLogService(client).download_url(
             record['taskId'], job_id, record.get('roleJobId'), on_stage=report))
-    except LogNotReady:
+    except LogNotReady as exc:
         if job_id not in archives:
             # 同一命令内，写操作结果未确认时也不重新提交。
-            stages.start('archive_log', '日志未就绪，准备手动归档（含权限检查）')
+            stages.start('archive_log', f'{exc}，准备手动归档（含权限检查）')
             try:
                 runtime.authenticated_call(
                     lambda client: HistoryLogService(client).archive(job_id), retry_auth=False)

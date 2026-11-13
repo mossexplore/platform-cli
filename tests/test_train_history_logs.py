@@ -108,10 +108,11 @@ def test_ready_logs_always_checked_before_url(tmp_path, platform, distributed):
         assert download.call_args.kwargs['directory'] == tmp_path
 
 
-@pytest.mark.parametrize('missing', [{'isExistLog': False}, {'failedUploadSwitch': False}])
+@pytest.mark.parametrize('missing', [{'isExistLog': False}, {'failedUploadSwitch': False}, None])
 @pytest.mark.parametrize('distributed', [False, True])
 def test_archive_ends_download_until_next_invocation(tmp_path, missing, distributed):
-    calls, states = [], iter([missing, {'isExistLog': True}])
+    calls, states = [], iter([missing or {'isExistLog': True}, {'isExistLog': True}])
+    needs_archive_from_url = missing is None
     def handler(request):
         action = request.url.path.rsplit('/', 1)[-1]
         calls.append(action)
@@ -128,24 +129,34 @@ def test_archive_ends_download_until_next_invocation(tmp_path, missing, distribu
             assert body['data'] == {'businessId': 'selected', 'jobId': 'role-job' if distributed else 'job'}
             return response()
         assert action == 'downloadLogUrl'
+        if needs_archive_from_url and not archived:
+            return response(des='success', failedUploadSwitch=False)
         return response(url='https://files.example/log')
     args = ['logs', 'download', 'task', 'job', '-o', 'json']
     if distributed:
         args += ['--select', '1']
+    archived = False
     result, download = invoke(tmp_path, handler, args)
     assert result.exit_code == 1, result.output
     assert '手动归档中，请稍后再次下载日志！' in result.stderr
-    assert calls == ['queryScheduleTaskList', 'queryJobLogIsExist', 'manualArchiveLog']
+    expected = ['queryScheduleTaskList', 'queryJobLogIsExist']
+    if needs_archive_from_url:
+        expected.append('downloadLogUrl')
+        assert '下载接口提示需要归档' in result.stderr
+        assert '开始校验下载地址' not in result.stderr
+    assert calls == expected + ['manualArchiveLog']
     download.assert_not_called()
 
     calls.clear()
+    archived = True
     result, download = invoke(tmp_path, handler, args)
     assert result.exit_code == 0, result.output
     assert calls == ['queryScheduleTaskList', 'queryJobLogIsExist', 'downloadLogUrl']
     download.assert_called_once()
 
 
-def test_batch_deduplicates_archive_and_continues(tmp_path):
+@pytest.mark.parametrize('needs_archive_from_url', [False, True])
+def test_batch_deduplicates_archive_and_continues(tmp_path, needs_archive_from_url):
     calls = []
     def handler(request):
         action = request.url.path.rsplit('/', 1)[-1]
@@ -153,7 +164,9 @@ def test_batch_deduplicates_archive_and_continues(tmp_path):
         if action == 'queryScheduleTaskList':
             return response(count=1, jobs=[{'jobId': 'job', 'jobType': 'dps-train', 'roleJobInfo': roles()}])
         if action == 'queryJobLogIsExist':
-            return response(isExistLog=False)
+            return response(isExistLog=needs_archive_from_url)
+        if action == 'downloadLogUrl' and needs_archive_from_url:
+            return response(des='success', failedUploadSwitch=False)
         assert action == 'manualArchiveLog'
         return response()
     result, download = invoke(tmp_path, handler, ['logs', 'download', 'task', 'job',
@@ -162,7 +175,10 @@ def test_batch_deduplicates_archive_and_continues(tmp_path):
     output = json.loads(result.stdout)
     assert output['failed'] == 2
     assert all(item['status'] == 'not_ready' for item in output['items'])
-    assert calls.count('manualArchiveLog') == 1
+    check_calls = ['queryJobLogIsExist']
+    if needs_archive_from_url:
+        check_calls.append('downloadLogUrl')
+    assert calls == ['queryScheduleTaskList', *check_calls, 'manualArchiveLog', *check_calls]
     download.assert_not_called()
 
 

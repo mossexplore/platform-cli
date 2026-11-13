@@ -6,7 +6,7 @@ from ..errors import ApiError, BusinessError
 
 
 class LogNotReady(ApiError):
-    """接口明确返回日志尚不存在。"""
+    """接口明确返回日志需要手动归档。"""
 
 
 def role_records(record):
@@ -86,13 +86,15 @@ class HistoryLogService:
         # 每次获取链接（含认证重试）均重新检查，调用方不能绕过此门禁。
         report('check_log', '开始查询日志是否存在')
         if not self.exists(job_id, role_job_id):
-            raise LogNotReady('日志尚未就绪')
+            raise LogNotReady('日志未就绪')
         params = {'businessId': self.client.business_id, 'taskId': task_id,
                   'jobId': job_id, 'isApplicantPromise': 'true'}
         if role_job_id is not None:
             params['roleJobId'] = role_job_id
-        report('get_download_url', '日志已就绪，开始获取日志下载地址')
+        report('get_download_url', '日志存在，开始获取日志下载地址')
         result = self.request('GET', 'downloadLogUrl', params=params)
+        if result.get('failedUploadSwitch') is False:
+            raise LogNotReady('下载接口提示需要归档')
         report('validate_download_url', '开始校验下载地址')
         https_url(result.get('url'))
         return result['url']

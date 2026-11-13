@@ -108,7 +108,7 @@ def test_lookup_permission_failure_identified_before_any_platform_request(tmp_pa
 def test_ready_path_has_no_archive_or_wait_messages(tmp_path):
     result, _ = invoke(tmp_path, handler_for(), ['logs', 'download', 'task', 'job', '-o', 'json'])
     assert result.exit_code == 0
-    assert '日志已就绪' in result.stderr
+    assert '日志存在，开始获取日志下载地址' in result.stderr
     assert '归档' not in result.stderr and '等待日志就绪' not in result.stderr
 
 
