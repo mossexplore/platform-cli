@@ -1,15 +1,5 @@
 name: Build and publish access image
 on:
-  push:
-    branches: [main]
-    paths:
-      - 'access-service/**'
-      - 'src/**'
-      - 'tests/**'
-      - 'pyproject.toml'
-      - 'versions.toml'
-      - 'scripts/sync_versions.py'
-      - '.github/workflows/access-image.yml'
   pull_request:
     branches: [main]
   workflow_call:
@@ -67,7 +57,7 @@ jobs:
           version = pathlib.Path('access-service/VERSION').read_text().strip()
           assert re.fullmatch(r'\d+\.\d+\.\d+(?:\.\d+)?', version)
           event, ref = os.environ['EVENT'], os.environ['REF']
-          publish = ref == 'refs/heads/main' and event in ('push', 'workflow_dispatch')
+          publish = ref == 'refs/heads/main' and event == 'workflow_dispatch'
           image = 'ghcr.io/' + os.environ['OWNER'].lower() + '/cli-access'
           candidate = image + ':candidate-' + os.environ['GITHUB_RUN_ID'] + '-' + os.environ['GITHUB_RUN_ATTEMPT']
           with open(os.environ['GITHUB_OUTPUT'], 'a') as out:

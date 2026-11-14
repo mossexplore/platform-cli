@@ -1,13 +1,5 @@
 name: Validate standalone notification assistant
 on:
-  push:
-    branches: [main]
-    paths:
-      - 'permission-notifier/**'
-      - 'versions.toml'
-      - 'scripts/sync_versions.py'
-      - 'scripts/releasing/verify-notifier-windows.ps1'
-      - '.github/workflows/notifier.yml'
   workflow_dispatch:
 permissions:
   contents: read

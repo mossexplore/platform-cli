@@ -14,7 +14,7 @@ GitHub 托管 Ubuntu 构建镜像，GHCR 保存镜像，Linux 服务器通过 Do
 
 工作流：`.github/workflows/access-image.yml`，名称 **Build and publish access image**。
 
-- 推送 main 且涉及服务、CLI、测试、项目版本或工作流时运行；纯 docs 修改不触发。
+- 日常推送 main 不触发工作流。已有 PR 收到新提交时仍会运行 PR 检查。
 - Pull Request 运行测试和本地候选镜像验证，不登录、不发布 GHCR。
 - Actions → 对应工作流 → Run workflow → 选择 main，可手动构建。
 - 正式版在 main 手动运行 **Prepare formal release**：构建并验证 Windows CLI 1.0.9.1 安装包，测试权限镜像，完成后创建带全部附件的 Release 草稿。核验后发布草稿，不再通过 release.published 重新构建。权限镜像、CLI 和 Release 均使用 1.0.9.1；正式标签不覆盖。

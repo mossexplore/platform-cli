@@ -1,17 +1,6 @@
 name: Independent CLI demo validation
 on:
   workflow_dispatch:
-  push:
-    branches: [main]
-    paths:
-      - 'src/wiserec_cli/**'
-      - 'devtools/mock-platform/**'
-      - 'scripts/demo/**'
-      - 'scripts/releasing/check-cli-package.py'
-      - 'pyproject.toml'
-      - 'setup.py'
-      - 'MANIFEST.in'
-      - '.github/workflows/demo.yml'
 permissions:
   contents: read
 jobs:
