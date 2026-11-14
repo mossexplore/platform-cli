@@ -81,9 +81,9 @@ ml                                              WiseRec 命令行工具
 │   └── clone                                   克隆任务
 ├── sample-task                                 样本任务
 │   ├── list                                    分页查询样本任务，默认使用旧任务管理
-│   ├── period                                  新版样本任务执行周期
+│   ├── period                                  样本任务执行周期
 │   │   └── list                                分页查询执行周期
-│   └── execution                               新版样本任务执行记录
+│   └── execution                               样本任务执行记录
 │       └── list                                分页查询执行记录
 ├── model                                       模型查询与部署
 │   ├── list                                    查询当前业务的模型列表
@@ -1580,7 +1580,7 @@ ml sample-task period list TASK_ID [--page PAGE] [--page-size SIZE] [--start-tim
 
 | 参数 | 说明 |
 | --- | --- |
-| `TASK_ID` | 必填，新版样本任务 ID |
+| `TASK_ID` | 必填，样本任务 ID |
 | `--page` | 正整数，默认 1 |
 | `--page-size` | 正整数，默认 20 |
 | `--start-time` / `--end-time` | 可选周期日期边界，按北京时间输入 `YYYY-MM-DD HH:mm:ss`；可只指定一端 |
@@ -1589,7 +1589,7 @@ ml sample-task period list TASK_ID [--page PAGE] [--page-size SIZE] [--start-tim
 
 ### 说明
 
-先选择环境、登录并通过 `ml business use` 选择租户或团队。仅用于“任务管理（新）”，无需添加 `--source new`。可通过 `ml sample-task list --source new` 获取任务 ID。开始日期不得晚于结束日期。
+先选择环境、登录并通过 `ml business use` 选择租户或团队。新旧样本任务共用此命令，直接传任务 ID。可通过 `ml sample-task list` 查询旧任务，或加 `--source new` 查询新任务。开始日期不得晚于结束日期。
 
 | 状态值 | 中文名称 |
 | --- | --- |
@@ -1632,7 +1632,7 @@ ml sample-task execution list TASK_ID [--page PAGE] [--page-size SIZE] [--includ
 
 | 参数 | 说明 |
 | --- | --- |
-| `TASK_ID` | 必填，新版样本任务 ID |
+| `TASK_ID` | 必填，样本任务 ID |
 | `--page` | 正整数，默认 1 |
 | `--page-size` | 正整数，默认 10 |
 | `--include-history` | 包含历史实例，默认关闭 |
@@ -1640,7 +1640,7 @@ ml sample-task execution list TASK_ID [--page PAGE] [--page-size SIZE] [--includ
 
 ### 说明
 
-先选择环境、登录并选择租户或团队。仅用于“任务管理（新）”，无需添加 `--source new`。默认不包含历史实例，每次只查询指定页。
+先选择环境、登录并选择租户或团队。新旧样本任务共用此命令，直接传任务 ID。默认不包含历史实例，每次只查询指定页。
 
 表格展示 JOB ID、算法名称、状态、文件大小、周期时间、执行时长、最新实例、检查时间、开始时间和结束时间。JOB ID 完整显示；周期时间保留原值，时间戳及带时区时间转换为北京时间。文件大小按 1024 进制显示，执行时长按分钟转换，例如 232 分钟显示为 `3h52min`，最新实例显示为“是”或“否”，空值显示为 `-`。
 

@@ -49,7 +49,7 @@ ml service logs SERVICE_ID --pod POD_NAME --cluster-name CLUSTER_NAME --type int
 ```
 
 - 日志命令不支持 `-o json`：`--list` 输出文件表格，正文为原始文本，提示信息在 stderr。
-- `--pod` 与 `--cluster-name` 必须成对提供，CLI 不验证 Pod 是否属于该服务。不指定 Pod 时，只有唯一主机才会自动选择；文件同理。有多个候选时补充参数或请用户选择，不取第一项。
+- `--pod` 与 `--cluster-name` 必须成对提供。显式指定时，CLI 仍查询该服务的主机列表第一页，从首条记录读取 `infraType`，不核验指定 Pod 的归属。第一页为空时会报“主机列表为空，无法获取 infraType”。未指定 Pod 时，只有唯一主机才会自动选择。文件选择同理，有多个候选时补充参数或请用户选择。
 - `--list` 不能与 `--file`、关键词、行数等正文检索选项同时使用。`-k` 可重复；`-n` 默认 200 行。高级选项 `--search-order`、`--grep-scope`、`--grep-line` 见 `--help`。
 - 日志不会持续刷新。空文件列表不会检索正文；指定的主机或文件不存在会失败。
 

@@ -1,4 +1,4 @@
-"""新版样本任务执行周期网格与执行记录表格。"""
+"""样本任务执行周期网格与执行记录表格。"""
 import sys
 from contextlib import redirect_stdout
 from datetime import datetime
@@ -13,8 +13,8 @@ from ..output import console, print_result, print_text
 from ..services.sample_execution import BEIJING, STATES, SampleExecutionService, validate_options
 from .common import fail, runtime_from_context
 
-period_app = typer.Typer(no_args_is_help=True, help="新版样本任务执行周期")
-execution_app = typer.Typer(no_args_is_help=True, help="新版样本任务执行记录")
+period_app = typer.Typer(no_args_is_help=True, help="样本任务执行周期")
+execution_app = typer.Typer(no_args_is_help=True, help="样本任务执行记录")
 COLUMNS = (
     ("JOB ID", "jobId"), ("算法名称", "algorithmName"), ("状态", "status"),
     ("文件大小", "fileSize"), ("周期时间", "periodDate"), ("执行时长", "runningTime"),
@@ -97,7 +97,7 @@ def query(context, output, operation, *, periods=False):
 @period_app.command("list")
 def list_periods(
     context: typer.Context,
-    task_id: str = typer.Argument(..., help="新版样本任务 ID"),
+    task_id: str = typer.Argument(..., help="样本任务 ID"),
     page: int = typer.Option(1, "--page", min=1, help="查询页码"),
     page_size: int = typer.Option(20, "--page-size", min=1, help="每页条数"),
     start_time: Optional[str] = typer.Option(None, "--start-time", help="周期开始日期，北京时间 YYYY-MM-DD HH:mm:ss"),
@@ -105,7 +105,7 @@ def list_periods(
     states: Optional[List[str]] = typer.Option(None, "--state", help="运行状态，可重复指定: " + "; ".join(f"{k}={v}" for k, v in STATES.items())),
     output: Optional[str] = typer.Option(None, "--output", "-o", help="输出格式: table 或 json"),
 ):
-    """分页查询新版样本任务的执行周期"""
+    """分页查询样本任务的执行周期"""
     try:
         validate_options(task_id, page, page_size, start_time, end_time, states)
         query(context, output, lambda service: service.list_periods(
@@ -117,13 +117,13 @@ def list_periods(
 @execution_app.command("list")
 def list_executions(
     context: typer.Context,
-    task_id: str = typer.Argument(..., help="新版样本任务 ID"),
+    task_id: str = typer.Argument(..., help="样本任务 ID"),
     page: int = typer.Option(1, "--page", min=1, help="查询页码"),
     page_size: int = typer.Option(10, "--page-size", min=1, help="每页条数"),
     include_history: bool = typer.Option(False, "--include-history", help="包含历史执行实例"),
     output: Optional[str] = typer.Option(None, "--output", "-o", help="输出格式: table 或 json"),
 ):
-    """分页查询新版样本任务的执行记录"""
+    """分页查询样本任务的执行记录"""
     try:
         validate_options(task_id, page, page_size)
         query(context, output, lambda service: service.list_executions(task_id, page, page_size, include_history))

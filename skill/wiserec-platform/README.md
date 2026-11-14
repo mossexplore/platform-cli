@@ -12,7 +12,7 @@
 - 项目目录或兼容目录中的同名副本需自行移除，以免 OpenCode 加载旧副本。
 - 安装后完全退出并重新打开 OpenCode，使其获得新的 PATH，然后输入 `/ml 查询当前业务下的模型`；只输入 `/ml` 会检查使用上下文并显示用法。
 
-正式 Windows 安装方式见 [安装说明](../../scripts/windows/INSTALL.md)。通用正文为 `SKILL.md` 与 `references/`；`/ml` 只是现有接入入口，工具加载与权限配置不属于通用业务规则。本次不更改既有权限示例或新增 harness 映射，下面示例保留待单独验证。
+正式 Windows 安装方式见 [安装说明](../../scripts/windows/INSTALL.md)。通用正文为 `SKILL.md` 与 `references/`。`/ml` 是现有接入入口，下面的 OpenCode 权限示例供安装人员参考。
 
 ## 建议的权限配置
 
@@ -62,6 +62,7 @@
       "ml train detail*": "allow",
       "ml train instance list*": "allow",
       "ml train history list*": "allow",
+      "ml train history detail*": "allow",
       "ml algorithm list*": "allow",
       "ml model list*": "allow",
       "ml model detail*": "allow",
@@ -82,6 +83,12 @@
       "ml featureset wide config*": "allow",
       "ml featureset model list*": "allow",
       "ml featureset model config*": "allow",
+      "ml quality feature list*": "allow",
+      "ml quality wide-featureset list*": "allow",
+      "ml quality wide-featureset feature-assemble list*": "allow",
+      "ml quality wide-featureset feature-assemble feature list*": "allow",
+      "ml quality wide-featureset label-assemble list*": "allow",
+      "ml quality wide-featureset label-assemble feature list*": "allow",
       "ml webstudio list*": "allow",
       "ml webstudio show*": "allow",
       "ml jupyter doctor*": "allow",

@@ -1,8 +1,10 @@
 # `ml` 命令速查
 
-本表列出全部命令，用于定位命令和判断风险；参数以 `ml <子命令> --help` 为准。通过本 skill 调用时必须使用当前账号的 `%APPDATA%\ml\config.json`。仅在命令明确支持 JSON 输出时使用相应选项；`context` 用 `--json`，特征集配置固定输出 JSON，`auth status` 和服务日志不接受 `-o json`。
+本表列出全部命令，用于定位命令和判断风险；参数以 `ml <子命令> --help` 为准。通过本 skill 调用时必须使用当前账号的 `%APPDATA%\ml\config.json`。
 
-“确认”列为“是”的命令默认会询问确认，非交互调用必须在用户授权后加 `--yes`。执行实例日志下载使用 `--select` 非交互选择；编号选择不是 `--yes` 确认。“副作用”列标出会改变平台、远端或本地状态的命令，执行前核对目标和授权，执行后核验。
+仅在当前命令的帮助声明支持时传 `-o json` 或 `--output json`。`context` 使用 `--json`，特征集配置和 `webstudio show` 固定输出 JSON。常见不接受 `-o/--output` 的命令包括 `env list/show`、`access status`、`auth status`、`auth ping status`、`business list/show`、`service logs`、`jupyter doctor`、`jupyter terminal list`、`train start/cancel/delete/clone`、`train config export/update`、`algorithm download/clone`。
+
+“确认”列为“是”的命令默认会询问确认，非交互调用必须在用户授权后加 `--yes`。执行实例日志下载用 `--select` 非交互选择。分布式执行记录日志用 `--role-job-id` 指定角色。“副作用”列标出会改变平台、远端或本地状态的命令，执行前核对目标和授权，执行后核验。
 
 ## 会话、业务与本地记录
 
