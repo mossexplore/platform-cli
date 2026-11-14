@@ -4,7 +4,7 @@
 
 本表列出全部命令，用于定位命令和判断风险；参数以 `ml <子命令> --help` 为准。通过本 skill 调用时必须使用当前账号的 `%APPDATA%\ml\config.json`。
 
-仅在当前命令的帮助声明支持时传 `-o json` 或 `--output json`。`context` 使用 `--json`，特征集配置和 `webstudio show` 固定输出 JSON。常见不接受 `-o/--output` 的命令包括 `env list/show`、`access status`、`auth status`、`auth ping status`、`business list/show`、`service logs`、`jupyter doctor`、`jupyter terminal list`、`train start/cancel/delete/clone`、`train config export/update`、`algorithm download/clone`。
+仅在当前命令的帮助声明支持时传 `-o json` 或 `--output json`。`context` 使用 `--json`，特征集配置和 `webstudio show` 固定输出 JSON。常见不接受 `-o/--output` 的命令包括 `env show`、`access status`、`auth status`、`auth ping status`、`business list/show`、`service logs`、`jupyter doctor`、`jupyter terminal list`、`train start/cancel/delete/clone`、`train config export/update`、`algorithm download/clone`。
 
 “确认”列为“是”的命令默认会询问确认，非交互调用必须在用户授权后加 `--yes`。执行实例日志下载用 `--select` 非交互选择。分布式执行记录日志用 `--role-job-id` 指定角色。“副作用”列标出会改变平台、远端或本地状态的命令，执行前核对目标和授权，执行后核验。
 
@@ -15,7 +15,7 @@
 | `ml --version` | 查看实际调用的 CLI 版本 | | |
 | `ml context [--json]` | 查看运行模式、平台环境与实际配置路径，无需登录 | | |
 | `ml tree [--all]` | 查看当前环境可用命令，无需登录。加 `--all` 显示全部命令及限制标记 | | |
-| `ml env list` / `ml env show` | 列出已授权及授权状态未知的环境 / 查看当前环境 | | |
+| `ml env list [-o json]` / `ml env show` | 列出已授权及授权状态未知的环境 / 查看当前环境 | | |
 | `ml env use NAME` | 切换当前环境 | | 本地配置 |
 | `ml login` | 打开 Edge 登录，需用户操作；禁止 `--show-secrets` | | 本地凭据 |
 | `ml logout [--all] [--forget-browser]` | 清除当前或全部环境的认证 | | 本地凭据 |

@@ -2,6 +2,8 @@
 import json
 from unittest.mock import patch
 
+import pytest
+
 from wiserec_cli.access import AccessDeniedError
 from wiserec_cli.business import Department, Tenant
 from wiserec_cli.commands.env import list_environments
@@ -60,7 +62,7 @@ def test_no_authorization_prints_guidance_without_environment_table(tmp_path, ca
          patch('wiserec_cli.commands.env.print_result',
                side_effect=lambda *args, **kwargs: print('ENVIRONMENT_TABLE')) as table, \
          patch('wiserec_cli.env_access.query_environment_access', return_value=response(runtime, False)):
-        list_environments(None)
+        list_environments(None, "table")
     table.assert_not_called()
     captured = capsys.readouterr()
     assert captured.out == ''
@@ -88,7 +90,7 @@ def test_status_failures_still_display_all_environments(tmp_path):
              patch('wiserec_cli.commands.env.environment_statuses', side_effect=MlError(message)), \
              patch('wiserec_cli.commands.env.msg.error', calls.error), \
              patch('wiserec_cli.commands.env.print_result', calls.table):
-            list_environments(None)
+            list_environments(None, "table")
         assert [call[0] for call in calls.mock_calls] == ['error', 'table']
         rows = calls.table.call_args.args[0]
         assert [row['环境标识'] for row in rows] == ['dev', 'test']
@@ -123,6 +125,34 @@ def test_cli_without_login_still_lists_environments(tmp_path):
     assert '授权状态未知' in result.output
 
 
+@pytest.mark.parametrize(('option', 'granted'), [('-o', True), ('--output', False)])
+def test_cli_environment_json_preserves_visibility_and_separates_diagnostics(tmp_path, option, granted):
+    from typer.testing import CliRunner
+    from wiserec_cli.cli import app
+
+    runtime = make_runtime(tmp_path)
+    runtime.credentials.save(Credentials.create('dev', 'cookie', 'csrf', 'alice', 600))
+    access = response(runtime, granted)
+    if granted:
+        access['authorizations'] = access['authorizations'][:1]
+    with patch('wiserec_cli.cli.Runtime', return_value=runtime), \
+         patch('wiserec_cli.env_access.query_environment_access', return_value=access):
+        result = CliRunner().invoke(app, ['env', 'list', option, 'json'])
+
+    assert result.exit_code == 0, result.output
+    expected = [{
+        '当前在用环境': '*',
+        '环境标识': 'dev',
+        '环境名': 'dev',
+        '管理台类型': '搜推广工程平台',
+        '管理台地址': 'https://dev.example.com/dashboard',
+        '状态': '已授权',
+    }]
+    assert json.loads(result.stdout) == (expected if granted else [])
+    if not granted:
+        assert '暂无已授权环境' in result.stderr
+
+
 def test_columns_alias_and_highlight(tmp_path):
     runtime = make_runtime(tmp_path)
     data = json.loads(runtime.config.path.read_text())
@@ -134,7 +164,7 @@ def test_columns_alias_and_highlight(tmp_path):
     with patch('wiserec_cli.commands.env.runtime_from_context', return_value=runtime), \
          patch('wiserec_cli.commands.env.environment_statuses', return_value={'dev': '已授权', 'test': '已授权'}), \
          patch('wiserec_cli.commands.env.print_result') as output:
-        list_environments(None)
+        list_environments(None, "table")
     rows = output.call_args.args[0]
     assert list(rows[0]) == ['当前在用环境', '环境标识', '环境名', '管理台类型', '管理台地址', '状态']
     assert rows[0]['环境标识'] == 'dev'
@@ -205,7 +235,7 @@ def test_list_hides_unauthorized_current_without_switching_environment(tmp_path)
     with patch('wiserec_cli.commands.env.runtime_from_context', return_value=runtime), \
          patch('wiserec_cli.commands.env.environment_statuses', return_value={'dev': '未授权', 'test': '已授权'}), \
          patch('wiserec_cli.commands.env.print_result') as output:
-        list_environments(None)
+        list_environments(None, "table")
     rows = output.call_args.args[0]
     assert [row['环境标识'] for row in rows] == ['test']
     assert rows[0]['当前在用环境'] == ''
@@ -218,6 +248,6 @@ def test_list_keeps_unknown_status_when_other_environment_is_unauthorized(tmp_pa
     with patch('wiserec_cli.commands.env.runtime_from_context', return_value=runtime), \
          patch('wiserec_cli.commands.env.environment_statuses', return_value={'dev': '未授权', 'test': '授权状态未知'}), \
          patch('wiserec_cli.commands.env.print_result') as output:
-        list_environments(None)
+        list_environments(None, "table")
     rows = output.call_args.args[0]
     assert [(row['环境标识'], row['状态']) for row in rows] == [('test', '授权状态未知')]

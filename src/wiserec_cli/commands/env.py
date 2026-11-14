@@ -17,9 +17,15 @@ env_app = typer.Typer(no_args_is_help=True, help="管理运行环境")
 
 
 @env_app.command("list")
-def list_environments(context: typer.Context) -> None:
+def list_environments(
+    context: typer.Context,
+    output: str = typer.Option("table", "--output", "-o", help="输出格式为 table 或 json"),
+) -> None:
     """列出已授权及授权状态未知的环境"""
     try:
+        output = output.lower()
+        if output not in {"table", "json"}:
+            raise ValueError("output 仅支持 table 或 json")
         runtime = runtime_from_context(context)
         try:
             statuses = environment_statuses(runtime)
@@ -32,7 +38,8 @@ def list_environments(context: typer.Context) -> None:
         visible = [item for item in runtime.config.profiles() if statuses[item.name] != "未授权"]
         if not visible:
             msg.info("暂无已授权环境")
-            return
+            if output == "table":
+                return
         print_result(
             [
                 {
@@ -46,7 +53,7 @@ def list_environments(context: typer.Context) -> None:
                     "状态": statuses[item.name],
                 }
                 for item in visible
-            ], wrap_columns=("管理台地址", "管理台类型"),
+            ], output, wrap_columns=("管理台地址", "管理台类型"),
             row_style=lambda row: "bold green" if row["当前在用环境"] == "*" else None,
         )
     except Exception as exc:
