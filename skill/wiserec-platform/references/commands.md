@@ -4,7 +4,7 @@
 
 本表列出全部命令，用于定位命令和判断风险；参数以 `ml <子命令> --help` 为准。通过本 skill 调用时必须使用当前账号的 `%APPDATA%\ml\config.json`。
 
-WiseRec 和 MLOps 均支持本表的 `train`、`feature-task` 和 `algorithm` 命令。以已安装 CLI 的 `ml tree --all` 查看当前环境的支持与禁用标记。
+WiseRec 和 MLOps 均支持本表的 `train` 和 `feature-task` 命令。`algorithm` 仅在 WiseRec 环境可用。运行 `ml tree --all` 查看当前环境的支持与禁用标记。
 
 仅在当前命令的帮助声明支持时传 `-o json` 或 `--output json`。`context` 使用 `--json`，特征集配置和 `webstudio show` 固定输出 JSON。常见不接受 `-o/--output` 的命令包括 `env show`、`access status`、`auth status`、`auth ping status`、`business list/show`、`service logs`、`jupyter doctor`、`jupyter terminal list`、`train start/cancel/delete/clone`、`train config export/update`、`algorithm download/clone`。
 

@@ -1,6 +1,6 @@
 ---
 name: wiserec-platform
-description: 通过 WiseRec CLI（ml）在 WiseRec 和 WiseMLOps 环境中操作平台资源。用于训练、样本和特征任务及日志、算法仓、模型与模板部署、服务、数据集、特征集与质量监控、离线实验、MEP 配置、训练看板、Web Studio 和 Jupyter。切换环境、核对登录或选择业务时也使用。
+description: 通过 WiseRec CLI（ml）在 WiseRec 和 WiseMLOps 环境中操作平台资源。用于训练、样本和特征任务及日志、WiseRec 算法仓、模型与模板部署、服务、数据集、特征集与质量监控、离线实验、MEP 配置、训练看板、Web Studio 和 Jupyter。切换环境、核对登录或选择业务时也使用。
 metadata:
   cli: wiserec-cli
   platform: windows

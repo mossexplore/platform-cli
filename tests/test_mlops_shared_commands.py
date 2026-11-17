@@ -22,7 +22,7 @@ def leaves(command, path):
 def test_all_existing_shared_commands_supported():
     root = typer.main.get_command(app)
     actual = {path for group in ('webstudio', 'jupyter', 'service', 'user', 'mep', 'model', 'resource',
-                                'deployment', 'dataset', 'algorithm', 'feature-task')
+                                'deployment', 'dataset', 'feature-task')
               for path in leaves(root.commands[group], group)}
     train = root.commands['train']
     for group in ('history', 'instance', 'config'):
@@ -37,7 +37,6 @@ def test_all_existing_shared_commands_supported():
         require_supported('wiserec', path)
     assert not supported('mlops', 'service future-operation')
     assert not supported('mlops', 'train future-operation')
-    assert not supported('mlops', 'algorithm future-operation')
     assert not supported('mlops', 'feature-task future-operation')
 
 
@@ -53,16 +52,42 @@ def test_shared_tree(tmp_path):
     for options in ([], ['--all']):
         result = invoke_with_config(CliRunner(), app, config, ['tree', *options])
         assert result.exit_code == 0, result.output
-        for group in ('webstudio', 'jupyter', 'service', 'user', 'mep', 'model', 'resource', 'deployment', 'dataset', 'algorithm'):
+        for group in ('webstudio', 'jupyter', 'service', 'user', 'mep', 'model', 'resource', 'deployment', 'dataset'):
             assert group in result.output
         for description in ('软删除当前业务下的训练任务', '导出并下载训练任务的 YAML 配置',
-                            '按指定名称和版本克隆算法仓', '立即执行指定训练任务',
+                            '立即执行指定训练任务',
                             '分页查询当前业务下的特征任务', '查询和搜索训练日志'):
             line = next(line for line in result.output.splitlines() if description in line)
             assert '[不支持]' not in line
         if options:
             assert '  支持' not in result.output
             assert '[不支持]' in result.output
+            assert '── algorithm' in result.output
+            for description in ('分页查询当前业务的算法仓', '获取下载地址并保存算法仓文件',
+                                '按指定名称和版本克隆算法仓'):
+                line = next(line for line in result.output.splitlines() if description in line)
+                assert line.rstrip().endswith('[不支持]')
+        else:
+            assert '── algorithm' not in result.output
+
+
+@pytest.mark.parametrize('args', [
+    ['list'],
+    ['download', 'ALGORITHM_ID'],
+    ['clone', 'ALGORITHM_ID', '--name', 'copy', '--version', 'VERSION', '--yes'],
+])
+def test_algorithm_is_rejected_in_mlops_before_login_or_execution(tmp_path, args):
+    assert supported('wiserec', f'algorithm {args[0]}')
+    with patch('wiserec_cli.auth.AuthManager.ensure_credentials') as login, \
+         patch('wiserec_cli.cli.ping.auto_start') as auto_ping, \
+         patch('wiserec_cli.commands.algorithm.runtime_from_context') as algorithm_runtime:
+        result = invoke_with_config(CliRunner(), app, config_file(tmp_path), ['algorithm', *args])
+
+    assert result.exit_code == 1
+    assert f'管理台 mlops 不支持命令 ml algorithm {args[0]}' in result.output
+    login.assert_not_called()
+    auto_ping.assert_not_called()
+    algorithm_runtime.assert_not_called()
 
 
 @pytest.mark.parametrize('args,module', [
@@ -81,9 +106,6 @@ def test_shared_tree(tmp_path):
     (['train', 'detail', 'TASK_ID'], 'train'),
     (['train', 'config', 'export', 'TASK_ID'], 'train'),
     (['train', 'config', 'update', 'TASK_ID', '--customize-config', 'value'], 'train'),
-    (['algorithm', 'list'], 'algorithm'),
-    (['algorithm', 'download', 'ALGORITHM_ID'], 'algorithm'),
-    (['algorithm', 'clone', 'ALGORITHM_ID', '--name', 'copy', '--version', 'VERSION'], 'algorithm'),
     (['feature-task', 'detail', 'TASK_ID'], 'feature_task'),
     (['feature-task', 'list'], 'feature_task'),
     (['feature-task', 'execution', 'list', 'TASK_ID'], 'feature_execution'),
@@ -100,14 +122,14 @@ def test_cli_reaches_shared_implementation(tmp_path, args, module):
     with patch(f'wiserec_cli.commands.{module}.runtime_from_context', side_effect=observe):
         result = invoke_with_config(CliRunner(), app, config_file(tmp_path), [*args])
     argument_index = next((i for i, value in enumerate(args)
-                           if value in ('TASK_ID', 'ALGORITHM_ID', 'JOB_ID')), len(args))
+                           if value in ('TASK_ID', 'JOB_ID')), len(args))
     path = args[:argument_index]
     assert seen == ['ml ' + ' '.join(path)]
     assert 'shared-implementation-reached' in result.output
     assert '不支持' not in result.output
 
 
-@pytest.mark.parametrize('command', ['train delete', 'train start', 'algorithm clone'])
+@pytest.mark.parametrize('command', ['train delete', 'train start'])
 def test_new_mlops_writes_use_current_environment_and_business(tmp_path, command):
     from functools import partial
 
@@ -138,19 +160,16 @@ def test_new_mlops_writes_use_current_environment_and_business(tmp_path, command
             return httpx.Response(200, json={'result': {'code': 0, 'count': 1,
                 'taskInfos': [{'taskId': 'task', 'taskName': 'Task', 'teamId': 'team'}]}})
         return httpx.Response(200, json={'result': {'code': 0, 'des': 'success',
-                                                     'data': {'id': 'created', 'jobId': 'job'}}})
+                                                     'data': {'jobId': 'job'}}})
 
     if command == 'train delete':
         args = ['train', 'delete', 'task']
         expected = [
             '/ai/backend/mtp/traintask/queryList', '/ai/backend/modelDev/modelTrain/v2/delete',
         ]
-    elif command == 'train start':
+    else:
         args = ['train', 'start', 'task']
         expected = ['/ai/backend/modelDev/modelTrain/startScheduleTask']
-    else:
-        args = ['algorithm', 'clone', 'source', '--name', 'copy', '--version', 'VERSION']
-        expected = ['/ai/backend/modelDev/algorithmWarehouse/copy']
 
     with patch('wiserec_cli.cli.Runtime', return_value=runtime), \
          patch('wiserec_cli.runtime.check_access') as check_access, \
@@ -170,12 +189,9 @@ def test_new_mlops_writes_use_current_environment_and_business(tmp_path, command
     if command == 'train delete':
         assert requests[0][1]['businessId'] == 'selected-business'
         assert requests[-1][1] == {'taskId': 'task', 'teamId': 'team', 'target': 'Task', 'softDeleteFlag': True}
-    elif command == 'train start':
+    else:
         assert requests[0][1]['data'] == {'taskId': 'task'}
         assert 'jobId：job' in result.output
-    else:
-        assert requests[-1][1] == {'data': {'srcId': 'source', 'businessId': 'selected-business',
-                                          'operator': 'user', 'tarName': 'copy', 'tarVersion': 'VERSION'}}
 
 
 @pytest.mark.parametrize('kind', ['history', 'instance'])

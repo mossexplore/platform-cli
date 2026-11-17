@@ -18,7 +18,6 @@ SHARED_COMMANDS = frozenset({
     "train instance list", "train instance logs download",
     "train history list", "train history detail", "train history logs download",
     "train config export", "train config update",
-    "algorithm list", "algorithm download", "algorithm clone",
     "webstudio list", "webstudio login", "webstudio start", "webstudio stop", "webstudio show",
     "jupyter exec", "jupyter doctor",
     "jupyter files list", "jupyter files stat", "jupyter files read", "jupyter files write",

@@ -97,7 +97,7 @@ ml sample-task execution list TASK_ID --include-history --page 2 --page-size 20 
 
 ## 算法仓
 
-WiseRec 和 MLOps 均支持算法仓查询、下载与克隆。
+算法仓查询、下载与克隆仅在 WiseRec 环境可用。
 
 ```powershell
 ml algorithm list --name NAME -o json
