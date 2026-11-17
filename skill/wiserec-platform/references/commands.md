@@ -19,7 +19,7 @@ WiseRec 和 MLOps 均支持本表的 `train` 和 `feature-task` 命令。`algori
 | `ml tree [--all]` | 查看当前环境可用命令，无需登录。加 `--all` 显示全部命令及限制标记 | | |
 | `ml env list [-o json]` / `ml env show` | 列出已授权及授权状态未知的环境 / 查看当前环境 | | |
 | `ml env use NAME` | 切换当前环境 | | 本地配置 |
-| `ml login` | 打开 Edge 登录，遇到证书或身份验证提示时由用户处理；禁止 `--show-secrets` | | 本地凭据 |
+| `ml login` | 打开 Edge 登录，需用户操作；禁止 `--show-secrets` | | 本地凭据 |
 | `ml logout [--all] [--forget-browser]` | 清除当前或全部环境的认证 | | 本地凭据 |
 | `ml auth status` | 本地认证状态 | | |
 | `ml auth ping start` / `stop` / `status` | 终端保活；非 TTY 环境中 start 不生效 | | 本地进程 |

@@ -9,7 +9,6 @@ from typing import Any, Dict, List, Optional
 from urllib.parse import quote, urlsplit
 
 from .access import validate_settings
-from .edge_policy import normalize_origin
 from .errors import ConfigError
 from .models import Profile
 
@@ -85,7 +84,6 @@ class ConfigManager:
         if not isinstance(profiles, list) or not profiles:
             raise ConfigError("config.json 中的 profiles 必须是非空数组")
         names = set()
-        certificate_origins = []
         for item in profiles:
             if not isinstance(item, dict):
                 raise ConfigError("profiles 中的每一项都必须是对象")
@@ -106,13 +104,6 @@ class ConfigManager:
                 raise ConfigError(f"profile {name!r} 的 api_endpoint 无效")
             if "verify_ssl" in item and not isinstance(item["verify_ssl"], bool):
                 raise ConfigError(f"profile {name!r} 的 verify_ssl 必须是布尔值")
-            origins = item.get("client_certificate_origins", [])
-            if not isinstance(origins, list):
-                raise ConfigError(f"profile {name!r} 的 client_certificate_origins 必须是数组")
-            try:
-                certificate_origins.extend(normalize_origin(origin) for origin in origins)
-            except ValueError as exc:
-                raise ConfigError(f"profile {name!r} 的 client_certificate_origins 无效（{exc}）") from exc
             names.add(name)
         if current not in names:
             raise ConfigError(f"profiles 中不存在 current 指定的环境: {current}")
@@ -137,7 +128,6 @@ class ConfigManager:
             raise ConfigError("browser.login_timeout 必须大于 0")
         if self.business_catalog_timeout_ms <= 0:
             raise ConfigError("browser.business_catalog_timeout 必须大于 0")
-        self.client_certificate_origins = tuple(dict.fromkeys(certificate_origins))
 
     @property
     def access_control(self) -> Dict[str, Any]:

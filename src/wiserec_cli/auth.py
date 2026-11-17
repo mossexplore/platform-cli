@@ -100,11 +100,10 @@ class BrowserAuthenticator:
             context.on("request", capture_auth_request)
 
             try:
-                progress.update("正在打开登录页面，若 Edge 提示请选择证书…")
                 page.goto(
                     profile.api_endpoint,
                     wait_until="domcontentloaded",
-                    timeout=login_timeout_ms,
+                    timeout=timeout_ms,
                 )
                 progress.update("正在获取用户信息…")
                 credentials = self._wait_for_credentials(
