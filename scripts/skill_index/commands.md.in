@@ -1,12 +1,12 @@
 # `ml` 命令速查
 
-本表列出全部命令，用于定位命令和判断风险；参数以 `ml <子命令> --help` 为准。通过本 skill 调用时必须使用当前账号的 `%APPDATA%\ml\config.json`。
+本表列出全部命令，用于定位命令和判断风险；参数以 `ml <子命令> --help` 为准。通过本 skill 调用时必须使用当前平台标准用户配置（Windows 为当前账号的 `%APPDATA%\ml\config.json`）。
 
-WiseRec 和 MLOps 均支持本表的 `train` 和 `feature-task` 命令。`algorithm` 仅在 WiseRec 环境可用。运行 `ml tree --all` 查看当前环境的支持与禁用标记。
+WiseRec 和 MLOps 均支持 `train` 和 `feature-task` 命令，`algorithm` 仅在 WiseRec 环境可用；用 `ml tree --all` 查看当前环境的支持与禁用标记。
 
-仅在当前命令的帮助声明支持时传 `-o json` 或 `--output json`。`context` 使用 `--json`，特征集配置和 `webstudio show` 固定输出 JSON。常见不接受 `-o/--output` 的命令包括 `env show`、`access status`、`auth status`、`auth ping status`、`business list/show`、`service logs`、`jupyter doctor`、`jupyter terminal list`、`train start/cancel/delete/clone`、`train config export/update`、`algorithm download/clone`。
+仅在命令 `--help` 声明支持时传 `-o json` 或 `--output json`（`context` 用 `--json`，特征集配置和 `webstudio show` 固定输出 JSON）。常见不支持 `-o/--output` 的命令：`env show`、`access status`、`auth status`、`auth ping status`、`business list/show`、`service logs`、`jupyter doctor`、`jupyter terminal list`、`train start/cancel/delete/clone`、`train config export/update`、`algorithm download/clone`。
 
-“确认”列为“是”的命令默认会询问确认，非交互调用必须在用户授权后加 `--yes`。执行实例日志下载用 `--select` 非交互选择。分布式执行记录日志用 `--role-job-id` 指定角色。“副作用”列标出会改变平台、远端或本地状态的命令，执行前核对目标和授权，执行后核验。
+“确认”列为“是”表示 CLI 内置确认，可用 `--yes` 跳过提示。非交互调用在用户授权后传 `--yes`。**命令可能产生平台或远端副作用时，即使“确认”列为空，也须在执行前核对目标与用户授权，执行后核验结果。**
 
 ## 会话、业务与本地记录
 
@@ -55,14 +55,14 @@ WiseRec 和 MLOps 均支持本表的 `train` 和 `feature-task` 命令。`algori
 | `ml train instance list TASK_ID` | 分页查询执行实例 | {{confirm}} | |
 | `ml train history list TASK_ID` | 分页查询执行记录 | {{confirm}} | |
 | `ml train history detail TASK_ID JOB_ID [-o json]` | 查询执行记录及分布式角色详情 | {{confirm}} | |
-| `ml train history logs download TASK_ID JOB_ID [--type log\|plog] [--directory DIR] [--role-job-id ROLE_JOB_ID]` | 下载执行记录日志，普通日志未就绪时提交归档，分布式训练用角色 ID 非交互下载普通日志和 plog | {{confirm}} | 服务端日志归档及本地文件 |
-| `ml train instance logs download TASK_ID JOB_ID [--select SELECTION] [--directory DIR]` | 请求归档并下载已归档日志，`--select` 传编号或 `all` | {{confirm}} | 平台归档、本地 ZIP 文件 |
-| `ml train start TASK_ID` | 立即启动任务 | {{confirm}} | 启动作业 |
-| `ml train cancel TASK_ID` | 逐个取消全部执行实例 | {{confirm}} | 取消作业 |
-| `ml train delete TASK_ID` | 软删除任务 | {{confirm}} | 删除任务 |
-| `ml train clone TASK_ID --name NAME` | 复制任务 | {{confirm}} | 创建任务 |
+| `ml train history logs download TASK_ID JOB_ID [--type log\|plog] [--directory DIR] [--role-job-id ROLE_JOB_ID]` | 下载执行记录日志，普通日志未就绪时提交归档，分布式训练用角色 ID 非交互下载普通日志和 plog | {{confirm}} | 条件性写：平台日志归档及本地文件 |
+| `ml train instance logs download TASK_ID JOB_ID [--select SELECTION] [--directory DIR]` | 请求归档并下载已归档日志，`--select` 传编号或 `all` | {{confirm}} | 写：平台归档及本地 ZIP 文件 |
+| `ml train start TASK_ID` | 立即启动任务 | {{confirm}} | 写（无内置确认）：启动作业 |
+| `ml train cancel TASK_ID` | 逐个取消全部执行实例 | {{confirm}} | 写：取消作业 |
+| `ml train delete TASK_ID` | 软删除任务 | {{confirm}} | 写：删除任务 |
+| `ml train clone TASK_ID --name NAME` | 复制任务 | {{confirm}} | 写：创建任务 |
 | `ml train config export TASK_ID [--file PATH]` | 导出 YAML 配置 | {{confirm}} | 本地文件 |
-| `ml train config update TASK_ID --customize-config VALUE` | 更新自定义参数 | {{confirm}} | 修改任务 |
+| `ml train config update TASK_ID --customize-config VALUE` | 更新自定义参数 | {{confirm}} | 写（无内置确认）：修改任务 |
 | `ml algorithm list` | 算法仓 | {{confirm}} | |
 | `ml algorithm download ALGORITHM_ID [--file PATH]` | 下载算法仓 ZIP | {{confirm}} | 本地文件 |
 | `ml algorithm clone ALGORITHM_ID --name NAME --version VERSION` | 克隆算法仓 | {{confirm}} | 创建算法仓 |
@@ -80,10 +80,10 @@ WiseRec 和 MLOps 均支持本表的 `train` 和 `feature-task` 命令。`algori
 | `ml resource template list` / `detail RESOURCE_TEMPLATE_ID` | 资源模板 | {{confirm}} | |
 | `ml deployment template list` / `detail DEPLOY_TEMPLATE_ID` | 部署模板 | {{confirm}} | |
 | `ml service list` | 服务 | {{confirm}} | |
-| `ml service mock SERVICE_ID [--request-sample-file PATH] [--transmission-tag 0\|1]` | 使用文档或 JSON 文件样例测试服务，默认不调用透传接口 | {{confirm}} | 调用一次服务 |
+| `ml service mock SERVICE_ID [--request-sample-file PATH] [--transmission-tag 0\|1]` | 使用文档或 JSON 文件样例测试服务，默认不调用透传接口 | {{confirm}} | 写（无内置确认）：调用一次服务 |
 | `ml service logs SERVICE_ID --no-input` | 日志文件列表或正文 | {{confirm}} | |
 | `ml service host list SERVICE_ID [--pod-ip IP]` | 主机视图，可按 Pod IP 筛选 | {{confirm}} | |
-| `ml service host mock SERVICE_ID --pod-ip POD_IP [--request-sample-file PATH] [--transmission-tag 0\|1]` | 先按 Pod IP 查询主机，再使用文档或文件样例测试 | {{confirm}} | 调用一次服务 |
+| `ml service host mock SERVICE_ID --pod-ip POD_IP [--request-sample-file PATH] [--transmission-tag 0\|1]` | 先按 Pod IP 查询主机，再使用文档或文件样例测试 | {{confirm}} | 写（无内置确认）：调用一次服务 |
 | `ml service deployment list SERVICE_ID` | 部署视图 | {{confirm}} | |
 
 ## 数据集与特征集
@@ -94,7 +94,7 @@ WiseRec 和 MLOps 均支持本表的 `train` 和 `feature-task` 命令。`algori
 | --- | --- | --- | --- |
 | `ml dataset list` / `ml dataset detail DATASET_ID` | 数据集列表 / 详情 | {{confirm}} | |
 | `ml dataset files list DATASET_ID` | 数据集内部目录 | {{confirm}} | |
-| `ml dataset files upload DATASET_ID LOCAL_FILE` | 追加单个文件 | {{confirm}} | 上传文件 |
+| `ml dataset files upload DATASET_ID LOCAL_FILE` | 追加单个文件 | {{confirm}} | 写（无内置确认）：上传文件 |
 | `ml feature-task list` | 特征任务列表，支持 `--name`、`--category`、`--create-user`、`--page`、`--page-size` 和 `-o json` | {{confirm}} | |
 | `ml feature-task detail TASK_ID` | 查询特征任务详情，支持 `-o json` | {{confirm}} | |
 | `ml feature-task execution list TASK_ID` | 分页查询执行记录，支持 `--include-history` | {{confirm}} | |
@@ -118,24 +118,22 @@ WiseRec 和 MLOps 均支持本表的 `train` 和 `feature-task` 命令。`algori
 
 ## Web Studio 与 Jupyter
 
-以下文件写入和执行能力不得用于创建或修改代码，具体限制见 [jupyter.md](jupyter.md)。
-
-详见 [jupyter.md](jupyter.md)。
+以下文件写入和执行能力严禁用于创建或修改代码，详见 [jupyter.md](jupyter.md)。
 
 | 命令 | 用途 | 确认 | 副作用 |
 | --- | --- | --- | --- |
 | `ml webstudio list` | 实例列表 | {{confirm}} | |
 | `ml webstudio show` | 默认实例绑定与缓存，不代表实时状态 | {{confirm}} | |
 | `ml webstudio login ENV_ID [--refresh]` | 建立连接并设为默认实例 | {{confirm}} | 本地缓存 |
-| `ml webstudio start ENV_ID` | 启动实例 | {{confirm}} | 启动实例 |
-| `ml webstudio stop ENV_ID` | 停止实例，可能中断运行中的任务 | {{confirm}} | 停止实例 |
+| `ml webstudio start ENV_ID` | 启动实例 | {{confirm}} | 写（无内置确认）：启动实例 |
+| `ml webstudio stop ENV_ID` | 停止实例，可能中断运行中的任务 | {{confirm}} | 高危（无内置确认）：停止实例 |
 | `ml jupyter doctor` | 检查 Kernel 与终端管理接口 | {{confirm}} | |
 | `ml jupyter files list` / `stat` / `read` | 列目录 / 元数据 / 读文本 | {{confirm}} | |
-| `ml jupyter files write` / `mkdir` / `upload` / `move` / `copy` | 写入、建目录、上传、移动、复制 | {{confirm}} | 远端文件 |
-| `ml jupyter files delete PATH` | 立即删除，无确认 | {{confirm}} | 删除远端文件 |
+| `ml jupyter files write` / `mkdir` / `upload` / `move` / `copy` | 写入、建目录、上传、移动、复制 | {{confirm}} | 写（无内置确认）：远端文件 |
+| `ml jupyter files delete PATH` | 立即删除，无确认 | {{confirm}} | 高危（无内置确认）：删除远端文件 |
 | `ml jupyter files download REMOTE LOCAL` | 下载单文件 | {{confirm}} | 本地文件 |
-| `ml jupyter exec --cwd PATH -- PROGRAM [ARGS...]` | 非交互执行远端程序 | {{confirm}} | 远端进程 |
-| `ml jupyter notebook run SOURCE` | 执行本地 Notebook | {{confirm}} | 远端执行、本地结果 |
+| `ml jupyter exec --cwd PATH -- PROGRAM [ARGS...]` | 非交互执行远端程序 | {{confirm}} | 写（无内置确认）：远端进程 |
+| `ml jupyter notebook run SOURCE` | 执行本地 Notebook | {{confirm}} | 写（无内置确认）：远端执行、本地结果 |
 | `ml jupyter terminal list` | 列出远程终端 | {{confirm}} | |
-| `ml jupyter terminal close NAME` | 关闭远程终端及其中进程，无确认 | {{confirm}} | 结束远端进程 |
-| `ml jupyter terminal open` / `attach NAME` | 交互终端，**禁止使用** | {{confirm}} | |
+| `ml jupyter terminal close NAME` | 关闭远程终端及其中进程，无确认 | {{confirm}} | 高危（无内置确认）：结束远端进程 |
+| `ml jupyter terminal open` / `attach NAME` | 交互终端，**禁止使用** | {{confirm}} | 禁止使用 |

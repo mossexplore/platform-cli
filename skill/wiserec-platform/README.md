@@ -12,7 +12,7 @@
 - 项目目录或兼容目录中的同名副本需自行移除，以免 OpenCode 加载旧副本。
 - 安装后完全退出并重新打开 OpenCode，使其获得新的 PATH，然后输入 `/ml 查询当前业务下的模型`；只输入 `/ml` 会检查使用上下文并显示用法。
 
-正式 Windows 安装方式见 [安装说明](../../scripts/windows/INSTALL.md)。通用正文为 `SKILL.md` 与 `references/`。`/ml` 是现有接入入口，下面的 OpenCode 权限示例供安装人员参考。
+正式 Windows 安装方式见 [安装说明](../../scripts/windows/INSTALL.md)。通用正文为 `SKILL.md` 与 `references/`（不绑定特定 Agent）；`skill/commands/ml.md` 为支持 `/ml`（`$ARGUMENTS` + `skill` 工具）的 OpenCode 等 harness 的入口。下面的 OpenCode 权限示例供安装人员参考。
 
 ## 建议的权限配置
 
@@ -73,7 +73,7 @@
       "ml deployment template list*": "allow",
       "ml deployment template detail*": "allow",
       "ml service list*": "allow",
-      "ml service logs*": "allow",
+      "ml service logs * --no-input*": "allow",
       "ml service host list*": "allow",
       "ml service deployment list*": "allow",
       "ml dataset list*": "allow",

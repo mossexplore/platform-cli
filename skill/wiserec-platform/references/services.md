@@ -22,11 +22,10 @@ ml service mock SERVICE_ID --request-sample-file '.\sample.json' -o json
 ml service mock SERVICE_ID --request-sample-file '.\sample.json' --transmission-tag 1 -o json
 ```
 
-自动查询基本信息；默认查询服务文档并使用其中的请求样例执行一次测试。两种测试都可通过 `--request-sample-file PATH` 读取本地 UTF-8 JSON 文件（兼容 BOM），跳过文档查询；保留正文、空白和换行，仅去掉 BOM，不修改文件，不自行补写业务字段。非法 JSON 在平台请求前提示“样例报文不是标准的JSON格式，请检查！”，文件不可读或编码错误时同样停止。`result.nodeList` 包含各节点结果，`mockResponse` 为解析后的 JSON 值，`mockResponseRaw` 保留原始字符串。服务测试的表格模式依次展示主机名称、机器规格、站点、结果码、结果报文、耗时(ms)，报文为完整缩进 JSON。自定义报文只通过文件传入，路径含空格时加引号，无需转义 JSON；不要构造 `--request-file` 或其他未列出的参数。
-
-`--transmission-tag` 默认 `0`，不调用透传接口；指定 `1` 调用透传接口，仅支持这两个整数。
-
-先核对服务 ID、样例和用户的测试意图；这些命令会实际调用服务，无 `--dry-run` 或 `--yes`。必要信息或默认文档样例缺失时停止；提供自定义报文时无需已有服务文档。失败节点或无效报文仍会展示，但退出码为 1；无节点也退出 1。全部节点结果码为 0 且报文有效才退出 0，内部业务结果仍须查看报文；即使退出 1，stdout 也可能保留节点结果，结合 stderr 一起核对。超时、断连或认证失败不自动重发，不要盲目重试。
+- **前置与授权**：命令会实际调用一次服务（无 `--dry-run` 或 `--yes`），执行前先核对服务 ID、样例和用户测试意图。超时、断连或认证失败不盲目重试。
+- **样例来源**：默认查询服务文档并使用其中的请求样例；指定 `--request-sample-file PATH` 时读取本地 UTF-8 JSON 文件（兼容 BOM，不修改原文件）并跳过文档查询。自定义报文只通过文件传入，勿构造 `--request-file` 等未定义参数；非法 JSON（“样例报文不是标准的JSON格式，请检查！”）、文件不可读或默认文档样例缺失时停止。
+- **透传控制**：`--transmission-tag` 默认 `0`（不调用透传接口），仅支持 `0` 或 `1`。
+- **结果与退出码**：`result.nodeList` 包含各节点结果（`mockResponse` 为解析后的 JSON，`mockResponseRaw` 为原始字符串）。全部节点结果码为 0 且报文有效时退出 `0`；存在失败节点、无效报文或无节点时退出 `1`（即使退出 `1`，stdout 仍可能包含节点结果，需结合 stderr 一起核对，内部业务结果仍须查看报文）。
 
 ## 测试指定主机
 
@@ -37,7 +36,8 @@ ml service host mock SERVICE_ID --pod-ip POD_IP --transmission-tag 1 -o json
 ml service host mock SERVICE_ID --pod-ip POD_IP --request-sample-file '.\sample.json' --transmission-tag 1 -o json
 ```
 
-主机测试除服务 ID 外仅需 `--pod-ip`，该值作为查询条件传入，不要求填写主机ID或测试端口；先查询主机视图。返回记录的 `nodeId` 转为字符串填入 `node.hostId`，`nodeHost` 原样填入 `node.hostAddress`，不手工指定主机ID或拼接端口。查无主机时提示“目前主机不存在，请检查！”，停止后续调用；匹配多台、查询失败或必要字段缺失时同样停止。表格按每个返回节点使用“字段 / 值”两列展示，主机名称、机器规格、站点、结果码、耗时(ms) 依次列出，结果报文在最后一行完整展示缩进 JSON。其他请求字段、透传选项、JSON 输出及错误处理与服务测试相同。Pod IP 提示写入 stderr，stdout 保持 JSON 结果。
+- **参数定位**：除 `SERVICE_ID` 外仅需 `--pod-ip`（无需手工填写主机 ID 或端口）。CLI 会先查询主机视图，若查无主机（“目前主机不存在，请检查！”）、匹配多台或必要字段缺失则停止。
+- **其余规则**：请求样例、透传选项、`result.nodeList`、退出码及错误处理与 `ml service mock` 相同；Pod IP 提示写入 stderr，stdout 保持 JSON 结果。
 
 ## 读取日志
 

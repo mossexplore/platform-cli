@@ -2,6 +2,14 @@
 
 只用 CLI，不自行调用发布接口。完整选项以 `ml model deploy --help` 为准。
 
+## 标准部署流程
+
+1. **查模型**：`ml model list --name MODEL_NAME -o json` 取得 `modelId`（如需确认来源训练任务，查 `ml model source`）。
+2. **查模板**：`ml deployment template list --name TEMPLATE_NAME -o json` 取得 `deployTemplateId`。
+3. **预览检查**：`ml model deploy MODEL_ID --template DEPLOY_TEMPLATE_ID --dry-run -o json`，核对区域/实例及是否缺少 `--service-timeout` / `--execute-limit`。
+4. **用户确认并提交**：向用户复述模型、模板、环境及参数（`product` 环境必须二次确认），授权后加 `--yes` 提交，以 `result.code == 0` 判成功。
+5. **结果核验**：用 `ml service list` 和 `ml service deployment list SERVICE_ID` 确认服务状态。
+
 ## 模型查询与溯源
 
 ```powershell

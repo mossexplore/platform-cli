@@ -2,7 +2,7 @@
 description: 使用 WiseRec CLI 查询和操作平台资源
 ---
 
-先通过 skill 工具加载 `wiserec-platform`，遵守其中“必须遵守”、会话检查和结果核验规则，再处理以下需求：
+先通过 skill 工具加载 `wiserec-platform`，遵守其中“核心红线”、会话检查和结果核验规则，再处理以下需求：
 
 $ARGUMENTS
 

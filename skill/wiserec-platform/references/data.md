@@ -1,5 +1,8 @@
 # 数据集、特征任务与特征集
 
+- 从特征任务定位上游数据时，先用 `ml feature-task detail TASK_ID -o json` 查关联信息。详情可能只给出名称或引用。缺少 ID 时，在当前环境支持的列表中按名称查找并核对，或请用户提供 ID。
+- 质量监控宽表查询（`ml quality wide-featureset`）与特征集配置查询（`ml featureset wide`）为不同入口，ID 与筛选字段不混用。
+
 ## 数据集
 
 ```powershell
@@ -46,7 +49,6 @@ ml featureset model config SET_ID
 
 `config` 固定输出 JSON，不加 `-o`。宽表特征集与模型特征集的 ID 不互换。
 
-
 ### 特征集 CSV 导出
 
 ```powershell
@@ -81,4 +83,4 @@ ml quality wide-featureset label-assemble feature list --set-id SET_ID --definit
 - 先用 `ml quality wide-featureset list` 定位特征集，再查询对应装配的样本定义，最后使用该分组下的样本定义 ID 查询特征。不传 `--type`，由命令分组决定装配类型。
 - 样本定义列表不分页，JSON 为 `items`、`count`，其中 `count` 仅为本次返回条数；响应包含 `featureSetId` 时保留。若返回 ID 与请求 ID 不同，先核对，不擅自推断两者可互换；后续查询显式传入经确认的 `--set-id`。
 - 装配特征列表默认第 1 页、每页 10 条，最大 100 条，每次只取一页；JSON 为 `items`、`count`、`pageIndex`、`pageSize`。请求必须同时指定特征集 ID 和样本定义 ID，不混用特征 ID。
-- 新增装配命令的表格比例按整数四舍五入：`0.1538 → 15%`、`0.017 → 2%`、`0.125 → 13%`；JSON 保留原始数值和空值。周期保留编码原值，类型不翻译；原有质量监控特征列表仍保留小数百分比。
+- JSON 输出保留原始数值和空值（表格模式会对装配比例取整展示，周期保留编码原值）。
