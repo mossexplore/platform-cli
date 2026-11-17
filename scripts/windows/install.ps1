@@ -285,7 +285,9 @@ if (Test-Path -LiteralPath $PackagesDirectory -PathType Container) {
 
 Invoke-Checked -Command $VirtualEnvironmentPython -Arguments @("-I", $InstallCheck, "verify", "--version", $WheelVersion)
 Write-Host "Updating user config.json from the package..." -ForegroundColor Cyan
-Invoke-Checked -Command $VirtualEnvironmentPython -Arguments @("-I", "-m", "wiserec_cli.install_config")
+Invoke-Checked -Command $VirtualEnvironmentPython -Arguments @(
+    "-I", "-m", "wiserec_cli.install_config", "--sync-edge-policy"
+)
 
 Write-Host "[6/7] Registering the ml command..." -ForegroundColor Cyan
 New-Item -ItemType Directory -Path $BinDirectory -Force | Out-Null

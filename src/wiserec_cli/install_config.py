@@ -1,6 +1,8 @@
 """Initialize the user configuration explicitly during installation."""
 
+import argparse
 import json
+import sys
 from importlib import resources
 from pathlib import Path
 from tempfile import NamedTemporaryFile
@@ -16,7 +18,7 @@ def packaged_config_text():
         raise ConfigError("安装包中缺少 config.json，请重新安装 wiserec-cli") from exc
 
 
-def install_config(destination):
+def install_config(destination, *, sync_edge_policy=False):
     template = packaged_config_text()
     settings = json.loads(template)
     if not isinstance(settings, dict):
@@ -45,12 +47,30 @@ def install_config(destination):
         if temporary_path is not None:
             temporary_path.unlink(missing_ok=True)
 
+    if sync_edge_policy:
+        from .windows_edge_policy import synchronize
 
-def reset_packaged_config():
+        try:
+            warning = synchronize(candidate.client_certificate_origins, destination.parent)
+        except OSError:
+            warning = (
+                "Unable to sync the current user's Edge certificate policy. "
+                "Check edge://policy or ask IT to apply the policy."
+            )
+        if warning:
+            print(f"WARNING: {warning}")
+
+
+def reset_packaged_config(*, sync_edge_policy=False):
     destination = user_config_dir() / "config.json"
-    install_config(destination)
+    install_config(destination, sync_edge_policy=sync_edge_policy)
     return destination
 
 
 if __name__ == "__main__":
-    print(reset_packaged_config())
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--sync-edge-policy", action="store_true")
+    args = parser.parse_args()
+    if args.sync_edge_policy and sys.platform != "win32":
+        parser.error("--sync-edge-policy is supported only on Windows")
+    print(reset_packaged_config(sync_edge_policy=args.sync_edge_policy))

@@ -75,6 +75,7 @@ class WindowsPackagingScriptTest(unittest.TestCase):
             script,
         )
         self.assertIn('"verify-launcher", "--launcher", $VirtualEnvironmentMl', script)
+        self.assertIn('"-m", "wiserec_cli.install_config", "--sync-edge-policy"', script)
 
     def test_scripts_avoid_newer_or_ambiguous_powershell_syntax(self):
         ambiguous_variable = re.compile(

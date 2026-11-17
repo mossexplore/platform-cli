@@ -34,6 +34,27 @@ ml login
 
 CLI 运行时只读取当前账号的 `%APPDATA%\ml\config.json`。配置缺失时重新运行安装程序。直接安装正式 Wheel 后，可使用同一 Python 运行 `python -m wiserec_cli.install_config` 初始化配置。
 
+### 为安装包配置客户端证书自动选择
+
+发布方在**构建内部安装包前**编辑项目根目录的 `config.json`。在对应 `profiles` 条目中加入
+`client_certificate_origins`，填写证书弹窗显示的 HTTPS 主机和端口。下面的地址是占位示例。
+
+```json
+{
+  "name": "dev",
+  "alias": "开发环境",
+  "api_endpoint": "https://console.example.com/dashboard",
+  "client_certificate_origins": ["https://auth.example.com:443"]
+}
+```
+
+默认端口为 443。每个条目只接受明确的 HTTPS 主机和端口，支持填写多个地址。
+没有证书请求的环境可以省略该字段或使用空数组。
+
+用户照常在自己的 Windows 账号下运行 `install.cmd`。安装和升级时，安装器会将包内所有环境配置的认证地址同步到当前账号的 Edge 策略。一张匹配证书时自动使用，多张时 Edge 显示选择框。已存在的站点规则会保留。移除配置中的地址并重新安装后，安装器会移除自己添加且内容未被修改的规则。
+
+若设备已有计算机级证书自动选择策略、明确关闭多证书提示或限制用户写入策略，安装器会提示由 IT 处理，用户仍可按 Edge 弹窗继续登录。用户级策略适用于该 Windows 账号下的 Edge。部署后可在 `edge://policy` 检查策略是否生效。
+
 ## PowerShell 安装方式
 
 如果系统策略不允许双击脚本，可打开 PowerShell，在解压目录执行：
@@ -118,7 +139,7 @@ Wheel，即使新旧版本号相同也会替换 CLI 文件。已有且满足要�
 
 ### Edge 登录时弹出客户端证书选择
 
-若企业设备已下发客户端证书，IT 可以通过 Microsoft Edge 管理策略为指定认证站点开启自动选择。
+Windows 安装器会根据包内配置同步当前用户策略。若设备由企业统一管理，IT 也可以通过 Microsoft Edge 管理策略为指定认证站点开启自动选择。
 请先确认实际发起证书请求的 HTTPS 主机及端口。登录如果跳转到独立认证站点，应填写发起请求的认证站点。
 
 1. 在 [`AutoSelectCertificateForUrls`](https://learn.microsoft.com/en-us/deployedge/microsoft-edge-policies/autoselectcertificateforurls) 的现有列表中为每个认证站点加入一条规则，保留其他站点的条目。以下地址是示例，请替换为实际主机及端口。
