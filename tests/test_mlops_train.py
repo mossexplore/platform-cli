@@ -62,14 +62,16 @@ def test_tree_and_unsupported_command_offline(tmp_path):
     result = invoke_with_config(runner, app, config, ["tree"])
     assert result.exit_code == 0, result.output
     assert "mlops" in result.output and "── list" in result.output
-    assert "立即执行指定训练任务" not in result.output and "── algorithm" not in result.output
+    assert "立即执行指定训练任务" in result.output
+    assert "训练看板管理" not in result.output
     result = invoke_with_config(runner, app, config, ["tree", "--all"])
     assert result.exit_code == 0, result.output
     assert "[不支持]" in result.output
-    assert "start  不支持" not in result.output
+    start_line = next(line for line in result.output.splitlines() if "立即执行指定训练任务" in line)
+    assert "[不支持]" not in start_line
     with patch("wiserec_cli.auth.AuthManager.ensure_credentials", side_effect=AssertionError("must not login")), \
          patch("wiserec_cli.cli.ping.auto_start", side_effect=AssertionError("must not ping")):
-        result = invoke_with_config(runner, app, config, ["train", "start", "TASK_ID"])
+        result = invoke_with_config(runner, app, config, ["offline", "experiment", "list"])
     assert result.exit_code == 1
     assert "不支持" in result.output
 

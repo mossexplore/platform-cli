@@ -44,8 +44,9 @@ class Client:
         return self.payload
 
 
+@pytest.mark.parametrize("platform_type", ["wiserec", "mlops"])
 @pytest.mark.parametrize("filtered", [False, True])
-def test_request_defaults_and_business_header(filtered):
+def test_request_defaults_and_business_header(filtered, platform_type):
     expected = dict(DEFAULTS)
     if filtered:
         expected.update(taskName="embedding", category="train_fi", createUser="user", pageIndex=2, pageSize=20)
@@ -59,7 +60,7 @@ def test_request_defaults_and_business_header(filtered):
 
     selection = BusinessSelection(type="team", department_id="d", department_name="D",
         tenant_id="t", tenant_name="T", team_id="team", team_name="Team", business_id="chosen")
-    with PlatformClient(Profile("dev", "https://dev.example.com/dashboard"),
+    with PlatformClient(Profile("dev", "https://dev.example.com/dashboard", platform_type=platform_type),
         Credentials.create("dev", "session=a", "csrf", "jack", 1800), 30000, 0, True,
         transport=httpx.MockTransport(handler), business_selection=selection) as client:
         service = FeatureTaskService(client)

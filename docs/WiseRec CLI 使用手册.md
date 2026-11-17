@@ -181,7 +181,7 @@ ml                                              WiseRec 命令行工具
 
 ### 1.3 说明
 
-默认仅展示当前环境支持的命令；MLOps 支持保活、用户信息、MEP 配置、模型、资源模板、部署模板、数据集、Web Studio、Jupyter、服务管理，以及训练列表、执行记录与执行实例。`ml tree --all` 可查看全部命令，不支持的命令在描述末尾显示红色 `[不支持]`，支持的命令不加标记。
+默认仅展示当前环境支持的命令。MLOps 支持训练任务、特征任务、算法仓、保活、用户信息、MEP 配置、模型、资源模板、部署模板、数据集、Web Studio、Jupyter 和服务管理。`ml tree --all` 可查看全部命令，不支持的命令在描述末尾显示红色 `[不支持]`。
 
 从上到下按顺序输入命令层级；使用 `--help` 查看具体用法。`ml tree` 中各命令的说明结尾不显示标点符号。
 
@@ -600,7 +600,7 @@ ml train history detail TASK_ID JOB_ID [-o table|json]
 ml train start TASK_ID
 ml train config export TASK_ID [--file PATH]
 ml train history logs download TASK_ID JOB_ID [--type log|plog] [--role-job-id ROLE_JOB_ID] [--directory DIR] [-o table|json]
-ml train instance logs download TASK_ID JOB_ID [--select SELECTION] [--directory DIR]
+ml train instance logs download TASK_ID JOB_ID [--select SELECTION] [--directory DIR] [-o table|json]
 ml train cancel TASK_ID [--yes]
 ml train delete TASK_ID [--yes]
 ml train clone TASK_ID --name NAME [OPTIONS]
@@ -625,13 +625,13 @@ ml train config update TASK_ID --customize-config VALUE
 
 ### 12.3 说明
 
-环境的 `platform_type` 支持 `wiserec` 和 `mlops`，未配置时默认 `wiserec`。MLOps 支持 `ml train list`、`ml train history list`、`ml train history detail`、`ml train history logs download`、`ml train instance list`、`ml train instance logs download`，以及 `ml auth ping`、`ml user`、`ml mep`、`ml model`、`ml resource`、`ml deployment`、`ml dataset`、`ml webstudio`、`ml jupyter`、`ml service` 下的全部现有公开命令；其他未适配的业务命令会提示不支持。登录、业务选择和权限检查仍需完成，MLOps 与 WiseRec 使用相同保活方式，按 `auth.auto_ping` 配置自动启动，也可用 `ml auth ping` 管理。
+环境的 `platform_type` 支持 `wiserec` 和 `mlops`，未配置时默认 `wiserec`。两种环境均支持本章所有训练命令。先登录并选择业务，再执行训练命令。两种环境均按 `auth.auto_ping` 配置自动保活，也可用 `ml auth ping` 管理。
 
 `list` 的 `--name` 按名称模糊查询，`--page` 默认 1，`--page-size` 默认 10，MLOps 每页最多 200 条。查询成功且总数为 0 时，表格提示“暂无训练任务”，JSON 返回 `count: 0` 和 `items: []`。列表时间按北京时间展示，大小从字节转换为 B、K、M、G，JSON 保留原始数值和额外字段。
 
-WiseRec 可用 `detail` 查询指定训练任务。先登录并选择业务，再使用任务 ID 查询。表格展示基本信息、首个样本的数据集、输出引用（输出目录和输出名称）、首个样本的配置引用、算法参数和自定义参数，时间按北京时间显示。自定义参数为 JSON 时缩进展示，普通文本按行显示。使用 `-o json` 获取完整原始详情。
+`detail` 按任务 ID 查询。表格展示基本信息、首个样本的数据集、输出引用（输出目录和输出名称）、首个样本的配置引用、算法参数和自定义参数，时间按北京时间显示。自定义参数为 JSON 时缩进展示，普通文本按行显示。使用 `-o json` 获取完整原始详情。
 
-先用 `list` 获取任务 ID，`history list` 获取作业 ID。执行实例和执行记录按接口返回顺序展示所请求的页，并显示总条数。执行实例按 `periodDate` 升序查询，执行记录按状态时间升序查询。`start` 返回作业 ID，不代表训练完成。
+先用 `list` 获取任务 ID，`history list` 获取作业 ID。执行实例和执行记录按接口返回顺序展示所请求的页，并显示总条数。执行实例按 `periodDate` 升序查询，执行记录按状态时间升序查询。`start` 会立即提交执行并在平台返回作业 ID 时显示该 ID。通过 `history list` 查看执行状态。
 
 `history list` 的状态列将 `FAILED` 显示为红色“执行失败”，`COMPLETED` 显示为绿色“执行完成”，`CANCELED` 显示为黄色“取消”，`TIMEOUT` 显示为黄色“超时”，`LACK_RESOURCE` 显示为黄色“资源不足”。其他状态按原值展示，空值显示 `-`。
 
@@ -705,7 +705,7 @@ ml algorithm clone SOURCE_ID --name NAME --version VERSION [--yes]
 
 ### 13.3 说明
 
-先从列表获取算法仓 ID。下载保存为 ZIP，同名文件自动编号；`--file` 的父目录须存在。下载地址可能含临时签名，请勿公开分享。
+WiseRec 和 MLOps 环境均支持算法仓查询、下载与克隆。先登录、选择业务，再从列表获取算法仓 ID。下载保存为 ZIP，同名文件自动编号。`--file` 的父目录须存在。下载地址可能含临时签名，请勿公开分享。
 
 克隆默认预览创建内容并询问确认，成功后显示结果及返回的新 ID。
 
@@ -1368,7 +1368,7 @@ ml feature-task list [--name TEXT] [--category TYPE] [--create-user USER] [--pag
 
 ### 说明
 
-先选择环境、登录并使用 `ml business use` 选择业务。查询当前环境下已选业务的特征任务，不支持通过本命令指定其他业务。三个筛选条件可组合使用，一次只查询指定的一页。
+WiseRec 和 MLOps 环境均可查询特征任务。先选择环境、登录并使用 `ml business use` 选择业务。查询使用当前业务，三个筛选条件可组合使用，一次只查询指定的一页。
 
 表格依次展示任务 ID、任务名称、任务类型、业务场景、状态、创建者、修改者、更新时间、大小、描述。任务 ID 完整展示，其他长文本可换行。更新时间按北京时间显示为 `YYYY-MM-DD HH:mm:ss`；大小按 1024 进制换算，零显示 `0B`，非零且不足 1 GiB 显示两位小数的 `M`，其余显示两位小数的 `G`。缺失值显示 `-`，未知任务类型保留原值。列表下方显示页码、每页条数和总条数。
 
@@ -1416,7 +1416,7 @@ ml feature-task detail TASK_ID [--output table|json]
 
 | 参数 | 默认值 | 说明 |
 | --- | --- | --- |
-| `TASK_ID` | 必填 | 特征任务 ID，可从管理台或 WiseRec 环境下的 `ml feature-task list` 获取 |
+| `TASK_ID` | 必填 | 特征任务 ID，可从管理台或当前环境的 `ml feature-task list` 获取 |
 | `--output`、`-o` | 当前环境配置 | `table` 或 `json` |
 
 ### 说明
@@ -1455,7 +1455,7 @@ ml feature-task execution list TASK_ID [--page INTEGER] [--page-size INTEGER] [-
 
 ### 说明
 
-先选择环境、登录并选择业务。一次查询指定页，保留服务端排序，默认不包含历史执行实例。
+WiseRec 和 MLOps 环境均可查询执行记录。先登录并选择业务。一次查询指定页，保留服务端排序，默认只查最新执行实例。
 
 表格展示 job ID、算法名称、CPU、GPU、内存、状态、集群、节点数、大小、执行时长、最新实例、检查时间、开始时间、结束时间。首列 ID 完整展示，其余长内容可换行。时间按北京时间显示；大小按 1024 进制转换为 B、K、M、G；执行时长按分钟换算为小时和分钟；最新实例显示“是”或“否”，缺失字段显示 `-`。JSON 输出包含 `items`、`count`、`pageIndex`、`pageSize`，保留完整记录及原始值。
 
@@ -1489,7 +1489,7 @@ ml feature-task execution logs search JOB_ID [--start-line INTEGER] [--end-line 
 
 ### 说明
 
-先选择环境、登录并选择业务。业务来源于当前环境的选择，不支持参数覆盖。未指定关键词或范围选项时不发送对应条件；多个关键词的匹配关系由服务端决定。不自动轮询日志。默认原样显示第一个日志条目的正文，保留空格、制表符和换行，不添加标题、表格或额外换行；无日志时不输出正文。`-o json` 保留完整接口响应，包括所有日志条目及总行数。认证提示和错误写入标准错误，不混入日志正文或 JSON 输出。
+WiseRec 和 MLOps 环境均可搜索执行日志。先登录并选择业务，再从执行记录获取作业 ID。省略关键词或范围时，使用服务端默认行为。多个关键词的匹配关系由服务端决定。默认原样显示首条日志正文，保留空格、制表符和换行。无日志时标准输出为空。`-o json` 保留完整接口响应，包括所有日志条目及总行数。认证提示和错误写入标准错误。
 
 ### 示例
 

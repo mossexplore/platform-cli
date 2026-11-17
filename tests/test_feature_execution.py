@@ -64,8 +64,9 @@ def test_log_defaults_optional_fields_and_unique_uuid():
     assert "searchScopeLine" not in client.calls[-1][2]["data"]
 
 
+@pytest.mark.parametrize("platform_type", ["wiserec", "mlops"])
 @pytest.mark.parametrize("kind", ["list", "logs"])
-def test_actual_request_uses_selected_business_header(kind):
+def test_actual_request_uses_selected_business_header(kind, platform_type):
     def handler(request):
         assert request.headers.get_list("businessid") == ["selected"]
         body = json.loads(request.content)
@@ -77,7 +78,7 @@ def test_actual_request_uses_selected_business_header(kind):
         return httpx.Response(200, json=Client().payload)
     selection = BusinessSelection(type="team", department_id="d", department_name="D", tenant_id="t",
         tenant_name="T", team_id="team", team_name="Team", business_id="selected")
-    with PlatformClient(Profile("dev", "https://dev.example.com/dashboard"),
+    with PlatformClient(Profile("dev", "https://dev.example.com/dashboard", platform_type=platform_type),
         Credentials.create("dev", "session=a", "csrf", "jack", 1800), 30000, 0, True,
         transport=httpx.MockTransport(handler), business_selection=selection) as client:
         service = FeatureExecutionService(client)

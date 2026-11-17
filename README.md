@@ -98,7 +98,7 @@ ml access status
 
 | 组件 | 目录 | 当前源码版本 | 说明 | 文档入口 |
 | --- | --- | --- | --- | --- |
-| **WiseRec CLI** | `src/wiserec_cli/` | `1.0.9.5` | 核心命令行工具（`ml`） | [使用手册](docs/WiseRec%20CLI%20使用手册.md) · [维护说明](docs/CLI使用与维护说明.md) |
+| **WiseRec CLI** | `src/wiserec_cli/` | `1.0.9.6` | 核心命令行工具（`ml`） | [使用手册](docs/WiseRec%20CLI%20使用手册.md) · [维护说明](docs/CLI使用与维护说明.md) |
 | **权限管理系统** | `access-service/` | `1.0.9.1` | 授权、版本准入与审计管理台 | [README](access-service/README.md) · [Docker 部署指南](docs/权限管理系统Docker安装部署与调试指南.md) |
 | **Agent 服务** | `agent-service/` | `1.0.9.1` | AI Agent 集成与部署工具 | [README](agent-service/README.md) · [配置示例](agent-service/config.example.json) |
 | **权限通知助手** | `permission-notifier/` | `1.0.9.1` | 权限申请桌面通知客户端 | [README](permission-notifier/README.md) |
@@ -134,7 +134,7 @@ ml access status
   - [CLI 演示环境使用指南](docs/CLI演示环境使用指南.md)
 - **版本与发布说明**
   - [版本号管理说明](docs/版本号管理说明.md)
-  - 近期变更：[1.0.9.5](docs/RELEASE_NOTES_1.0.9.5.md) · [1.0.9.2](docs/RELEASE_NOTES_1.0.9.2.md) · [1.0.9.1](docs/RELEASE_NOTES_1.0.9.1.md)
+  - 近期变更：[1.0.9.6](docs/RELEASE_NOTES_1.0.9.6.md) · [1.0.9.5](docs/RELEASE_NOTES_1.0.9.5.md) · [1.0.9.2](docs/RELEASE_NOTES_1.0.9.2.md)
 
 ---
 
