@@ -2,6 +2,8 @@
 
 本表列出全部命令，用于定位命令和判断风险；参数以 `ml <子命令> --help` 为准。通过本 skill 调用时必须使用当前账号的 `%APPDATA%\ml\config.json`。
 
+WiseRec 和 MLOps 均支持本表的 `train`、`feature-task` 和 `algorithm` 命令。以已安装 CLI 的 `ml tree --all` 查看当前环境的支持与禁用标记。
+
 仅在当前命令的帮助声明支持时传 `-o json` 或 `--output json`。`context` 使用 `--json`，特征集配置和 `webstudio show` 固定输出 JSON。常见不接受 `-o/--output` 的命令包括 `env show`、`access status`、`auth status`、`auth ping status`、`business list/show`、`service logs`、`jupyter doctor`、`jupyter terminal list`、`train start/cancel/delete/clone`、`train config export/update`、`algorithm download/clone`。
 
 “确认”列为“是”的命令默认会询问确认，非交互调用必须在用户授权后加 `--yes`。执行实例日志下载用 `--select` 非交互选择。分布式执行记录日志用 `--role-job-id` 指定角色。“副作用”列标出会改变平台、远端或本地状态的命令，执行前核对目标和授权，执行后核验。
@@ -46,7 +48,7 @@
 | `ml offline experiment trial list PROJECT_ID` | 实验下的 trial | {{confirm}} | |
 | `ml offline experiment clone PROJECT_ID --name NAME` | 克隆实验，可先 `--dry-run` | {{confirm}} | 创建实验 |
 | `ml train list` | 训练任务 | {{confirm}} | |
-| `ml train detail TASK_ID` | 查询 WiseRec 训练任务详情，可用 `-o json` 获取完整详情 | {{confirm}} | |
+| `ml train detail TASK_ID` | 查询训练任务详情，可用 `-o json` 获取完整详情 | {{confirm}} | |
 | `ml sample-task list` | 样本任务列表，默认旧任务管理；`--source new` 查询新版，支持分页、名称、创建者、修改者和重复 `--type` 筛选，`--status` 仅旧版可用 | {{confirm}} | |
 | `ml sample-task period list TASK_ID` | 新旧样本任务共用执行周期查询，无需 `--source`，四列网格；支持分页、北京时间范围及重复 `--state` | {{confirm}} | |
 | `ml sample-task execution list TASK_ID` | 新旧样本任务共用执行记录查询，无需 `--source`，支持分页、`--include-history` 和 `-o json` | {{confirm}} | |

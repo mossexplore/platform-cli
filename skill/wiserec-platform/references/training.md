@@ -44,8 +44,8 @@ ml train instance logs download TASK_ID JOB_ID --select '1,3' --directory 'D:\lo
 ml train instance logs download TASK_ID JOB_ID --select all --directory 'D:\logs' -o json
 ```
 
-- WiseRec 和 MLOps 均支持训练任务列表、执行实例列表、执行记录列表与详情及两种日志下载。先用 `ml tree` 查看当前环境支持的其他训练命令。
-- `detail` 仅适用于 WiseRec。使用 `train list` 中的任务 ID，结果含基本信息、首个样本的数据集、输出引用及首个样本的配置引用、算法参数及自定义参数。
+- WiseRec 和 MLOps 均支持训练任务查询、启动、取消、软删除、克隆、配置管理、执行实例及执行记录查询和日志下载。MLOps 的 `train list --page-size` 最大为 200。
+- `detail` 使用 `train list` 中的任务 ID，结果含基本信息、首个样本的数据集、输出引用及首个样本的配置引用、算法参数及自定义参数。
 - `instance list` 和 `history list` 默认返回第一页 10 条，支持 `--page` 和 `--page-size`（每页 1 至 200 条），按接口返回顺序展示。按日志来源从对应列表取得 `jobId`。执行记录默认下载普通日志，加 `--type plog` 下载 plog。
 - `history detail` 自动翻页查找记录。`jobType=dps-train` 时展示角色列表，首列为完整角色作业 ID，JSON 保留角色及额外字段。通过本 Skill 下载分布式普通日志或 plog 时，先从 `history detail -o json` 获取对应的角色作业 ID，再用 `--role-job-id` 指定角色。多个目标角色按用户指定范围逐个调用。普通训练不接受此参数。
 - `history logs download` 下载普通日志前先查询是否存在。日志未就绪，或下载链接接口返回 `failedUploadSwitch=false` 时，按作业提交手动归档。提交成功后立即提示“手动归档中，请稍后再次下载日志！”，返回 `not_ready` 和非零退出码。稍后重试时重新检查日志是否存在。同次命令内同一作业最多归档一次，批量下载继续处理其余选中角色。
@@ -96,6 +96,8 @@ ml sample-task execution list TASK_ID --include-history --page 2 --page-size 20 
 - 两种执行查询的 JSON 均为 `taskId`、`page`、`pageSize`、`total`、`items`，保留原始状态、时间和额外字段，不加入网格编号。每次只查询指定页，不把第一页当成全部结果。
 
 ## 算法仓
+
+WiseRec 和 MLOps 均支持算法仓查询、下载与克隆。
 
 ```powershell
 ml algorithm list --name NAME -o json
