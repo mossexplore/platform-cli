@@ -35,6 +35,7 @@ class FakeBrowserAuthenticator:
 class FakePage:
     def __init__(self):
         self.default_timeout = None
+        self.goto_timeout = None
         self.business_list_reads_before_ready = 0
         self.wait_for_timeout_calls = []
         self.local_storage = {
@@ -60,8 +61,8 @@ class FakePage:
     def is_closed(self):
         return False
 
-    def goto(self, *_args, **_kwargs):
-        return None
+    def goto(self, _url, *, wait_until, timeout):
+        self.goto_timeout = timeout
 
     def evaluate(self, expression):
         if (
@@ -378,6 +379,8 @@ class AuthManagerTest(unittest.TestCase):
             }
         )
         print_mock.assert_not_called()
+        self.assertEqual(context.pages[0].goto_timeout, 300000)
+        self.assertEqual(context.pages[0].default_timeout, 30000)
         self.assertEqual(len(context.pages[0].wait_for_timeout_calls), 2)
         self.assertTrue(context.closed)
         self.assertEqual(authenticator._wait_for_credentials.call_count, 2)

@@ -35,7 +35,7 @@ metadata:
 
 - 参数以已安装 CLI 为准。`ml tree` 显示当前可用命令，`ml tree --all` 显示全部命令与限制标记。不熟悉、参数报错或文档不一致时查对应 `--help`，已确认的语法不重复查询。
 - 以实际 shell 的引号规则调用；PATH 找不到 `ml` 时，按 [session.md](references/session.md) 的 PowerShell 或 Git Bash 示例调用已有程序，不自行修改或重建程序。
-- 为长任务安排足够执行等待时间，具体工具参数名和单位以工具说明为准。exec 和 Notebook 按 CLI 的 `--startup-timeout` 加 `--timeout` 再留至少 60 秒；上传按 `--timeout` 留余量；登录和刷新业务需等待用户操作 Edge，至少预留 10 分钟。能力不足时报告限制，不通过改码规避。
+- 为长任务安排足够执行等待时间，具体工具参数名和单位以工具说明为准。exec 和 Notebook 按 CLI 的 `--startup-timeout` 加 `--timeout` 再留至少 60 秒；上传按 `--timeout` 留余量；登录和刷新业务可能需等待用户操作 Edge，至少预留 10 分钟。能力不足时报告限制，不通过改码规避。
 - 非 TTY 环境下自动保活及 `ml auth ping start` 不会启动。认证时间不足时请用户重新登录，或在其自己的终端运行保活。
 - 有准确 ID 时直接使用；否则用最窄条件定位，名称不唯一时由用户选择。任务、作业、模型、模板、Pod 等 ID 不互换；列表默认分页，第一页不代表全部。
 - 优先使用命令自身支持的 JSON 输出方式，具体选项见 `--help` 或 [命令速查](references/commands.md)。检查退出码和 stderr。若 stdout 混有自动登录输出，按 [会话参考](references/session.md) 处理。结果仅提取任务所需字段。

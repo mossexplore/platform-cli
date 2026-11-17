@@ -116,6 +116,29 @@ Wheel，即使新旧版本号相同也会替换 CLI 文件。已有且满足要�
 
 ## 常见问题
 
+### Edge 登录时弹出客户端证书选择
+
+若企业设备已下发客户端证书，IT 可以通过 Microsoft Edge 管理策略为指定认证站点开启自动选择。
+请先确认实际发起证书请求的 HTTPS 主机及端口。登录如果跳转到独立认证站点，应填写发起请求的认证站点。
+
+1. 在 [`AutoSelectCertificateForUrls`](https://learn.microsoft.com/en-us/deployedge/microsoft-edge-policies/autoselectcertificateforurls) 的现有列表中为每个认证站点加入一条规则，保留其他站点的条目。以下地址是示例，请替换为实际主机及端口。
+
+   ```json
+   {"pattern":"https://auth.example.com:443","filter":{}}
+   ```
+
+   可在源码仓库根目录运行下面的命令。将输出的每一行分别加入组策略的自动选择列表。
+
+   ```powershell
+   python scripts/windows/edge_client_certificate_policy.py https://auth.example.com https://sso.example.com:8443 |
+     ConvertFrom-Json | Select-Object -ExpandProperty AutoSelectCertificateForUrls
+   ```
+
+2. 启用 [`PromptOnMultipleMatchingCertificates`](https://learn.microsoft.com/en-us/deployedge/microsoft-edge-policies/promptonmultiplematchingcertificates)，让 Edge 在有多张候选证书时保留选择框。
+3. 在试点设备的 `edge://policy` 中确认两项策略已生效，再运行 `ml login`。只有一张候选证书时应直接继续登录，多张时应弹出选择框。若没有候选证书，由 IT 核对设备的证书下发情况。
+
+如需撤销，请在原管理策略中移除本次新增的站点规则，并还原本次调整的多证书提示设置。
+
 ### 找不到 `ml` 命令
 
 安装后必须重新打开 CMD 或 PowerShell，让新的用户 `PATH` 生效。
