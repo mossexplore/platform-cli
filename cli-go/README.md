@@ -4,13 +4,59 @@ Go 客户端使用独立版本，当前源码版本为 `1.0.11`，由根目录 `
 
 ## 一键打包
 
-构建机需要 Go 1.25 或以上、Python 3.12、Windows x64 和 WiX Toolset 5.0.2。WiX 可通过 .NET SDK 安装，安装后确认 `wix` 可在 PATH 找到。
+同时构建 ZIP 和 MSI 时，请在 Windows x64 上准备 Go 1.25 或以上、Python 3.12、.NET SDK 和 WiX Toolset 5.0.2。**先安装 .NET SDK，再安装 WiX。**
+
+### 1. 安装并验证 .NET SDK
+
+在 PowerShell 中运行以下命令，安装 .NET 10 SDK。也可以从微软页面下载 Windows x64 的 **SDK 安装程序**。[微软 .NET SDK 安装说明](https://learn.microsoft.com/en-us/dotnet/core/install/windows)
+
+```powershell
+winget install --id Microsoft.DotNet.SDK.10 --exact --architecture x64
+```
+
+安装后关闭并重新打开 PowerShell，再运行 `dotnet --list-sdks`。如果没有列出 SDK，请检查安装结果。如果仍提示找不到 `dotnet`，先确认 `C:\Program Files\dotnet\dotnet.exe` 是否存在；若存在，把 `C:\Program Files\dotnet` 加入 PATH 后重开终端。
+
+### 2. 安装并验证 WiX
+
+确认 `dotnet --list-sdks` 列出了 SDK 后，在同一个 Windows 用户账号下运行：
 
 ```powershell
 dotnet tool install --global wix --version 5.0.2
-Copy-Item cli-python/config.example.json cli-go/config.json
-# 先编辑 cli-go/config.json，填写获准分发的环境地址和权限服务配置。
-.\cli-go\scripts\build-release.cmd
+wix --version
+```
+
+如果 WiX 已安装但 PowerShell 找不到 `wix`，重新打开终端。若仍找不到，把 `%USERPROFILE%\.dotnet\tools` 加入用户 PATH 后重开终端。
+
+### 3. 安装 Go 并检查 Python
+
+下载 Go 1.25 或以上的 Windows x64 安装包，文件名以 `windows-amd64.msi` 结尾。双击安装后重新打开 PowerShell。如果使用 VS Code 内置终端，请重启 VS Code。 [Go 官方下载](https://go.dev/dl/)
+
+```powershell
+go version
+python --version
+```
+
+预期 `go version` 显示 Go 版本及 `windows/amd64`，`python --version` 显示 `Python 3.12.x`。如果找不到 `python`，安装 Python 3.12 时勾选将 Python 加入 PATH，然后重开终端。
+
+如果 PowerShell 提示找不到 `go`，用默认安装路径检查：
+
+```powershell
+& "$env:ProgramFiles\Go\bin\go.exe" version
+```
+
+如果能打印版本，把 `C:\Program Files\Go\bin` 加入 Windows 用户 `Path`，重新打开终端后再运行 `go version`。如果文件不存在，请核对 Go 是否安装成功，或按实际安装目录检查。
+
+### 4. 准备配置并打包
+
+从仓库根目录执行。已有 `cli-go/config.json` 时，直接检查其中的平台地址和权限服务配置。
+
+```powershell
+if (-not (Test-Path .\cli-go\config.json)) {
+    Copy-Item .\cli-python\config.example.json .\cli-go\config.json
+}
+notepad .\cli-go\config.json
+# 保存配置后，执行下一行。
+.\cli-go\scripts\build-release.cmd -ConfigPath .\cli-go\config.json
 ```
 
 也可使用 `./cli-go/scripts/build-release.ps1`。配置优先取 `-ConfigPath PATH`，其次依次查找 `cli-go/config.json`、`cli-python/config.json` 和仓库根目录的 `config.json`。只打 ZIP 时加 `-PortableOnly`，也可在装有 PowerShell 的 macOS 或 Linux 上执行。使用 `-OutputDirectory DIR` 指定新输出目录；默认输出在 `dist/cli-go/`。构建脚本校验环境和权限配置并编译进 `ml.exe`。更新这些配置需重新出包。构建输入请使用获准分发的环境信息，密码、Token 等秘密由服务端管理。
