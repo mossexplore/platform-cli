@@ -1,4 +1,5 @@
 $ErrorActionPreference = 'Stop'
+$ProgressPreference = 'SilentlyContinue'
 $exe = $env:WISECLI_UPGRADE_EXE
 $package = $env:WISECLI_UPGRADE_PACKAGE
 $mode = $env:WISECLI_UPGRADE_MODE

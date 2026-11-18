@@ -66,9 +66,14 @@ function Invoke-AutomaticUpgradeFixture($Package, $Exe) {
     try {
         $env:WISECLI_UPGRADE_MODE = 'verify'
         $encoded = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($script))
-        $output = & $powershell -NoProfile -NonInteractive -OutputFormat Text -EncodedCommand $encoded 2>&1
-        if ($LASTEXITCODE -ne 1 -or "$output" -notlike '*NotSigned*') {
-            throw "Expected unsigned MSI rejection from Windows PowerShell: $output"
+        $stderr = Join-Path $Work 'updater-stderr.log'
+        $stdout = Join-Path $Work 'updater-stdout.log'
+        $shellArguments = @('-NoProfile', '-NonInteractive', '-OutputFormat', 'Text', '-EncodedCommand')
+        $result = Start-Process -FilePath $powershell -Wait -PassThru -ArgumentList ($shellArguments + $encoded) `
+            -RedirectStandardOutput $stdout -RedirectStandardError $stderr
+        $output = Get-Content -LiteralPath $stderr -Raw
+        if ($result.ExitCode -ne 1 -or "$output" -notlike '*NotSigned*') {
+            throw "Expected unsigned MSI rejection from Windows PowerShell (exit $($result.ExitCode)): $output"
         }
 
         # Use a fixture signer for the unsigned CI artifact. Windows Installer still
@@ -83,11 +88,13 @@ function Get-AuthenticodeSignature([string] $LiteralPath) {
 '@
         $env:WISECLI_UPGRADE_MODE = 'install'
         $encoded = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes("$signatureFixture`n$script"))
-        & $powershell -NoProfile -NonInteractive -OutputFormat Text -EncodedCommand $encoded
-        if ($LASTEXITCODE -ne 0) {
+        $result = Start-Process -FilePath $powershell -Wait -PassThru -ArgumentList ($shellArguments + $encoded) `
+            -RedirectStandardOutput $stdout -RedirectStandardError $stderr
+        Get-Content -LiteralPath $stderr
+        if ($result.ExitCode -ne 0) {
             $log = Join-Path $fixture 'install.log'
             if (Test-Path -LiteralPath $log) { Get-Content -LiteralPath $log -Tail 120 }
-            throw "Automatic upgrade worker failed: $LASTEXITCODE"
+            throw "Automatic upgrade worker failed: $($result.ExitCode)"
         }
         if (Test-Path -LiteralPath $download) { throw 'Automatic upgrade left the staged package' }
     } finally {
