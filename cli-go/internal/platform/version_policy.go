@@ -4,6 +4,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/url"
 	"regexp"
@@ -51,14 +52,11 @@ func (d *VersionDenial) Error() string {
 	var result strings.Builder
 	fmt.Fprintf(&result, "%s（%s）", message, d.Code)
 	for _, field := range []struct{ label, value string }{
-		{"当前版本", d.Current}, {"最低要求", d.Minimum}, {"推荐版本", d.Recommended}, {"升级说明", d.UpgradeURL},
+		{"当前版本", d.Current}, {"最低要求", d.Minimum}, {"推荐版本", d.Recommended},
 	} {
 		if field.value != "" {
 			fmt.Fprintf(&result, "\n  %s：%s", field.label, field.value)
 		}
-	}
-	if d.UpgradeURL == "" {
-		result.WriteString("\n  请联系管理员获取升级说明。")
 	}
 	return result.String()
 }
@@ -79,24 +77,27 @@ type MSIUpgrade struct {
 	SHA256 string
 }
 
-func (d *VersionDenial) MSIUpgrade() MSIUpgrade {
+func (d *VersionDenial) MSIUpgrade() (MSIUpgrade, error) {
+	if d.UpgradeURL == "" {
+		return MSIUpgrade{}, nil
+	}
 	address, err := url.Parse(d.UpgradeURL)
 	if err != nil || !validSignedURL(address) || !strings.HasSuffix(strings.ToLower(address.Path), ".msi") {
-		return MSIUpgrade{}
+		return MSIUpgrade{}, errors.New("MSI 下载地址必须是 HTTPS 的 .msi 直链")
 	}
 	key, hash, _ := strings.Cut(address.Fragment, "=")
 	address.Fragment, address.RawFragment = "", ""
 	if !strings.EqualFold(key, "sha256") {
-		return MSIUpgrade{URL: address.String()}
+		return MSIUpgrade{URL: address.String()}, nil
 	}
 
 	// A digest in an unauthenticated response could otherwise authorize any MSI
 	// chosen by the sender. A fragment declaring a digest never falls back to signing.
-	if !d.verifiedAccessDenial || len(hash) != 2*sha256.Size {
-		return MSIUpgrade{}
+	if _, err := hex.DecodeString(hash); err != nil || len(hash) != 2*sha256.Size {
+		return MSIUpgrade{}, errors.New("MSI 下载地址的 #sha256= 后须填写完整的 64 个十六进制字符")
 	}
-	if _, err := hex.DecodeString(hash); err != nil {
-		return MSIUpgrade{}
+	if !d.verifiedAccessDenial {
+		return MSIUpgrade{}, errors.New("SHA-256 升级地址须由经证书验证的 HTTPS 权限服务返回，可运行 ml access status --diagnose 核对")
 	}
-	return MSIUpgrade{URL: address.String(), SHA256: strings.ToLower(hash)}
+	return MSIUpgrade{URL: address.String(), SHA256: strings.ToLower(hash)}, nil
 }

@@ -25,8 +25,13 @@ func TestVersionDenialRetainsUpgradeInformation(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			err := i.checkVersion([]byte(test.payload))
 			var denial *VersionDenial
-			if !errors.As(err, &denial) || denial.UpgradeURL != test.wantURL || denial.MSIUpgrade() != (MSIUpgrade{URL: test.wantMSI}) {
+			if !errors.As(err, &denial) || denial.UpgradeURL != test.wantURL {
 				t.Fatalf("unexpected denial: %#v (%v)", denial, err)
+			}
+			artifact, problem := denial.MSIUpgrade()
+			if artifact != (MSIUpgrade{URL: test.wantMSI}) ||
+				(problem != nil) != (test.wantURL != "" && test.wantMSI == "") {
+				t.Fatalf("unexpected automatic upgrade result: %+v, %v", artifact, problem)
 			}
 			if !strings.Contains(err.Error(), "命令已停止（CLI_VERSION_TOO_OLD）") ||
 				!strings.Contains(err.Error(), "当前版本：1.0.14") {
@@ -36,8 +41,8 @@ func TestVersionDenialRetainsUpgradeInformation(t *testing.T) {
 				!strings.Contains(err.Error(), "推荐版本：1.0.16")) {
 				t.Fatalf("missing version information: %v", err)
 			}
-			if test.wantURL == "" && !strings.Contains(err.Error(), "请联系管理员") {
-				t.Fatalf("missing manual fallback: %v", err)
+			if strings.Contains(err.Error(), "升级说明") || strings.Contains(err.Error(), "example.test") {
+				t.Fatalf("version denial exposes the download link: %v", err)
 			}
 		})
 	}
@@ -48,17 +53,17 @@ func TestMSIUpgradeDigestRequiresVerifiedAccessDenial(t *testing.T) {
 	const rawURL = "https://example.test/upgrade.msi?download=1"
 	const hash = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
 	for _, test := range []struct {
-		name, endpoint, fragment   string
-		explicitDenial, wantDigest bool
+		name, endpoint, fragment, wantProblem string
+		explicitDenial                        bool
 	}{
-		{"HTTPS permission denial", "https://access.example.test", "sha256=" + strings.ToUpper(hash), true, true},
-		{"HTTP permission denial", "http://access.example.test", "sha256=" + hash, true, false},
-		{"platform gateway denial", "", "sha256=" + hash, true, false},
-		{"permission response without explicit denial", "https://access.example.test", "sha256=" + hash, false, false},
-		{"invalid hexadecimal", "https://access.example.test", "sha256=z" + hash[1:], true, false},
-		{"missing digest", "https://access.example.test", "sha256", true, false},
-		{"truncated digest", "https://access.example.test", "sha256=" + hash[:63], true, false},
-		{"duplicate digest", "https://access.example.test", "sha256=" + hash + "&sha256=" + hash, true, false},
+		{"HTTPS permission denial", "https://access.example.test", "sha256=" + strings.ToUpper(hash), "", true},
+		{"HTTP permission denial", "http://access.example.test", "sha256=" + hash, "HTTPS 权限服务", true},
+		{"platform gateway denial", "", "sha256=" + hash, "HTTPS 权限服务", true},
+		{"permission response without explicit denial", "https://access.example.test", "sha256=" + hash, "HTTPS 权限服务", false},
+		{"invalid hexadecimal", "https://access.example.test", "sha256=z" + hash[1:], "64 个十六进制字符", true},
+		{"missing digest", "https://access.example.test", "sha256", "64 个十六进制字符", true},
+		{"truncated digest", "https://access.example.test", "sha256=" + hash[:63], "64 个十六进制字符", true},
+		{"duplicate digest", "https://access.example.test", "sha256=" + hash + "&sha256=" + hash, "64 个十六进制字符", true},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			address := rawURL + "#" + test.fragment
@@ -71,12 +76,13 @@ func TestMSIUpgradeDigestRequiresVerifiedAccessDenial(t *testing.T) {
 			if !errors.As(err, &denial) || denial.UpgradeURL != address {
 				t.Fatalf("expected denial with its original link: %v", err)
 			}
-			expected := MSIUpgrade{}
-			if test.wantDigest {
-				expected = MSIUpgrade{URL: rawURL, SHA256: hash}
-			}
-			if actual := denial.MSIUpgrade(); actual != expected {
-				t.Fatalf("unexpected automatic upgrade package: %+v", actual)
+			artifact, problem := denial.MSIUpgrade()
+			if test.wantProblem != "" {
+				if artifact != (MSIUpgrade{}) || problem == nil || !strings.Contains(problem.Error(), test.wantProblem) {
+					t.Fatalf("unexpected upgrade block: %+v, %v", artifact, problem)
+				}
+			} else if artifact != (MSIUpgrade{URL: rawURL, SHA256: hash}) || problem != nil {
+				t.Fatalf("unexpected automatic upgrade package: %+v, %v", artifact, problem)
 			}
 		})
 	}

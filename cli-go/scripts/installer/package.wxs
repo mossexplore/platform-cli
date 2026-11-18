@@ -101,12 +101,13 @@
         </Control>
         <Control Id="Question" Type="Text" X="12" Y="14" Width="216" Height="16" Text="确定要取消安装吗？" />
       </Dialog>
-      <Dialog Id="InstallationComplete" Width="300" Height="83" Title="WiseRec CLI">
-        <Control Id="Ok" Type="PushButton" X="232" Y="54" Width="56" Height="17" Default="yes" Cancel="yes" Text="确定">
+      <Dialog Id="InstallationComplete" Width="300" Height="101" Title="WiseRec CLI">
+        <Control Id="Ok" Type="PushButton" X="232" Y="72" Width="56" Height="17" Default="yes" Cancel="yes" Text="确定">
           <Publish Event="EndDialog" Value="Return" />
         </Control>
         <Control Id="Status" Type="Text" X="12" Y="14" Width="276" Height="13" Text="WiseRec CLI 安装成功" />
-        <Control Id="NextStep" Type="Text" X="12" Y="33" Width="276" Height="13" Text="请重新打开终端，运行 ml --version 验证。" />
+        <Control Id="CliVersion" Type="Text" X="12" Y="33" Width="276" Height="13" Text="当前安装版本：$(var.Version)" />
+        <Control Id="NextStep" Type="Text" X="12" Y="51" Width="276" Height="13" Text="请重新打开终端，运行 ml --version 验证。" />
       </Dialog>
       <Dialog Id="InstallerError" Width="300" Height="120" Title="WiseRec CLI" ErrorDialog="yes">
         <Control Id="ErrorText" Type="Text" X="12" Y="14" Width="276" Height="68" TabSkip="no" NoPrefix="yes" />

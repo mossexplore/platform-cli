@@ -103,7 +103,7 @@ go mod verify
 
 1. 双击 MSI，或通过 `msiexec` 安装。安装范围为当前用户，程序位于 `%LOCALAPPDATA%\Programs\WiseRecCLIGo\ml.exe`。
 2. 如果用户 PATH 中已有旧版 WiseRec Python 安装器注册的入口，MSI 会自动移除该条目并继续安装。旧版程序、配置和登录数据会保留。安装失败回滚时会恢复移除的旧入口。
-3. 交互安装期间显示一个进度条，成功后显示「安装成功」提示。点击「确定」关闭窗口，重新打开终端与 Agent，再运行 `where.exe ml`、`ml --version` 和 `ml context --json` 核对入口、版本和配置路径。
+3. 交互安装期间显示一个进度条，成功后显示「安装成功」提示及本次安装的 CLI 版本。点击「确定」关闭窗口，重新打开终端与 Agent，再运行 `where.exe ml`、`ml --version` 和 `ml context --json` 核对入口、版本和配置路径。
 
 系统 PATH 中的冲突由管理员调整。其他工具目录中的 `ml` 需要手动核对，以免删除它们共享的 PATH 条目。PowerShell 别名或函数可用 `Get-Command ml -All` 检查。
 
@@ -127,9 +127,9 @@ MSI 自动将正式 Skill 放入 `~/.agents/skills/wiserec-platform` 和 `~/.cac
 https://downloads.example.com/wiserec-cli-windows-x64.msi#sha256=<64位SHA-256>
 ```
 
-SHA-256 模式使用经证书校验的 HTTPS 权限服务响应。MSI 下载使用 HTTPS，可含查询参数和 HTTPS 跳转。哈希以实际上传的 MSI 为准。权限系统若共用该策略，Python CLI 也会显示这一链接。
+SHA-256 模式使用经证书校验的 HTTPS 权限服务响应。若交互终端提示无法自动升级，可按提示检查安装路径、下载地址或 SHA-256，运行 `ml access status --diagnose` 可核对当前权限服务地址。MSI 下载使用 HTTPS，可含查询参数和 HTTPS 跳转。哈希以实际上传的 MSI 为准。权限系统若共用该策略，Python CLI 也会显示这一链接。
 
-通过 MSI 安装的 Go 客户端在交互终端遇到版本过低时会询问是否升级。确认后下载并校验 SHA-256，同时检查 MSI 产品、架构和准入版本要求。验证通过后等待本次命令退出，再调用 Windows Installer。没有哈希的 MSI 直链沿用 Authenticode 校验，可在打包配置中通过 `update.signer_sha256` 固定签名证书指纹。脚本、JSON 输出、便携 ZIP 和文档链接可走手动升级。旧客户端需要先手动安装支持 SHA-256 的 MSI。
+通过 MSI 安装的 Go 客户端在交互终端遇到版本过低时会询问是否升级。确认后，终端会在开始下载时显示 MSI 下载地址，下载完成后校验 SHA-256，并检查 MSI 产品、架构和准入版本要求。验证通过后等待本次命令退出，再调用 Windows Installer。没有哈希的 MSI 直链沿用 Authenticode 校验，可在打包配置中通过 `update.signer_sha256` 固定签名证书指纹。脚本、JSON 输出、便携 ZIP 和文档链接可走手动升级。旧客户端需要先手动安装支持 SHA-256 的 MSI。
 
 ## 便携 ZIP
 

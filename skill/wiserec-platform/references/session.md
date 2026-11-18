@@ -72,7 +72,7 @@ Windows Git Bash 可用 `cygpath -u` 转换 `LOCALAPPDATA` 后拼接安装路径
 | 未选业务 | 列候选并按用户选择设置；空结果不等于平台无数据 |
 | `当前环境 selected.businessId 与业务目录不一致，请运行 ml business refresh` | 刷新当前环境的业务目录，再用 `ml business show` 核对所选业务。需要重新选择时请用户确认目标 |
 | 权限拒绝 | 停止并告知用户或管理员，不绕过检查 |
-| `CLI_VERSION_TOO_OLD` | 转告终端显示的版本要求和完整升级说明地址，包括可能附带的 `#sha256=` 片段，请用户在交互终端确认升级或手动安装。Agent 调用不代替用户确认 |
+| `CLI_VERSION_TOO_OLD` | 转告终端显示的版本要求，请用户在交互终端确认升级，或联系管理员获取安装包。Go CLI 在开始下载后显示 MSI 地址。终端提示无法自动升级时，按提示核对 MSI 地址、SHA-256、权限服务或安装路径。Agent 调用不代替用户确认 |
 | 权限服务证书校验失败 | 使用 `ml access status --diagnose` 核对 CA 来源；公共证书请用户或管理员在实际配置的 `access_control` 中选择 `ca_source: certifi`；私有 CA 使用 `env` 或 `custom`，不反复重试或关闭校验 |
 | 拒绝确认或在默认拒绝的提示中直接回车 | 训练、克隆和部署等命令会显示对应的取消提示。交互拒绝 `history clear` 时显示“已清理 0 条历史记录”。用户仍要求执行且已授权具体目标时才传 `--yes` |
 | `history clear` 提示“非交互清理必须传入 --yes” | 有记录匹配时，非交互清理需要显式确认。先核对清理范围，得到用户授权后才传 `--yes` |

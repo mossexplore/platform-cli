@@ -73,7 +73,7 @@ func TestEnvironmentAccessAuditIncludesOptions(t *testing.T) {
 	}
 }
 
-func TestOldVersionShowsUpgradeLinkWithoutPromptOrBusinessRequest(t *testing.T) {
+func TestOldVersionHidesUpgradeLinkWithoutPromptOrBusinessRequest(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assertBusinessHeader(t, r)
 		if r.URL.Path != "/cli-permission/api/v1/access/check" {
@@ -91,7 +91,7 @@ func TestOldVersionShowsUpgradeLinkWithoutPromptOrBusinessRequest(t *testing.T) 
 	code, out, stderr := run(t, paths, "user", "info", "-o", "json")
 	if code != 1 || out != "" || !strings.Contains(stderr, "[错误] WiseRec Go CLI 版本过低") ||
 		!strings.Contains(stderr, "最低要求：2.0.0") || !strings.Contains(stderr, "推荐版本：2.0.1") ||
-		!strings.Contains(stderr, "升级说明：https://example.test/upgrade.msi") || strings.Contains(stderr, "[y/N]") {
+		strings.Contains(stderr, "升级说明") || strings.Contains(stderr, "https://example.test/upgrade.msi") || strings.Contains(stderr, "[y/N]") {
 		t.Fatalf("unexpected result: %d %q %q", code, out, stderr)
 	}
 }

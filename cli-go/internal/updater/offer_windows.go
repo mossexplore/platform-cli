@@ -30,26 +30,40 @@ import (
 var installerScript string
 
 func Offer(ctx context.Context, in io.Reader, out, stderr io.Writer, paths func() (localstate.Paths, error), format string, denial *platform.VersionDenial) {
-	artifact := denial.MSIUpgrade()
-	if artifact.URL == "" || !terminal(in) || !terminal(out) || !terminal(stderr) {
+	if denial.UpgradeURL == "" || !terminal(in) || !terminal(out) || !terminal(stderr) {
 		return
 	}
 	state, err := paths()
 	if err != nil {
+		fmt.Fprintln(stderr, "[提示] 无法读取 Go CLI 本地状态，请联系管理员获取 MSI 安装包。")
 		return
 	}
 	if format == "" {
 		cfg, err := localstate.LoadConfig(state)
-		if err != nil || strings.EqualFold(cfg.Profile().Output, "json") {
+		if err != nil {
+			fmt.Fprintln(stderr, "[提示] 无法读取 Go CLI 配置，请联系管理员获取 MSI 安装包。")
+			return
+		}
+		if strings.EqualFold(cfg.Profile().Output, "json") {
 			return
 		}
 	}
 
-	executable, err := installedExecutable()
+	artifact, err := denial.MSIUpgrade()
 	if err != nil {
+		fmt.Fprintln(stderr, "[提示] 无法自动升级：", err)
 		return
 	}
-	fmt.Fprint(stderr, "\n是否下载并安装升级包？[y/N] ")
+	executable, err := installedExecutable()
+	if err != nil {
+		fmt.Fprintln(stderr, "[提示] 无法自动升级：", err)
+		return
+	}
+	prompt := "是否下载并安装升级包？"
+	if denial.Recommended != "" {
+		prompt = "是否下载并安装推荐版本？"
+	}
+	fmt.Fprintf(stderr, "\n%s[y/N] ", prompt)
 	answer, _ := bufio.NewReader(in).ReadString('\n')
 	if answer = strings.ToLower(strings.TrimSpace(answer)); answer != "y" && answer != "yes" {
 		return
@@ -67,7 +81,7 @@ func terminal(value any) bool {
 func installedExecutable() (string, error) {
 	key, err := registry.OpenKey(registry.CURRENT_USER, `Software\WiseRec\CLIGo`, registry.QUERY_VALUE|registry.WOW64_64KEY)
 	if err != nil {
-		return "", err
+		return "", errors.New("未找到当前用户的 Go CLI MSI 安装记录，请通过 MSI 手动升级")
 	}
 	defer key.Close()
 	dir, _, err := key.GetStringValue("Path")
@@ -77,7 +91,7 @@ func installedExecutable() (string, error) {
 	installed := filepath.Join(dir, "ml.exe")
 	executable, err := os.Executable()
 	if err != nil || !strings.EqualFold(filepath.Clean(installed), filepath.Clean(executable)) {
-		return "", errors.New("当前运行的是便携版 Go CLI")
+		return "", errors.New("当前 ml.exe 路径与 MSI 安装记录不一致，请从 MSI 安装路径运行 ml.exe")
 	}
 	return installed, nil
 }
@@ -119,7 +133,7 @@ func stageUpgrade(ctx context.Context, paths localstate.Paths, executable string
 			return errors.New("无法从当前 CLI 确认可信发布者，请使用官方安装包手动升级")
 		}
 	}
-	fmt.Fprintln(stderr, "[信息] 正在下载 MSI 安装包")
+	fmt.Fprintf(stderr, "[信息] 正在下载 MSI 安装包：%s\n", artifact.URL)
 	var lastProgress time.Time
 	err = platform.DownloadUpgradeMSI(ctx, artifact.URL, packagePath, func(received, total int64) {
 		if time.Since(lastProgress) < 500*time.Millisecond && received != total {

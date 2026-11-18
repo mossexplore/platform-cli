@@ -216,6 +216,7 @@ if ((Get-MsiValues $baseline $versionQuery) -ne $currentVersion -or
     throw 'MSI metadata and ZIP release.json must report the same version'
 }
 $successDialog = 'SELECT `Action` FROM `InstallUISequence` WHERE `Action` = ''InstallationComplete'' AND `Sequence` = -1'
+$successVersion = 'SELECT `Text` FROM `Control` WHERE `Dialog_` = ''InstallationComplete'' AND `Control` = ''CliVersion'''
 $progressQuery = 'SELECT `Dialog_` FROM `Control` WHERE `Type` = ''ProgressBar'''
 $completionBitmap = 'SELECT `Control` FROM `Control` WHERE `Dialog_` = ''InstallationComplete'' AND `Type` = ''Bitmap'''
 foreach ($package in @($baseline, $upgrade)) {
@@ -226,6 +227,11 @@ foreach ($package in @($baseline, $upgrade)) {
     }
     if ((Get-MsiValues $package $successDialog) -ne 'InstallationComplete') {
         throw 'MSI must show the completion dialog only after the installation succeeds'
+    }
+    $versionLabels = @(Get-MsiValues $package $successVersion)
+    $packageVersion = Get-MsiValues $package $versionQuery
+    if ($versionLabels.Count -ne 1 -or $versionLabels[0] -cne "当前安装版本：$packageVersion") {
+        throw "MSI completion dialog must display the installed CLI version $packageVersion."
     }
 }
 if ((& (Join-Path $portable 'ml.exe') --version) -ne "ml $currentVersion") { throw 'Wrong portable version' }
