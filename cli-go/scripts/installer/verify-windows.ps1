@@ -36,27 +36,53 @@ function Get-MsiVersion($Package) {
 
 function New-RollbackFixture($Source, $Destination) {
     Copy-Item -LiteralPath $Source -Destination $Destination
-    $installer = New-Object -ComObject WindowsInstaller.Installer
-    $database = $installer.GetType().InvokeMember('OpenDatabase', 'InvokeMethod', $null, $installer, @($Destination, 1))
-    # Queue a deferred failure after PATH and the install files have been written.
-    $queries = @(
+    # Inject a deferred failure after the PATH change into the test copy only.
+    Add-Type -TypeDefinition @'
+using System;
+using System.ComponentModel;
+using System.Runtime.InteropServices;
+
+public static class MsiRollbackFixture
+{
+    [DllImport("msi.dll", CharSet = CharSet.Unicode, ExactSpelling = true)]
+    private static extern uint MsiOpenDatabaseW(string path, IntPtr mode, out uint database);
+    [DllImport("msi.dll", CharSet = CharSet.Unicode, ExactSpelling = true)]
+    private static extern uint MsiDatabaseOpenViewW(uint database, string sql, out uint view);
+    [DllImport("msi.dll")]
+    private static extern uint MsiViewExecute(uint view, uint record);
+    [DllImport("msi.dll")]
+    private static extern uint MsiDatabaseCommit(uint database);
+    [DllImport("msi.dll")]
+    private static extern uint MsiCloseHandle(uint handle);
+
+    public static void Run(string path, string[] queries)
+    {
+        uint database;
+        Check(MsiOpenDatabaseW(path, new IntPtr(1), out database), "Open MSI for update");
+        try
+        {
+            foreach (string sql in queries)
+            {
+                uint view;
+                Check(MsiDatabaseOpenViewW(database, sql, out view), sql);
+                try { Check(MsiViewExecute(view, 0), sql); }
+                finally { MsiCloseHandle(view); }
+            }
+            Check(MsiDatabaseCommit(database), "Commit test MSI");
+        }
+        finally { MsiCloseHandle(database); }
+    }
+
+    private static void Check(uint error, string operation)
+    {
+        if (error != 0) throw new Win32Exception((int)error, operation + " failed: " + error);
+    }
+}
+'@
+    [MsiRollbackFixture]::Run($Destination, @(
         'INSERT INTO `CustomAction` (`Action`, `Type`, `Source`, `Target`) VALUES (''TestRollbackPath'', 1026, ''PathCheck'', ''test-failure'')',
         'INSERT INTO `InstallExecuteSequence` (`Action`, `Condition`, `Sequence`) VALUES (''TestRollbackPath'', ''NOT Installed'', 6550)'
-    )
-    try {
-        foreach ($query in $queries) {
-            $view = $database.GetType().InvokeMember('OpenView', 'InvokeMethod', $null, $database, @($query))
-            try {
-                $view.GetType().InvokeMember('Execute', 'InvokeMethod', $null, $view, $null)
-            } finally {
-                [void][Runtime.InteropServices.Marshal]::FinalReleaseComObject($view)
-            }
-        }
-        $database.GetType().InvokeMember('Commit', 'InvokeMethod', $null, $database, $null)
-    } finally {
-        [void][Runtime.InteropServices.Marshal]::FinalReleaseComObject($database)
-        [void][Runtime.InteropServices.Marshal]::FinalReleaseComObject($installer)
-    }
+    ))
 }
 
 function Refresh-Path {
