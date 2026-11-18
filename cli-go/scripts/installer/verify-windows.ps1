@@ -28,9 +28,20 @@ function Get-MsiValues($Package, $Query) {
     $installer = New-Object -ComObject WindowsInstaller.Installer
     $database = $installer.GetType().InvokeMember('OpenDatabase', 'InvokeMethod', $null, $installer, @($Package, 0))
     $view = $database.GetType().InvokeMember('OpenView', 'InvokeMethod', $null, $database, @($Query))
-    $view.GetType().InvokeMember('Execute', 'InvokeMethod', $null, $view, $null)
-    while ($record = $view.GetType().InvokeMember('Fetch', 'InvokeMethod', $null, $view, $null)) {
-        $record.GetType().InvokeMember('StringData', 'GetProperty', $null, $record, @(1))
+    try {
+        $null = $view.GetType().InvokeMember('Execute', 'InvokeMethod', $null, $view, $null)
+        while ($record = $view.GetType().InvokeMember('Fetch', 'InvokeMethod', $null, $view, $null)) {
+            try {
+                $record.GetType().InvokeMember('StringData', 'GetProperty', $null, $record, @(1))
+            } finally {
+                $null = [Runtime.InteropServices.Marshal]::ReleaseComObject($record)
+            }
+        }
+    } finally {
+        $null = $view.GetType().InvokeMember('Close', 'InvokeMethod', $null, $view, $null)
+        $null = [Runtime.InteropServices.Marshal]::ReleaseComObject($view)
+        $null = [Runtime.InteropServices.Marshal]::ReleaseComObject($database)
+        $null = [Runtime.InteropServices.Marshal]::ReleaseComObject($installer)
     }
 }
 
@@ -200,8 +211,9 @@ $progressQuery = 'SELECT `Dialog_` FROM `Control` WHERE `Type` = ''ProgressBar''
 $completionBitmap = 'SELECT `Control` FROM `Control` WHERE `Dialog_` = ''InstallationComplete'' AND `Type` = ''Bitmap'''
 foreach ($package in @($baseline, $upgrade)) {
     $progress = @(Get-MsiValues $package $progressQuery)
-    if ($progress.Count -ne 1 -or $progress[0] -ne 'Installing' -or (Get-MsiValues $package $completionBitmap)) {
-        throw "MSI must show a single progress bar in the Installing dialog: $package"
+    $bitmaps = @(Get-MsiValues $package $completionBitmap)
+    if ($progress.Count -ne 1 -or $progress[0] -ne 'Installing' -or $bitmaps.Count -ne 0) {
+        throw "Expected one Installing progress bar and no completion bitmap. Progress ($($progress.Count)): [$($progress -join ', ')]; bitmaps ($($bitmaps.Count)): [$($bitmaps -join ', ')]. MSI: $package"
     }
     if ((Get-MsiValues $package $successDialog) -ne 'InstallationComplete') {
         throw 'MSI must show the completion dialog only after the installation succeeds'
