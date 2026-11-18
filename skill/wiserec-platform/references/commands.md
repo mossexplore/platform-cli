@@ -36,7 +36,7 @@ WiseRec 和 MLOps 均支持 `train` 和 `feature-task` 命令，`algorithm` 仅�
 
 详见 [training.md](training.md)。
 
-Go 下载训练日志 ZIP 的代理优先级及排查方法见 [训练任务](training.md#训练任务)。
+训练日志的下载步骤、失败阶段和 Go 客户端代理设置见 [训练任务](training.md#训练任务)。
 
 | 命令 | 用途 | 确认 | 副作用 |
 | --- | --- | --- | --- |

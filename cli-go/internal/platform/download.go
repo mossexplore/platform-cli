@@ -21,7 +21,7 @@ import (
 	"unicode"
 )
 
-func (a *API) Stream(ctx context.Context, endpoint string, query url.Values) (*http.Response, error) {
+func (a *API) stream(ctx context.Context, endpoint string, query url.Values, inspectJSON bool) (*http.Response, error) {
 	address, err := a.endpoint(endpoint, query)
 	if err != nil {
 		return nil, err
@@ -40,14 +40,14 @@ func (a *API) Stream(ctx context.Context, endpoint string, query url.Values) (*h
 		}
 		return nil, fmt.Errorf("平台下载请求失败")
 	}
-	if response.StatusCode < 200 || response.StatusCode >= 300 ||
-		strings.Contains(strings.ToLower(response.Header.Get("Content-Type")), "json") {
+	failed := response.StatusCode < 200 || response.StatusCode >= 300
+	if failed || (inspectJSON && strings.Contains(strings.ToLower(response.Header.Get("Content-Type")), "json")) {
 		defer response.Body.Close()
 		body, _ := io.ReadAll(io.LimitReader(response.Body, maxResponseBytes))
 		if err := a.metadata.checkVersion(body); err != nil {
 			return nil, err
 		}
-		if response.StatusCode < 200 || response.StatusCode >= 300 {
+		if failed {
 			return nil, fmt.Errorf("平台下载失败，HTTP %d", response.StatusCode)
 		}
 		return nil, fmt.Errorf("导出接口返回 JSON，未收到配置文件")
@@ -79,7 +79,7 @@ var invalidResourceName = regexp.MustCompile(`[^a-zA-Z0-9_-]`)
 
 func (a *API) ExportTrain(ctx context.Context, taskID, destination string) (string, int64, error) {
 	query := url.Values{"taskId": {taskID}, "businessId": {a.BusinessID()}}
-	response, err := a.Stream(ctx, trainInstancePrefix+"export", query)
+	response, err := a.stream(ctx, trainInstancePrefix+"export", query, true)
 	if err != nil {
 		return "", 0, err
 	}
@@ -95,6 +95,10 @@ func (a *API) ExportTrain(ctx context.Context, taskID, destination string) (stri
 }
 
 func SaveDownload(destination string, response *http.Response) (string, int64, error) {
+	return saveDownload(destination, response, nil)
+}
+
+func saveDownload(destination string, response *http.Response, progress func(received, total int64)) (string, int64, error) {
 	target, err := filepath.Abs(destination)
 	if err != nil {
 		return "", 0, fmt.Errorf("目标文件路径无效")
@@ -104,7 +108,12 @@ func SaveDownload(destination string, response *http.Response) (string, int64, e
 		return "", 0, fmt.Errorf("无法在目标目录创建下载文件：%w", err)
 	}
 	defer os.Remove(output.Name())
-	size, err := io.Copy(output, response.Body)
+	var writer io.Writer = output
+	if progress != nil {
+		progress(0, response.ContentLength)
+		writer = &downloadProgressWriter{Writer: output, total: response.ContentLength, report: progress}
+	}
+	size, err := io.Copy(writer, response.Body)
 	if err == nil && response.ContentLength >= 0 && size != response.ContentLength {
 		err = fmt.Errorf("实际大小与 Content-Length 不一致")
 	}
@@ -133,11 +142,29 @@ func SaveDownload(destination string, response *http.Response) (string, int64, e
 	}
 }
 
-func (a *API) SignedDownload(ctx context.Context, raw, destination, fallback string, useURLName bool) (string, int64, error) {
-	return signedDownload(ctx, businessTransport(a.session.Config), raw, destination, ".", fallback, useURLName)
+type downloadProgressWriter struct {
+	io.Writer
+	total, received int64
+	report          func(received, total int64)
 }
 
-func (a *API) SignedLogDownload(ctx context.Context, raw, destination, directory, name string) (string, int64, error) {
+func (w *downloadProgressWriter) Write(data []byte) (int, error) {
+	n, err := w.Writer.Write(data)
+	w.received += int64(n)
+	w.report(w.received, w.total)
+	return n, err
+}
+
+type LogDownloadEvents struct {
+	Start    func()
+	Progress func(received, total int64)
+}
+
+func (a *API) SignedDownload(ctx context.Context, raw, destination, fallback string, useURLName bool) (string, int64, error) {
+	return signedDownload(ctx, businessTransport(a.session.Config), raw, destination, ".", fallback, useURLName, LogDownloadEvents{})
+}
+
+func (a *API) SignedLogDownload(ctx context.Context, raw, destination, directory, name string, events LogDownloadEvents) (string, int64, error) {
 	// Match the Python log downloader. OBS can use private trust roots and a
 	// different network route from the console API. No platform headers or cookies
 	// are used for this client.
@@ -145,17 +172,20 @@ func (a *API) SignedLogDownload(ctx context.Context, raw, destination, directory
 	transport.Proxy = logDownloadProxy(ctx)
 	transport.TLSClientConfig = &tls.Config{InsecureSkipVerify: true} // #nosec G402
 	client := &http.Client{Transport: transport, CheckRedirect: rejectRedirect}
-	return signedDownload(ctx, client, raw, destination, directory, name, false)
+	return signedDownload(ctx, client, raw, destination, directory, name, false, events)
 }
 
 func LogDownloadName(value string) string {
 	return sanitizeDownloadName(value, "download-logs")
 }
 
-func signedDownload(ctx context.Context, client *http.Client, raw, destination, directory, fallback string, useURLName bool) (string, int64, error) {
+func signedDownload(ctx context.Context, client *http.Client, raw, destination, directory, fallback string, useURLName bool, events LogDownloadEvents) (string, int64, error) {
 	address, err := url.Parse(raw)
 	if err != nil || !validSignedURL(address) {
 		return "", 0, fmt.Errorf("下载地址为空或不是有效的 HTTPS 地址")
+	}
+	if events.Start != nil {
+		events.Start()
 	}
 	client.Timeout = 60 * time.Second
 	defer client.CloseIdleConnections()
@@ -195,7 +225,7 @@ func signedDownload(ctx context.Context, client *http.Client, raw, destination, 
 			if !strings.HasSuffix(strings.ToLower(destination), ".zip") {
 				destination += ".zip"
 			}
-			return SaveDownload(destination, response)
+			return saveDownload(destination, response, events.Progress)
 		default:
 			_ = response.Body.Close()
 			return "", 0, fmt.Errorf("文件下载失败，HTTP %d", response.StatusCode)
@@ -233,7 +263,8 @@ func validSignedURL(address *url.URL) bool {
 
 func (a *API) ExportFeatures(ctx context.Context, id, language, destination string) (string, int64, error) {
 	query := url.Values{"setId": {id}, "businessId": {a.BusinessID()}, "lang": {language}}
-	response, err := a.Stream(ctx, "/ai/backend/dpp/proxy/featureStore/featureset/exportFeatures", query)
+	// The server can advertise CSV as JSON. Inspect the decoded body instead.
+	response, err := a.stream(ctx, "/ai/backend/dpp/proxy/featureStore/featureset/exportFeatures", query, false)
 	if err != nil {
 		return "", 0, err
 	}
@@ -266,7 +297,7 @@ func (a *API) ExportFeatures(ctx context.Context, id, language, destination stri
 		if err := a.metadata.checkVersion([]byte(data)); err != nil {
 			return "", 0, err
 		}
-		return "", 0, fmt.Errorf("特征集导出未收到 CSV")
+		return "", 0, fmt.Errorf("特征集导出失败：接口返回 JSON，未返回 CSV 文件")
 	}
 	for _, html := range []string{"<!doctype html", "<html", "<head", "<body"} {
 		if strings.HasPrefix(strings.ToLower(data), html) {

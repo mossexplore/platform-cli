@@ -1,3 +1,4 @@
+[CmdletBinding()]
 param(
     [Parameter(Mandatory = $true)]
     [string] $OutputDirectory,
@@ -31,10 +32,13 @@ $overlay = Join-Path $work 'overlay.json'
 $embedded = Join-Path $moduleDirectory 'internal/localstate/config.embedded.json'
 $target = @{ GOOS = 'windows'; GOARCH = 'amd64'; CGO_ENABLED = '0' }
 $previous = @{}
+$buildDetail = @()
+if ($VerbosePreference -eq 'Continue') { $buildDetail += '-v' }
 
 New-Item -ItemType Directory -Path $work | Out-Null
 Push-Location $moduleDirectory
 try {
+    Write-Verbose 'Validating deployment configuration'
     Copy-Item -LiteralPath $source -Destination $snapshot
     & go run ./cmd/check-config $snapshot
     if ($LASTEXITCODE -ne 0) {
@@ -51,11 +55,13 @@ try {
         [Environment]::SetEnvironmentVariable($name, $target[$name])
     }
     New-Item -ItemType Directory -Path $outputRoot -Force | Out-Null
-    & go build -trimpath -overlay $overlay -o $output ./cmd/ml
+    Write-Verbose 'Compiling ml.exe'
+    & go build @buildDetail -trimpath -overlay $overlay -o $output ./cmd/ml
     if ($LASTEXITCODE -ne 0) { throw "Go build failed with exit code $LASTEXITCODE." }
 
     if ($PreflightPath) {
-        & go build -trimpath -ldflags '-s -w -H=windowsgui' -o $PreflightPath ./cmd/msi-preflight
+        Write-Verbose 'Compiling the MSI PATH check helper'
+        & go build @buildDetail -trimpath -ldflags '-s -w -H=windowsgui' -o $PreflightPath ./cmd/msi-preflight
         if ($LASTEXITCODE -ne 0) { throw 'Building the MSI preflight failed.' }
     }
 } finally {

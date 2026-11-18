@@ -60,7 +60,7 @@ ml train instance logs download TASK_ID JOB_ID --select all --directory 'D:\logs
 - `history detail` 自动翻页查找记录。`jobType=dps-train` 时展示角色列表，首列为完整角色作业 ID，JSON 保留角色及额外字段。通过本 Skill 下载分布式普通日志或 plog 时，先从 `history detail -o json` 获取对应的角色作业 ID，再用 `--role-job-id` 指定角色。多个目标角色按用户指定范围逐个调用。普通训练不接受此参数。
 - `history logs download` 下载普通日志前先查询是否存在。日志未就绪，或下载链接接口返回 `failedUploadSwitch=false` 时，按作业提交手动归档。提交成功后立即提示“手动归档中，请稍后再次下载日志！”，返回 `not_ready` 和非零退出码。稍后重试时重新检查日志是否存在。同次命令内同一作业最多归档一次，批量下载继续处理其余选中角色。
 - 所有训练类型下载 plog 前均检查 `sysParam` JSON 字符串中的 `plogUploadSuccess`，其值须为字符串 `"1"`。普通训练检查执行记录自身，分布式训练检查角色。CLI 直接获取 plog 链接并下载。执行记录或所选角色无 plog 时，提示“该记录没有plog日志，停止下载”。分布式 plog 文件命名为 `<roleJobId>_plog.zip`。
-- 历史日志下载逐阶段提示查询记录、检查日志、归档、获取和校验地址及文件下载（均写入 stderr）。逐条失败的 JSON 摘要含 `stage` 和带阶段名称的 `error`；按失败阶段排查，不把权限检查或地址校验失败解释为日志不存在。plog 同样显示地址获取和下载阶段。
+- 历史日志下载按编号显示查询记录、选择和校验角色、检查日志、归档、获取和校验地址、下载及保存结果。plog 按实际执行的步骤显示。Go 的执行实例日志也显示查询、归档、选取及下载步骤，并在交互终端显示接收字节数。进度写入 stderr，逐条失败的 JSON 摘要含 `stage` 和带阶段名称的 `error`。根据失败阶段排查日志检查、地址或传输问题。
 - Go 下载日志 ZIP 时优先使用终端的 `HTTPS_PROXY`，其次使用 `ALL_PROXY`，并按 `NO_PROXY` 绕过代理。没有环境代理配置时，Windows 和 macOS 使用手动配置的系统 HTTPS 代理。仅使用 PAC 的环境可在当前终端设置 `HTTPS_PROXY` 后重试。已取到链接但下载失败时，按错误类别核对代理、DNS 或连接超时，不复述签名参数。
 - `history list` 和 `instance list` 的 `-o json` 保留原始状态与时长字段（`runningTime`、`queueTime` 为分钟，`waitTime` 为秒）；表格模式会自动换算为中文状态和可读时长。
 - `ml train start TASK_ID` 返回 `jobId` 只表示请求已被接受，之后用 `history list` 确认状态。
@@ -68,7 +68,7 @@ ml train instance logs download TASK_ID JOB_ID --select all --directory 'D:\logs
 - `ml train config update TASK_ID --customize-config VALUE` 不询问确认，直接修改任务；值按字符串原样传递，含双引号时注意 [session.md](session.md) 的引号说明，更新后导出配置核对；仅更新非代码业务参数，不通过参数传入改码程序。
 - `config export` 的文件父目录须已存在；历史记录和执行实例的日志下载均使用 `--directory DIR` 指定已有目录，默认当前目录，不接受 `--file`，同名文件自动编号且不覆盖。
 - 使用 `ml train instance logs download TASK_ID JOB_ID --select SELECTION --directory DIR` 非交互下载。按用户指定的表格编号传值，编号以本次归档列表为准。多个编号用英文逗号分隔，PowerShell 中把列表用引号包住。用户明确要求全部时传 `all`。本 skill 不省略 `--select`，不触发终端交互选择。命令先请求归档，提示归档中时稍后重跑同一命令。已有记录时，每条归档在表格中占一行，显示编号、任务名称、`jobId`、`roleJobId`、节点、状态及北京时间的起止时间。
-- `--select '1,2,3'` 按指定顺序下载，编号使用英文逗号。`--select all` 按表格顺序串行下载全部已归档记录，跳过仍在归档的记录。选中后显示 OBS 链接并保存 ZIP，单份失败后继续；不要转述签名链接。`-o json` 返回下载摘要，须核对逐条结果与失败数量。
+- `--select '1,2,3'` 按指定顺序下载，编号使用英文逗号。`--select all` 按表格顺序串行下载全部已归档记录，跳过仍在归档的记录。选中后获取 OBS 链接并保存 ZIP，单份失败后继续。回复中只提供保存路径和结果。`-o json` 返回下载摘要，须核对逐条结果与失败数量。
 
 ## 样本任务
 

@@ -58,6 +58,8 @@ ml featureset model export SET_ID --lang en_us --file 'D:\data\model.csv' -o jso
 
 `--lang` 支持 `zh_cn` 和 `en_us`，默认中文。`--file` 可省略；命令会生成保存路径，重名自动编号。默认输出文本摘要，`-o json` 输出导出结果；按返回的实际路径查找文件，不假定指定的文件名就是最终文件名。导出会写入本地文件。
 
+普通和 gzip 压缩的 CSV 均可导出，保存时保留 BOM 和换行。接口返回 JSON 错误、登录页或空响应时，按错误提示核对权限、登录或服务端响应。
+
 ## 质量监控报告
 
 ```powershell

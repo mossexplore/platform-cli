@@ -54,7 +54,7 @@ func TestSignedLogDownloadUsesAllProxyForHTTPS(t *testing.T) {
 	}
 	t.Setenv("all_proxy", proxy.URL)
 
-	path, size, err := (&API{}).SignedLogDownload(t.Context(), "https://"+downloadHost+"/log.zip", "", t.TempDir(), "log")
+	path, size, err := (&API{}).SignedLogDownload(t.Context(), "https://"+downloadHost+"/log.zip", "", t.TempDir(), "log", LogDownloadEvents{})
 	if err != nil || size != int64(len(content)) {
 		t.Fatalf("download through ALL_PROXY: %d %v", size, err)
 	}
@@ -92,14 +92,28 @@ func TestSignedLogDownloadUsesSeparateHTTPSClient(t *testing.T) {
 	api := &API{}
 	ctx := context.Background()
 	dir := t.TempDir()
-	target, size, err := api.SignedLogDownload(ctx, server.URL+"/redirect", "", dir, "fallback")
+	var started bool
+	var received []int64
+	events := LogDownloadEvents{
+		Start: func() { started = true },
+		Progress: func(done, total int64) {
+			if !started || total != int64(len(content)) {
+				t.Errorf("unexpected progress %d/%d, started=%t", done, total, started)
+			}
+			received = append(received, done)
+		},
+	}
+	target, size, err := api.SignedLogDownload(ctx, server.URL+"/redirect", "", dir, "fallback", events)
 	if err != nil || target != filepath.Join(dir, "training.zip") || size != int64(len(content)) {
 		t.Fatalf("download: %q %d %v", target, size, err)
 	}
 	if saved, err := os.ReadFile(target); err != nil || string(saved) != content {
 		t.Fatalf("saved data: %q %v", saved, err)
 	}
-	_, _, err = api.SignedLogDownload(ctx, server.URL+"/downgrade", "", dir, "fallback")
+	if len(received) < 2 || received[0] != 0 || received[len(received)-1] != int64(len(content)) {
+		t.Fatalf("missing start or final byte count: %v", received)
+	}
+	_, _, err = api.SignedLogDownload(ctx, server.URL+"/downgrade", "", dir, "fallback", LogDownloadEvents{})
 	if err == nil || !strings.Contains(err.Error(), "跳转地址无效") {
 		t.Fatalf("expected insecure redirect rejection: %v", err)
 	}

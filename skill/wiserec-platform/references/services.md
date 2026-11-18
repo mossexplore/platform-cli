@@ -24,6 +24,7 @@ ml service mock SERVICE_ID --request-sample-file '.\sample.json' --transmission-
 
 - **前置与授权**：命令会实际调用一次服务（无 `--dry-run` 或 `--yes`），执行前先核对服务 ID、样例和用户测试意图。超时、断连或认证失败不盲目重试。
 - **样例来源**：默认查询服务文档并使用其中的请求样例；指定 `--request-sample-file PATH` 时读取本地 UTF-8 JSON 文件（兼容 BOM，不修改原文件）并跳过文档查询。自定义报文只通过文件传入，勿构造 `--request-file` 等未定义参数；非法 JSON（“样例报文不是标准的JSON格式，请检查！”）、文件不可读或默认文档样例缺失时停止。
+- **Go 文档样例**：支持 JSON 文本、对象和数组。文本可带 UTF-8 BOM。样例缺失、为空或格式无效时停止测试。
 - **透传控制**：`--transmission-tag` 默认 `0`（不调用透传接口），仅支持 `0` 或 `1`。
 - **结果与退出码**：`result.nodeList` 包含各节点结果（`mockResponse` 为解析后的 JSON，`mockResponseRaw` 为原始字符串）。全部节点结果码为 0 且报文有效时退出 `0`；存在失败节点、无效报文或无节点时退出 `1`（即使退出 `1`，stdout 仍可能包含节点结果，需结合 stderr 一起核对，内部业务结果仍须查看报文）。
 

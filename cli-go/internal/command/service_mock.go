@@ -1,6 +1,7 @@
 package command
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -121,14 +122,17 @@ func newServiceMock(options Options, load loadConfig, host bool) *cobra.Command 
 				return err
 			}
 			document := doc.Object("serviceDocument")
+			if document == nil {
+				return errors.New("响应缺少有效的服务文档 serviceDocument")
+			}
 			for key, expected := range map[string]string{"serviceId": args[0], "businessId": business} {
 				if _, exists := document[key]; exists && document.Text(key) != expected {
 					return fmt.Errorf("服务文档 %s 与目标服务不一致", key)
 				}
 			}
-			sample = document.Text("requestContent")
-			if !json.Valid([]byte(sample)) {
-				return errors.New("服务文档 requestContent 不是有效 JSON")
+			sample, err = serviceDocumentSample(document)
+			if err != nil {
+				return err
 			}
 		}
 		request := map[string]any{"requestSample": sample, "serviceName": name, "serviceVersion": version, "serviceId": args[0],
@@ -147,6 +151,33 @@ func newServiceMock(options Options, load loadConfig, host bool) *cobra.Command 
 		return renderServiceMock(cmd, raw, result, format, host)
 	})
 	return cmd
+}
+
+func serviceDocumentSample(document platform.Record) (string, error) {
+	raw := bytes.TrimSpace(document["requestContent"])
+	if len(raw) == 0 || bytes.Equal(raw, []byte("null")) {
+		return "", errors.New("服务文档缺少有效的 requestContent")
+	}
+	var sample string
+	switch raw[0] {
+	case '"':
+		if err := json.Unmarshal(raw, &sample); err != nil {
+			return "", errors.New("服务文档 requestContent 无法解码为 JSON 文本")
+		}
+		sample = strings.TrimPrefix(sample, "\ufeff")
+		if strings.TrimSpace(sample) == "" {
+			return "", errors.New("服务文档 requestContent 为空")
+		}
+	case '{', '[':
+		// Preserve numbers and formatting when the platform sends structured JSON.
+		sample = string(raw)
+	default:
+		return "", errors.New("服务文档 requestContent 须为 JSON 文本、对象或数组")
+	}
+	if !json.Valid([]byte(sample)) {
+		return "", errors.New("服务文档 requestContent 不是有效 JSON")
+	}
+	return sample, nil
 }
 
 func renderServiceMock(cmd *cobra.Command, raw json.RawMessage, result platform.Record, format string, vertical bool) error {

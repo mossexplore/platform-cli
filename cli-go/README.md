@@ -65,7 +65,7 @@ if (-not (Test-Path .\config.json)) {
 notepad .\config.json
 ```
 
-保存配置后，在资源管理器中双击 `cli-go\build.cmd`。它会读取同目录的 `config.json`，生成 ZIP 和 MSI。每次构建在 `cli-go\dist\` 下创建新的输出目录，窗口会显示产物路径或失败原因。如果之前已把离线模块缓存解压到 `cli-go\dist\go-module-cache`，双击脚本会默认复用它。
+保存配置后，在资源管理器中双击 `cli-go\build.cmd`。它会读取同目录的 `config.json`，生成 ZIP 和 MSI。窗口会实时显示资源准备、配置校验、Go 编译、WiX 打包和 ZIP 压缩的步骤及工具输出，完成后显示产物路径或失败原因。每次构建在 `cli-go\dist\` 下创建新的输出目录。如果之前已把离线模块缓存解压到 `cli-go\dist\go-module-cache`，双击脚本会默认复用它。
 
 从 PowerShell 打包时，也可以执行以下命令。
 
@@ -73,7 +73,7 @@ notepad .\config.json
 .\scripts\build-release.cmd -ConfigPath .\config.json
 ```
 
-也可使用 `./scripts/build-release.ps1`。配置优先取 `-ConfigPath PATH`，其次依次查找 `./config.json`、`../cli-python/config.json` 和 `../config.json`。只打 ZIP 时加 `-PortableOnly`，也可在装有 PowerShell 的 macOS 或 Linux 上执行。默认输出在 `cli-go/dist/`，可用 `-OutputDirectory DIR` 指定其他目录。构建脚本校验环境和权限配置并编译进 `ml.exe`。更新这些配置需重新出包。构建输入请使用获准分发的环境信息，密码、Token 等秘密由服务端管理。
+也可使用 `./scripts/build-release.ps1`。从终端打包时加 `-Verbose` 可显示同样的详细输出。配置优先取 `-ConfigPath PATH`，其次依次查找 `./config.json`、`../cli-python/config.json` 和 `../config.json`。只打 ZIP 时加 `-PortableOnly`，也可在装有 PowerShell 的 macOS 或 Linux 上执行。默认输出在 `cli-go/dist/`，可用 `-OutputDirectory DIR` 指定其他目录。构建脚本校验环境和权限配置并编译进 `ml.exe`。更新这些配置需重新出包。构建输入请使用获准分发的环境信息，密码、Token 等秘密由服务端管理。
 
 | 产物 | 内容 |
 | --- | --- |

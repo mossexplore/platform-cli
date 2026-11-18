@@ -54,17 +54,22 @@ func newTrainLogs(options Options, load loadConfig, history bool) *cobra.Command
 
 func runningTrainDownload(cmd *cobra.Command, api *platform.API, taskID, jobID, selection, directory, format string) error {
 	ctx := cmd.Context()
-	items, err := api.RunningLogArchives(ctx, taskID, jobID)
+	steps := logDownloadSteps{out: cmd.ErrOrStderr()}
+	steps.start("query_instance", "开始查询执行实例")
+	items, err := api.RunningLogArchives(ctx, taskID, jobID, func() {
+		steps.start("archive_log", "请求归档并查询归档日志")
+	})
 	if err != nil {
-		return err
+		return steps.failure(err)
 	}
 	if len(items) == 0 {
-		fmt.Fprintln(cmd.ErrOrStderr(), "日志归档中，请稍后执行下载命令！")
+		steps.note("日志归档中，请稍后执行下载命令！")
 		if format == "json" {
 			return showOfflineResult(cmd, format, map[string]any{"status": "archiving", "count": 0, "items": items})
 		}
 		return nil
 	}
+	steps.start("select_log", "已获取归档记录，选择待下载日志")
 	for i, row := range items {
 		fmt.Fprintf(cmd.ErrOrStderr(), "%d. %s · jobId %s · roleJobId %s · %s\n", i+1, row.Text("taskName"),
 			row.Text("jobId"), row.Text("roleJobId"), fieldText(row["status"]))
@@ -73,7 +78,7 @@ func runningTrainDownload(cmd *cobra.Command, api *platform.API, taskID, jobID, 
 	if selection == "" && !cmd.Flags().Changed("select") {
 		available, _ := selectedLogs("all", len(items), downloadable)
 		if len(available) == 0 {
-			fmt.Fprintln(cmd.ErrOrStderr(), "暂无可下载的日志")
+			steps.note("暂无可下载的日志")
 			if format == "json" {
 				return showOfflineResult(cmd, format, map[string]any{"status": "unavailable", "count": len(items), "items": items})
 			}
@@ -81,28 +86,36 @@ func runningTrainDownload(cmd *cobra.Command, api *platform.API, taskID, jobID, 
 		}
 	}
 	indices, err := selectTrainLogInputs(cmd, selection, cmd.Flags().Changed("select"), len(items), downloadable)
-	if err != nil || len(indices) == 0 {
-		return err
+	if err != nil {
+		return steps.failure(err)
+	}
+	if len(indices) == 0 {
+		steps.note("没有选择可下载的日志")
+		return nil
 	}
 	summaries := []map[string]any{}
-	for _, idx := range indices {
+	for index, idx := range indices {
 		if err := ctx.Err(); err != nil {
 			return err
 		}
 		item := items[idx]
 		summary := map[string]any{"number": idx + 1, "taskName": item.Text("taskName"), "jobId": item.Text("jobId"), "roleJobId": item["roleJobId"]}
 		name := platform.LogDownloadName(strings.Join([]string{item.Text("taskName"), item.Text("roleType"), item.Text("roleJobId"), item.Text("archiveId")}, "-") + "-logs")
+		if len(indices) > 1 {
+			steps.note(fmt.Sprintf("开始处理第 %d/%d 条日志", index+1, len(indices)))
+		}
+		steps.start("get_download_url", fmt.Sprintf("开始获取编号 %d 的日志下载地址", idx+1))
 		url, err := api.RunningLogURL(ctx, item)
 		if err == nil {
 			var size int64
 			var path string
-			path, size, err = api.SignedLogDownload(ctx, url, filepath.Join(directory, name), directory, name)
+			path, size, err = steps.download(ctx, api, url, filepath.Join(directory, name), directory, name, "日志")
 			if err == nil {
 				summary["status"], summary["path"], summary["bytes"] = "downloaded", path, size
 			}
 		}
 		if err != nil {
-			summary["status"], summary["error"] = "failed", err.Error()
+			steps.failItem(summary, err)
 		}
 		summaries = append(summaries, summary)
 	}
@@ -111,17 +124,19 @@ func runningTrainDownload(cmd *cobra.Command, api *platform.API, taskID, jobID, 
 
 func historyTrainDownload(cmd *cobra.Command, api *platform.API, taskID, jobID, roleID, directory, format string, plog bool) error {
 	ctx := cmd.Context()
-	fmt.Fprintln(cmd.ErrOrStderr(), "[1] 开始查询执行记录")
+	steps := logDownloadSteps{out: cmd.ErrOrStderr()}
+	steps.start("query_record", "开始查询执行记录")
 	row, err := api.TrainHistoryRecord(ctx, taskID, jobID)
 	if err != nil {
-		return err
+		return steps.failure(err)
 	}
 	items := []platform.Record{row}
 	distributed := row.Text("jobType") == "dps-train"
 	if distributed {
+		steps.start("select_role", "已找到分布式训练记录，选择日志角色")
 		roles, err := responseRecords(row, "roleJobInfo")
 		if err != nil {
-			return err
+			return steps.failure(err)
 		}
 		if roleID != "" {
 			items = nil
@@ -131,19 +146,23 @@ func historyTrainDownload(cmd *cobra.Command, api *platform.API, taskID, jobID, 
 				}
 			}
 			if len(items) != 1 {
-				return errors.New("roleJobId 不属于当前执行记录或匹配了多条角色")
+				return steps.failure(errors.New("roleJobId 不属于当前执行记录或匹配了多条角色"))
 			}
 		} else {
 			input, interactive := cmd.InOrStdin().(*os.File)
 			if format == "json" || !interactive || !term.IsTerminal(int(input.Fd())) {
-				return errors.New("非交互或 JSON 模式请指定 --role-job-id")
+				return steps.failure(errors.New("非交互或 JSON 模式请指定 --role-job-id"))
 			}
 			for i, role := range roles {
 				fmt.Fprintf(cmd.ErrOrStderr(), "%d. %s %s\n", i+1, role.Text("roleType"), role.Text("roleJobId"))
 			}
 			indices, err := selectTrainLogInputs(cmd, "", false, len(roles), func(i int) bool { return !plog || platform.HasPlog(roles[i]) })
-			if err != nil || len(indices) == 0 {
-				return err
+			if err != nil {
+				return steps.failure(err)
+			}
+			if len(indices) == 0 {
+				steps.note("已取消日志下载")
+				return nil
 			}
 			items = nil
 			for _, i := range indices {
@@ -151,43 +170,53 @@ func historyTrainDownload(cmd *cobra.Command, api *platform.API, taskID, jobID, 
 			}
 		}
 	} else if roleID != "" {
-		return errors.New("普通训练不支持 --role-job-id")
+		steps.start("select_role", "校验日志角色选项")
+		return steps.failure(errors.New("普通训练不支持 --role-job-id"))
 	}
+	steps.start("validate_role", fmt.Sprintf("开始校验 %d 条待下载日志的信息", len(items)))
 	for _, item := range items {
 		if distributed && (item.Text("taskId") != taskID || item.Text("jobId") != jobID || strings.TrimSpace(item.Text("roleJobId")) == "") {
-			return errors.New("分布式日志记录与当前任务或作业不一致")
+			return steps.failure(errors.New("分布式日志记录与当前任务或作业不一致"))
 		}
 		if plog && !platform.HasPlog(item) {
-			return errors.New("该记录没有 plog 日志")
+			return steps.failure(errors.New("该记录没有 plog 日志"))
 		}
 	}
 	archives := map[string]error{}
 	summaries := []map[string]any{}
-	for _, item := range items {
+	label := "日志"
+	if plog {
+		label = "plog 日志"
+	}
+	for index, item := range items {
+		if len(items) > 1 {
+			steps.note(fmt.Sprintf("开始处理第 %d/%d 条日志", index+1, len(items)))
+		}
 		summary := map[string]any{"taskId": taskID, "jobId": jobID}
 		id := ""
 		if distributed {
 			id = item.Text("roleJobId")
 			summary["roleJobId"], summary["roleType"] = id, item["roleType"]
 		}
-		link, err := api.HistoryLogURL(ctx, taskID, jobID, id, plog)
-		stage := "get_download_url"
+		link, err := api.HistoryLogURL(ctx, taskID, jobID, id, plog, steps.start)
 		if errors.Is(err, platform.ErrLogNotReady) {
-			stage = "archive_log"
 			if done, ok := archives[jobID]; ok {
+				steps.start("archive_log", "检查本次归档请求结果")
 				err = done
 			} else {
+				steps.start("archive_log", "日志未就绪，开始手动归档")
 				err = api.ArchiveHistoryLog(ctx, jobID)
 				archives[jobID] = err
 			}
 			if err == nil {
-				summary["status"], summary["stage"], summary["message"] = "not_ready", stage, "手动归档中，请稍后再次下载日志！"
+				message := "手动归档中，请稍后再次下载日志！"
+				steps.note(message)
+				summary["status"], summary["stage"], summary["message"] = "not_ready", steps.stage, message
 				summaries = append(summaries, summary)
 				continue
 			}
 		}
 		if err == nil {
-			stage = "download_file"
 			baseName, destination := platform.LogDownloadName(jobID+"-logs"), ""
 			if plog {
 				baseName = platform.LogDownloadName(jobID + "-plog-logs")
@@ -200,14 +229,14 @@ func historyTrainDownload(cmd *cobra.Command, api *platform.API, taskID, jobID, 
 				}
 				destination = filepath.Join(directory, baseName)
 			}
-			path, bytes, downloadErr := api.SignedLogDownload(ctx, link, destination, directory, baseName)
+			path, bytes, downloadErr := steps.download(ctx, api, link, destination, directory, baseName, label)
 			err = downloadErr
 			if err == nil {
 				summary["status"], summary["path"], summary["bytes"] = "downloaded", path, bytes
 			}
 		}
 		if err != nil {
-			summary["status"], summary["stage"], summary["error"] = "failed", stage, err.Error()
+			steps.failItem(summary, err)
 		}
 		summaries = append(summaries, summary)
 	}

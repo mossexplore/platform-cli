@@ -20,6 +20,7 @@ $output = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPat
 $work = Join-Path $output ('.work-' + [Guid]::NewGuid().ToString('N'))
 $payload = Join-Path $work 'payload'
 $installer = Join-Path $PSScriptRoot 'installer'
+Write-Verbose "Checking build tools and preparing output directory: $output"
 Get-Command go, $Python -ErrorAction Stop | Out-Null
 if (-not $PortableOnly) {
     if ($env:OS -ne 'Windows_NT') {
@@ -31,11 +32,13 @@ if (-not $PortableOnly) {
 New-Item -ItemType Directory -Path $work -Force | Out-Null
 $published = [System.Collections.Generic.List[string]]::new()
 try {
+    Write-Verbose 'Preparing the Agent Skill files and package metadata'
     $arguments = @((Join-Path $installer 'stage.py'), $work)
     if (-not $PortableOnly) { $arguments += '--msi' }
     $metadata = & $Python @arguments
     if ($LASTEXITCODE -ne 0) { throw 'Preparing package inputs failed.' }
     $release = $metadata | ConvertFrom-Json
+    Write-Verbose "Building WiseRec CLI $($release.version) for Windows x64"
     $baseName = "wiserec-cli-$($release.version)-windows-x64"
     $names = @("$baseName.zip")
     if (-not $PortableOnly) { $names += "$baseName.msi" }
@@ -45,24 +48,27 @@ try {
         }
     }
 
-    $build = @{ OutputDirectory = $payload; ConfigPath = $ConfigPath }
+    $build = @{ OutputDirectory = $payload; ConfigPath = $ConfigPath; Verbose = ($VerbosePreference -eq 'Continue') }
     if (-not $PortableOnly) {
         $build.PreflightPath = Join-Path $work 'path-check.exe'
     }
-    & (Join-Path $PSScriptRoot 'build-windows.ps1') @build | Out-Null
+    & (Join-Path $PSScriptRoot 'build-windows.ps1') @build | ForEach-Object { Write-Verbose "$_" }
 
     if (-not $PortableOnly) {
+        Write-Verbose "Building $baseName.msi with WiX"
         & $Wix build -arch x64 (Join-Path $installer 'package.wxs') (Join-Path $work 'agent.wxs') `
             -d "Version=$($release.version)" -d "ProductCode=$($release.productCode)" `
             -d "Work=$work" -d "Payload=$payload" -o (Join-Path $work "$baseName.msi")
         if ($LASTEXITCODE -ne 0) { throw 'WiX MSI build failed.' }
     }
+    Write-Verbose "Compressing $baseName.zip"
     Add-Type -AssemblyName System.IO.Compression.FileSystem
     [System.IO.Compression.ZipFile]::CreateFromDirectory($payload, (Join-Path $work "$baseName.zip"))
     foreach ($name in $names) {
         $destination = Join-Path $output $name
         [System.IO.File]::Move((Join-Path $work $name), $destination)
         $published.Add($destination)
+        Write-Verbose "Package saved: $destination"
     }
 } catch {
     foreach ($path in $published) { Remove-Item -LiteralPath $path -Force }

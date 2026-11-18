@@ -12,7 +12,7 @@ import (
 
 var ErrLogNotReady = errors.New("日志未就绪")
 
-func (a *API) RunningLogArchives(ctx context.Context, taskID, jobID string) ([]Record, error) {
+func (a *API) RunningLogArchives(ctx context.Context, taskID, jobID string, startArchive func()) ([]Record, error) {
 	task, err := a.TrainTask(ctx, taskID)
 	if err != nil {
 		return nil, err
@@ -31,6 +31,7 @@ func (a *API) RunningLogArchives(ctx context.Context, taskID, jobID string) ([]R
 	if job == nil || job.Text("taskId") != taskID || job.Text("businessId") != a.BusinessID() {
 		return nil, errors.New("执行实例不存在或与当前任务及业务不一致")
 	}
+	startArchive()
 	result, err := a.runningLog(ctx, "getRunJobLogArchiveList", job, []string{"businessId", "jobId", "taskId"}, nil, true)
 	if err != nil {
 		return nil, err
@@ -97,7 +98,7 @@ func (a *API) runningLog(ctx context.Context, route string, record Record, keys 
 	return Result(payload, "获取执行实例日志", false)
 }
 
-func (a *API) HistoryLogURL(ctx context.Context, taskID, jobID, roleID string, plog bool) (string, error) {
+func (a *API) HistoryLogURL(ctx context.Context, taskID, jobID, roleID string, plog bool, report func(stage, message string)) (string, error) {
 	query := url.Values{"businessId": {a.BusinessID()}, "jobId": {jobID}}
 	if roleID != "" {
 		query.Set("roleJobId", roleID)
@@ -110,6 +111,7 @@ func (a *API) HistoryLogURL(ctx context.Context, taskID, jobID, roleID string, p
 		return Result(payload, action, false)
 	}
 	if !plog {
+		report("check_log", "开始查询日志是否存在")
 		value, err := request("queryJobLogIsExist")
 		if err != nil {
 			return "", err
@@ -125,12 +127,14 @@ func (a *API) HistoryLogURL(ctx context.Context, taskID, jobID, roleID string, p
 	query.Set("taskId", taskID)
 	query.Set("isApplicantPromise", "true")
 	if plog {
+		report("get_download_url", "开始获取 plog 下载地址")
 		data, err := request("downloadPlog")
 		if err != nil {
 			return "", err
 		}
 		return data.Text("plogUrl"), nil
 	}
+	report("get_download_url", "日志存在，开始获取日志下载地址")
 	data, err := request("downloadLogUrl")
 	if err != nil {
 		return "", err
