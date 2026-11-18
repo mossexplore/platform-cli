@@ -23,7 +23,6 @@ from .commands.env import env_app
 from .commands.featureset import featureset_app
 from .commands.feature_task import feature_task_app
 from .commands.quality import quality_app
-from .commands.mep import mep_app
 from .commands.mtp import mtp_app
 from .commands.offline import offline_app
 from .commands.train import train_app
@@ -55,7 +54,6 @@ app.add_typer(access_app, name="access")
 app.add_typer(business_app, name="business")
 app.add_typer(env_app, name="env")
 app.add_typer(user_app, name="user")
-app.add_typer(mep_app, name="mep")
 app.add_typer(mtp_app, name="mtp")
 app.add_typer(offline_app, name="offline")
 app.add_typer(train_app, name="train")

@@ -13,6 +13,7 @@ import (
 
 func TestServiceMockAcceptsDocumentSamples(t *testing.T) {
 	const text = " {\n \"message\": \"中文\"\n} "
+	const emptyInput = "[错误] 服务文档输入报文为空，请在该服务中补充相关信息后再次调用！"
 	quoted, err := json.Marshal(text)
 	if err != nil {
 		t.Fatal(err)
@@ -27,7 +28,8 @@ func TestServiceMockAcceptsDocumentSamples(t *testing.T) {
 		{name: "host using BOM", raw: `"\ufeff{\"sample\":true}"`, sample: `{"sample":true}`, host: true},
 		{name: "missing", failure: "缺少有效的 requestContent"},
 		{name: "null", raw: "null", failure: "缺少有效的 requestContent"},
-		{name: "empty", raw: `" "`, failure: "requestContent 为空"},
+		{name: "empty", raw: `""`, failure: emptyInput},
+		{name: "host using blank sample", raw: `"\ufeff \r\n"`, failure: emptyInput, host: true},
 		{name: "invalid JSON", raw: `"{oops}"`, failure: "requestContent 不是有效 JSON", host: true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

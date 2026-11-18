@@ -21,7 +21,7 @@ def leaves(command, path):
 
 def test_all_existing_shared_commands_supported():
     root = typer.main.get_command(app)
-    actual = {path for group in ('webstudio', 'jupyter', 'service', 'user', 'mep', 'model', 'resource',
+    actual = {path for group in ('webstudio', 'jupyter', 'service', 'user', 'model', 'resource',
                                 'deployment', 'dataset', 'feature-task')
               for path in leaves(root.commands[group], group)}
     train = root.commands['train']
@@ -40,11 +40,27 @@ def test_all_existing_shared_commands_supported():
     assert not supported('mlops', 'feature-task future-operation')
 
 
-def config_file(tmp_path):
+def config_file(tmp_path, platform_type='mlops'):
     path = tmp_path / 'config.json'
     path.write_text(json.dumps({'current': 'old', 'profiles': [{'name': 'old',
-                    'platform_type': 'mlops', 'api_endpoint': 'https://old.example'}]}))
+                    'platform_type': platform_type, 'api_endpoint': 'https://old.example'}]}))
     return path
+
+
+@pytest.mark.parametrize('platform_type', ['wiserec', 'mlops'])
+def test_mep_removed_from_cli(tmp_path, platform_type):
+    config = config_file(tmp_path, platform_type)
+
+    for args in (['--help'], ['tree'], ['tree', '--all']):
+        result = invoke_with_config(CliRunner(), app, config, args)
+        assert result.exit_code == 0, result.output
+        assert 'mep' not in result.output
+
+    with patch('wiserec_cli.cli.Runtime') as runtime:
+        result = invoke_with_config(CliRunner(), app, config, ['mep', 'config', 'get'])
+    assert result.exit_code == 2
+    assert "未知命令 'mep'" in result.output
+    runtime.assert_not_called()
 
 
 def test_shared_tree(tmp_path):
@@ -52,7 +68,7 @@ def test_shared_tree(tmp_path):
     for options in ([], ['--all']):
         result = invoke_with_config(CliRunner(), app, config, ['tree', *options])
         assert result.exit_code == 0, result.output
-        for group in ('webstudio', 'jupyter', 'service', 'user', 'mep', 'model', 'resource', 'deployment', 'dataset'):
+        for group in ('webstudio', 'jupyter', 'service', 'user', 'model', 'resource', 'deployment', 'dataset'):
             assert group in result.output
         for description in ('软删除当前业务下的训练任务', '导出并下载训练任务的 YAML 配置',
                             '立即执行指定训练任务',

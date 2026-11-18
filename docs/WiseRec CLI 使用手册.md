@@ -34,9 +34,6 @@ ml                                              WiseRec 命令行工具
 │   └── status                                  检查当前账号的访问权限
 ├── user                                        用户信息
 │   └── info                                    查看当前用户信息
-├── mep                                         MEP 管理
-│   └── config                                  配置项查询
-│       └── get                                 查看指定配置项
 ├── mtp                                         训练看板
 │   └── swanboard                               项目和实验信息
 │       ├── project                             项目
@@ -181,7 +178,7 @@ ml                                              WiseRec 命令行工具
 
 ### 1.3 说明
 
-默认仅展示当前环境支持的命令。MLOps 支持训练任务、特征任务、保活、用户信息、MEP 配置、模型、资源模板、部署模板、数据集、Web Studio、Jupyter 和服务管理。`ml tree --all` 可查看全部命令，不支持的命令在描述末尾显示红色 `[不支持]`。
+默认仅展示当前环境支持的命令。MLOps 支持训练任务、特征任务、保活、用户信息、模型、资源模板、部署模板、数据集、Web Studio、Jupyter 和服务管理。`ml tree --all` 可查看全部命令，不支持的命令在描述末尾显示红色 `[不支持]`。
 
 从上到下按顺序输入命令层级；使用 `--help` 查看具体用法。`ml tree` 中各命令的说明结尾不显示标点符号。
 
@@ -441,6 +438,8 @@ ml access status [--diagnose]
 
 先登录并选择业务。授权失败时按提示处理；需要排查连接时使用 `--diagnose`，其中“CA 来源”说明当前使用的证书信任库。分享诊断输出前隐藏账号与内部地址。
 
+权限管理系统的「调用日志 → 完整命令」按输入顺序显示 Go 客户端上报的子命令、参数和选项，例如 `ml train history logs download TASK_ID JOB_ID --directory ./logs -o json`。敏感值按命令历史的规则脱敏，超过 8192 字符时标记截断。
+
 权限服务的证书来源在实际使用的 `config.json` 的 `access_control` 中配置，与代理开关独立，适用于业务授权检查、账号授权查询和批量环境授权查询。
 
 | 配置项 | 默认值 | 用途 |
@@ -496,35 +495,9 @@ ml user info
 ml user info -o json
 ```
 
-## 9. MEP 配置查询
+## 9. 训练看板
 
 ### 9.1 命令格式
-
-```text
-ml mep config get [KEY] [--output table|json]
-```
-
-### 9.2 参数与选项
-
-| 参数或选项 | 用途 |
-| --- | --- |
-| `KEY` | 要查询的配置项名称；不填时查询默认项 |
-| `--output` / `-o` | 选择表格或 JSON 输出 |
-
-### 9.3 说明
-
-此命令查询平台上的一个 MEP 配置项。若不确定配置项名称，请向管理员确认。
-
-### 9.4 示例
-
-```bash
-ml mep config get
-ml mep config get mep_service_access_type -o json
-```
-
-## 10. 训练看板
-
-### 10.1 命令格式
 
 ```text
 ml mtp swanboard project list
@@ -537,7 +510,7 @@ ml mtp swanboard experiment config list EXPERIMENT_ID
 ml mtp swanboard experiment inspect EXPERIMENT_ID
 ```
 
-### 10.2 参数与选项
+### 9.2 参数与选项
 
 | 命令 | 主要选项 |
 | --- | --- |
@@ -548,11 +521,11 @@ ml mtp swanboard experiment inspect EXPERIMENT_ID
 | `experiment metrics` | 可重复使用 `--tag` 指定指标；不传时查询 `loss` 和 `accuracy` |
 | 以上查询命令 | 均可使用 `--output` / `-o` 选择表格或 JSON |
 
-### 10.3 说明
+### 9.3 说明
 
 建议按“项目 → 项目空间 → 实验”的顺序取得所需 ID，再查询特性、环境、指标和配置。`inspect` 汇总实验信息，其中特性只展示第一页；需要更多特性时使用 `feature list` 翻页。各类 ID 不可混用。
 
-### 10.4 示例
+### 9.4 示例
 
 ```bash
 ml mtp swanboard project list --page 1
@@ -562,9 +535,9 @@ ml mtp swanboard experiment metrics EXPERIMENT_ID --tag loss
 ml mtp swanboard experiment inspect EXPERIMENT_ID -o json
 ```
 
-## 11. 离线实验
+## 10. 离线实验
 
-### 11.1 命令格式
+### 10.1 命令格式
 
 ```text
 ml offline experiment list [OPTIONS]
@@ -572,7 +545,7 @@ ml offline experiment trial list PROJECT_ID [OPTIONS]
 ml offline experiment clone PROJECT_ID --name NAME [OPTIONS]
 ```
 
-### 11.2 参数与选项
+### 10.2 参数与选项
 
 | 命令 | 主要选项 |
 | --- | --- |
@@ -581,11 +554,11 @@ ml offline experiment clone PROJECT_ID --name NAME [OPTIONS]
 | `experiment clone` | 必填 `--name`；可选 `--dry-run` 预览、`--yes` / `-y` 跳过确认 |
 | 以上命令 | `--output` / `-o` 选择表格或 JSON |
 
-### 11.3 说明
+### 10.3 说明
 
 `list` 查询当前业务的离线实验，`trial list` 查询某个实验下的 trial。克隆会创建新实验，不复制 trial；默认先预览并询问确认。仅想核对创建内容时使用 `--dry-run`。
 
-### 11.4 示例
+### 10.4 示例
 
 ```bash
 ml offline experiment list --name 训练 --page 1
@@ -594,9 +567,9 @@ ml offline experiment clone PROJECT_ID --name 训练副本 --dry-run
 ml offline experiment clone PROJECT_ID --name 训练副本
 ```
 
-## 12. 训练任务
+## 11. 训练任务
 
-### 12.1 命令格式
+### 11.1 命令格式
 
 ```text
 ml train list [OPTIONS]
@@ -614,7 +587,7 @@ ml train clone TASK_ID --name NAME [OPTIONS]
 ml train config update TASK_ID --customize-config VALUE
 ```
 
-### 12.2 参数与选项
+### 11.2 参数与选项
 
 | 命令 | 主要参数与选项 |
 | --- | --- |
@@ -630,7 +603,7 @@ ml train config update TASK_ID --customize-config VALUE
 | `clone` | 必填 `TASK_ID`、`--name NAME`；可选 `--customize-config VALUE`、`--yes` / `-y` |
 | `config update` | 必填 `TASK_ID`、`--customize-config VALUE`；参数按字符串原样传递 |
 
-### 12.3 说明
+### 11.3 说明
 
 环境的 `platform_type` 支持 `wiserec` 和 `mlops`，未配置时默认 `wiserec`。两种环境均支持本章所有训练命令。先登录并选择业务，再执行训练命令。两种环境均按 `auth.auto_ping` 配置自动保活，也可用 `ml auth ping` 管理。
 
@@ -668,7 +641,7 @@ WiseRec 和 MLOps 的 `history list` 表格的最后三列依次是“执行时�
 
 Go 客户端下载日志 ZIP 时优先使用当前终端的 `HTTPS_PROXY`，其次使用 `ALL_PROXY`，并按 `NO_PROXY` 绕过代理。没有环境代理配置时，Windows 和 macOS 读取系统中手动设置的 HTTPS 代理。仅使用 PAC 自动配置的环境可在当前终端设置 `HTTPS_PROXY` 后重试。若已取到链接但下载失败，按提示检查代理、DNS 或连接超时。
 
-### 12.4 示例
+### 11.4 示例
 
 ```bash
 ml train list --name demo
@@ -694,9 +667,9 @@ ml train clone TASK_ID --name 新任务 --customize-config 0096999
 ml train config update TASK_ID --customize-config 0096999
 ```
 
-## 13. 算法仓
+## 12. 算法仓
 
-### 13.1 命令格式
+### 12.1 命令格式
 
 ```text
 ml algorithm list [OPTIONS]
@@ -704,7 +677,7 @@ ml algorithm download ALGORITHM_ID [--file PATH]
 ml algorithm clone SOURCE_ID --name NAME --version VERSION [--yes]
 ```
 
-### 13.2 参数与选项
+### 12.2 参数与选项
 
 | 命令 | 主要参数与选项 |
 | --- | --- |
@@ -712,13 +685,15 @@ ml algorithm clone SOURCE_ID --name NAME --version VERSION [--yes]
 | `download` | 必填 `ALGORITHM_ID`；可选 `--file PATH` |
 | `clone` | 必填 `SOURCE_ID`、`--name NAME`、`--version VERSION`；可选 `--yes` / `-y` |
 
-### 13.3 说明
+### 12.3 说明
 
 算法仓查询、下载与克隆仅在 WiseRec 环境可用。先登录、选择业务，再从列表获取算法仓 ID。下载保存为 ZIP，同名文件自动编号。`--file` 的父目录须存在。下载地址可能含临时签名，请勿公开分享。
 
+Go 客户端下载算法仓 ZIP 时，代理设置与训练日志下载相同。优先使用 `HTTPS_PROXY`，其次使用 `ALL_PROXY`，并按 `NO_PROXY` 绕过代理。没有环境代理配置时，Windows 和 macOS 读取手动配置的系统 HTTPS 代理。仅用 PAC 的环境可在当前终端设置 `HTTPS_PROXY` 后重试。
+
 克隆默认预览创建内容并询问确认，成功后显示结果及返回的新 ID。
 
-### 13.4 示例
+### 12.4 示例
 
 ```bash
 ml algorithm list --name mnist --page 1
@@ -726,9 +701,9 @@ ml algorithm download ALGORITHM_ID --file ./mnist.zip
 ml algorithm clone SOURCE_ID --name mnist_copy --version VERSION
 ```
 
-## 14. 服务管理
+## 13. 服务管理
 
-### 14.1 命令格式
+### 13.1 命令格式
 
 ```text
 ml service list [OPTIONS]
@@ -739,7 +714,7 @@ ml service host mock SERVICE_ID --pod-ip POD_IP [--request-sample-file PATH] [--
 ml service deployment list SERVICE_ID [-o table|json]
 ```
 
-### 14.2 参数与选项
+### 13.2 参数与选项
 
 | 命令 | 主要参数与选项 |
 | --- | --- |
@@ -751,7 +726,7 @@ ml service deployment list SERVICE_ID [-o table|json]
 | `host list` | 必填 `SERVICE_ID`；可选 `--pod-ip IP` 按 Pod IP 筛选，不传则不按 IP 筛选，不能传空值；可选 `--output` / `-o` |
 | `deployment list` | 必填 `SERVICE_ID`；可选 `--output` / `-o` |
 
-### 14.3 说明
+### 13.3 说明
 
 WiseRec 和 MLOps 环境均支持本章全部命令，参数及操作方式相同；连接地址和业务上下文取自当前环境。
 
@@ -761,7 +736,7 @@ WiseRec 和 MLOps 环境均支持本章全部命令，参数及操作方式相�
 
 `ml service mock SERVICE_ID` 自动查询服务名称、服务版本、所属租户，默认查询服务文档并使用其中的 JSON 请求样例执行一次测试。指定 `--request-sample-file PATH` 时使用自定义报文，不查询服务文档；因此只有使用默认样例时，服务才须已有有效请求样例。表格按主机展示主机名称、机器规格、站点、结果码、结果报文和耗时(ms)，结果报文解析为带缩进的 JSON，长内容完整换行显示。耗时使用平台返回值。
 
-Go 客户端的 `mock` 和 `host mock` 支持文档样例中的 JSON 文本、对象和数组。JSON 文本可带 UTF-8 BOM。样例为空、缺失或格式无效时停止测试。
+Go 客户端的 `mock` 和 `host mock` 支持文档样例中的 JSON 文本、对象和数组。JSON 文本可带 UTF-8 BOM。两种客户端在文档输入报文为空时均提示「[错误] 服务文档输入报文为空，请在该服务中补充相关信息后再次调用！」。
 
 两个测试命令都可使用 `--request-sample-file PATH` 读取本地 UTF-8 JSON 文件，兼容 BOM，保留中文、空白和换行，不修改源文件。非法 JSON 在平台请求前提示“样例报文不是标准的JSON格式，请检查！”，文件不存在、不可读或编码错误时同样停止。文件路径含空格时加引号，报文正文直接写入文件，无需在命令行中转义 JSON。
 
@@ -776,7 +751,7 @@ Go 客户端的 `mock` 和 `host mock` 支持文档样例中的 JSON 文本、�
 非交互环境或指定 `--no-input` 时，选择不唯一会报错并提示补充参数；不默认选择第一台主机。未知主机类型、无匹配主机或文件会报错，文件列表为空时提示暂无日志文件。`--list` 不可与 `--file`、关键词、行数及正文检索选项混用，显式传入默认值也视为冲突；冲突时在请求平台前报错。默认读取末尾 200 行，不持续刷新；日志正文写入标准输出，选择提示和上下文写入标准错误，可将正文重定向保存。
 
 
-### 14.4 示例
+### 13.4 示例
 
 ```bash
 ml service list --name demo --model-name model --model-version MODEL_VERSION
@@ -798,9 +773,9 @@ ml service host mock SERVICE_ID --pod-ip "IPv6"
 ml service deployment list SERVICE_ID -o json
 ```
 
-## 15. 数据集
+## 14. 数据集
 
-### 15.1 命令格式
+### 14.1 命令格式
 
 ```text
 ml dataset list [OPTIONS]
@@ -809,7 +784,7 @@ ml dataset files list DATASET_ID [--dir REMOTE_DIR] [-o table|json]
 ml dataset files upload DATASET_ID LOCAL_FILE [--dir REMOTE_DIR] [--timeout SECONDS] [-o table|json]
 ```
 
-### 15.2 参数与选项
+### 14.2 参数与选项
 
 | 命令 | 主要参数与选项 |
 | --- | --- |
@@ -818,7 +793,7 @@ ml dataset files upload DATASET_ID LOCAL_FILE [--dir REMOTE_DIR] [--timeout SECO
 | `files list` | 必填 `DATASET_ID`；`--dir` 默认 `/`；可选 `--output` / `-o` |
 | `files upload` | 必填 `DATASET_ID`、`LOCAL_FILE`；`--dir` 默认 `/`；`--timeout` 默认 1800 秒，限制单次网络操作等待时间；可选 `--output` / `-o` |
 
-### 15.3 说明
+### 14.3 说明
 
 先登录并选择业务。`list` 默认显示第一页 10 条，`detail` 查看指定数据集。大小自动换算，时间按北京时间显示；JSON 保留平台返回的其他字段。
 
@@ -826,7 +801,7 @@ ml dataset files upload DATASET_ID LOCAL_FILE [--dir REMOTE_DIR] [--timeout SECO
 
 `files upload` 向已有数据集追加单个文件，自动查询数据集名称。仅支持 `.txt`、`.csv`、`.zip`、`.tar`、`.gz`、`.json`，扩展名大小写均可。文件名以英文字母或数字开头，仅可包含英文字母、数字、下划线、连字符和点。本地路径可包含中文，但文件名不可包含中文。当前保守限制为 2,000,000,000 字节。终端显示发送进度；发送完成不等于服务端处理完成。超时或断连后先查询目录核实，不自动重传。同名文件与压缩包处理规则由平台决定，当前不提供覆盖、解压或断点续传选项。上传结果 JSON 保留平台响应；请求成功后可查询目录确认处理结果。
 
-### 15.4 示例
+### 14.4 示例
 
 ```bash
 ml dataset list --name dog_cat --create-user l00123456
@@ -840,9 +815,9 @@ ml dataset files upload DATASET_ID ./sample.csv
 ml dataset files upload DATASET_ID ./sample.csv --dir /logs --timeout 1800
 ```
 
-## 16. 特征集
+## 15. 特征集
 
-### 16.1 命令格式
+### 15.1 命令格式
 
 ```text
 ml featureset wide export SET_ID [--lang zh_cn|en_us] [--file PATH] [--output text|json]
@@ -853,7 +828,7 @@ ml featureset wide config SET_ID
 ml featureset model config SET_ID
 ```
 
-### 16.2 参数与选项
+### 15.2 参数与选项
 
 | 命令 | 主要参数与选项 |
 | --- | --- |
@@ -861,7 +836,7 @@ ml featureset model config SET_ID
 | `wide config`、`model config` | 必填 `SET_ID`；直接输出 JSON |
 | `wide export`、`model export` | 必填 `SET_ID`；`--lang` 默认 `zh_cn`，可选 `en_us`；`--file PATH` 指定文件路径；`--output` / `-o` 默认 `text`，可选 `json` |
 
-### 16.3 说明
+### 15.3 说明
 
 `wide` 查询宽表特征集，`model` 查询模型特征集。列表展示 ID、名称、类型、场景和创建、修改信息；时间按北京时间显示。先从列表取得 `SET_ID`，再查看配置。配置查询固定输出 JSON，不提供 `--output` 选项。
 
@@ -869,7 +844,7 @@ ml featureset model config SET_ID
 
 普通和 gzip 压缩的 CSV 均可导出，保存时保留 CSV 的 BOM 和换行。接口返回 JSON 错误、登录页或空响应时会提示相应错误。
 
-### 16.4 示例
+### 15.4 示例
 
 ```bash
 ml featureset wide export SET_ID
@@ -881,9 +856,9 @@ ml featureset wide config SET_ID
 ml featureset model config SET_ID
 ```
 
-## 17. Jupyter Notebook 与远程终端
+## 16. Jupyter Notebook 与远程终端
 
-### 17.1 命令格式
+### 16.1 命令格式
 
 ```text
 ml jupyter doctor [--studio-id ENV_ID]
@@ -894,7 +869,7 @@ ml jupyter terminal attach NAME [--studio-id ENV_ID]
 ml jupyter terminal close NAME [--studio-id ENV_ID]
 ```
 
-### 17.2 参数与选项
+### 16.2 参数与选项
 
 | 参数或选项 | 用途 |
 | --- | --- |
@@ -907,13 +882,13 @@ ml jupyter terminal close NAME [--studio-id ENV_ID]
 | `--output` / `-o` | Notebook 摘要使用 `text` 或 `json` |
 | `--studio-id ENV_ID` | 临时指定 Web Studio 实例，不改变默认选择 |
 
-### 17.3 说明
+### 16.3 说明
 
 WiseRec 和 MLOps 环境均支持本章命令，使用当前环境的 Web Studio 连接与业务选择。
 
 使用前需由管理员开通 Jupyter 能力。`doctor` 检查连接；`notebook run` 在前台执行并保存结果，执行失败时也会尽可能保存已有输出。远程终端需服务端启用，`open` 创建终端，`attach` 连接现有终端，`close` 关闭终端。按 `Ctrl+]` 可断开当前连接而保留远程终端。
 
-### 17.4 示例
+### 16.4 示例
 
 ```bash
 ml jupyter doctor
@@ -924,9 +899,9 @@ ml jupyter terminal attach NAME
 ml jupyter terminal close NAME
 ```
 
-## 18. Web Studio
+## 17. Web Studio
 
-### 18.1 命令格式
+### 17.1 命令格式
 
 ```text
 ml webstudio list [OPTIONS]
@@ -936,7 +911,7 @@ ml webstudio start ENV_ID
 ml webstudio stop ENV_ID
 ```
 
-### 18.2 参数与选项
+### 17.2 参数与选项
 
 | 命令 | 主要参数与选项 |
 | --- | --- |
@@ -945,7 +920,7 @@ ml webstudio stop ENV_ID
 | `start`、`stop` | 必填实例 ID `ENV_ID` |
 | `show` | 无参数 |
 
-### 18.3 说明
+### 17.3 说明
 
 WiseRec 和 MLOps 环境均支持本章命令，实例及连接缓存按环境隔离。
 
@@ -959,7 +934,7 @@ WiseRec 和 MLOps 环境均支持本章命令，实例及连接缓存按环境�
 
 只读请求明确返回 HTTP 401 时最多刷新重试一次；HTTP 403 不自动重试。写操作、已提交的执行以及结果不明确的请求不自动重放。实例重启或连接失效后，可运行 `ml webstudio login ENV_ID --refresh`。
 
-### 18.4 示例
+### 17.4 示例
 
 ```bash
 ml webstudio list --status online
@@ -971,9 +946,9 @@ ml webstudio login ENV_ID --refresh
 ml webstudio stop ENV_ID
 ```
 
-## 19. Jupyter 文件操作
+## 18. Jupyter 文件操作
 
-### 19.1 命令格式
+### 18.1 命令格式
 
 ```text
 ml jupyter files list [PATH] [OPTIONS]
@@ -988,7 +963,7 @@ ml jupyter files copy SOURCE TARGET_DIR [OPTIONS]
 ml jupyter files delete PATH [OPTIONS]
 ```
 
-### 19.2 参数与选项
+### 18.2 参数与选项
 
 | 参数或选项 | 用途 |
 | --- | --- |
@@ -1001,7 +976,7 @@ ml jupyter files delete PATH [OPTIONS]
 | `--output text\|json` / `-o` | 默认 text；Agent 使用 json |
 | `--studio-id ENV_ID` | 临时指定 Web Studio 实例，默认使用已选实例 |
 
-### 19.3 说明
+### 18.3 说明
 
 Jupyter 文件操作可被当前 profile 的 `command_policy.deny` 禁用，使用 `ml tree --all` 查看。禁止 `ml jupyter files` 会覆盖全部文件操作，禁止 `ml jupyter` 会覆盖全部 Jupyter 功能；仅填写某个叶命令时，只禁止该命令。
 
@@ -1015,7 +990,7 @@ WiseRec 和 MLOps 环境均支持本章全部命令，参数及操作方式相�
 
 JSON 结果位于 `result`，外层标明服务器、实例和业务。read 的正文在 `result.content`，时间按北京时间显示。成功退出 0，操作失败退出 1，参数错误退出 2。
 
-### 19.4 示例
+### 18.4 示例
 
 ```bash
 ml webstudio list --status online
@@ -1034,15 +1009,15 @@ ml jupyter files move projects/demo/data.csv projects/demo/input.csv
 ml jupyter files delete projects/demo/input.csv
 ```
 
-## 20. Jupyter 非交互执行
+## 19. Jupyter 非交互执行
 
-### 20.1 命令格式
+### 19.1 命令格式
 
 ```text
 ml jupyter exec [OPTIONS] -- PROGRAM [ARGS...]
 ```
 
-### 20.2 参数与选项
+### 19.2 参数与选项
 
 | 参数或选项 | 用途 |
 | --- | --- |
@@ -1055,7 +1030,7 @@ ml jupyter exec [OPTIONS] -- PROGRAM [ARGS...]
 | `--output text\|json` / `-o` | 默认 text 为缩进 JSON；json 为单行结构化结果 |
 | `--studio-id ENV_ID` | 临时指定 Web Studio 实例，默认使用已选实例 |
 
-### 20.3 说明
+### 19.3 说明
 
 WiseRec 和 MLOps 环境均支持本章全部命令，参数及操作方式相同；连接地址和业务上下文取自当前环境。
 
@@ -1073,7 +1048,7 @@ JSON 的 `result` 包含执行 ID、状态、原始退出码和输出。断线�
 | `LOST` | 2 | 连接中断或结果不完整，远端状态未知 |
 | `INTERRUPTED` | 130 | 本地中断，远端不一定已停止 |
 
-### 20.4 示例
+### 19.4 示例
 
 ```bash
 ml jupyter exec --cwd projects/demo --output json -- python main.py
@@ -1082,9 +1057,9 @@ ml jupyter exec --cwd projects/demo --output json -- sh -c 'pwd && ls -la'
 ```
 
 
-## 21. 模型查询
+## 20. 模型查询
 
-### 21.1 命令格式
+### 20.1 命令格式
 
 ```text
 ml model list [--page PAGE] [--page-size SIZE] [--name NAME] [--type TYPE] [--owner OWNER] [--team-id TEAM_ID] [--output table|json]
@@ -1092,7 +1067,7 @@ ml model detail MODEL_ID [--output table|json]
 ml model source MODEL_ID [--train-task] [--output table|json]
 ```
 
-### 21.2 参数与选项
+### 20.2 参数与选项
 
 | 命令 | 参数或选项 | 用途 |
 | --- | --- | --- |
@@ -1106,7 +1081,7 @@ ml model source MODEL_ID [--train-task] [--output table|json]
 | `source` | `--train-task` | 查询关联训练任务，默认不启用 |
 | 三个命令 | `--output table\|json` / `-o` | 默认沿用当前环境输出配置，table 为面向人工的展示，json 为完整接口响应 |
 
-### 21.3 说明
+### 20.3 说明
 
 先选择环境、登录并选择业务。查询使用当前环境的业务编码；四个列表条件可以组合使用，匹配规则由平台决定。每次查询指定的一页，不自动获取全部模型；列表固定查询云侧模型，其他查询条件暂不开放修改。
 
@@ -1120,7 +1095,7 @@ ml model source MODEL_ID [--train-task] [--output table|json]
 
 指定 `--train-task` 时，根据溯源信息中的训练执行标识查询并单独展示训练任务，依次展示 jobId、任务Id、任务名称、业务编码、任务类型、镜像、资源规格和历史记录数目。训练执行标识缺失或任一步查询失败时停止并报错。此模式的 JSON 输出为训练任务接口完整原始响应，不混入模型详情或溯源结果。
 
-### 21.4 示例
+### 20.4 示例
 
 ```bash
 ml model list
@@ -1136,9 +1111,9 @@ ml model source MODEL_ID --train-task
 ml model source MODEL_ID --train-task -o json
 ```
 
-## 22. 本地命令历史
+## 21. 本地命令历史
 
-### 22.1 命令格式
+### 21.1 命令格式
 
 ```text
 ml history
@@ -1147,7 +1122,7 @@ ml history clear [--env ENV_NAME] [--before "YYYY-MM-DD HH:mm:ss"] [--yes]
 ml --no-history COMMAND [ARGS]...
 ```
 
-### 22.2 参数与选项
+### 21.2 参数与选项
 
 | 参数或选项 | 说明 |
 | --- | --- |
@@ -1161,7 +1136,7 @@ ml --no-history COMMAND [ARGS]...
 | `--output` / `-o` | list 支持 table 或 json，默认 table |
 | `--no-history` | 全局选项，放在子命令前，仅本次不记录 |
 
-### 22.3 说明
+### 21.3 说明
 
 `ml history` 和表格模式的 `ml history list` 在输入、输出均连接交互终端时启用翻页，每页 20 条，列表不显示序号。输入 `n` 后按回车查看下一页，`p` 返回上一页，`q` 或 Ctrl+C 退出。首尾页不循环，无效输入可重新输入。浏览使用进入时的固定记录快照，重新执行命令才能看到新记录。空列表直接返回；管道、重定向及 JSON 输出不等待输入。指定 `--limit` 时仅浏览该数量的匹配记录。
 
@@ -1175,7 +1150,7 @@ ml --no-history COMMAND [ARGS]...
 
 clear 先匹配记录再确认，确认期间新完成的记录保留。没有匹配项时显示清理 0 条。末尾损坏或无效的记录会被跳过并提示，下次更新时移除损坏行。目录不可写或文件忙时，自动保存只告警，不改变原命令结果；主动查询或清理失败则报错。
 
-### 22.4 示例
+### 21.4 示例
 
 ```bash
 ml history
@@ -1189,16 +1164,16 @@ ml --no-history dataset list
 ```
 
 
-## 23. 资源模板查询
+## 22. 资源模板查询
 
-### 23.1 命令格式
+### 22.1 命令格式
 
 ```text
 ml resource template list [OPTIONS]
 ml resource template detail RESOURCE_TEMPLATE_ID [--output table|json]
 ```
 
-### 23.2 参数与选项
+### 22.2 参数与选项
 
 | 命令 | 参数或选项 | 用途 |
 | --- | --- | --- |
@@ -1211,7 +1186,7 @@ ml resource template detail RESOURCE_TEMPLATE_ID [--output table|json]
 | `detail` | `RESOURCE_TEMPLATE_ID` | 必填资源模板 ID，从列表第一列获取 |
 | 两个命令 | `--output table\|json` / `-o` | 默认沿用当前环境输出配置 |
 
-### 23.3 说明
+### 22.3 说明
 
 先选择环境、登录并选择业务。列表条件可组合，匹配规则由平台决定；每次仅查询指定页。其他筛选条件暂不开放。
 
@@ -1223,7 +1198,7 @@ ml resource template detail RESOURCE_TEMPLATE_ID [--output table|json]
 
 列表 JSON 输出为完整接口响应；详情 JSON 输出包含 `resourceTemplate` 和 `frameworkPackage` 两个接口响应，未关联框架或框架查询失败时后者为 null，查询失败仍返回非零退出码。JSON 保留额外字段、原始时间、状态和框架配置字符串，敏感值不脱敏。
 
-### 23.4 示例
+### 22.4 示例
 
 ```bash
 ml resource template list
@@ -1236,16 +1211,16 @@ ml resource template detail RESOURCE_TEMPLATE_ID -o json
 ```
 
 
-## 24. 部署模板查询
+## 23. 部署模板查询
 
-### 24.1 命令格式
+### 23.1 命令格式
 
 ```text
 ml deployment template list [OPTIONS]
 ml deployment template detail DEPLOY_TEMPLATE_ID [--output table|json]
 ```
 
-### 24.2 参数与选项
+### 23.2 参数与选项
 
 | 命令 | 参数或选项 | 用途 |
 | --- | --- | --- |
@@ -1257,7 +1232,7 @@ ml deployment template detail DEPLOY_TEMPLATE_ID [--output table|json]
 | `detail` | `DEPLOY_TEMPLATE_ID` | 必填部署模板 ID，从列表第一列获取 |
 | 两个命令 | `--output table\|json` / `-o` | 默认沿用当前环境输出配置 |
 
-### 24.3 说明
+### 23.3 说明
 
 先选择环境、登录并选择业务。列表开放部署模板名称、框架包名称、模板环境和框架类型四个筛选条件，可组合使用，匹配规则由平台决定。每次只查询指定页，其他条件保持平台默认值。
 
@@ -1269,7 +1244,7 @@ ml deployment template detail DEPLOY_TEMPLATE_ID [--output table|json]
 
 列表 JSON 为完整接口响应。详情 JSON 包含 `deploymentTemplate` 和 `resourceTemplates`，后者逐项包含查询名称 `requestedName`、完整关联查询响应 `response`、精确匹配数据 `exactMatches` 及错误 `error`；正常项的 error 为 null。保留原始时间、标志及额外字段，敏感值不脱敏。
 
-### 24.4 示例
+### 23.4 示例
 
 ```bash
 ml deployment template list
@@ -1281,15 +1256,15 @@ ml deployment template detail DEPLOY_TEMPLATE_ID -o json
 ```
 
 
-## 25. 模型部署
+## 24. 模型部署
 
-### 25.1 命令格式
+### 24.1 命令格式
 
 ```text
 ml model deploy MODEL_ID --template DEPLOY_TEMPLATE_ID [OPTIONS]
 ```
 
-### 25.2 参数与选项
+### 24.2 参数与选项
 
 | 参数或选项 | 用途 |
 | --- | --- |
@@ -1307,7 +1282,7 @@ ml model deploy MODEL_ID --template DEPLOY_TEMPLATE_ID [OPTIONS]
 | `--yes` | 跳过交互确认；非交互环境提交时必填 |
 | `--output table\|json` / `-o` | 默认沿用当前环境输出配置 |
 
-### 25.3 说明
+### 24.3 说明
 
 先选择环境、登录并选择业务，准备模型及部署模板 ID。部署模板必须关联至少一个有效容器资源模板，关联几个资源模板就部署几个区域，不支持区域选择或配置覆盖文件。每个关联名称必须精确匹配唯一资源模板，缺失、同名歧义或查询失败时不提交部署。模板及资源必须提供必填配置，框架配置必须为有效的非空 JSON 对象。
 
@@ -1319,7 +1294,7 @@ ml model deploy MODEL_ID --template DEPLOY_TEMPLATE_ID [OPTIONS]
 
 接口结果码为 0 时显示部署成功和服务 ID；非零时显示失败原因并返回非零退出码，不解析描述文本判断结果。响应缺少有效结果码、请求超时或连接异常时，提交结果未确认，应先用 `ml service list` 查询，再决定是否重试。发布请求不自动重放。预览后账号、环境或业务变化时停止提交，需要重新执行命令。
 
-### 25.4 示例
+### 24.4 示例
 
 ```bash
 ml model list
@@ -1622,7 +1597,7 @@ ml sample-task period list TASK_ID [--page PAGE] [--page-size SIZE] [--start-tim
 | `QUOTA_WAIT_TIMEOUT` | 配额等待失败 |
 | `FORCE_STOP` | 强制停止 |
 
-表格为无表头的四列网格，每格展示页内编号、周期和中文状态，按返回顺序从左往右填充，每页编号从 1 开始。只补齐最后一行；例如 7 条显示两行，最后一格为空。默认 20 条最多五行，指定更大的每页条数时相应增加行数。窄终端允许格内换行。空列表不绘制网格。
+Go 和 Python 客户端的表格均为无表头的四列网格，每格展示页内编号、周期和中文状态，按返回顺序从左往右填充，每页编号从 1 开始。例如 7 条显示两行，最后一格为空。默认 20 条最多五行，指定更大的每页条数时相应增加行数。窄终端允许格内换行。空列表显示「暂无执行周期」。
 
 每次只查询指定页，显示任务 ID 和分页总数。JSON 包含 `taskId`、`page`、`pageSize`、`total`、`items`，记录保留原始字段，不增加网格编号、不转换状态。错误返回非零退出码。
 

@@ -13,9 +13,14 @@ import (
 	"testing"
 )
 
-func TestSignedLogDownloadUsesAllProxyForHTTPS(t *testing.T) {
-	const content = "log from storage"
+func TestSignedDownloadsUseAllProxyForHTTPS(t *testing.T) {
+	const content = "archive from storage"
 	storage := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		for _, header := range []string{"Cookie", "Authorization", "businessid", "csrftoken"} {
+			if r.Header.Get(header) != "" {
+				t.Errorf("storage server received %s", header)
+			}
+		}
 		fmt.Fprint(w, content)
 	}))
 	defer storage.Close()
@@ -54,12 +59,28 @@ func TestSignedLogDownloadUsesAllProxyForHTTPS(t *testing.T) {
 	}
 	t.Setenv("all_proxy", proxy.URL)
 
-	path, size, err := (&API{}).SignedLogDownload(t.Context(), "https://"+downloadHost+"/log.zip", "", t.TempDir(), "log", LogDownloadEvents{})
-	if err != nil || size != int64(len(content)) {
-		t.Fatalf("download through ALL_PROXY: %d %v", size, err)
-	}
-	if saved, err := os.ReadFile(path); err != nil || string(saved) != content {
-		t.Fatalf("saved data: %q %v", saved, err)
+	for _, kind := range []string{"log", "algorithm"} {
+		t.Run(kind, func(t *testing.T) {
+			api := &API{}
+			verifyTLS := false
+			api.session.Config.API.VerifyTLS = &verifyTLS // The local TLS fixture uses a test certificate.
+			destination := filepath.Join(t.TempDir(), kind+".zip")
+			address := "https://" + downloadHost + "/" + kind + ".zip"
+			var path string
+			var size int64
+			var err error
+			if kind == "log" {
+				path, size, err = api.SignedLogDownload(t.Context(), address, destination, "", "log", LogDownloadEvents{})
+			} else {
+				path, size, err = api.SignedDownload(t.Context(), address, destination, "algorithm", true)
+			}
+			if err != nil || path != destination || size != int64(len(content)) {
+				t.Fatalf("download through ALL_PROXY: %q %d %v", path, size, err)
+			}
+			if saved, err := os.ReadFile(path); err != nil || string(saved) != content {
+				t.Fatalf("saved data: %q %v", saved, err)
+			}
+		})
 	}
 }
 

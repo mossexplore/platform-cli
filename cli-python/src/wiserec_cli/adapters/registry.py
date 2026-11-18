@@ -7,7 +7,7 @@ MLOPS_BINDINGS = {"train list": list_mlops}
 # 已确认与 WiseRec 协议一致的公开命令，直接复用既有命令和 Service。
 # 按叶命令登记，未来新增操作需确认后显式开放。
 SHARED_COMMANDS = frozenset({
-    "auth ping start", "auth ping stop", "auth ping status", "user info", "mep config get",
+    "auth ping start", "auth ping stop", "auth ping status", "user info",
     "model list", "model detail", "model source", "model deploy",
     "resource template list", "resource template detail",
     "deployment template list", "deployment template detail",

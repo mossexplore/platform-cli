@@ -149,7 +149,6 @@ ml business refresh                 # 重开 Edge 重新读取目录
 | 认证与环境 | `login` `logout` `auth` `env` | 登录、续期、退出、多环境切换 |
 | 业务上下文 | `business` | 部门 / 租户 / 团队目录与选择 |
 | 用户 | `user` | 当前登录用户信息 |
-| MEP | `mep` | 平台配置项查询 |
 | MTP | `mtp swanboard` | 训练看板：项目、项目空间、实验、特性、环境、指标、配置 |
 | 离线业务 | `offline` | 离线实验列表、trial 列表、实验克隆 |
 | 训练任务 | `train` | 任务与实例查询、执行记录、日志下载、启动任务、更新配置 |
@@ -195,9 +194,6 @@ ml
 │   ├── list | show | use | refresh   业务目录与上下文
 ├── user
 │   └── info                          当前用户信息
-├── mep
-│   └── config
-│       └── get [KEY]                 查询 MEP 配置项
 ├── mtp
 │   └── swanboard                     训练看板
 │       ├── project
@@ -262,9 +258,8 @@ ml business list
 ml business use --tenant mep --team my-team
 ml business show
 
-# 用户与平台配置
+# 用户信息
 ml user info -o json
-ml mep config get mep_service_access_type -o json
 
 # 训练看板：从项目一路查到实验指标
 ml mtp swanboard project list --page 1 --page-size 10

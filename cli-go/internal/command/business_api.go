@@ -15,6 +15,11 @@ import (
 
 type loadConfig func() (localstate.Paths, localstate.Config, error)
 
+func accessAuditCommand(cmd *cobra.Command, options Options) string {
+	command, _, _ := formatHistoryCommand(cmd.CommandPath(), options.Args)
+	return command
+}
+
 func authorized(options Options, load loadConfig, run func(*cobra.Command, []string, *platform.API, string) error) func(*cobra.Command, []string) error {
 	return func(cmd *cobra.Command, args []string) error {
 		paths, cfg, err := load()
@@ -44,11 +49,7 @@ func authorized(options Options, load loadConfig, run func(*cobra.Command, []str
 		if diagnose, _ := cmd.Flags().GetBool("diagnose"); path == "access status" && diagnose {
 			session.Diagnostic = cmd.ErrOrStderr()
 		}
-		audit := cmd.CommandPath()
-		if len(args) > 0 || cmd.Flags().NFlag() > 0 {
-			audit += " [REDACTED]"
-		}
-		api, err := session.Authorize(cmd.Context(), path, audit)
+		api, err := session.Authorize(cmd.Context(), path, accessAuditCommand(cmd, options))
 		if err != nil {
 			return err
 		}

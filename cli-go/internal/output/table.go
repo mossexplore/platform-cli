@@ -15,6 +15,11 @@ import (
 var cells = runewidth.NewCondition()
 
 func Table(out io.Writer, headers []string, rows [][]string) error {
+	_, err := io.WriteString(out, tableText(headers, rows, terminalWidth(out)))
+	return err
+}
+
+func terminalWidth(out io.Writer) int {
 	limit := 80
 	if file, ok := out.(*os.File); ok {
 		if width, _, err := term.GetSize(int(file.Fd())); err == nil && width > 0 {
@@ -24,57 +29,64 @@ func Table(out io.Writer, headers []string, rows [][]string) error {
 	if columns, err := strconv.Atoi(os.Getenv("COLUMNS")); err == nil && columns > 0 {
 		limit = columns
 	}
-	_, err := io.WriteString(out, tableText(headers, rows, limit))
-	return err
+	return limit
 }
 
 func tableText(headers []string, rows [][]string, limit int) string {
 	if len(headers) == 0 {
 		return "\n"
 	}
-	var result strings.Builder
-	widths := tableWidths(headers, rows, limit)
-	border := func(start, join, end, line string) {
-		result.WriteString(start)
-		for i, width := range widths {
-			if i > 0 {
-				result.WriteString(join)
-			}
-			result.WriteString(strings.Repeat(line, width+2))
-		}
-		result.WriteString(end + "\n")
-	}
-	writeRow := func(row []string, bar string) {
-		columns := make([][]string, len(widths))
-		height := 1
-		for i, value := range row {
-			lines := cleanCell(value)
-			if i != 0 || !idColumn(headers[0]) {
-				lines = cells.Wrap(lines, widths[i])
-			}
-			columns[i] = strings.Split(lines, "\n")
-			height = max(height, len(columns[i]))
-		}
-		for line := 0; line < height; line++ {
-			result.WriteString(bar)
-			for i, column := range columns {
-				value := ""
-				if line < len(column) {
-					value = column[line]
-				}
-				_, _ = fmt.Fprintf(&result, " %s%s %s", value, strings.Repeat(" ", max(0, widths[i]-cells.StringWidth(value))), bar)
-			}
-			result.WriteByte('\n')
-		}
-	}
-	border("┏", "┳", "┓", "━")
-	writeRow(headers, "┃")
-	border("┡", "╇", "┩", "━")
+	table := textTable{widths: tableWidths(headers, rows, limit), keepFirst: idColumn(headers[0]), wrap: cells.Wrap}
+	table.border("┏", "┳", "┓", "━")
+	table.row(headers, "┃")
+	table.border("┡", "╇", "┩", "━")
 	for _, row := range rows {
-		writeRow(row, "│")
+		table.row(row, "│")
 	}
-	border("└", "┴", "┘", "─")
-	return result.String()
+	table.border("└", "┴", "┘", "─")
+	return table.text.String()
+}
+
+type textTable struct {
+	text      strings.Builder
+	widths    []int
+	keepFirst bool
+	wrap      func(string, int) string
+}
+
+func (t *textTable) border(start, join, end, line string) {
+	t.text.WriteString(start)
+	for i, width := range t.widths {
+		if i > 0 {
+			t.text.WriteString(join)
+		}
+		t.text.WriteString(strings.Repeat(line, width+2))
+	}
+	t.text.WriteString(end + "\n")
+}
+
+func (t *textTable) row(row []string, bar string) {
+	columns := make([][]string, len(t.widths))
+	height := 1
+	for i, value := range row {
+		lines := cleanCell(value)
+		if i != 0 || !t.keepFirst {
+			lines = t.wrap(lines, t.widths[i])
+		}
+		columns[i] = strings.Split(lines, "\n")
+		height = max(height, len(columns[i]))
+	}
+	for line := 0; line < height; line++ {
+		t.text.WriteString(bar)
+		for i, column := range columns {
+			value := ""
+			if line < len(column) {
+				value = column[line]
+			}
+			_, _ = fmt.Fprintf(&t.text, " %s%s %s", value, strings.Repeat(" ", max(0, t.widths[i]-cells.StringWidth(value))), bar)
+		}
+		t.text.WriteByte('\n')
+	}
 }
 
 func tableWidths(headers []string, rows [][]string, limit int) []int {

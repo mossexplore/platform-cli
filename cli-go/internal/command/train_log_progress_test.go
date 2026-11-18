@@ -5,7 +5,9 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"path"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -26,11 +28,24 @@ func TestHistoryLogDownloadReportsStages(t *testing.T) {
 		{name: "log check fails", status: "failed", failedStage: "check_log"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
+			directory := filepath.Join(t.TempDir(), "saved logs")
+			if err := os.Mkdir(directory, 0700); err != nil {
+				t.Fatal(err)
+			}
+			args := []string{"--no-history", "train", "history", "logs", "download", "task", "job", "--directory", directory, "-o", "json"}
+			audit := "ml --no-history train history logs download task job --directory " + quoteHistoryArg(directory) + " -o json"
+			if tc.name == "plog" {
+				args = append(args, "--type=plog")
+				audit += " --type=plog"
+			}
 			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				assertBusinessHeader(t, r)
 				switch path.Base(r.URL.Path) {
 				case "check":
-					assertAccess(t, w, r, "ml train history logs download")
+					body := assertAccess(t, w, r, "ml train history logs download")
+					if body["full_command"] != audit {
+						t.Errorf("incorrect audit command: %v", body["full_command"])
+					}
 				case "queryScheduleTaskList":
 					fmt.Fprint(w, `{"result":{"code":0,"count":1,"jobs":[{"taskId":"task","jobId":"job","sysParam":"{\"plogUploadSuccess\":\"1\"}"}]}}`)
 				case "queryJobLogIsExist":
@@ -56,10 +71,6 @@ func TestHistoryLogDownloadReportsStages(t *testing.T) {
 			defer server.Close()
 			paths := fixtureConfig(t, t.TempDir(), server.URL, server.URL, false, "mlops", "")
 			saveState(t, paths, server.URL)
-			args := []string{"train", "history", "logs", "download", "task", "job", "--directory", t.TempDir(), "-o", "json"}
-			if tc.name == "plog" {
-				args = append(args, "--type", "plog")
-			}
 			code, out, stderr := run(t, paths, args...)
 			var result struct {
 				Status, Stage, Error string

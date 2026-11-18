@@ -209,12 +209,16 @@ func newSampleExecution(options Options, load loadConfig, periods bool) *cobra.C
 		}
 		fmt.Fprintln(cmd.OutOrStdout(), "任务 ID："+args[0])
 		if periods {
-			for index, item := range items {
-				state := fieldText(item["state"])
-				fmt.Fprintf(cmd.OutOrStdout(), "%d %s %s\n", index+1, fieldText(item["period"]), labelOrID(sampleStates[state], state))
-			}
 			if len(items) == 0 {
 				fmt.Fprintln(cmd.OutOrStdout(), "暂无执行周期")
+			}
+			entries := make([]string, len(items))
+			for index, item := range items {
+				state := fieldText(item["state"])
+				entries[index] = fmt.Sprintf("%d %s %s", index+1, fieldText(item["period"]), labelOrID(sampleStates[state], state))
+			}
+			if err := output.Grid(cmd.OutOrStdout(), entries, 4); err != nil {
+				return err
 			}
 		} else if len(items) > 0 {
 			cols := []recordColumn{{"JOB ID", "jobId"}, {"算法名称", "algorithmName"}, {"状态", "status"}, {"文件大小", "fileSize"},

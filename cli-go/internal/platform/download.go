@@ -161,7 +161,9 @@ type LogDownloadEvents struct {
 }
 
 func (a *API) SignedDownload(ctx context.Context, raw, destination, fallback string, useURLName bool) (string, int64, error) {
-	return signedDownload(ctx, businessTransport(a.session.Config), raw, destination, ".", fallback, useURLName, LogDownloadEvents{})
+	client := businessTransport(a.session.Config)
+	client.Transport.(*http.Transport).Proxy = signedDownloadProxy(ctx)
+	return signedDownload(ctx, client, raw, destination, ".", fallback, useURLName, LogDownloadEvents{})
 }
 
 func (a *API) SignedLogDownload(ctx context.Context, raw, destination, directory, name string, events LogDownloadEvents) (string, int64, error) {
@@ -169,7 +171,7 @@ func (a *API) SignedLogDownload(ctx context.Context, raw, destination, directory
 	// different network route from the console API. No platform headers or cookies
 	// are used for this client.
 	transport := http.DefaultTransport.(*http.Transport).Clone()
-	transport.Proxy = logDownloadProxy(ctx)
+	transport.Proxy = signedDownloadProxy(ctx)
 	transport.TLSClientConfig = &tls.Config{InsecureSkipVerify: true} // #nosec G402
 	client := &http.Client{Transport: transport, CheckRedirect: rejectRedirect}
 	return signedDownload(ctx, client, raw, destination, directory, name, false, events)
@@ -242,8 +244,8 @@ func downloadNetworkError(err error) error {
 	var op *net.OpError
 	var network net.Error
 	switch {
-	case errors.Is(err, errInvalidLogProxy):
-		return errInvalidLogProxy
+	case errors.Is(err, errInvalidDownloadProxy):
+		return errInvalidDownloadProxy
 	case errors.As(err, &cert):
 		return errors.New("下载网络请求失败：HTTPS 证书验证失败")
 	case errors.As(err, &network) && network.Timeout():

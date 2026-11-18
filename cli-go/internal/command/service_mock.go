@@ -166,7 +166,7 @@ func serviceDocumentSample(document platform.Record) (string, error) {
 		}
 		sample = strings.TrimPrefix(sample, "\ufeff")
 		if strings.TrimSpace(sample) == "" {
-			return "", errors.New("服务文档 requestContent 为空")
+			return "", errors.New("服务文档输入报文为空，请在该服务中补充相关信息后再次调用！")
 		}
 	case '{', '[':
 		// Preserve numbers and formatting when the platform sends structured JSON.

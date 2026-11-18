@@ -26,7 +26,6 @@ WiseRec 和 MLOps 均支持 `train` 和 `feature-task` 命令，`algorithm` 仅�
 | `ml business use --tenant ID [--team ID] [--department ID]` | 选择业务；必须传 `--tenant` | {{confirm}} | 本地配置 |
 | `ml business refresh` | 打开 Edge 刷新业务目录 | {{confirm}} | 本地配置 |
 | `ml user info` | 当前账号 | {{confirm}} | |
-| `ml mep config get [KEY]` | 查询一个 MEP 配置项 | {{confirm}} | |
 | `ml history list [--limit COUNT] -o json` | 最近 20 条本地调用记录，可用 limit 扩大范围，不证明远端结果 | {{confirm}} | |
 | `ml history clear [--env NAME] [--before TIME] --yes` | 删除本地调用记录 | {{confirm}} | 本地记录 |
 
@@ -52,7 +51,7 @@ WiseRec 和 MLOps 均支持 `train` 和 `feature-task` 命令，`algorithm` 仅�
 | `ml train list` | 训练任务 | {{confirm}} | |
 | `ml train detail TASK_ID` | 查询训练任务详情，可用 `-o json` 获取完整详情 | {{confirm}} | |
 | `ml sample-task list` | 样本任务列表，默认旧任务管理；`--source new` 查询新版，支持分页、名称、创建者、修改者和重复 `--type` 筛选，`--status` 仅旧版可用 | {{confirm}} | |
-| `ml sample-task period list TASK_ID` | 新旧样本任务共用执行周期查询，无需 `--source`，四列网格；支持分页、北京时间范围及重复 `--state` | {{confirm}} | |
+| `ml sample-task period list TASK_ID` | 新旧任务共用，四列网格展示编号、周期和状态，支持分页、北京时间范围及重复 `--state` | {{confirm}} | |
 | `ml sample-task execution list TASK_ID` | 新旧样本任务共用执行记录查询，无需 `--source`，支持分页、`--include-history` 和 `-o json` | {{confirm}} | |
 | `ml train instance list TASK_ID` | 分页查询执行实例 | {{confirm}} | |
 | `ml train history list TASK_ID` | 分页查询执行记录 | {{confirm}} | |
@@ -66,7 +65,7 @@ WiseRec 和 MLOps 均支持 `train` 和 `feature-task` 命令，`algorithm` 仅�
 | `ml train config export TASK_ID [--file PATH]` | 导出 YAML 配置 | {{confirm}} | 本地文件 |
 | `ml train config update TASK_ID --customize-config VALUE` | 更新自定义参数 | {{confirm}} | 写（无内置确认）：修改任务 |
 | `ml algorithm list` | 算法仓 | {{confirm}} | |
-| `ml algorithm download ALGORITHM_ID [--file PATH]` | 下载算法仓 ZIP | {{confirm}} | 本地文件 |
+| `ml algorithm download ALGORITHM_ID [--file PATH]` | 下载算法仓 ZIP，Go 客户端沿用训练日志下载的代理设置 | {{confirm}} | 本地文件 |
 | `ml algorithm clone ALGORITHM_ID --name NAME --version VERSION` | 克隆算法仓 | {{confirm}} | 创建算法仓 |
 
 ## 模型、模板与服务

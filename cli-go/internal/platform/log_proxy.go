@@ -15,9 +15,9 @@ type logProxySettings struct {
 	bypass  string
 }
 
-var errInvalidLogProxy = errors.New("下载代理地址无效，请检查代理配置")
+var errInvalidDownloadProxy = errors.New("下载代理地址无效，请检查代理配置")
 
-func logDownloadProxy(ctx context.Context) func(*http.Request) (*url.URL, error) {
+func signedDownloadProxy(ctx context.Context) func(*http.Request) (*url.URL, error) {
 	settings := selectLogProxy(os.Environ(), func() logProxySettings {
 		return systemLogProxy(ctx)
 	})
@@ -35,7 +35,7 @@ func logDownloadProxy(ctx context.Context) func(*http.Request) (*url.URL, error)
 			return nil, nil
 		}
 		if !valid {
-			return nil, errInvalidLogProxy
+			return nil, errInvalidDownloadProxy
 		}
 		return proxy, nil
 	}
@@ -97,7 +97,7 @@ func bypassLogProxy(target *url.URL, bypass string) bool {
 	}
 	port := target.Port()
 	if port == "" {
-		port = "443" // Signed log downloads only accept HTTPS.
+		port = "443" // Signed downloads only accept HTTPS.
 	}
 	for _, entry := range strings.Split(bypass, ",") {
 		rule := strings.ToLower(strings.TrimSpace(entry))

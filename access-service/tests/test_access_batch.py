@@ -25,7 +25,10 @@ def test_batch_preserves_each_identity_business_and_records(system):
         env = Environment(name='dev', display_name='开发', platform_origin='https://dev.example.com')
         db.add_all([user, env]); db.flush()
         db.add(Grant(user_id=user.id, environment_id=env.id)); db.commit()
-    response = query(client, [check(), check('dev', 'bob', 'dev-business', 'https://dev.example.com')])
+    response = query(client, [
+        {**check(), 'command': 'ml train delete', 'full_command': 'ml env list -o json'},
+        check('dev', 'bob', 'dev-business', 'https://dev.example.com'),
+    ])
     assert response.status_code == 200
     result = response.json()
     assert result['username'] == 'alice' and result['has_access'] is True
@@ -36,6 +39,7 @@ def test_batch_preserves_each_identity_business_and_records(system):
         logs = db.scalars(select(CallLog).order_by(CallLog.id)).all()
         assert [(row.actor, row.business_id, row.command) for row in logs] == [
             ('alice', 'prod-business', 'ml env list'), ('bob', 'dev-business', 'ml env list')]
+        assert [row.full_command for row in logs] == ['ml env list -o json', 'ml env list']
 
 
 def test_batch_preserves_business_scoped_version_policy(system):

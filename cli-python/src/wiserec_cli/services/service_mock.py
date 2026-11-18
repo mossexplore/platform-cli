@@ -76,7 +76,11 @@ class ServiceMock(ServiceCatalog):
                 "POST", "/ai/backend/mep/services/queryServiceDoc",
                 json_body={"serviceId": service_id}, headers=headers,
             ), "查询服务文档").get("serviceDocument")
-            sample = _required(document, "requestContent", "服务文档")
+            sample = document.get("requestContent") if isinstance(document, dict) else None
+            if not isinstance(sample, str):
+                raise ApiError("服务文档缺少有效的 requestContent")
+            if not sample.removeprefix("\ufeff").strip():
+                raise ApiError("服务文档输入报文为空，请在该服务中补充相关信息后再次调用！")
             for key, expected in (("serviceId", service_id), ("businessId", business_id)):
                 if key in document and document[key] != expected:
                     raise ApiError(f"服务文档 {key} 与目标服务不一致，停止测试")

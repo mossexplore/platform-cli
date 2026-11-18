@@ -37,7 +37,7 @@ def environment_access(body: EnvironmentBatch, request: Request):
     for item in body.environments:
         check = Check(username=item.username, environment=item.environment,
                       platform_origin=item.platform_origin,
-                      command='ml env list', full_command='ml env list')
+                      command='ml env list', full_command=item.full_command or 'ml env list')
         result = recorded_check(check, request, item.business_id)
         results.append({'environment': item.environment, 'username': item.username,
                         'business_id': item.business_id, 'result': result})

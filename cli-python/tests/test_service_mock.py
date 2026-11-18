@@ -148,6 +148,20 @@ class ServiceMockCommandTest(unittest.TestCase):
                 self.assertEqual(result.stdout, '')
                 self.assertEqual(len(self.calls), count)
 
+    def test_empty_document_sample_explains_how_to_fix_it(self):
+        message = "[错误] 服务文档输入报文为空，请在该服务中补充相关信息后再次调用！"
+        for args, routes in ((['mock', 's'], [BASE, DOC]),
+                             (['host', 'mock', 's', '--pod-ip', '10.1.1.1'], [HOST, BASE, DOC])):
+            for sample in ("", " \r\n", "\ufeff"):
+                with self.subTest(args=args, sample=sample):
+                    handler = self.handler(document={'code': 0, 'serviceDocument': {'requestContent': sample}},
+                                           host_address='from-host-view')
+                    result = self.invoke(args + ['-o', 'json'], handler)
+                    self.assertEqual(result.exit_code, 1, result.output)
+                    self.assertEqual(result.stdout, '')
+                    self.assertIn(message, result.stderr.splitlines())
+                    self.assertEqual([r.url.path for r in self.calls], routes)
+
     def test_bad_nodes_still_emit_all_results_and_exit_one(self):
         for nodes in ([], [self.node(retCode=3)], [self.node(retCode=None)],
                       [self.node(mockResponse='not JSON'), self.node(hostName='good')],

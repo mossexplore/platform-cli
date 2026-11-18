@@ -40,7 +40,6 @@ Python Windows 安装方式见 [安装说明](../../cli-python/scripts/windows/I
       "ml business list*": "allow",
       "ml business show*": "allow",
       "ml user info*": "allow",
-      "ml mep config get*": "allow",
       "ml history list*": "allow",
       "ml mtp swanboard project list*": "allow",
       "ml mtp swanboard project namespace list*": "allow",

@@ -23,11 +23,7 @@ type Session struct {
 	Diagnostic io.Writer
 }
 
-func (s Session) QueryMEP(ctx context.Context, key string) (json.RawMessage, error) {
-	audit := "ml " + mepCommand
-	if key != DefaultMEPKey {
-		audit += " [REDACTED]"
-	}
+func (s Session) QueryMEP(ctx context.Context, key, audit string) (json.RawMessage, error) {
 	api, err := s.Authorize(ctx, mepCommand, audit)
 	if err != nil {
 		return nil, err

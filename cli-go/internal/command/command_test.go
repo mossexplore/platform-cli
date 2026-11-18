@@ -44,14 +44,52 @@ func TestContextAndTree(t *testing.T) {
 		t.Fatalf("context table: %d %s %s", code, out, stderr)
 	}
 	code, out, stderr = run(t, paths, "tree")
-	if code != 0 || stderr != "" || strings.Contains(out, "MEP 配置") {
+	if code != 0 || stderr != "" || strings.Contains(out, "查询当前登录用户信息") {
 		t.Fatalf("filtered tree: %d %s %s", code, out, stderr)
 	}
 	code, out, stderr = run(t, paths, "tree", "--all")
-	if code != 0 || stderr != "" || !strings.Contains(out, "查询一个 MEP 配置项  [当前环境禁用]") ||
+	if code != 0 || stderr != "" || !strings.Contains(out, "查询当前登录用户信息  [当前环境禁用]") ||
 		!strings.Contains(out, "├── login  ") || strings.Index(out, "├── login  ") >= strings.Index(out, "├── tree  ") {
 		t.Fatalf("full tree: %d %s %s", code, out, stderr)
 	}
+}
+
+func TestMEPRemovedFromCLI(t *testing.T) {
+	for _, manager := range []string{"wiserec", "mlops"} {
+		paths := fixtureConfig(t, t.TempDir(), "https://preview.example.test", "", false, manager, "")
+		for _, args := range [][]string{{"--help"}, {"tree"}, {"tree", "--all"}} {
+			code, out, stderr := run(t, paths, args...)
+			if code != 0 || stderr != "" || strings.Contains(out, "mep") {
+				t.Fatalf("%s %v: %d %s %s", manager, args, code, out, stderr)
+			}
+		}
+	}
+	var out, stderr bytes.Buffer
+	code := Run(context.Background(), Options{
+		Args: []string{"mep", "config", "get"}, Version: "1.2.3", Stdout: &out, Stderr: &stderr,
+		Paths: func() (localstate.Paths, error) {
+			t.Fatal("removed command attempted to read state")
+			return localstate.Paths{}, nil
+		},
+	})
+	if code == 0 || out.Len() != 0 || !strings.Contains(stderr.String(), `unknown command "mep"`) {
+		t.Fatalf("removed command: %d %s %s", code, &out, &stderr)
+	}
+}
+
+func runWithMEP(paths localstate.Paths, args ...string) (int, string, string) {
+	var out, stderr bytes.Buffer
+	options := Options{Args: args, Version: "1.2.3", Stdout: &out, Stderr: &stderr,
+		Paths: func() (localstate.Paths, error) { return paths, nil }}
+	root := newRoot(options)
+	root.AddCommand(newMEP(options, func() (localstate.Paths, localstate.Config, error) {
+		cfg, err := paths.LoadOrInitializeConfig()
+		return paths, cfg, err
+	}))
+	if err := root.ExecuteContext(context.Background()); err != nil {
+		return 1, out.String(), err.Error()
+	}
+	return 0, out.String(), stderr.String()
 }
 
 func TestMEPRequestBoundaries(t *testing.T) {
@@ -59,6 +97,7 @@ func TestMEPRequestBoundaries(t *testing.T) {
 	var mu sync.Mutex
 	var serverOrigin string
 	var events []string
+	wantAudit := "ml mep config get test-key -o json"
 	var accessReply = `{"allowed":true,"username":"preview-user","environment":"preview"}`
 	var accessID, accessRequestID string
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -80,7 +119,7 @@ func TestMEPRequestBoundaries(t *testing.T) {
 			}
 			if body["environment"] != "preview" || body["username"] != "preview-user" ||
 				body["platform_origin"] != serverOrigin || body["command"] != "ml mep config get" ||
-				body["full_command"] != "ml mep config get [REDACTED]" {
+				body["full_command"] != wantAudit {
 				t.Errorf("unexpected access body: %v", body)
 			}
 			accessID, accessRequestID = r.Header.Get("X-CLI-Invocation-ID"), r.Header.Get("X-Request-ID")
@@ -109,7 +148,7 @@ func TestMEPRequestBoundaries(t *testing.T) {
 	if err := os.WriteFile(paths.Config(), []byte(legacy), 0600); err != nil {
 		t.Fatal(err)
 	}
-	code, out, stderr := run(t, paths, "mep", "config", "get", "test-key", "-o", "json")
+	code, out, stderr := runWithMEP(paths, "mep", "config", "get", "test-key", "-o", "json")
 	if code != 0 || stderr != "" || !strings.Contains(out, "9223372036854775807") {
 		t.Fatalf("query: %d %s %s", code, out, stderr)
 	}
@@ -120,7 +159,10 @@ func TestMEPRequestBoundaries(t *testing.T) {
 		t.Fatalf("request sequence: %s", sequence)
 	}
 
-	code, out, stderr = run(t, paths, "mep", "config", "get", "test-key", "-o", "table")
+	mu.Lock()
+	wantAudit = "ml mep config get test-key -o table"
+	mu.Unlock()
+	code, out, stderr = runWithMEP(paths, "mep", "config", "get", "test-key", "-o", "table")
 	if code != 0 || stderr != "" || !strings.Contains(out, "┃ 字段") ||
 		!strings.Contains(out, `{"code": 0}`) || !strings.Contains(out, "9223372036854775807") {
 		t.Fatalf("query table: %d %s %s", code, out, stderr)
@@ -135,8 +177,9 @@ func TestMEPRequestBoundaries(t *testing.T) {
 	} {
 		mu.Lock()
 		accessReply, events = reply, nil
+		wantAudit = "ml mep config get test-key"
 		mu.Unlock()
-		code, out, stderr = run(t, paths, "mep", "config", "get", "test-key")
+		code, out, stderr = runWithMEP(paths, "mep", "config", "get", "test-key")
 		if code == 0 || out != "" || stderr == "" {
 			t.Fatalf("expected denial: %s %d %s %s", reply, code, out, stderr)
 		}
@@ -152,11 +195,11 @@ func TestMEPRequestBoundaries(t *testing.T) {
 	accessReply = fmt.Sprintf(`{"allowed":false,"reason":"COMMAND_DISABLED","username":"preview-user","environment":"preview",
 		"command_policy":{"environment":"preview","platform_origin":%q,"revision":1,"deny":["ml mep config get"]}}`, server.URL)
 	mu.Unlock()
-	code, out, stderr = run(t, paths, "mep", "config", "get", "test-key")
+	code, out, stderr = runWithMEP(paths, "mep", "config", "get", "test-key")
 	if code == 0 || out != "" || !strings.Contains(stderr, "服务端拒绝命令") {
 		t.Fatalf("server command policy: %d %s %s", code, out, stderr)
 	}
-	code, out, stderr = run(t, paths, "tree")
+	code, out, stderr = runWithMEP(paths, "tree")
 	if code != 0 || stderr != "" || strings.Contains(out, "查询一个 MEP 配置项") {
 		t.Fatalf("cached server policy: %d %s %s", code, out, stderr)
 	}
@@ -165,7 +208,7 @@ func TestMEPRequestBoundaries(t *testing.T) {
 	events = nil
 	mu.Unlock()
 	paths = fixtureConfig(t, paths.Dir, "http://127.0.0.1:1/ui", server.URL, false, "mlops", "")
-	code, out, stderr = run(t, paths, "mep", "config", "get", "test-key")
+	code, out, stderr = runWithMEP(paths, "mep", "config", "get", "test-key")
 	if code == 0 || out != "" || !strings.Contains(stderr, "登录缓存") {
 		t.Fatalf("changed origin: %d %s %s", code, out, stderr)
 	}
@@ -181,7 +224,7 @@ func TestMEPRequestBoundaries(t *testing.T) {
 	if err := os.WriteFile(paths.Business(), []byte(modified), 0600); err != nil {
 		t.Fatal(err)
 	}
-	code, out, stderr = run(t, paths, "mep", "config", "get", "test-key")
+	code, out, stderr = runWithMEP(paths, "mep", "config", "get", "test-key")
 	if code == 0 || out != "" || !strings.Contains(stderr, "selected.businessId") {
 		t.Fatalf("invalid selection: %d %s %s", code, out, stderr)
 	}
@@ -207,7 +250,7 @@ func fixtureConfig(t *testing.T, dir, endpoint, access string, deny bool, manage
 	t.Helper()
 	rules := "[]"
 	if deny {
-		rules = `["ml mep"]`
+		rules = `["ml user"]`
 	}
 	input := fmt.Sprintf(`{"current":"preview","profiles":[
 		{"name":"other","api_endpoint":"https://other.example.test","platform_type":"wiserec"},

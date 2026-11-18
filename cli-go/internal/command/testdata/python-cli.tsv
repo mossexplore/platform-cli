@@ -17,7 +17,6 @@ env list	shared	--output -o
 env show	shared
 env use	shared
 user info	shared	--output -o
-mep config get	shared	--output -o
 mtp swanboard project list	wiserec	--page --page-size --team-id --creator --output -o
 mtp swanboard project namespace list	wiserec	--team-id --output -o
 mtp swanboard project experiment list	wiserec	--team-id --output -o

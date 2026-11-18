@@ -14,7 +14,7 @@ import (
 
 var ErrNoAccess = errors.New("当前账号尚无有效的 CLI 环境授权")
 
-func (s Session) EnvironmentStatuses(ctx context.Context) (map[string]string, error) {
+func (s Session) EnvironmentStatuses(ctx context.Context, audit string) (map[string]string, error) {
 	cfg := s.Config
 	if !cfg.Access.Active() || cfg.Access.URL == "" {
 		return nil, errors.New("权限检查未配置，无法查询环境授权状态")
@@ -24,10 +24,11 @@ func (s Session) EnvironmentStatuses(ctx context.Context) (map[string]string, er
 		return nil, errors.New("当前环境尚无登录账号，请先执行 ml login 查询 CLI 权限")
 	}
 	type target struct {
-		Name       string `json:"environment"`
-		Username   string `json:"username"`
-		Origin     string `json:"platform_origin"`
-		BusinessID string `json:"business_id"`
+		Name        string `json:"environment"`
+		Username    string `json:"username"`
+		Origin      string `json:"platform_origin"`
+		BusinessID  string `json:"business_id"`
+		FullCommand string `json:"full_command,omitempty"`
 	}
 	targets := []target{}
 	expected := map[string]target{}
@@ -52,7 +53,7 @@ func (s Session) EnvironmentStatuses(ctx context.Context) (map[string]string, er
 		if err != nil || creds.Username != current.Username {
 			continue
 		}
-		check := target{profile.Name, creds.Username, profile.Origin(), id}
+		check := target{Name: profile.Name, Username: creds.Username, Origin: profile.Origin(), BusinessID: id, FullCommand: audit}
 		targets = append(targets, check)
 		expected[profile.Name] = check
 		if profile.Name == cfg.Current {

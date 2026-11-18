@@ -93,7 +93,10 @@ func TestTrainingMutationStopsAfterBusinessChange(t *testing.T) {
 					return
 				}
 			}
-			assertAccess(t, w, r, "ml train delete")
+			body := assertAccess(t, w, r, "ml train delete")
+			if body["full_command"] != "ml train delete fixture-task --yes" {
+				t.Errorf("incorrect audit command: %v", body["full_command"])
+			}
 		case "/ai/backend/mtp/traintask/queryList":
 			fmt.Fprintln(w, `{"result":{"code":0,"count":1,"taskInfos":[{"taskId":"fixture-task","taskName":"待删除","teamId":"team"}]}}`)
 		case "/ai/backend/modelDev/modelTrain/v2/delete":
@@ -118,13 +121,14 @@ func assertBusinessHeader(t *testing.T, r *http.Request) {
 		t.Errorf("wrong business ID in %s", r.URL.Path)
 	}
 }
-func assertAccess(t *testing.T, w http.ResponseWriter, r *http.Request, command string) {
+func assertAccess(t *testing.T, w http.ResponseWriter, r *http.Request, command string) map[string]any {
 	t.Helper()
 	body := readRequest(t, r)
 	if r.Header.Get("Cookie") != "" || r.Header.Get("csrftoken") != "" || body["command"] != command {
 		t.Errorf("unexpected permission request for %s", command)
 	}
 	fmt.Fprintln(w, `{"allowed":true,"username":"preview-user","environment":"preview"}`)
+	return body
 }
 func readRequest(t *testing.T, r *http.Request) map[string]any {
 	t.Helper()
