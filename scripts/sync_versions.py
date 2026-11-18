@@ -13,12 +13,20 @@ def read_versions(root):
     with (root / 'versions.toml').open('rb') as source:
         data = tomllib.load(source)
     versions = data['components']
-    if set(versions) != {'cli', 'access', 'agent', 'notifier'}:
-        raise ValueError('components 必须包含 cli、access、agent、notifier')
+    if set(versions) != {'cli', 'cli_go', 'access', 'agent', 'notifier'}:
+        raise ValueError('components 必须包含 cli、cli_go、access、agent、notifier')
     tested = data['compatibility']['agent_cli']
     for value in [*versions.values(), tested]:
         if not isinstance(value, str) or not re.fullmatch(r'\d+\.\d+\.\d+(?:\.\d+)?', value):
             raise ValueError('版本必须是三段或四段数字字符串')
+    go = versions['cli_go']
+    if not re.fullmatch(r'(?:0|[1-9][0-9]*)(?:\.(?:0|[1-9][0-9]*)){2}', go) or any(
+        int(part) > limit for part, limit in zip(go.split('.'), (255, 255, 65535))
+    ):
+        raise ValueError('Go CLI 版本必须符合 Windows Installer 三段版本范围（255.255.65535）')
+    python_cli = tuple(map(int, versions['cli'].split('.')))
+    if python_cli + (0,) * (4 - len(python_cli)) == (*map(int, go.split('.')), 0):
+        raise ValueError('Go CLI 与 Python CLI 的版本必须不同')
     return versions, tested
 
 
@@ -47,6 +55,11 @@ def sync(root, check=False):
         cli / 'src/wiserec_cli/__init__.py':
             '"""wiserec CLI package."""\n\n' + generated + f'__version__ = "{versions["cli"]}"\n',
     }
+    if (root / 'cli-go/go.mod').is_file():
+        files[root / 'cli-go/cmd/ml/version.go'] = (
+            '// Code generated from versions.toml by scripts/sync_versions.py; DO NOT EDIT.\n\n'
+            f'package main\n\nconst version = "{versions["cli_go"]}"\n'
+        )
     # CLI source distributions contain the manifest but deliberately exclude services.
     if (root / 'access-service/VERSION').is_file():
         files[root / 'access-service/VERSION'] = versions['access'] + '\n'

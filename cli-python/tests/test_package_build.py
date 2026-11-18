@@ -24,7 +24,8 @@ def packaging_checkout(repository):
         shutil.copytree(PROJECT / name, project / name,
                         ignore=shutil.ignore_patterns("*.egg-info", "__pycache__"))
     shutil.copytree(REPOSITORY / "skill", repository / "skill")
-    for name in ("versions.toml", "scripts/sync_versions.py", "docs/Jupyter本地开发指南.md"):
+    for name in ("versions.toml", "scripts/sync_versions.py", "scripts/stage_skill_resources.py",
+                 "docs/Jupyter本地开发指南.md"):
         target = repository / name
         target.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(REPOSITORY / name, target)
@@ -126,6 +127,7 @@ def test_sdist_excludes_lab_and_builds_formal_skill(tmp_path, legacy_config):
     with tarfile.open(archive) as source:
         names = source.getnames()
         for path in ("config.json", "versions.toml", "scripts/sync_versions.py", "LICENSE",
+                     "scripts/stage_skill_resources.py",
                      "scripts/jupyter_local.py", "examples/jupyter/hello.ipynb", "docs/Jupyter本地开发指南.md"):
             assert any(name.endswith("/" + path) for name in names), path
         assert not any("skill-lab" in name or name.endswith("/ml-lab.md") for name in names)

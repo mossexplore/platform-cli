@@ -1,17 +1,11 @@
 param(
     [Parameter(Mandatory = $true)]
-    [string] $OutputDirectory
+    [string] $OutputDirectory,
+    [string] $PreflightPath
 )
 
 $ErrorActionPreference = 'Stop'
 $moduleDirectory = Split-Path $PSScriptRoot
-$repository = Split-Path $moduleDirectory
-$versionLine = Select-String -Path (Join-Path $repository 'versions.toml') -Pattern '^cli = "([0-9]+(?:\.[0-9]+){2,3})"$'
-if (@($versionLine).Count -ne 1) {
-    throw 'versions.toml must contain exactly one CLI version.'
-}
-
-$version = $versionLine.Matches[0].Groups[1].Value
 $outputRoot = [System.IO.Path]::GetFullPath($OutputDirectory)
 $output = Join-Path $outputRoot 'ml.exe'
 if (Test-Path -LiteralPath $output) {
@@ -28,9 +22,13 @@ foreach ($name in $environment.Keys) {
 }
 Push-Location $moduleDirectory
 try {
-    & go build -trimpath -ldflags "-X main.version=$version" -o $output ./cmd/ml
+    & go build -trimpath -o $output ./cmd/ml
     if ($LASTEXITCODE -ne 0) {
         throw "Go build failed with exit code $LASTEXITCODE."
+    }
+    if ($PreflightPath) {
+        & go build -trimpath -ldflags '-s -w -H=windowsgui' -o $PreflightPath ./cmd/msi-preflight
+        if ($LASTEXITCODE -ne 0) { throw 'Building the MSI preflight failed.' }
     }
 } finally {
     Pop-Location

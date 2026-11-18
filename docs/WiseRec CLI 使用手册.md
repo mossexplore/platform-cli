@@ -198,6 +198,7 @@ ml train history logs download --help
 
 ```text
 install.cmd
+msiexec /i PATH_TO_MSI
 ml env use NAME
 ml login
 ml business use
@@ -207,25 +208,27 @@ ml business use
 
 `/ml [任务描述]` 使用正式 skill，任务描述可省略。它是 Agent 斜杠命令，不属于 `ml tree` 的 CLI 子命令。
 
+`PATH_TO_MSI` 为 Go 安装包路径，含空格时用双引号。
+
 `NAME` 为 `ml env list` 中的“环境标识”。
 
 ### 2.3 说明
 
-仓库根目录的 `config.example.json` 仅是样例。制作安装包前，必须将它复制为同目录的 `config.json` 并填写实际环境；打包仅使用正式 `config.json`，缺失时直接报错，不自动使用样例。安装包内及安装后的正式配置均使用 `config.json`，CLI 运行时从当前用户的配置目录读取 `config.json`。Windows 路径为 `%APPDATA%\ml\config.json`，macOS 为 `~/Library/Application Support/ml/config.json`，Linux 为 `${XDG_CONFIG_HOME:-~/.config}/ml/config.json`。缺少配置时先运行安装程序初始化。
+制作 Python 安装包前，将 `cli-python/config.example.json` 复制为同目录的 `config.json` 并填写实际环境。打包需要正式配置。安装包内及安装后的正式配置均使用 `config.json`，CLI 运行时从当前用户的配置目录读取 `config.json`。Windows 路径为 `%APPDATA%\ml\config.json`，macOS 为 `~/Library/Application Support/ml/config.json`，Linux 为 `${XDG_CONFIG_HOME:-~/.config}/ml/config.json`。缺少配置时先运行安装程序初始化。
 
 首次安装采用包内默认环境。每次运行安装程序都会覆盖用户默认配置文件，仅保留原文件的 `current` 值。其余字段全部采用安装包内容，包括环境定义、管理台类型、地址、自动保活、本地禁止命令策略和权限系统配置；本地新增的字段、环境也会被移除。若原文件无法读取、不是 JSON 对象、`current` 无效或所选环境已被新包删除、改名，则自动采用安装包指定的默认 `current`，不因此中断安装。安装包配置无效或目标文件无法写入时会报错。
 
-OpenCode/codeagent 集成分两个阶段：先安装并验证 CLI，再安装正式 skill `wiserec-platform` 和 `/ml` 快捷入口。不安装 `skill-lab` 详细版。第二阶段失败时 CLI 仍可使用，修复文件权限或占用问题后重新运行安装程序。
+Python 安装的 OpenCode/codeagent 集成分两个阶段：先安装并验证 CLI，再安装正式 skill `wiserec-platform` 和 `/ml` 快捷入口。不安装 `skill-lab` 详细版。第二阶段失败时 CLI 仍可使用，修复文件权限或占用问题后重新运行安装程序。
 
-OpenCode 的正式 skill 安装到 `~/.agents/skills/wiserec-platform`，`/ml` 位于当前 OpenCode 配置目录的 `commands/ml.md`；codeagent 使用 `~/.cac/skills/wiserec-platform` 和 `~/.cac/commands/ml.md`。`OPENCODE_CONFIG_DIR` 可指定 OpenCode 配置目录。每次安装更新正式 skill，并清理共享目录、当前 OpenCode 目录和 codeagent 目录中的历史 `wiserec-platform-detailed` 与 `commands/ml-lab.md`，其他资源保留。
+OpenCode 的正式 skill 安装到 `~/.agents/skills/wiserec-platform`，`/ml` 位于当前 OpenCode 配置目录的 `commands/ml.md`；codeagent 使用 `~/.cac/skills/wiserec-platform` 和 `~/.cac/commands/ml.md`。`OPENCODE_CONFIG_DIR` 可指定 OpenCode 配置目录。Python 安装程序会更新正式 skill，并清理共享目录、当前 OpenCode 目录和 codeagent 目录中的历史 `wiserec-platform-detailed` 与 `commands/ml-lab.md`，其他资源保留。
 
 完成后重新打开 Agent 会话，输入 `/ml 查询当前业务下的模型` 使用正式 skill；不带需求时可查看上下文和用法。直接通过 pip 安装 Wheel 不自动安装 Agent 资源，自动安装入口为官方 Windows 安装包。
 
 历史安装若使用过其他自定义 OpenCode 配置目录，需在该目录重新运行安装程序才能清理对应旧副本。
 
-使用前准备好所需 Python 环境和 Microsoft Edge，依次选择环境、登录、选择业务。
+Go 用户可双击 MSI 或通过 `msiexec` 安装。安装前用 `where.exe ml` 检查并移除其他客户端的 PATH 入口。安装后重新打开终端和 Agent，直接使用 `ml` 和 `/ml`。Go 首次使用包内配置初始化 `%APPDATA%\ml-go-preview\config.json`，升级和卸载保留该目录。Go 业务命令需要在线权限校验。便携 ZIP 解压后可用 `.\ml.exe` 或绝对路径运行；需要临时用 `ml` 时可在本终端把解压目录加入 PATH。详见 [Go Windows 安装说明](../cli-go/README.md)。
 
-参加 Go 客户端预览时，按[独立试运行说明](../cli-go/README.md)准备测试配置并以二进制路径调用命令，先运行 `ml tree` 核对当前管理台支持的命令。
+Python 客户端需要 Python 运行环境。浏览器登录需要 Microsoft Edge。首次使用依次选择环境、登录、选择业务。
 
 ### 2.4 示例
 

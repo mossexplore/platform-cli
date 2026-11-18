@@ -4,7 +4,7 @@
 
 ## 安装
 
-官方 Windows 安装包分两个阶段执行：先安装并验证 CLI，再安装 `wiserec-platform` skill 和 `/ml` command。第二阶段失败会显示原因，CLI 仍可正常使用；排除文件占用或目录权限问题后重新运行安装程序即可重试。直接通过 pip 安装 Wheel 不会安装 skill。正式安装提供 `/ml`。实验版已停止维护，仅在仓库 `skill-lab/` 保存历史资料，不再提供活跃的 `/ml-lab` 入口。
+Python Windows 安装包分两个阶段执行：先安装并验证 CLI，再安装 `wiserec-platform` skill 和 `/ml` command。第二阶段失败会显示原因，CLI 仍可正常使用；排除文件占用或目录权限问题后重新运行安装程序即可重试。直接通过 pip 安装 Wheel 不会安装 skill。正式安装提供 `/ml`。实验版已停止维护，仅在仓库 `skill-lab/` 保存历史资料，不再提供活跃的 `/ml-lab` 入口。
 
 - 正式 skill 安装到 `~/.agents/skills/wiserec-platform` 和 `~/.cac/skills/wiserec-platform`。`/ml` 位于当前 OpenCode 配置目录的 `commands/ml.md` 和 `~/.cac/commands/ml.md`。OpenCode 配置目录默认 `~/.config/opencode`，`OPENCODE_CONFIG_DIR` 只改变该配置目录，不改变共享 skill 或 CAC 路径。
 - 每次安装替换上述正式资源；成功后清理相应管理目录中的历史详细版、`ml-lab.md` 和当前 OpenCode 配置目录中的旧正式 skill。历史上使用过的其他配置目录不会被遍历。其他资源保留。
@@ -12,9 +12,9 @@
 - 项目目录或兼容目录中的同名副本需自行移除，以免 OpenCode 加载旧副本。
 - 安装后完全退出并重新打开 OpenCode，使其获得新的 PATH，然后输入 `/ml 查询当前业务下的模型`；只输入 `/ml` 会检查使用上下文并显示用法。
 
-Go 客户端预览通过独立路径试运行。命令名称、参数和平台支持范围以正式客户端为基线，联调范围见 [Go 客户端试运行](../../cli-go/README.md)。配置 Agent 或 harness 的 `/ml` 入口时，继续使用正式 Windows 安装提供的 `ml`。
+Go MSI 将同一套正式 Skill 和 `/ml` 安装到上述位置，支持 Windows Installer 的修复、升级和卸载，并停用已知旧入口。Go 便携 ZIP 携带资源供开发人员查看，解压不会配置 Agent。见 [Go Windows 安装说明](../../cli-go/README.md)。
 
-正式 Windows 安装方式见 [安装说明](../../cli-python/scripts/windows/INSTALL.md)。通用正文为 `SKILL.md` 与 `references/`（不绑定特定 Agent）；`skill/commands/ml.md` 为支持 `/ml`（`$ARGUMENTS` + `skill` 工具）的 OpenCode 等 harness 的入口。下面的 OpenCode 权限示例供安装人员参考。
+Python Windows 安装方式见 [安装说明](../../cli-python/scripts/windows/INSTALL.md)。通用正文为 `SKILL.md` 与 `references/`（不绑定特定 Agent）；`skill/commands/ml.md` 为支持 `/ml`（`$ARGUMENTS` + `skill` 工具）的 OpenCode 等 harness 的入口。下面的 OpenCode 权限示例供安装人员参考。
 
 ## 建议的权限配置
 

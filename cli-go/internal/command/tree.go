@@ -19,13 +19,12 @@ type branch struct {
 func writeTree(out io.Writer, root *cobra.Command, paths localstate.Paths, cfg localstate.Config, all bool) error {
 	profile := cfg.Profile()
 	fmt.Fprintf(out, "当前环境：%s · 管理台类型：%s\n", profile.Name, profile.PlatformType)
-	fmt.Fprintln(out, "Go 预览版仅展示已实现的命令")
 	if !all {
 		fmt.Fprintln(out, "仅展示当前环境支持的命令；查看全部命令：ml tree --all")
 	}
 	rules := append([]string(nil), profile.Policy.Deny...)
 	if !cfg.Access.Active() || cfg.Access.URL == "" {
-		fmt.Fprintln(out, "预览版业务命令要求在线权限校验")
+		fmt.Fprintln(out, "Go 业务命令要求在线权限校验")
 	} else if policy := paths.Policy(cfg.Access, profile); policy != nil {
 		rules = append(rules, policy.Deny...)
 	} else {

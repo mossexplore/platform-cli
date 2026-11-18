@@ -10,9 +10,6 @@ import (
 	"github.com/mossexplore/platform-cli/cli-go/internal/localstate"
 )
 
-// The preview build script reads versions.toml and injects this value.
-var version = "dev"
-
 func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer stop()

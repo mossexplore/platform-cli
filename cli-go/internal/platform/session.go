@@ -35,7 +35,7 @@ func (s Session) Authorize(ctx context.Context, command, audit string) (*API, er
 		return nil, fmt.Errorf("当前环境 %s 禁止执行 ml %s", profile.Name, command)
 	}
 	if !s.Config.Access.Active() || s.Config.Access.URL == "" {
-		return nil, errors.New("Go 预览版的业务命令需要启用并配置在线权限校验")
+		return nil, errors.New("Go 客户端的业务命令需要启用并配置在线权限校验")
 	}
 	credentials, err := s.Paths.LoadCredentials(profile, time.Now())
 	if err != nil {

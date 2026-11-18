@@ -62,7 +62,7 @@ func accessRoots(settings localstate.Access) (*x509.CertPool, error) {
 	case "certifi":
 		pool := x509.NewCertPool()
 		if !pool.AppendCertsFromPEM([]byte(embedded.MozillaCACertificatesPEM())) {
-			return nil, errors.New("无法加载预览版随包公共 CA")
+			return nil, errors.New("无法加载随包公共 CA")
 		}
 		return pool, nil
 	case "custom":
@@ -135,7 +135,7 @@ func requestJSON(ctx context.Context, client *http.Client, method, endpoint stri
 	defer resp.Body.Close()
 	data, err := io.ReadAll(io.LimitReader(resp.Body, maxResponseBytes+1))
 	if err != nil || len(data) > maxResponseBytes {
-		return resp.StatusCode, nil, fmt.Errorf("%s响应读取失败或超出预览版限制", target)
+		return resp.StatusCode, nil, fmt.Errorf("%s响应读取失败或超出响应大小限制", target)
 	}
 	if !json.Valid(data) {
 		if resp.StatusCode >= 200 && resp.StatusCode < 300 {

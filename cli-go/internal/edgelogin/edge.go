@@ -38,7 +38,7 @@ func Run(ctx context.Context, paths localstate.Paths, cfg localstate.Config, pro
 	}
 	profile := cfg.Profile()
 	if !strings.HasPrefix(profile.Origin(), "https://") {
-		return Summary{}, errors.New("Go 预览版的 Edge 登录需要 HTTPS 平台地址")
+		return Summary{}, errors.New("Go 客户端的 Edge 登录需要 HTTPS 平台地址")
 	}
 	unlock, err := paths.LockLogin()
 	if err != nil {

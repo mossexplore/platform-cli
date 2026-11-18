@@ -2,8 +2,6 @@
 
 from pathlib import Path
 from shutil import copyfile, rmtree
-import hashlib
-import json
 import runpy
 
 from setuptools import setup
@@ -15,6 +13,7 @@ project = Path(__file__).resolve().parent
 repository = project if (project / "versions.toml").is_file() else project.parent
 version_tools = runpy.run_path(str(repository / "scripts/sync_versions.py"))
 version_tools["sync"](repository)
+stage_skill_resources = runpy.run_path(str(repository / "scripts/stage_skill_resources.py"))["stage_skill_resources"]
 
 
 def build_config():
@@ -34,7 +33,8 @@ class Sdist(BaseSdist):
         super().make_release_tree(base_dir, files)
         # Vendor the selected build inputs so an extracted sdist is standalone.
         sources = [
-            "versions.toml", "scripts/sync_versions.py", "docs/Jupyter本地开发指南.md",
+            "versions.toml", "scripts/sync_versions.py", "scripts/stage_skill_resources.py",
+            "docs/Jupyter本地开发指南.md",
             "skill/commands/ml.md",
             *(path.relative_to(repository) for path in
               sorted((repository / "skill/wiserec-platform").rglob("*.md"))),
@@ -62,36 +62,8 @@ class BuildPy(BaseBuildPy):
         resources = Path(self.build_lib) / "wiserec_cli" / "opencode_resources"
         if resources.exists():
             rmtree(resources)
-        directory = repository / "skill/wiserec-platform"
-        prefix = "skills/wiserec-platform/"
-        sources = [
-            (repository / "skill/commands/ml.md", "commands/ml.md"),
-            (directory / "SKILL.md", prefix + "SKILL.md"),
-            *((path, prefix + path.relative_to(directory).as_posix())
-              for path in sorted((directory / "references").rglob("*.md"))),
-        ]
-        source_hashes = {relative: hashlib.sha256(source.read_bytes()).hexdigest()
-                         for source, relative in sources}
-        source_digest = hashlib.sha256(json.dumps(
-            source_hashes, sort_keys=True, separators=(",", ":"),
-        ).encode("utf-8")).hexdigest()
         cli_version = version_tools["read_versions"](repository)[0]["cli"]
-        hashes = {}
-        for source, relative in sources:
-            target = resources / relative
-            target.parent.mkdir(parents=True, exist_ok=True)
-            if source.name == "SKILL.md":
-                text = source.read_text(encoding="utf-8")
-                if text.count("\nmetadata:\n") != 1:
-                    raise ValueError("Formal skill needs exactly one metadata mapping")
-                text = text.replace("\nmetadata:\n", "\nmetadata:\n"
-                                    f'  source_cli_version: "{cli_version}"\n'
-                                    f'  source_sha256: "{source_digest}"\n', 1)
-                target.write_text(text, encoding="utf-8")
-            else:
-                copyfile(source, target)
-            hashes[relative] = hashlib.sha256(target.read_bytes()).hexdigest()
-        (resources / "manifest.json").write_text(json.dumps(hashes, indent=2), encoding="utf-8")
+        stage_skill_resources(repository, resources, cli_version)
 
 
 setup(cmdclass={"build_py": BuildPy, "sdist": Sdist})

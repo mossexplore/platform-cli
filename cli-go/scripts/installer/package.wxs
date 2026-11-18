@@ -1,0 +1,78 @@
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+  <Package Name="WiseRec CLI (Go)" Manufacturer="WiseRec" Version="$(var.Version)"
+           ProductCode="$(var.ProductCode)" UpgradeCode="{432C0A6C-7DEF-4B10-B19F-BAEBDD4E5FE9}"
+           Scope="perUser" InstallerVersion="500">
+    <MajorUpgrade Schedule="afterInstallInitialize"
+                  DowngradeErrorMessage="A newer WiseRec CLI (Go) is already installed." />
+    <MediaTemplate EmbedCab="yes" />
+
+    <StandardDirectory Id="LocalAppDataFolder">
+      <Directory Id="UserPrograms" Name="Programs">
+        <Directory Id="INSTALLFOLDER" Name="WiseRecCLIGo">
+          <Component Id="CliFiles" Guid="*">
+            <RegistryValue Root="HKCU" Key="Software\WiseRec\CLIGo" Name="Path"
+                           Value="[INSTALLFOLDER]" Type="string" KeyPath="yes" />
+            <File Id="MlExe" Source="$(var.Payload)\ml.exe" />
+            <File Id="ConfigTemplate" Source="$(var.Payload)\config.template.json" />
+            <File Id="License" Source="$(var.Payload)\LICENSE" />
+            <Environment Id="UserPath" Name="PATH" Value="[INSTALLFOLDER]"
+                         Action="set" Part="last" System="no" Permanent="no" />
+            <RemoveFolder Id="RemoveInstallFolder" On="uninstall" />
+            <RemoveFolder Id="RemoveEmptyUserPrograms" Directory="UserPrograms" On="uninstall" />
+          </Component>
+        </Directory>
+      </Directory>
+    </StandardDirectory>
+
+    <!-- Set the parent before directory costing so it is independent of
+         redirected Documents and matches the Agent's home directory. -->
+    <Directory Id="USERPROFILEDIR" Name=".">
+      <Directory Id="AgentsRoot" Name=".agents">
+        <Directory Id="SharedSkills" Name="skills" />
+        <Directory Id="SharedCommands" Name="commands" />
+      </Directory>
+      <Directory Id="CacRoot" Name=".cac">
+        <Directory Id="CacSkills" Name="skills" />
+        <Directory Id="CacCommands" Name="commands" />
+      </Directory>
+      <Directory Id="UserDotConfig" Name=".config">
+        <Directory Id="OPENCODEDIR" Name="opencode">
+          <Directory Id="OpenCodeCommands" Name="commands" />
+          <Directory Id="OpenCodeSkills" Name="skills" />
+        </Directory>
+      </Directory>
+    </Directory>
+
+    <SetProperty Id="USERPROFILEDIR" Value="[%USERPROFILE]" Before="CostInitialize" />
+    <!-- Remember the effective location for repair, upgrade and uninstall. -->
+    <Property Id="OPENCODEDIR" Secure="yes">
+      <RegistrySearch Id="FindInstalledOpenCode" Root="HKCU" Key="Software\WiseRec\CLIGo"
+                      Name="OpenCodeDirectory" Type="raw" />
+    </Property>
+    <Property Id="USEROPENCODEDIR">
+      <RegistrySearch Id="FindUserOpenCode" Root="HKCU" Key="Environment"
+                      Name="OPENCODE_CONFIG_DIR" Type="raw" />
+    </Property>
+    <SetProperty Id="OPENCODEDIR" Value="[USEROPENCODEDIR]" After="AppSearch"
+                 Condition="NOT OPENCODEDIR AND USEROPENCODEDIR" />
+    <SetProperty Id="OPENCODEDIR" Action="SetOpenCodeFromEnvironment" Value="[%OPENCODE_CONFIG_DIR]"
+                 After="SetOPENCODEDIR" Condition="NOT OPENCODEDIR" />
+    <Component Id="OpenCodeLocation" Directory="INSTALLFOLDER" Guid="*">
+      <RegistryValue Root="HKCU" Key="Software\WiseRec\CLIGo" Name="OpenCodeDirectory"
+                     Value="[OPENCODEDIR]" Type="string" KeyPath="yes" />
+    </Component>
+
+    <Binary Id="PathCheck" SourceFile="$(var.Work)\path-check.exe" />
+    <CustomAction Id="CheckForExistingMl" BinaryRef="PathCheck"
+                  ExeCommand="&quot;[INSTALLFOLDER].&quot; [UILevel]" Return="check" />
+    <InstallExecuteSequence>
+      <Custom Action="CheckForExistingMl" Before="InstallValidate" Condition="NOT Installed" />
+    </InstallExecuteSequence>
+
+    <Feature Id="Complete" Title="WiseRec CLI (Go)" Level="1">
+      <ComponentRef Id="CliFiles" />
+      <ComponentRef Id="OpenCodeLocation" />
+      <ComponentGroupRef Id="AgentResources" />
+    </Feature>
+  </Package>
+</Wix>

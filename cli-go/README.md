@@ -1,64 +1,70 @@
-# Go CLI 预览
+# WiseRec CLI Go 客户端
 
-本目录为 WiseRec CLI 的原生 Go 客户端。按 Python 命令树核对，原生入口覆盖 WiseRec 的 106 个公开命令及 MLOps 的 77 个支持命令，包括训练、服务、模型部署、Web Studio 和 Jupyter。当前交付为可独立试运行的 Windows x64 二进制，正式安装及 Agent 的 `/ml` 入口继续使用已发布客户端。
+Go 客户端使用独立版本，当前源码版本为 `1.0.10`，由根目录 `versions.toml` 的 `components.cli_go` 管理。Windows x64 安装后使用同一套 `ml` 命令和 WiseRec Platform Skill。支持范围用 `ml tree --all` 核对，实际参数用子命令的 `--help` 核对。
 
-## 构建 Windows x64 二进制
+## 一键打包
 
-开发机构建需要 Go 1.25 或以上。以下 PowerShell 命令从仓库根目录执行。构建脚本读取 `versions.toml` 的 CLI 版本，输出目录选一个空目录，启动时显式使用二进制路径。
-
-```powershell
-$preview = Join-Path $env:TEMP 'wiserec-go-preview'
-./cli-go/scripts/build-windows.ps1 -OutputDirectory $preview
-$mlPreview = Join-Path $preview 'ml.exe'
-& $mlPreview --version
-```
-
-## 准备独立配置
-
-在 `%APPDATA%\ml-go-preview\config.json` 内创建配置。把示例域名替换为已授权的测试平台和权限服务。两边的环境标识及平台源地址需对应。对于 MLOps 测试环境，将 `platform_type` 填为 `mlops`。需要企业 CA 时，可配置 `access_control.ca_source` 为 `custom`，同时填写 CA 文件绝对路径 `ca_file`；默认读取环境 CA 或系统信任库。
-
-```json
-{
-  "current": "preview",
-  "profiles": [
-    {
-      "name": "preview",
-      "api_endpoint": "https://platform.example.test/",
-      "platform_type": "wiserec",
-      "output_format": "table"
-    }
-  ],
-  "access_control": {
-    "enable": true,
-    "url": "https://permissions.example.test/cli-permission"
-  }
-}
-```
-
-浏览器缓存、登录缓存和当前业务均保存在同一个预览目录，同一系统账号的预览命令使用共同的业务选择。平台地址变更后重新登录。状态更新使用操作系统文件锁，进程退出会释放锁。预览凭据文件包含当前会话信息，请保留在当前账号目录内。
-
-## 试运行
-
-在测试平台的网页先选择一个有效业务。登录时如提示未识别当前业务，在打开的 Edge 窗口完成选择，再运行登录。预览登录使用系统已安装的 Microsoft Edge 正式版和独立浏览器目录。
+构建机需要 Go 1.25 或以上、Python 3.12、Windows x64 和 WiX Toolset 5.0.2。WiX 可通过 .NET SDK 安装，安装后确认 `wix` 可在 PATH 找到。
 
 ```powershell
-& $mlPreview context --json
-& $mlPreview tree --all
-& $mlPreview login
-& $mlPreview mep config get -o json
+dotnet tool install --global wix --version 5.0.2
+Copy-Item cli-python/config.example.json cli-go/config.json
+# 先编辑 cli-go/config.json，填写获准分发的环境地址和权限服务配置。
+.\cli-go\scripts\build-release.cmd
 ```
 
-登录成功后以表格显示环境、账号、中文名、部门和 `businessId`。`context` 和 MEP 查询沿用同样的表格样式，选择 JSON 时输出缩进后的数据。
+也可使用 `./cli-go/scripts/build-release.ps1`。配置优先取 `-ConfigPath PATH`，其次依次查找 `cli-go/config.json`、`cli-python/config.json` 和仓库根目录的 `config.json`。只打 ZIP 时加 `-PortableOnly`，也可在装有 PowerShell 的 macOS 或 Linux 上执行。使用 `-OutputDirectory DIR` 指定新输出目录；默认输出在 `dist/cli-go/`。包内配置将随产物分发，业务凭据与登录状态留在用户电脑。
 
-查询从当前环境的 `business.json` 读取 `selected.businessId`，实时鉴权成功后才访问 MEP。预览的登录即凭据刷新入口。可用 `ml env use NAME` 和 `ml business use --tenant TENANT_ID` 切换环境和租户；使用 `ml auth status` 核对登录、业务 ID 和有效期。CLI 对已确认的成功响应更新有效期，交互终端支持自动保活。缓存过期或平台拒绝时，用 `ml login` 建立新会话。
+| 产物 | 内容 |
+| --- | --- |
+| `wiserec-cli-go-VERSION-windows-x64.zip` | `ml.exe`、配置模板、正式 Skill 和 `/ml` 资源、`release.json` 和本说明 |
+| `wiserec-cli-go-VERSION-windows-x64.msi` | 同一个 `ml.exe`、配置模板、正式 Skill 和 `/ml` 的每用户安装包 |
 
-## 验证
+开发时只需裸 EXE，可运行 `./cli-go/scripts/build-windows.ps1 -OutputDirectory DIR`。将有效配置放入 Go 用户目录后，以二进制路径运行。标准 ZIP 与 MSI 会携带配置模板。
 
-在 `cli-go` 下运行 `go test ./...` 和 `go vet ./...`。集成测试临时启动本机 HTTP 服务，验证鉴权先于业务请求、选定业务 ID 和请求关联、权限拒绝以及平台地址变化。浏览器事件单测覆盖同源身份响应与业务目录解析。命令对照测试从 Python 基线核对命令、参数与平台支持范围。模拟接口另外覆盖训练列表的两套协议、并发切换业务时阻断写入、模型部署预览及 Jupyter 独立 Kernel 执行和清理。
+## MSI 安装、升级与卸载
 
-后续在受管 Windows 上验收完整迁移行为。核对两种管理台的首次登录、重复登录、缓存过期后重新登录、业务选择、在线权限允许与拒绝。性能比较在同机同网络环境记录 Go 和 Python CLI 的进程冷启动、重复执行以及 MEP 查询端到端耗时，分别记录中位数及 P95。
+1. 打开 PowerShell 或 CMD，运行 `where.exe ml`。如果已有 Python 或其他客户端的 `ml`，先从用户或系统 PATH 移除对应目录，保留 Python 的配置、登录数据和程序文件。若是由会话别名或函数提供的入口，也先移除相应的 shell 配置。
+2. 双击 MSI，或通过 `msiexec` 安装。安装范围为当前用户，程序位于 `%LOCALAPPDATA%\Programs\WiseRecCLIGo\ml.exe`。安装器发现其他已注册在 Windows 用户或系统 PATH 的 `ml` 时会阻止安装。
+3. 重新打开终端与 Agent。运行 `where.exe ml`、`ml --version` 和 `ml context --json` 核对入口、版本和配置路径。
 
-开发机已完成 Go 测试、竞态检测、静态检查及 Windows x64 交叉构建。macOS arm64 上交替启动两个客户端执行 `--version`，预热后各采集 30 次新进程。Go 的 P50/P95 为 5.0/5.3 ms，Python 为 146.2/148.8 ms。这组数据衡量本地进程启动，首轮 Edge 登录与 MEP 查询已由用户在 Windows 试运行通过。完整命令的真实环境执行、交互终端、保活以及 Windows 性能仍待验收。
+```powershell
+msiexec /i "PATH_TO_MSI"
+where.exe ml
+ml --version
+ml context --json
+ml tree --all
+```
 
+升级或卸载前，结束仍在执行的 Go 命令，并对正在保活的环境运行 `ml auth ping stop`。直接运行更高版本 MSI 即可升级。修复可在 Windows“已安装的应用”中操作，或执行 `msiexec /fa "PATH_TO_INSTALLED_MSI"`。卸载可在同一界面执行，或运行 `msiexec /x "PATH_TO_INSTALLED_MSI"`。静默执行可加 `/qn /norestart /l*v "PATH_TO_LOG"`。升级拒绝降级覆盖。卸载移除 MSI 安装的程序、PATH 条目、Skill 和快捷命令，保留两套客户端的配置和登录数据。恢复使用 Python 时先卸载 Go MSI，再恢复 Python PATH 或重跑 Python 安装包。
 
-Web Studio 默认实例按环境、账号和业务保存。当前 Go 客户端每次建立新 Jupyter 连接时向平台重新获取访问地址。Notebook 执行接受 nbformat 4 文件。预览目录中的会话与正式安装分别登录，正式安装器、状态原地迁移及回滚流程仍待目标环境验证。
+MSI 自动将正式 Skill 放入 `~/.agents/skills/wiserec-platform` 和 `~/.cac/skills/wiserec-platform`，并将 `ml.md` 放入 OpenCode 配置目录的 `commands/` 和 `~/.cac/commands/`。OpenCode 默认目录为 `~/.config/opencode`。如需自定义，安装前设置用户环境变量 `OPENCODE_CONFIG_DIR` 为绝对路径。修复、升级和卸载沿用首次安装选定的位置，切换目录时卸载后重装。MSI 停用历史 `ml-lab.md` 和旧 Skill 的 `SKILL.md` 入口，保留其余用户文件。
+
+## 便携 ZIP
+
+解压到一个目录并保留 `ml.exe` 和 `config.template.json`，在 PowerShell 中用 `.\ml.exe` 或绝对路径调用。这种方式可与 Python CLI 并行试用。解压不会修改系统、注册 PATH 或安装 Skill。需要在当前终端用 `ml` 时，可临时把解压目录放到该终端 PATH 首位，再用 `where.exe ml` 核对。
+
+```powershell
+.\ml.exe --version
+.\ml.exe context --json
+$env:Path = "$(Get-Location);$env:Path"
+ml --version
+```
+
+## 首次使用与状态
+
+带配置的安装包在首次运行需要配置的命令时，用包内模板初始化 `%APPDATA%\ml-go-preview\config.json`。后续包保留已存在的 Go 配置，包括当前环境和自定义字段。登录、业务选择、浏览器会话和历史也在独立 Go 用户目录内。MSI 与便携 Go 客户端共用这一套 Go 状态。Python 客户端仍使用 `%APPDATA%\ml\`。浏览器登录依赖已安装的 Microsoft Edge。
+
+```powershell
+ml env list
+ml env use NAME
+ml login
+ml auth status
+ml business show
+```
+
+如需切换业务，执行 `ml business use --tenant TENANT_ID`。Go 业务命令需要启用在线权限校验，并配置可访问的权限服务。需要企业 CA 时，按环境配置权限服务的 `access_control.ca_source` 与 `ca_file`。权限服务收到 Go 的独立版本，请按实际准入规则验证环境。
+
+## 验证范围
+
+在 `cli-go` 下运行 `go test ./...` 和 `go vet ./...`。独立的 [Windows 打包工作流](../.github/workflows/cli-go-windows.yml) 使用示例配置构建测试产物，验证 ZIP 和 MSI 的二进制一致性，以及冲突检测、版本、修复、升级、降级拒绝和卸载。真实平台登录、在线权限和 Jupyter 需在获准环境另行验收。

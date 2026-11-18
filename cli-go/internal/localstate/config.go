@@ -17,15 +17,20 @@ import (
 type Paths struct {
 	Dir              string
 	BusinessOverride string
+	configTemplate   string
 }
 
 func DefaultPaths() (Paths, error) {
-	// Preview builds use the same filenames, in a separate state directory.
+	// Keep the Go preview's state independent of the Python client.
 	root, err := os.UserConfigDir()
 	if err != nil {
 		return Paths{}, errors.New("无法定位当前账号的用户配置目录")
 	}
-	return Paths{Dir: filepath.Join(root, "ml-go-preview")}, nil
+	paths := Paths{Dir: filepath.Join(root, "ml-go-preview")}
+	if executable, err := os.Executable(); err == nil {
+		paths.configTemplate = filepath.Join(filepath.Dir(executable), "config.template.json")
+	}
+	return paths, nil
 }
 
 func (p Paths) Config() string      { return filepath.Join(p.Dir, "config.json") }
@@ -99,6 +104,20 @@ type Access struct {
 }
 
 func LoadConfig(paths Paths) (Config, error) {
+	return readConfigFile(paths.Config())
+}
+
+func ValidateConfigFile(path string) error {
+	_, err := readConfigFile(path)
+	return err
+}
+
+func readConfigFile(path string) (Config, error) {
+	data, err := os.ReadFile(path)
+	return decodeConfig(path, data, err)
+}
+
+func decodeConfig(path string, data []byte, err error) (Config, error) {
 	cfg := Config{}
 	cfg.API.TimeoutMS = 30000
 	cfg.Auth.TTLSeconds = 1800
@@ -106,18 +125,17 @@ func LoadConfig(paths Paths) (Config, error) {
 	cfg.Browser.LoginTimeoutMS = 300000
 	cfg.Access.TimeoutSecs = 15
 	cfg.Access.CASource = "env"
-	data, err := os.ReadFile(paths.Config())
 	if errors.Is(err, os.ErrNotExist) {
-		return Config{}, fmt.Errorf("配置文件不存在: %s。请先为 Go 预览版准备独立配置", paths.Config())
+		return Config{}, fmt.Errorf("配置文件不存在: %s。请使用完整的 Go 安装包，或准备独立配置", path)
 	}
 	if err != nil {
-		return Config{}, fmt.Errorf("无法读取配置文件: %s", paths.Config())
+		return Config{}, fmt.Errorf("无法读取配置文件: %s", path)
 	}
 	if err := json.Unmarshal(data, &cfg); err != nil {
-		return Config{}, fmt.Errorf("配置文件不是有效的 JSON 或字段类型不符: %s", paths.Config())
+		return Config{}, fmt.Errorf("配置文件不是有效的 JSON 或字段类型不符: %s", path)
 	}
 	if err := cfg.validate(); err != nil {
-		return Config{}, fmt.Errorf("配置文件无效: %s（%w）", paths.Config(), err)
+		return Config{}, fmt.Errorf("配置文件无效: %s（%w）", path, err)
 	}
 	return cfg, nil
 }

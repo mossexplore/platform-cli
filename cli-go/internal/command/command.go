@@ -57,7 +57,7 @@ func Run(ctx context.Context, options Options) (code int) {
 
 func newRoot(options Options) *cobra.Command {
 	root := &cobra.Command{
-		Use: "ml", Short: "WiseRec 命令行工具，Go 预览版",
+		Use: "ml", Short: "WiseRec 命令行工具，Go 客户端",
 		Version: options.Version, SilenceErrors: true, SilenceUsage: true,
 		DisableSuggestions: true,
 	}
@@ -76,7 +76,7 @@ func newRoot(options Options) *cobra.Command {
 		if err != nil {
 			return localstate.Paths{}, localstate.Config{}, err
 		}
-		value, err := localstate.LoadConfig(paths)
+		value, err := paths.LoadOrInitializeConfig()
 		return paths, value, err
 	}
 
@@ -95,7 +95,7 @@ func newRoot(options Options) *cobra.Command {
 				executable = resolved
 			}
 			result := output.Fields{
-				{Key: "运行模式", Value: "Go 预览版"},
+				{Key: "运行模式", Value: "Go CLI"},
 				{Key: "当前环境", Value: cfg.Current},
 				{Key: "平台地址", Value: cfg.Profile().PublicEndpoint()},
 				{Key: "CLI 版本", Value: options.Version},

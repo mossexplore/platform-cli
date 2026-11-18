@@ -2,7 +2,7 @@
 
 ## 首次确认与上下文复用
 
-当前聊天尚无已确认上下文时，先运行 `ml context --json` 核对实际配置路径。确认它是当前平台标准用户配置（Windows 为当前账号的 `%APPDATA%\ml\config.json`）后，再运行 `ml auth status`。
+当前聊天尚无已确认上下文时，先运行 `ml context --json` 核对实际配置路径。确认它是当前客户端的标准用户配置（Windows 上 Python 客户端为 `%APPDATA%\ml\config.json`，Go 客户端为 `%APPDATA%\ml-go-preview\config.json`）后，再运行 `ml auth status`。
 
 ```powershell
 ml context --json
@@ -36,24 +36,20 @@ ml auth status
 
 实际使用的 shell 以工具说明为准，不根据 Agent 名称或版本推断。以下仅提供现有 Windows 安装的调用示例，不改变工具权限或加载配置。
 
-- **找不到 `ml`**：官方 Windows 安装器的默认根目录为 `%LOCALAPPDATA%\Programs\WiseRecCLI`。PATH 注册的是根目录下的 `bin`，启动器是 `bin\ml.cmd`，实际程序是 `venv\Scripts\ml.exe`。当前 shell 找不到 `ml` 时，按下面的示例直接调用实际程序。刚安装后也可以完全退出并重新打开 Agent，让它继承更新后的 PATH。
+- **找不到 `ml`**：刚安装后请完全退出并重新打开 Agent，让它继承新 PATH。用 `where.exe ml` 核对实际入口。仍找不到时，按安装方式使用下面的绝对路径。便携包使用解压目录中的 `ml.exe`。
 - **引号**：PowerShell 中含空格或反斜杠的路径用单引号包住。Windows PowerShell 5.1 和 PowerShell 7.3 之前的版本会去掉参数里嵌入的双引号；有文件参数时（如 `--from-file`、`--request-file`、`--request-sample-file`）先把文本写入本地文件再传入，必须直接传含双引号的值（如 JSON 形式的 `--customize-config`）时，在这些版本中把每个 `"` 写成 `\"`，执行后核对平台上的实际值。
 - **中文乱码**：CLI 对 Windows 重定向输出使用 UTF-8；接收端仍需使用一致的解码方式。仅在发生乱码时核对实际 shell 和输出接收方式。在 PowerShell 中可按需要设置 `[Console]::OutputEncoding = [System.Text.Encoding]::UTF8;` 并验证结果，不为每条命令固定添加前缀，不修改 CLI 代码解决编码问题。
 
-Windows Git Bash 使用 `cygpath` 转换当前账号的安装路径：
-
-```bash
-ml_exe="$(cygpath -u "$LOCALAPPDATA")/Programs/WiseRecCLI/venv/Scripts/ml.exe"
-"$ml_exe" context --json
-```
-
-PowerShell 可直接运行：
+Windows Git Bash 可用 `cygpath -u` 转换 `LOCALAPPDATA` 后拼接安装路径。PowerShell 中按实际安装方式执行对应行。
 
 ```powershell
+# Python
 & "$env:LOCALAPPDATA\Programs\WiseRecCLI\venv\Scripts\ml.exe" context --json
+# Go MSI
+& "$env:LOCALAPPDATA\Programs\WiseRecCLIGo\ml.exe" context --json
 ```
 
-确认配置路径后，用同一个 `ml.exe` 执行 `auth status` 和后续命令。在不同 shell 调用之间复用已确认的绝对路径。若默认路径下没有 `ml.exe`，请用户提供安装器指定的 `-InstallDirectory`，在该目录下使用 `venv\Scripts\ml.exe`。若用户未指定安装目录，请先确认是否已安装。WSL 中请切换到 Windows shell 使用这套安装。
+确认配置路径后，用同一个 `ml.exe` 执行 `auth status` 和后续命令。在不同 shell 调用之间复用已确认的绝对路径。Python 安装时若指定了 `-InstallDirectory`，实际程序位于该目录下的 `venv\Scripts\ml.exe`。WSL 中请切换到 Windows shell 使用这套安装。
 
 ## 登录与业务选择
 

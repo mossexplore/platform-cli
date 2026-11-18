@@ -13,6 +13,7 @@ SYNC = runpy.run_path(str(ROOT / 'scripts/sync_versions.py'))['sync']
 
 def checkout(tmp_path):
     for name in ('versions.toml', 'cli-python/pyproject.toml', 'cli-python/src/wiserec_cli/__init__.py',
+                 'cli-go/go.mod', 'cli-go/cmd/ml/version.go',
                  'access-service/VERSION', 'agent-service/pyproject.toml',
                  'permission-notifier/pyproject.toml'):
         target = tmp_path / name
@@ -32,6 +33,7 @@ def test_independent_component_versions_and_read_only_check(tmp_path):
     root = checkout(tmp_path)
     (root / 'versions.toml').write_text('''[components]
 cli = "2.3.4"
+cli_go = "2.3.5"
 access = "5.6.7.8"
 agent = "3.2.1"
 notifier = "4.5.6"
@@ -45,6 +47,7 @@ agent_cli = "2.3.4"
     SYNC(root)
     assert SYNC(root, check=True) == []
     assert runpy.run_path(str(root / 'cli-python/src/wiserec_cli/__init__.py'))['__version__'] == '2.3.4'
+    assert 'const version = "2.3.5"' in (root / 'cli-go/cmd/ml/version.go').read_text()
     assert (root / 'access-service/VERSION').read_text().strip() == '5.6.7.8'
     assert runpy.run_path(str(root / 'access-service/app/_version.py'))['__version__'] == '5.6.7.8'
     agent = runpy.run_path(str(root / 'agent-service/app/_version.py'))
@@ -63,6 +66,16 @@ def test_invalid_version_cannot_partially_update_files(tmp_path):
     with pytest.raises(ValueError, match='版本'):
         SYNC(root)
     assert (root / 'cli-python/pyproject.toml').read_bytes() == before
+
+
+@pytest.mark.parametrize('go_version', ['1.0.9.7', '1.256.1', '1.0.65536', '01.0.10', '1.0.9'])
+def test_go_version_must_fit_msi_and_differ_from_python(tmp_path, go_version):
+    root = checkout(tmp_path)
+    manifest = root / 'versions.toml'
+    text = manifest.read_text().replace('cli = "1.0.9.6"', 'cli = "1.0.9.0"', 1)
+    manifest.write_text(text.replace('cli_go = "1.0.10"', f'cli_go = "{go_version}"', 1))
+    with pytest.raises(ValueError, match='Go CLI.*版本'):
+        SYNC(root)
 
 
 @pytest.mark.parametrize('component', ['agent-service', 'permission-notifier'])
