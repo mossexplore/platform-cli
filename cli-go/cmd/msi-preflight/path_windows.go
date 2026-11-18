@@ -19,7 +19,7 @@ type pathValue struct {
 	Kind uint32
 }
 
-func preparePathSwitch(installDir, journal string, interactive, approved, rollbackDisabled bool) error {
+func preparePathSwitch(installDir, journal string, rollbackDisabled bool) error {
 	if err := removePathJournal(journal); err != nil {
 		return err
 	}
@@ -48,16 +48,7 @@ func preparePathSwitch(installDir, journal string, interactive, approved, rollba
 	if rollbackDisabled {
 		return errors.New("Windows Installer 回滚已禁用。请先手动清理旧版 ml 的用户 PATH，再运行安装。")
 	}
-	if !approved {
-		if !interactive {
-			return errors.New("发现旧版 ml。静默安装需显式传入 REMOVEOLDMLPATH=1。")
-		}
-		if !confirmRemoval(conflicts) {
-			return errDeclined
-		}
-	}
-
-	return savePathJournal(journal, pathJournal{Approved: conflicts})
+	return savePathJournal(journal, pathJournal{LegacyDirectories: conflicts})
 }
 
 func applyPathSwitch(installDir, filename string) error {
@@ -73,8 +64,8 @@ func applyPathSwitch(installDir, filename string) error {
 	if err != nil || len(conflicts) == 0 {
 		return err
 	}
-	// Recheck the directories authorized before the MSI added its own PATH entry.
-	if !slices.Equal(conflicts, journal.Approved) {
+	// Recheck the directories detected before the MSI added its own PATH entry.
+	if !slices.Equal(conflicts, journal.LegacyDirectories) {
 		return errors.New("用户 PATH 在安装过程中发生变化。请重新运行安装。")
 	}
 	journal.Change = &pathChange{Before: current, After: updated}

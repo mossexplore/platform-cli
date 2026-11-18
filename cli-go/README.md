@@ -1,6 +1,6 @@
 # WiseRec CLI Go 客户端
 
-Go 客户端使用独立版本，当前源码版本为 `1.0.12`，由根目录 `versions.toml` 的 `components.cli_go` 管理。Windows x64 安装后使用同一套 `ml` 命令和 WiseRec Platform Skill。支持范围用 `ml tree --all` 核对，实际参数用子命令的 `--help` 核对。
+Go 客户端使用独立版本，当前源码版本为 `1.0.13`，由根目录 `versions.toml` 的 `components.cli_go` 管理。Windows x64 安装后使用同一套 `ml` 命令和 WiseRec Platform Skill。支持范围用 `ml tree --all` 核对，实际参数用子命令的 `--help` 核对。
 
 ## 一键打包
 
@@ -63,7 +63,9 @@ if (-not (Test-Path .\config.json)) {
 notepad .\config.json
 ```
 
-保存配置后，执行打包命令。
+保存配置后，在资源管理器中双击 `cli-go\build.cmd`。它会读取同目录的 `config.json`，生成 ZIP 和 MSI。每次构建在 `cli-go\dist\` 下创建新的输出目录，窗口会显示产物路径或失败原因。如果之前已把离线模块缓存解压到 `cli-go\dist\go-module-cache`，双击脚本会默认复用它。
+
+从 PowerShell 打包时，也可以执行以下命令。
 
 ```powershell
 .\scripts\build-release.cmd -ConfigPath .\config.json
@@ -81,8 +83,8 @@ notepad .\config.json
 ## MSI 安装、升级与卸载
 
 1. 双击 MSI，或通过 `msiexec` 安装。安装范围为当前用户，程序位于 `%LOCALAPPDATA%\Programs\WiseRecCLIGo\ml.exe`。
-2. 如果用户 PATH 中已有旧版 WiseRec Python 安装器注册的入口，MSI 会列出将移除的目录。选择“是”后继续安装，旧版程序、配置和登录数据会保留。选择“否”会取消安装，保留原 PATH。安装失败回滚时会恢复移除的旧入口。
-3. 重新打开终端与 Agent。运行 `where.exe ml`、`ml --version` 和 `ml context --json` 核对入口、版本和配置路径。
+2. 如果用户 PATH 中已有旧版 WiseRec Python 安装器注册的入口，MSI 会自动移除该条目并继续安装。旧版程序、配置和登录数据会保留。安装失败回滚时会恢复移除的旧入口。
+3. 交互安装成功后会出现完成提示。关闭提示，重新打开终端与 Agent，再运行 `where.exe ml`、`ml --version` 和 `ml context --json` 核对入口、版本和配置路径。
 
 系统 PATH 中的冲突由管理员调整。其他工具目录中的 `ml` 需要手动核对，以免删除它们共享的 PATH 条目。PowerShell 别名或函数可用 `Get-Command ml -All` 检查。
 
@@ -94,7 +96,7 @@ ml context --json
 ml tree --all
 ```
 
-升级或卸载前，结束仍在执行的 Go 命令，并对正在保活的环境运行 `ml auth ping stop`。直接运行更高版本 MSI 即可升级。修复可在 Windows“已安装的应用”中操作，或执行 `msiexec /fa "PATH_TO_INSTALLED_MSI"`。卸载可在同一界面执行，或运行 `msiexec /x "PATH_TO_INSTALLED_MSI"`。静默执行可加 `/qn /norestart /l*v "PATH_TO_LOG"`。需要在静默安装时批准清理旧入口，请显式加 `REMOVEOLDMLPATH=1`。升级拒绝降级覆盖。卸载移除 MSI 安装的程序、PATH 条目、Skill 和快捷命令，保留两套客户端的配置和登录数据。恢复使用 Python 时先卸载 Go MSI，再恢复 Python PATH 或重跑 Python 安装包。
+升级或卸载前，结束仍在执行的 Go 命令，并对正在保活的环境运行 `ml auth ping stop`。直接运行更高版本 MSI 即可升级。修复可在 Windows“已安装的应用”中操作，或执行 `msiexec /fa "PATH_TO_INSTALLED_MSI"`。卸载可在同一界面执行，或运行 `msiexec /x "PATH_TO_INSTALLED_MSI"`。静默执行可加 `/qn /norestart /l*v "PATH_TO_LOG"`。静默安装时也会自动清理旧入口，并通过退出码和日志报告结果。升级拒绝降级覆盖。卸载移除 MSI 安装的程序、PATH 条目、Skill 和快捷命令，保留两套客户端的配置和登录数据。恢复使用 Python 时先卸载 Go MSI，再恢复 Python PATH 或重跑 Python 安装包。
 
 MSI 自动将正式 Skill 放入 `~/.agents/skills/wiserec-platform` 和 `~/.cac/skills/wiserec-platform`，并将 `ml.md` 放入 OpenCode 配置目录的 `commands/` 和 `~/.cac/commands/`。OpenCode 默认目录为 `~/.config/opencode`。如需自定义，安装前设置用户环境变量 `OPENCODE_CONFIG_DIR` 为绝对路径。修复、升级和卸载沿用首次安装选定的位置，切换目录时卸载后重装。MSI 停用历史 `ml-lab.md` 和旧 Skill 的 `SKILL.md` 入口，保留其余用户文件。
 
@@ -125,4 +127,4 @@ ml business show
 
 ## 验证范围
 
-在 `cli-go` 下运行 `go test ./...` 和 `go vet ./...`。独立的 [Windows 打包工作流](../.github/workflows/cli-go-windows.yml) 使用示例配置构建测试产物，验证 ZIP 和 MSI 的二进制一致性，以及 PATH 冲突、静默授权、失败回滚、版本、修复、升级、降级拒绝和卸载。真实平台登录、在线权限和 Jupyter 需在获准环境另行验收。
+在 `cli-go` 下运行 `go test ./...` 和 `go vet ./...`。独立的 [Windows 打包工作流](../.github/workflows/cli-go-windows.yml) 使用示例配置构建测试产物，验证 ZIP 和 MSI 的二进制一致性，以及旧 PATH 自动清理、失败回滚、版本、修复、升级、降级拒绝和卸载。真实平台登录、在线权限和 Jupyter 需在获准环境另行验收。

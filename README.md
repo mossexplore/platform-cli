@@ -103,7 +103,7 @@ ml access status
 | 组件 | 目录 | 当前源码版本 | 说明 | 文档入口 |
 | --- | --- | --- | --- | --- |
 | **WiseRec CLI（Python）** | `cli-python/` | `1.0.9.6` | 正式命令行工具（`ml`） | [使用手册](docs/WiseRec%20CLI%20使用手册.md) · [维护说明](docs/CLI使用与维护说明.md) |
-| **WiseRec CLI（Go）** | `cli-go/` | `1.0.12` | Windows x64 便携 ZIP 和每用户 MSI | [构建与安装](cli-go/README.md) |
+| **WiseRec CLI（Go）** | `cli-go/` | `1.0.13` | Windows x64 便携 ZIP 和每用户 MSI | [构建与安装](cli-go/README.md) |
 | **权限管理系统** | `access-service/` | `1.0.9.1` | 授权、版本准入与审计管理台 | [README](access-service/README.md) · [Docker 部署指南](docs/权限管理系统Docker安装部署与调试指南.md) |
 | **Agent 服务** | `agent-service/` | `1.0.9.1` | AI Agent 集成与部署工具 | [README](agent-service/README.md) · [配置示例](agent-service/config.example.json) |
 | **权限通知助手** | `permission-notifier/` | `1.0.9.1` | 权限申请桌面通知客户端 | [README](permission-notifier/README.md) |

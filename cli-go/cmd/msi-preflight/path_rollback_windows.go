@@ -13,8 +13,8 @@ type pathChange struct {
 }
 
 type pathJournal struct {
-	Approved []string
-	Change   *pathChange
+	LegacyDirectories []string
+	Change            *pathChange
 }
 
 func savePathJournal(filename string, journal pathJournal) error {

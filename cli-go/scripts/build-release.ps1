@@ -2,6 +2,7 @@
 param(
     [string] $OutputDirectory,
     [string] $ConfigPath,
+    [switch] $NewOutputDirectory,
     [switch] $PortableOnly,
     [string] $Python = 'python',
     [string] $Wix = 'wix'
@@ -10,6 +11,10 @@ param(
 $ErrorActionPreference = 'Stop'
 if (-not $OutputDirectory) {
     $OutputDirectory = Join-Path (Split-Path -Parent $PSScriptRoot) 'dist'
+}
+if ($NewOutputDirectory) {
+    $suffix = [Guid]::NewGuid().ToString('N').Substring(0, 8)
+    $OutputDirectory = Join-Path $OutputDirectory "$(Get-Date -Format yyyyMMdd-HHmmss)-$suffix"
 }
 $output = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($OutputDirectory)
 $work = Join-Path $output ('.work-' + [Guid]::NewGuid().ToString('N'))

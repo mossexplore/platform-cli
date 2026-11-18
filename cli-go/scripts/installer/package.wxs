@@ -62,22 +62,23 @@
                      Value="[OPENCODEDIR]" Type="string" KeyPath="yes" />
     </Component>
 
-    <Property Id="REMOVEOLDMLPATH" Secure="yes" />
     <Binary Id="PathCheck" SourceFile="$(var.Work)\path-check.exe" />
     <CustomAction Id="RestorePreviousMlPath" BinaryRef="PathCheck" Execute="rollback" Impersonate="yes" Return="ignore"
                   ExeCommand="rollback &quot;[LocalAppDataFolder]WiseRecCLI-PATH-[ProductCode].json&quot;" />
     <CustomAction Id="CheckForExistingMl" BinaryRef="PathCheck" Return="check"
-                  ExeCommand="prepare &quot;[INSTALLFOLDER].&quot; &quot;[LocalAppDataFolder]WiseRecCLI-PATH-[ProductCode].json&quot; &quot;[UILevel]&quot; &quot;[REMOVEOLDMLPATH]&quot; &quot;[RollbackDisabled]&quot;" />
+                  ExeCommand="prepare &quot;[INSTALLFOLDER].&quot; &quot;[LocalAppDataFolder]WiseRecCLI-PATH-[ProductCode].json&quot; &quot;[UILevel]&quot; &quot;[RollbackDisabled]&quot;" />
     <CustomAction Id="ApplyMlPathSwitch" BinaryRef="PathCheck" Execute="deferred" Impersonate="yes" Return="check"
                   ExeCommand="apply &quot;[INSTALLFOLDER].&quot; &quot;[LocalAppDataFolder]WiseRecCLI-PATH-[ProductCode].json&quot;" />
     <CustomAction Id="FinishMlPathSwitch" BinaryRef="PathCheck" Execute="commit" Impersonate="yes" Return="ignore"
                   ExeCommand="commit &quot;[LocalAppDataFolder]WiseRecCLI-PATH-[ProductCode].json&quot;" />
+    <CustomAction Id="ShowInstallationSuccess" BinaryRef="PathCheck" ExeCommand="success" Return="ignore" />
     <InstallExecuteSequence>
       <Custom Action="CheckForExistingMl" Before="ProcessComponents" Condition="NOT Installed" />
       <!-- Roll back the user PATH edit before MSI reverses its own PATH registration. -->
       <Custom Action="RestorePreviousMlPath" After="WriteEnvironmentStrings" Condition="NOT Installed" />
       <Custom Action="ApplyMlPathSwitch" After="RestorePreviousMlPath" Condition="NOT Installed" />
       <Custom Action="FinishMlPathSwitch" After="ApplyMlPathSwitch" Condition="NOT Installed" />
+      <Custom Action="ShowInstallationSuccess" After="InstallFinalize" Condition="NOT Installed AND UILevel &gt;= 4" />
     </InstallExecuteSequence>
 
     <Feature Id="Complete" Title="WiseRec CLI (Go)" Level="1">

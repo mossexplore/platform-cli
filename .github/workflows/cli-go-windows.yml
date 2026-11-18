@@ -31,7 +31,7 @@ jobs:
           go test ./...
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           go vet ./...
-      - name: Set up WiX and build through the Windows CMD launcher
+      - name: Set up WiX and build through the double-click launcher
         working-directory: cli-go
         shell: pwsh
         run: |
@@ -39,8 +39,13 @@ jobs:
           dotnet tool install wix --version 5.0.2 --tool-path $tools
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           $tools >> $env:GITHUB_PATH
-          ./scripts/build-release.cmd -Wix (Join-Path $tools 'wix.exe') -ConfigPath ../cli-python/config.example.json
+          $env:Path = "$tools;$env:Path"
+          Copy-Item ../cli-python/config.example.json ./config.json
+          cmd.exe /d /c 'build.cmd < nul'
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $output = @(Get-ChildItem -LiteralPath ./dist -Directory)
+          if ($output.Count -ne 1) { throw 'Expected one build output directory' }
+          "WISEREC_GO_PACKAGES=cli-go/dist/$($output[0].Name)" >> $env:GITHUB_ENV
       - name: Build a higher version in an isolated source tree for upgrade verification
         working-directory: cli-go
         shell: pwsh
@@ -78,15 +83,15 @@ jobs:
         working-directory: cli-go
         shell: pwsh
         run: |
-          ./scripts/installer/verify-windows.ps1 -Packages dist `
+          ./scripts/installer/verify-windows.ps1 -Packages (Join-Path $env:GITHUB_WORKSPACE $env:WISEREC_GO_PACKAGES) `
             -UpgradePackages "$env:RUNNER_TEMP/go-upgrade-packages" -Work "$env:RUNNER_TEMP/go-msi-verification"
       - name: Upload example-config test packages
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: cli-go-windows-x64-test
           path: |
-            cli-go/dist/*.msi
-            cli-go/dist/*.zip
+            ${{ env.WISEREC_GO_PACKAGES }}/*.msi
+            ${{ env.WISEREC_GO_PACKAGES }}/*.zip
           if-no-files-found: error
       - name: Upload Windows Installer logs on failure
         if: failure()

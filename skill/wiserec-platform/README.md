@@ -12,7 +12,7 @@ Python Windows 安装包分两个阶段执行：先安装并验证 CLI，再安�
 - 项目目录或兼容目录中的同名副本需自行移除，以免 OpenCode 加载旧副本。
 - 安装后完全退出并重新打开 OpenCode，使其获得新的 PATH，然后输入 `/ml 查询当前业务下的模型`；只输入 `/ml` 会检查使用上下文并显示用法。
 
-Go MSI 将同一套正式 Skill 和 `/ml` 安装到上述位置，支持 Windows Installer 的修复、升级和卸载，并停用已知旧入口。如果用户 PATH 中已有旧版 Python 安装器注册的 `ml`，安装时会在用户确认后移除该 PATH 条目。Go 便携 ZIP 携带资源供开发人员查看，解压不会配置 Agent。见 [Go Windows 安装说明](../../cli-go/README.md)。
+Go MSI 将同一套正式 Skill 和 `/ml` 安装到上述位置，支持 Windows Installer 的修复、升级和卸载，并停用已知旧入口。如果用户 PATH 中已有旧版 Python 安装器注册的 `ml`，安装时会自动移除该 PATH 条目。Go 便携 ZIP 携带资源供开发人员查看，解压不会配置 Agent。见 [Go Windows 安装说明](../../cli-go/README.md)。
 
 Python Windows 安装方式见 [安装说明](../../cli-python/scripts/windows/INSTALL.md)。通用正文为 `SKILL.md` 与 `references/`（不绑定特定 Agent）；`skill/commands/ml.md` 为支持 `/ml`（`$ARGUMENTS` + `skill` 工具）的 OpenCode 等 harness 的入口。下面的 OpenCode 权限示例供安装人员参考。
 

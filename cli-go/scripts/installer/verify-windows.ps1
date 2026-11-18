@@ -13,10 +13,10 @@ function Get-Package($Directory, $Extension) {
     return $files[0].FullName
 }
 
-function Invoke-Msi($Mode, $Package, $Operation, $Expected = 0, $Options = '') {
+function Invoke-Msi($Mode, $Package, $Operation, $Expected = 0) {
     $log = Join-Path $Work "$Operation.log"
     $process = Start-Process -FilePath "$env:SystemRoot\System32\msiexec.exe" -Wait -PassThru `
-        -ArgumentList "$Mode `"$Package`" /qn /norestart /l*v `"$log`" $Options"
+        -ArgumentList "$Mode `"$Package`" /qn /norestart /l*v `"$log`""
     if ($process.ExitCode -ne $Expected) {
         Get-Content -LiteralPath $log -Tail 120
         throw "$Operation exited $($process.ExitCode), expected $Expected"
@@ -150,48 +150,53 @@ $openCode = Join-Path $Work 'custom OpenCode'
 $installedExe = Join-Path $env:LOCALAPPDATA 'Programs/WiseRecCLIGo/ml.exe'
 $goConfig = Join-Path $env:APPDATA 'ml-go-preview\config.json'
 $pythonConfig = Join-Path $env:APPDATA 'ml/config.json'
+$pythonCredentials = Join-Path $env:APPDATA 'ml/credentials.json'
 $conflict = Join-Path $Work 'custom Python/bin'
+$pythonExe = Join-Path $Work 'custom Python/venv/Scripts/ml.exe'
 $otherPath = Join-Path $Work 'unrelated PATH entry'
 $savePath = [Environment]::GetEnvironmentVariable('Path', 'User')
 $saveOpenCode = [Environment]::GetEnvironmentVariable('OPENCODE_CONFIG_DIR', 'User')
 $installedMsi = $null
 try {
-    New-Item -ItemType Directory -Path $conflict, $otherPath, (Split-Path $pythonConfig), (Join-Path $openCode 'commands') -Force | Out-Null
+    New-Item -ItemType Directory -Path $conflict, $otherPath, (Split-Path $pythonExe), (Split-Path $pythonConfig), (Join-Path $openCode 'commands') -Force | Out-Null
     $launcher = Join-Path $conflict 'ml.cmd'
     Set-Content -LiteralPath $launcher -Value '@echo off' -Encoding ascii
+    Set-Content -LiteralPath $pythonExe -Value 'legacy executable fixture'
     Set-Content -LiteralPath $pythonConfig -Value 'python settings'
+    Set-Content -LiteralPath $pythonCredentials -Value 'legacy login fixture'
     Set-Content -LiteralPath (Join-Path $openCode 'commands/unrelated.md') -Value 'keep'
     Set-Content -LiteralPath (Join-Path $openCode 'commands/ml-lab.md') -Value 'old entry'
     [Environment]::SetEnvironmentVariable('OPENCODE_CONFIG_DIR', $openCode, 'User')
     $pathWithConflict = "$otherPath;$conflict;$savePath"
     [Environment]::SetEnvironmentVariable('Path', $pathWithConflict, 'User')
 
-    $log = Invoke-Msi '/i' $baseline 'unknown-path-conflict' 1603 'REMOVEOLDMLPATH=1'
+    $log = Invoke-Msi '/i' $baseline 'unknown-path-conflict' 1603
     if (-not (Select-String -LiteralPath $log -SimpleMatch 'CheckForExistingMl') -or
         ([Environment]::GetEnvironmentVariable('Path', 'User') -ne $pathWithConflict)) {
         throw 'MSI did not preserve an unrelated PATH entry'
     }
     Set-Content -LiteralPath $launcher -Value @('@echo off', '"%~dp0..\venv\Scripts\ml.exe" %*') -Encoding ascii
-    $log = Invoke-Msi '/i' $baseline 'path-conflict-without-consent' 1603
-    if (-not (Select-String -LiteralPath $log -SimpleMatch 'CheckForExistingMl') -or (Test-Path $installedExe) -or
-        ([Environment]::GetEnvironmentVariable('Path', 'User') -ne $pathWithConflict)) {
-        throw 'MSI did not require explicit consent to remove the old PATH entry'
-    }
 
     $rollback = Join-Path $Work 'rollback-test.msi'
     New-RollbackFixture $baseline $rollback
-    $log = Invoke-Msi '/i' $rollback 'path-rollback' 1603 'REMOVEOLDMLPATH=1'
+    $log = Invoke-Msi '/i' $rollback 'path-rollback' 1603
     if (-not (Select-String -LiteralPath $log -SimpleMatch 'CustomAction TestRollbackPath returned actual error code 1') -or
         (Test-Path $installedExe) -or ([Environment]::GetEnvironmentVariable('Path', 'User') -ne $pathWithConflict)) {
         throw 'MSI did not restore the previous PATH on rollback'
     }
 
-    Invoke-Msi '/i' $baseline 'install-with-path-consent' 0 'REMOVEOLDMLPATH=1' | Out-Null
+    $log = Invoke-Msi '/i' $baseline 'install-with-legacy-path'
     $installedMsi = $baseline
+    if (Select-String -LiteralPath $log -SimpleMatch 'Doing action: ShowInstallationSuccess') {
+        throw 'Silent MSI ran the interactive success notification'
+    }
     Assert-Installed $portable
     Assert-Selection 'dev'
     $entries = [Environment]::GetEnvironmentVariable('Path', 'User') -split ';'
-    if ($entries -contains $conflict -or $entries -notcontains $otherPath -or -not (Test-Path -LiteralPath $launcher)) {
+    if ($entries -contains $conflict -or $entries -notcontains $otherPath -or -not (Test-Path -LiteralPath $launcher) -or
+        (Get-Content -LiteralPath $pythonExe) -ne 'legacy executable fixture' -or
+        (Get-Content -LiteralPath $pythonConfig) -ne 'python settings' -or
+        (Get-Content -LiteralPath $pythonCredentials) -ne 'legacy login fixture') {
         throw 'MSI did not remove exactly the old launcher entry while preserving its files'
     }
     if (Test-Path (Join-Path $openCode 'commands/ml-lab.md')) { throw 'Legacy shortcut remains' }
