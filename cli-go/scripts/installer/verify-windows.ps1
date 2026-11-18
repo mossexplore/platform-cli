@@ -13,10 +13,10 @@ function Get-Package($Directory, $Extension) {
     return $files[0].FullName
 }
 
-function Invoke-Msi($Mode, $Package, $Operation, $Expected = 0) {
+function Invoke-Msi($Mode, $Package, $Operation, $Expected = 0, $Options = '') {
     $log = Join-Path $Work "$Operation.log"
     $process = Start-Process -FilePath "$env:SystemRoot\System32\msiexec.exe" -Wait -PassThru `
-        -ArgumentList "$Mode `"$Package`" /qn /norestart /l*v `"$log`""
+        -ArgumentList "$Mode `"$Package`" /qn /norestart /l*v `"$log`" $Options"
     if ($process.ExitCode -ne $Expected) {
         Get-Content -LiteralPath $log -Tail 120
         throw "$Operation exited $($process.ExitCode), expected $Expected"
@@ -32,6 +32,31 @@ function Get-MsiVersion($Package) {
     $view.GetType().InvokeMember('Execute', 'InvokeMethod', $null, $view, $null)
     $record = $view.GetType().InvokeMember('Fetch', 'InvokeMethod', $null, $view, $null)
     $record.GetType().InvokeMember('StringData', 'GetProperty', $null, $record, @(1))
+}
+
+function New-RollbackFixture($Source, $Destination) {
+    Copy-Item -LiteralPath $Source -Destination $Destination
+    $installer = New-Object -ComObject WindowsInstaller.Installer
+    $database = $installer.GetType().InvokeMember('OpenDatabase', 'InvokeMethod', $null, $installer, @($Destination, 1))
+    # Queue a deferred failure after PATH and the install files have been written.
+    $queries = @(
+        'INSERT INTO `CustomAction` (`Action`, `Type`, `Source`, `Target`) VALUES (''TestRollbackPath'', 1026, ''PathCheck'', ''test-failure'')',
+        'INSERT INTO `InstallExecuteSequence` (`Action`, `Condition`, `Sequence`) VALUES (''TestRollbackPath'', ''NOT Installed'', 6550)'
+    )
+    try {
+        foreach ($query in $queries) {
+            $view = $database.GetType().InvokeMember('OpenView', 'InvokeMethod', $null, $database, @($query))
+            try {
+                $view.GetType().InvokeMember('Execute', 'InvokeMethod', $null, $view, $null)
+            } finally {
+                [void][Runtime.InteropServices.Marshal]::FinalReleaseComObject($view)
+            }
+        }
+        $database.GetType().InvokeMember('Commit', 'InvokeMethod', $null, $database, $null)
+    } finally {
+        [void][Runtime.InteropServices.Marshal]::FinalReleaseComObject($database)
+        [void][Runtime.InteropServices.Marshal]::FinalReleaseComObject($installer)
+    }
 }
 
 function Refresh-Path {
@@ -99,28 +124,50 @@ $openCode = Join-Path $Work 'custom OpenCode'
 $installedExe = Join-Path $env:LOCALAPPDATA 'Programs/WiseRecCLIGo/ml.exe'
 $goConfig = Join-Path $env:APPDATA 'ml-go-preview\config.json'
 $pythonConfig = Join-Path $env:APPDATA 'ml/config.json'
-$conflict = Join-Path $Work 'custom Python'
+$conflict = Join-Path $Work 'custom Python/bin'
+$otherPath = Join-Path $Work 'unrelated PATH entry'
 $savePath = [Environment]::GetEnvironmentVariable('Path', 'User')
 $saveOpenCode = [Environment]::GetEnvironmentVariable('OPENCODE_CONFIG_DIR', 'User')
 $installedMsi = $null
 try {
-    New-Item -ItemType Directory -Path $conflict, (Split-Path $pythonConfig), (Join-Path $openCode 'commands') -Force | Out-Null
-    Set-Content -LiteralPath (Join-Path $conflict 'ml.cmd') -Value '@echo off'
+    New-Item -ItemType Directory -Path $conflict, $otherPath, (Split-Path $pythonConfig), (Join-Path $openCode 'commands') -Force | Out-Null
+    $launcher = Join-Path $conflict 'ml.cmd'
+    Set-Content -LiteralPath $launcher -Value '@echo off' -Encoding ascii
     Set-Content -LiteralPath $pythonConfig -Value 'python settings'
     Set-Content -LiteralPath (Join-Path $openCode 'commands/unrelated.md') -Value 'keep'
     Set-Content -LiteralPath (Join-Path $openCode 'commands/ml-lab.md') -Value 'old entry'
     [Environment]::SetEnvironmentVariable('OPENCODE_CONFIG_DIR', $openCode, 'User')
-    [Environment]::SetEnvironmentVariable('Path', "$conflict;$savePath", 'User')
+    $pathWithConflict = "$otherPath;$conflict;$savePath"
+    [Environment]::SetEnvironmentVariable('Path', $pathWithConflict, 'User')
 
-    $log = Invoke-Msi '/i' $baseline 'path-conflict' 1603
-    if (-not (Select-String -LiteralPath $log -SimpleMatch 'CheckForExistingMl') -or (Test-Path $installedExe)) {
-        throw 'MSI did not block a conflicting ml before installation'
+    $log = Invoke-Msi '/i' $baseline 'unknown-path-conflict' 1603 'REMOVEOLDMLPATH=1'
+    if (-not (Select-String -LiteralPath $log -SimpleMatch 'CheckForExistingMl') -or
+        ([Environment]::GetEnvironmentVariable('Path', 'User') -ne $pathWithConflict)) {
+        throw 'MSI did not preserve an unrelated PATH entry'
     }
-    [Environment]::SetEnvironmentVariable('Path', $savePath, 'User')
-    Invoke-Msi '/i' $baseline 'install' | Out-Null
+    Set-Content -LiteralPath $launcher -Value @('@echo off', '"%~dp0..\venv\Scripts\ml.exe" %*') -Encoding ascii
+    $log = Invoke-Msi '/i' $baseline 'path-conflict-without-consent' 1603
+    if (-not (Select-String -LiteralPath $log -SimpleMatch 'CheckForExistingMl') -or (Test-Path $installedExe) -or
+        ([Environment]::GetEnvironmentVariable('Path', 'User') -ne $pathWithConflict)) {
+        throw 'MSI did not require explicit consent to remove the old PATH entry'
+    }
+
+    $rollback = Join-Path $Work 'rollback-test.msi'
+    New-RollbackFixture $baseline $rollback
+    $log = Invoke-Msi '/i' $rollback 'path-rollback' 1603 'REMOVEOLDMLPATH=1'
+    if (-not (Select-String -LiteralPath $log -SimpleMatch 'CustomAction TestRollbackPath returned actual error code 1') -or
+        (Test-Path $installedExe) -or ([Environment]::GetEnvironmentVariable('Path', 'User') -ne $pathWithConflict)) {
+        throw 'MSI did not restore the previous PATH on rollback'
+    }
+
+    Invoke-Msi '/i' $baseline 'install-with-path-consent' 0 'REMOVEOLDMLPATH=1' | Out-Null
     $installedMsi = $baseline
     Assert-Installed $portable
     Assert-Selection 'dev'
+    $entries = [Environment]::GetEnvironmentVariable('Path', 'User') -split ';'
+    if ($entries -contains $conflict -or $entries -notcontains $otherPath -or -not (Test-Path -LiteralPath $launcher)) {
+        throw 'MSI did not remove exactly the old launcher entry while preserving its files'
+    }
     if (Test-Path (Join-Path $openCode 'commands/ml-lab.md')) { throw 'Legacy shortcut remains' }
 
     Set-Content -LiteralPath $goConfig -Value '{"current":"test","profiles":[],"access_control":{"enable":false}}'

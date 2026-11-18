@@ -226,7 +226,7 @@ OpenCode 的正式 skill 安装到 `~/.agents/skills/wiserec-platform`，`/ml` �
 
 历史安装若使用过其他自定义 OpenCode 配置目录，需在该目录重新运行安装程序才能清理对应旧副本。
 
-Go 用户可双击 MSI 或通过 `msiexec` 安装。安装前用 `where.exe ml` 检查并移除其他客户端的 PATH 入口。安装后重新打开终端和 Agent，直接使用 `ml` 和 `/ml`。Go 使用 EXE 内置的部署配置。`%APPDATA%\ml-go-preview\config.json` 只保存当前环境 `current`。升级后首次使用保留仍可用的环境选择，否则使用包内默认环境。升级和卸载保留该目录中的登录数据。Go 业务命令需要在线权限校验。便携 ZIP 解压后可用 `.\ml.exe` 或绝对路径运行；需要临时用 `ml` 时可在本终端把解压目录加入 PATH。详见 [Go Windows 安装说明](../cli-go/README.md)。
+Go 用户可双击 MSI 或通过 `msiexec` 安装。若安装器提示找到了旧版 Python 的用户 PATH 入口，确认后会移除该入口并继续安装，旧版程序和登录数据会保留。系统 PATH 或其他程序的冲突需手动处理。安装后重新打开终端和 Agent，直接使用 `ml` 和 `/ml`。Go 使用 EXE 内置的部署配置。`%APPDATA%\ml-go-preview\config.json` 只保存当前环境 `current`。升级后首次使用保留仍可用的环境选择，否则使用包内默认环境。升级和卸载保留该目录中的登录数据。Go 业务命令需要在线权限校验。便携 ZIP 解压后可用 `.\ml.exe` 或绝对路径运行；需要临时用 `ml` 时可在本终端把解压目录加入 PATH。详见 [Go Windows 安装说明](../cli-go/README.md)。
 
 Python 客户端需要 Python 运行环境。浏览器登录需要 Microsoft Edge。首次使用依次选择环境、登录、选择业务。
 

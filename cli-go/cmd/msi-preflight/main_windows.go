@@ -1,96 +1,59 @@
-// This executable is embedded in the MSI and runs before it makes changes.
+// The MSI runs this helper with the installing user's permissions.
 package main
 
 import (
 	"errors"
 	"fmt"
 	"os"
-	"path/filepath"
 	"strconv"
 	"strings"
 	"unsafe"
 
 	"golang.org/x/sys/windows"
-	"golang.org/x/sys/windows/registry"
 )
 
 func main() {
-	if len(os.Args) != 3 {
-		os.Exit(1)
-	}
-	conflict, err := findConflict(os.Args[1])
-	if conflict == "" && err == nil {
-		return
-	}
-
-	message := "Cannot check the Windows PATH. Check where.exe ml before running this installer again."
-	if conflict != "" {
-		message = "Another ml command is registered on PATH:\n" + conflict +
-			"\n\nRemove that entry from PATH and rerun the installer. Keep the previous client's configuration and login files."
-	}
-	fmt.Fprintln(os.Stderr, message)
-	level, _ := strconv.Atoi(os.Args[2])
-	if level >= 4 {
-		showMessage(message)
-	}
-	os.Exit(1)
-}
-
-func findConflict(installDir string) (string, error) {
-	for _, location := range []struct {
-		root registry.Key
-		key  string
-	}{
-		{registry.LOCAL_MACHINE, `SYSTEM\CurrentControlSet\Control\Session Manager\Environment`},
-		{registry.CURRENT_USER, "Environment"},
-	} {
-		path, err := readPath(location.root, location.key)
-		if err != nil {
-			return "", err
-		}
-		for _, entry := range strings.Split(path, ";") {
-			dir := strings.Trim(strings.TrimSpace(entry), `"`)
-			if dir == "" || strings.EqualFold(filepath.Clean(dir), filepath.Clean(installDir)) {
-				continue
-			}
-			for _, name := range []string{"ml.com", "ml.exe", "ml.bat", "ml.cmd"} {
-				candidate := filepath.Join(dir, name)
-				info, err := os.Stat(candidate)
-				if err == nil && !info.IsDir() {
-					return candidate, nil
-				}
-			}
-		}
-	}
-	return "", nil
-}
-
-func readPath(root registry.Key, subkey string) (string, error) {
-	key, err := registry.OpenKey(root, subkey, registry.QUERY_VALUE)
-	if errors.Is(err, registry.ErrNotExist) {
-		return "", nil
+	level := 0
+	var err error
+	switch {
+	case len(os.Args) == 7 && os.Args[1] == "prepare":
+		level, _ = strconv.Atoi(os.Args[4])
+		err = preparePathSwitch(os.Args[2], os.Args[3], level >= 4, os.Args[5] == "1", os.Args[6] == "1")
+	case len(os.Args) == 4 && os.Args[1] == "apply":
+		err = applyPathSwitch(os.Args[2], os.Args[3])
+	case len(os.Args) == 3 && os.Args[1] == "rollback":
+		err = restorePath(os.Args[2])
+	case len(os.Args) == 3 && os.Args[1] == "commit":
+		err = removePathJournal(os.Args[2])
+	default:
+		err = errors.New("Invalid MSI PATH action arguments.")
 	}
 	if err != nil {
-		return "", err
+		fmt.Fprintln(os.Stderr, err)
+		if level >= 4 && !errors.Is(err, errDeclined) {
+			messageBox(err.Error(), 0x10) // MB_ICONERROR
+		}
+		os.Exit(1)
 	}
-	defer key.Close()
-	value, kind, err := key.GetStringValue("Path")
-	if errors.Is(err, registry.ErrNotExist) {
-		return "", nil
-	}
-	if err == nil && kind == registry.EXPAND_SZ {
-		return registry.ExpandString(value)
-	}
-	return value, err
 }
 
-func showMessage(message string) {
+var errDeclined = errors.New("The user declined to remove the previous ml PATH entry.")
+
+func confirmRemoval(entries []string) bool {
+	message := "Windows 用户 PATH 中已有旧版 WiseRec CLI 的入口：\n\n" + strings.Join(entries, "\n") +
+		"\n\n是否移除这些 PATH 条目并继续安装？旧版程序、配置和登录数据会保留。"
+	const yesNo = 0x4 | 0x20 | 0x100       // MB_YESNO | MB_ICONQUESTION | MB_DEFBUTTON2
+	return messageBox(message, yesNo) == 6 // IDYES
+}
+
+func messageBox(message string, flags uintptr) uintptr {
 	box := windows.NewLazySystemDLL("user32.dll").NewProc("MessageBoxW")
 	content, err := windows.UTF16PtrFromString(message)
 	if err != nil {
-		return
+		return 0
 	}
-	title, _ := windows.UTF16PtrFromString("WiseRec CLI (Go)")
-	const mbIconError = 0x10
-	_, _, _ = box.Call(0, uintptr(unsafe.Pointer(content)), uintptr(unsafe.Pointer(title)), mbIconError)
+	title, _ := windows.UTF16PtrFromString("WiseRec CLI")
+	const setForeground = 0x10000
+	result, _, _ := box.Call(0, uintptr(unsafe.Pointer(content)), uintptr(unsafe.Pointer(title)), flags|setForeground)
+	return result
 }
