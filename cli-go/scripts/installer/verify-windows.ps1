@@ -66,7 +66,7 @@ function Invoke-AutomaticUpgradeFixture($Package, $Exe) {
     try {
         $env:WISECLI_UPGRADE_MODE = 'verify'
         $encoded = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($script))
-        $output = & $powershell -NoProfile -NonInteractive -EncodedCommand $encoded 2>&1
+        $output = & $powershell -NoProfile -NonInteractive -OutputFormat Text -EncodedCommand $encoded 2>&1
         if ($LASTEXITCODE -ne 1 -or "$output" -notlike '*NotSigned*') {
             throw "Expected unsigned MSI rejection from Windows PowerShell: $output"
         }
@@ -83,7 +83,7 @@ function Get-AuthenticodeSignature([string] $LiteralPath) {
 '@
         $env:WISECLI_UPGRADE_MODE = 'install'
         $encoded = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes("$signatureFixture`n$script"))
-        & $powershell -NoProfile -NonInteractive -EncodedCommand $encoded
+        & $powershell -NoProfile -NonInteractive -OutputFormat Text -EncodedCommand $encoded
         if ($LASTEXITCODE -ne 0) {
             $log = Join-Path $fixture 'install.log'
             if (Test-Path -LiteralPath $log) { Get-Content -LiteralPath $log -Tail 120 }

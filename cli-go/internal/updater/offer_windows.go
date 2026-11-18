@@ -167,7 +167,7 @@ func installerCommand(ctx context.Context, shell, mode string, env []string, std
 	for index, unit := range utf16Script {
 		binary.LittleEndian.PutUint16(data[index*2:], unit)
 	}
-	command := exec.CommandContext(ctx, shell, "-NoLogo", "-NoProfile", "-NonInteractive", "-EncodedCommand",
+	command := exec.CommandContext(ctx, shell, "-NoLogo", "-NoProfile", "-NonInteractive", "-OutputFormat", "Text", "-EncodedCommand",
 		base64.StdEncoding.EncodeToString(data))
 	command.Env = append(command.Environ(), append(env, "WISECLI_UPGRADE_MODE="+mode)...)
 	command.Stderr, command.Stdout = stderr, stderr
