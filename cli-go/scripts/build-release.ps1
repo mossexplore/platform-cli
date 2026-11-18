@@ -28,7 +28,7 @@ try {
     $metadata = & $Python @arguments
     if ($LASTEXITCODE -ne 0) { throw 'Preparing package inputs failed.' }
     $release = $metadata | ConvertFrom-Json
-    $baseName = "wiserec-cli-go-$($release.version)-windows-x64"
+    $baseName = "wiserec-cli-$($release.version)-windows-x64"
     $names = @("$baseName.zip")
     if (-not $PortableOnly) { $names += "$baseName.msi" }
     foreach ($name in $names) {

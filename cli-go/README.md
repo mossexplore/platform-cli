@@ -63,8 +63,8 @@ notepad .\cli-go\config.json
 
 | 产物 | 内容 |
 | --- | --- |
-| `wiserec-cli-go-VERSION-windows-x64.zip` | 含部署配置的 `ml.exe`、正式 Skill 和 `/ml` 资源、`release.json` 和本说明 |
-| `wiserec-cli-go-VERSION-windows-x64.msi` | 同一个 `ml.exe`、正式 Skill 和 `/ml` 的每用户安装包 |
+| `wiserec-cli-VERSION-windows-x64.zip` | 含部署配置的 `ml.exe`、正式 Skill 和 `/ml` 资源、`release.json` 和本说明 |
+| `wiserec-cli-VERSION-windows-x64.msi` | 同一个 `ml.exe`、正式 Skill 和 `/ml` 的每用户安装包 |
 
 开发时只需裸 EXE，可运行 `./cli-go/scripts/build-windows.ps1 -OutputDirectory DIR -ConfigPath PATH`。命令使用相同的构建配置优先级，生成的 EXE 可单独运行。
 
