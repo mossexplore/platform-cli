@@ -61,7 +61,7 @@ ml train instance logs download TASK_ID JOB_ID --select all --directory 'D:\logs
 - `history logs download` 下载普通日志前先查询是否存在。日志未就绪，或下载链接接口返回 `failedUploadSwitch=false` 时，按作业提交手动归档。提交成功后立即提示“手动归档中，请稍后再次下载日志！”，返回 `not_ready` 和非零退出码。稍后重试时重新检查日志是否存在。同次命令内同一作业最多归档一次，批量下载继续处理其余选中角色。
 - 所有训练类型下载 plog 前均检查 `sysParam` JSON 字符串中的 `plogUploadSuccess`，其值须为字符串 `"1"`。普通训练检查执行记录自身，分布式训练检查角色。CLI 直接获取 plog 链接并下载。执行记录或所选角色无 plog 时，提示“该记录没有plog日志，停止下载”。分布式 plog 文件命名为 `<roleJobId>_plog.zip`。
 - 历史日志下载逐阶段提示查询记录、检查日志、归档、获取和校验地址及文件下载（均写入 stderr）。逐条失败的 JSON 摘要含 `stage` 和带阶段名称的 `error`；按失败阶段排查，不把权限检查或地址校验失败解释为日志不存在。plog 同样显示地址获取和下载阶段。
-- Go 下载日志 ZIP 时遵循终端的 `HTTPS_PROXY` 和 `NO_PROXY`。已取到链接但下载失败时，按错误类别核对代理、DNS 或连接超时，不复述签名参数。
+- Go 下载日志 ZIP 时优先使用终端的 `HTTPS_PROXY`，其次使用 `ALL_PROXY`，并按 `NO_PROXY` 绕过代理。没有环境代理配置时，Windows 和 macOS 使用手动配置的系统 HTTPS 代理。仅使用 PAC 的环境可在当前终端设置 `HTTPS_PROXY` 后重试。已取到链接但下载失败时，按错误类别核对代理、DNS 或连接超时，不复述签名参数。
 - `history list` 和 `instance list` 的 `-o json` 保留原始状态与时长字段（`runningTime`、`queueTime` 为分钟，`waitTime` 为秒）；表格模式会自动换算为中文状态和可读时长。
 - `ml train start TASK_ID` 返回 `jobId` 只表示请求已被接受，之后用 `history list` 确认状态。
 - `cancel`、`delete`、`clone` 默认询问确认，授权后加 `--yes`。`cancel` 逐个取消全部执行实例，需看逐条结果和退出码，没有实例时退出 1。`clone` 成功后可能返回新任务 ID。

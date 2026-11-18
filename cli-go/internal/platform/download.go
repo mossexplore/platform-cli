@@ -142,7 +142,7 @@ func (a *API) SignedLogDownload(ctx context.Context, raw, destination, directory
 	// different network route from the console API. No platform headers or cookies
 	// are used for this client.
 	transport := http.DefaultTransport.(*http.Transport).Clone()
-	transport.Proxy = http.ProxyFromEnvironment
+	transport.Proxy = logDownloadProxy(ctx)
 	transport.TLSClientConfig = &tls.Config{InsecureSkipVerify: true} // #nosec G402
 	client := &http.Client{Transport: transport, CheckRedirect: rejectRedirect}
 	return signedDownload(ctx, client, raw, destination, directory, name, false)
@@ -212,6 +212,8 @@ func downloadNetworkError(err error) error {
 	var op *net.OpError
 	var network net.Error
 	switch {
+	case errors.Is(err, errInvalidLogProxy):
+		return errInvalidLogProxy
 	case errors.As(err, &cert):
 		return errors.New("下载网络请求失败：HTTPS 证书验证失败")
 	case errors.As(err, &network) && network.Timeout():

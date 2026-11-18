@@ -3,6 +3,8 @@ package platform
 import (
 	"context"
 	"fmt"
+	"io"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -10,6 +12,56 @@ import (
 	"strings"
 	"testing"
 )
+
+func TestSignedLogDownloadUsesAllProxyForHTTPS(t *testing.T) {
+	const content = "log from storage"
+	storage := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprint(w, content)
+	}))
+	defer storage.Close()
+	const downloadHost = "obs.invalid"
+	proxy := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodConnect || r.Host != downloadHost+":443" {
+			t.Errorf("unexpected proxy request %s %s", r.Method, r.Host)
+			http.Error(w, "unexpected proxy request", http.StatusBadRequest)
+			return
+		}
+		upstream, err := net.Dial("tcp", storage.Listener.Addr().String())
+		if err != nil {
+			t.Errorf("connect to test storage: %v", err)
+			http.Error(w, "storage unavailable", http.StatusBadGateway)
+			return
+		}
+		defer upstream.Close()
+		client, buffered, err := http.NewResponseController(w).Hijack()
+		if err != nil {
+			t.Errorf("open tunnel: %v", err)
+			return
+		}
+		defer client.Close()
+		fmt.Fprint(buffered, "HTTP/1.1 200 Connection Established\r\n\r\n")
+		if err := buffered.Flush(); err != nil {
+			t.Errorf("start tunnel: %v", err)
+			return
+		}
+		go io.Copy(upstream, buffered)
+		_, _ = io.Copy(client, upstream)
+	}))
+	defer proxy.Close()
+
+	for _, key := range []string{"HTTPS_PROXY", "https_proxy", "NO_PROXY", "no_proxy", "ALL_PROXY", "all_proxy"} {
+		t.Setenv(key, "")
+	}
+	t.Setenv("all_proxy", proxy.URL)
+
+	path, size, err := (&API{}).SignedLogDownload(t.Context(), "https://"+downloadHost+"/log.zip", "", t.TempDir(), "log")
+	if err != nil || size != int64(len(content)) {
+		t.Fatalf("download through ALL_PROXY: %d %v", size, err)
+	}
+	if saved, err := os.ReadFile(path); err != nil || string(saved) != content {
+		t.Fatalf("saved data: %q %v", saved, err)
+	}
+}
 
 func TestSignedLogDownloadUsesSeparateHTTPSClient(t *testing.T) {
 	const content = "log contents"

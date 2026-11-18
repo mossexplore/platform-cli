@@ -666,7 +666,7 @@ WiseRec 和 MLOps 的 `history list` 表格的最后三列依次是“执行时�
 
 两种日志下载均使用 `--directory DIR` 指定已存在的目录，不传时保存到当前目录，不再接受 `--file`。普通日志和 plog 均自动以 ZIP 文件名保存。分布式训练的 plog 命名为 `<roleJobId>_plog.zip`，同名文件自动编号。配置导出为 YAML，仍使用 `--file`，父目录须存在。
 
-Go 客户端的日志 ZIP 下载遵循当前终端的 `HTTPS_PROXY` 和 `NO_PROXY` 设置。若已取到链接但下载失败，按提示检查代理、DNS 或连接超时。
+Go 客户端下载日志 ZIP 时优先使用当前终端的 `HTTPS_PROXY`，其次使用 `ALL_PROXY`，并按 `NO_PROXY` 绕过代理。没有环境代理配置时，Windows 和 macOS 读取系统中手动设置的 HTTPS 代理。仅使用 PAC 自动配置的环境可在当前终端设置 `HTTPS_PROXY` 后重试。若已取到链接但下载失败，按提示检查代理、DNS 或连接超时。
 
 ### 12.4 示例
 
