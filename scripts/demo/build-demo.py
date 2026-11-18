@@ -21,7 +21,8 @@ def main():
     parser.add_argument('--offline', action='store_true')
     args = parser.parse_args()
     repo = Path(__file__).resolve().parents[2]
-    version = next(line.split('"')[1] for line in (repo/'pyproject.toml').read_text().splitlines()
+    cli = repo/'cli-python'
+    version = next(line.split('"')[1] for line in (cli/'pyproject.toml').read_text().splitlines()
                    if line.startswith('version ='))
     name = f'wiserec-cli-{version}-demo-' + ('offline' if args.offline else 'online')
     output = args.output.resolve()
@@ -33,9 +34,9 @@ def main():
         root = Path(temporary)/name
         wheels = root/'packages'
         wheels.mkdir(parents=True)
-        execute('-m', 'build', '--wheel', '--outdir', wheels, cwd=repo)
+        execute('-m', 'build', '--wheel', '--outdir', wheels, cwd=cli)
         core = next(wheels.glob('wiserec_cli-*.whl'))
-        execute(repo/'scripts/releasing/check-cli-package.py', core)
+        execute(cli/'scripts/check-cli-package.py', core)
         execute('-m', 'build', '--wheel', '--outdir', wheels, cwd=repo/'devtools/mock-platform')
         if args.offline:
             execute('-m', 'pip', 'download', '--only-binary=:all:', '--dest', wheels,

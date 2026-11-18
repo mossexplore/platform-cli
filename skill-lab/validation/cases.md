@@ -15,7 +15,7 @@
 .venv/bin/python skill-lab/validation/verify_package.py
 ```
 
-第一项核对所有叶子、命令组、参数和引用的覆盖，并检查证据文件是否漂移；第二项在临时副本构建 Wheel/sdist，再从源码包重建 Wheel 并核对安装资源和运行版本，不改正式构建配置或安装位置。Windows ZIP 的构建链路需结合 scripts/windows/build-release.ps1 和 test_windows_packaging.py；本机不宣称完成 Windows 联网/离线安装实测。
+第一项核对所有叶子、命令组、参数和引用的覆盖，并检查证据文件是否漂移；第二项在临时副本构建 Wheel/sdist，再从源码包重建 Wheel 并核对安装资源和运行版本，不改正式构建配置或安装位置。Windows ZIP 的构建链路需结合 cli-python/scripts/windows/build-release.ps1 和 test_windows_packaging.py；本机不宣称完成 Windows 联网/离线安装实测。
 
 ## 行为场景
 

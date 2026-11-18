@@ -52,8 +52,8 @@ ml algorithm download ALGORITHM_ID
 
 已核对命令定义和以下仓库实现；未进行真实平台联调。路径用于维护追溯，不要求使用者访问源码。
 
-- `src/wiserec_cli/commands/algorithm.py`
-- `src/wiserec_cli/services/algorithm.py`
-- `src/wiserec_cli/algorithm_download.py`
+- `cli-python/src/wiserec_cli/commands/algorithm.py`
+- `cli-python/src/wiserec_cli/services/algorithm.py`
+- `cli-python/src/wiserec_cli/algorithm_download.py`
 
 命令入口函数 `download`，记录时起始行 110。服务端额外字段、权限差异和未显式校验的长度/数量限制不作推断。

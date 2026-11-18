@@ -36,7 +36,7 @@ def test_package_gate_rejects_nested_mock(tmp_path):
     import runpy
     import zipfile
     import io
-    checker = runpy.run_path(str(Path(__file__).resolve().parents[1]/'scripts/releasing/check-cli-package.py'))['check']
+    checker = runpy.run_path(str(Path(__file__).resolve().parents[1]/'scripts/check-cli-package.py'))['check']
     wheel = io.BytesIO()
     with zipfile.ZipFile(wheel, 'w') as z:
         z.writestr('wiserec_cli_mock/__init__.py', '')

@@ -67,7 +67,7 @@ ml service logs SERVICE_ID --no-input --pod POD_NAME --cluster-name CLUSTER_NAME
 
 已核对命令定义和以下仓库实现；未进行真实平台联调。路径用于维护追溯，不要求使用者访问源码。
 
-- `src/wiserec_cli/commands/service_logs.py`
-- `src/wiserec_cli/services/service.py`
+- `cli-python/src/wiserec_cli/commands/service_logs.py`
+- `cli-python/src/wiserec_cli/services/service.py`
 
 命令入口函数 `service_logs`，记录时起始行 120。服务端额外字段、权限差异和未显式校验的长度/数量限制不作推断。

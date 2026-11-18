@@ -8,6 +8,29 @@ import shutil
 import subprocess
 import sys
 import zipfile
+import pytest
+
+
+PROJECT = Path(__file__).resolve().parents[1]
+REPOSITORY = PROJECT.parent
+
+
+def packaging_checkout(repository):
+    project = repository / "cli-python"
+    project.mkdir()
+    for name in ("setup.py", "pyproject.toml", "MANIFEST.in", "config.example.json", "LICENSE", "README.md"):
+        shutil.copy2(PROJECT / name, project / name)
+    for name in ("src", "examples"):
+        shutil.copytree(PROJECT / name, project / name,
+                        ignore=shutil.ignore_patterns("*.egg-info", "__pycache__"))
+    shutil.copytree(REPOSITORY / "skill", repository / "skill")
+    for name in ("versions.toml", "scripts/sync_versions.py", "docs/Jupyter本地开发指南.md"):
+        target = repository / name
+        target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(REPOSITORY / name, target)
+    (project / "scripts").mkdir()
+    shutil.copy2(PROJECT / "scripts/jupyter_local.py", project / "scripts/jupyter_local.py")
+    return project
 
 
 def check_skill_provenance(archive, project):
@@ -44,19 +67,11 @@ def check_skill_provenance(archive, project):
 
 
 def test_wheel_excludes_stale_build_modules(tmp_path):
-    root = Path(__file__).resolve().parents[1]
-    project = tmp_path / "project"
-    project.mkdir()
-    for name in ("setup.py", "pyproject.toml", "MANIFEST.in", "config.example.json", "versions.toml"):
-        shutil.copy2(root / name, project / name)
+    project = packaging_checkout(tmp_path)
     custom = json.loads((project / 'config.example.json').read_text())
     custom['profiles'][0]['api_endpoint'] = 'https://custom-package.example/dashboard'
     (project / 'config.json').write_text(json.dumps(custom))
-    (project / 'scripts').mkdir()
-    shutil.copy2(root / 'scripts/sync_versions.py', project / 'scripts/sync_versions.py')
-    for name in ("src", "skill"):
-        shutil.copytree(root / name, project / name,
-                        ignore=shutil.ignore_patterns("*.egg-info", "__pycache__"))
+    (tmp_path / 'config.json').write_bytes((project / 'config.example.json').read_bytes())
 
     stale_files = ("wisemlops_cli/__init__.py", "obsolete.py",
                    "wiserec_cli/removed.py")
@@ -65,7 +80,7 @@ def test_wheel_excludes_stale_build_modules(tmp_path):
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text("# obsolete build output\n", encoding="utf-8")
 
-    check = runpy.run_path(str(root / "scripts/releasing/check-cli-package.py"))["check"]
+    check = runpy.run_path(str(PROJECT / "scripts/check-cli-package.py"))["check"]
     # Also exercise a second build in the same checkout, as online/offline builds do.
     for _ in range(2):
         result = subprocess.run(
@@ -79,42 +94,40 @@ def test_wheel_excludes_stale_build_modules(tmp_path):
             names = set(archive.namelist())
             assert names.isdisjoint(stale_files)
             assert "wiserec_cli/cli.py" in names
+            license_name, = [name for name in names if name.endswith("/LICENSE")]
+            assert archive.read(license_name) == (REPOSITORY / "LICENSE").read_bytes()
             assert archive.read("wiserec_cli/config.json") == (project / "config.json").read_bytes()
             assert "wiserec_cli/opencode_resources/manifest.json" in names
-            check_skill_provenance(archive, project)
+            check_skill_provenance(archive, tmp_path)
     (project / 'config.json').unlink()
+    (tmp_path / 'config.json').unlink()
     result = subprocess.run([sys.executable, 'setup.py', 'bdist_wheel'], cwd=project,
                             capture_output=True, text=True)
     assert result.returncode != 0
-    assert 'Missing project-root config.json' in result.stdout + result.stderr
+    assert 'Missing config.json' in result.stdout + result.stderr
 
 
 
-def test_sdist_excludes_lab_and_builds_formal_skill(tmp_path):
+@pytest.mark.parametrize("legacy_config", [False, True])
+def test_sdist_excludes_lab_and_builds_formal_skill(tmp_path, legacy_config):
     import tarfile
-    root = Path(__file__).resolve().parents[1]
-    project = tmp_path / "project"
-    project.mkdir()
-    for name in ("setup.py", "pyproject.toml", "MANIFEST.in", "config.example.json", "versions.toml"):
-        shutil.copy2(root / name, project / name)
+    project = packaging_checkout(tmp_path)
     custom = json.loads((project / 'config.example.json').read_text())
     custom['profiles'][0]['api_endpoint'] = 'https://sdist-config.example/dashboard'
     packaged_config = json.dumps(custom).encode()
-    (project / 'config.json').write_bytes(packaged_config)
-    (project / "scripts").mkdir()
-    shutil.copy2(root / "scripts/sync_versions.py", project / "scripts/sync_versions.py")
-    for name in ("src", "skill"):
-        shutil.copytree(root / name, project / name, ignore=shutil.ignore_patterns("*.egg-info", "__pycache__"))
+    (tmp_path if legacy_config else project).joinpath('config.json').write_bytes(packaged_config)
     # Exclusion must hold even if an archive or old entry is present in a checkout.
     (project / "skill-lab/commands").mkdir(parents=True)
     (project / "skill-lab/commands/ml-lab.md").write_text("archived")
-    (project / "skill/commands/ml-lab.md").write_text("obsolete")
+    (tmp_path / "skill/commands/ml-lab.md").write_text("obsolete")
     result = subprocess.run([sys.executable, "setup.py", "sdist"], cwd=project, capture_output=True, text=True)
     assert result.returncode == 0, result.stdout + result.stderr
     archive, = (project / "dist").glob("*.tar.gz")
     with tarfile.open(archive) as source:
         names = source.getnames()
-        assert any(name.endswith("/config.json") for name in names)
+        for path in ("config.json", "versions.toml", "scripts/sync_versions.py", "LICENSE",
+                     "scripts/jupyter_local.py", "examples/jupyter/hello.ipynb", "docs/Jupyter本地开发指南.md"):
+            assert any(name.endswith("/" + path) for name in names), path
         assert not any("skill-lab" in name or name.endswith("/ml-lab.md") for name in names)
         assert any(name.endswith("/skill/wiserec-platform/SKILL.md") for name in names)
         source.extractall(tmp_path / "extracted")

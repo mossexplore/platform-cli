@@ -52,8 +52,8 @@ ml webstudio login ENV_ID
 
 已核对命令定义和以下仓库实现；未进行真实平台联调。路径用于维护追溯，不要求使用者访问源码。
 
-- `src/wiserec_cli/commands/webstudio.py`
-- `src/wiserec_cli/services/webstudio.py`
-- `src/wiserec_cli/webstudio/resolve.py`
+- `cli-python/src/wiserec_cli/commands/webstudio.py`
+- `cli-python/src/wiserec_cli/services/webstudio.py`
+- `cli-python/src/wiserec_cli/webstudio/resolve.py`
 
 命令入口函数 `login_studio`，记录时起始行 69。服务端额外字段、权限差异和未显式校验的长度/数量限制不作推断。

@@ -4,13 +4,13 @@
 
 ## 1. 测试入口
 
-正式回归：`python -m pytest tests -q`。Jupyter 测试需显式启用独立本地服务，不连接真实业务平台。
+正式回归：`python -m pytest cli-python/tests tests -q`。Jupyter 测试需显式启用独立本地服务，不连接真实业务平台。
 
 演示回归：在独立开发虚拟环境安装核心、扩展、pytest 与 Jupyter 可选依赖后执行：
 
 ```bash
 python -m pip install -r access-service/requirements.lock
-python -m pytest devtools/mock-platform/tests tests/test_execution_context.py -q
+python -m pytest devtools/mock-platform/tests cli-python/tests/test_execution_context.py -q
 ```
 
 权限服务：`PYTHONPATH=access-service python -m pytest access-service/tests -q`。
@@ -19,7 +19,7 @@ python -m pytest devtools/mock-platform/tests tests/test_execution_context.py -q
 
 ## 2. 正式上下文与产物隔离
 
-对应 `tests/test_execution_context.py`。
+对应 `cli-python/tests/test_execution_context.py`。
 
 | 用例 | 操作 | 预期 |
 | --- | --- | --- |
@@ -89,7 +89,7 @@ python -m pytest devtools/mock-platform/tests tests/test_execution_context.py -q
 
 ## 6. 真实 Jupyter
 
-对应 `test_jupyter_demo.py` 与原有 `tests/test_jupyter_live.py`、`test_jupyter_agent_live.py`。
+对应 `test_jupyter_demo.py` 与 `cli-python/tests/test_jupyter_live.py`、`cli-python/tests/test_jupyter_agent_live.py`。
 
 - 在独立临时目录启动真实本地服务，检查前缀和 Token。
 - 通过演示 WebStudio 启动、登录、选择，进入 Jupyter。

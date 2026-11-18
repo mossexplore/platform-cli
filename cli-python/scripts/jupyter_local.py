@@ -44,7 +44,9 @@ def prepare(root: Path, port: int):
 
 
 def main():
-    root = Path(__file__).resolve().parents[1] / ".jupyter-local"
+    project = Path(__file__).resolve().parents[1]
+    repository = project.parent if (project.parent / "versions.toml").is_file() else project
+    root = repository / ".jupyter-local"
     if sys.argv[1:2] == ["--cli"]:
         if not (root / "config.json").is_file():
             raise SystemExit("请先启动本地 JupyterLab 或运行 --prepare-only")

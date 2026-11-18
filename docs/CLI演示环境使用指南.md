@@ -183,8 +183,8 @@ Linux/macOS 离线构建：
 
 | 目的 | 使用入口 |
 | --- | --- |
-| 原正式 CLI 出包 | `scripts/windows/build-release.cmd` / `.ps1` |
-| 原正式构建后安装 | `scripts/build-install.cmd` / `.ps1` |
+| 原正式 CLI 出包 | `cli-python/scripts/windows/build-release.cmd` / `.ps1` |
+| 原正式构建后安装 | `cli-python/scripts/build-install.cmd` / `.ps1` |
 | Mock 演示包 | `scripts/demo/build-demo.py` / `.cmd` |
 
 正式脚本不会因为仓库新增 Mock 代码而自动包含演示扩展。正式 Wheel、sdist 和 Windows ZIP 有隔离检查；演示构建也先检查正式核心 Wheel。GitHub 自动生成的仓库源码归档仍包含开发源码，不等同于正式 Python 分发包。
@@ -464,7 +464,7 @@ POSIX 仓库根目录示例：
 
 ```bash
 python3 -m venv .venv-demo-dev
-.venv-demo-dev/bin/python -m pip install -e . -e ./devtools/mock-platform
+.venv-demo-dev/bin/python -m pip install -e ./cli-python -e ./devtools/mock-platform
 .venv-demo-dev/bin/python -m wiserec_cli_mock.manage --workspace /absolute/new-demo init --permission-url https://PERMISSION_HOST --username YOUR_ACCOUNT
 export WISEREC_DEMO_WORKSPACE=/absolute/new-demo
 .venv-demo-dev/bin/python -m wiserec_cli_mock.bootstrap context --json
@@ -473,7 +473,7 @@ export WISEREC_DEMO_WORKSPACE=/absolute/new-demo
 
 `/absolute/new-demo` 必须尚不存在。开发时显式调用 bootstrap；仅设置工作区环境变量后运行正式 `ml`，不会自动启用 Mock。Windows 可将上述解释器改为 `.venv-demo-dev\Scripts\python.exe`，并用 PowerShell 设置 `$env:WISEREC_DEMO_WORKSPACE`。
 
-业务 Mock 位于 `devtools/mock-platform/src/wiserec_cli_mock/`；正式核心位于 `src/wiserec_cli/`。不要将模拟路由、数据或场景复制到正式核心目录。
+业务 Mock 位于 `devtools/mock-platform/src/wiserec_cli_mock/`；正式核心位于 `cli-python/src/wiserec_cli/`。不要将模拟路由、数据或场景复制到正式核心目录。
 
 测试和包验收入口见 [测试用例](CLI演示环境测试用例.md) 与 [测试报告](CLI演示环境测试报告.md)。测试权限服务使用独立临时数据库，不会替你配置实际录屏账号。
 

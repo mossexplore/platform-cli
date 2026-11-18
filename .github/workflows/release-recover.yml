@@ -48,7 +48,10 @@ jobs:
           sha = run['head_sha']
           subprocess.run(['git', 'merge-base', '--is-ancestor', sha, 'origin/main'], check=True)
           version = subprocess.check_output(['git', 'show', f'{sha}:access-service/VERSION']).decode().strip()
-          cli_version = tomllib.loads(subprocess.check_output(['git', 'show', f'{sha}:pyproject.toml']).decode())['project']['version']
+          cli_project = 'cli-python/pyproject.toml'
+          if not subprocess.check_output(['git', 'ls-tree', sha, '--', cli_project]):
+              cli_project = 'pyproject.toml'
+          cli_version = tomllib.loads(subprocess.check_output(['git', 'show', f'{sha}:{cli_project}']).decode())['project']['version']
           assert re.fullmatch(r'\d+\.\d+\.\d+\.\d+', version)
           assert cli_version == version
           release = gh('release', 'view', 'v'+version, '--json', 'isDraft,targetCommitish')

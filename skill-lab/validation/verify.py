@@ -8,7 +8,7 @@ import shlex
 import sys
 
 ROOT = Path(__file__).resolve().parents[2]
-sys.path.insert(0, str(ROOT / 'src'))
+sys.path.insert(0, str(ROOT / 'cli-python/src'))
 import click
 import typer
 from wiserec_cli.cli import app

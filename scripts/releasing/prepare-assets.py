@@ -47,7 +47,13 @@ for archive in archives:
         assert len(inner_wheels) == 1
         assert z.read(names[inner_wheels[0]]) == wheel.read_bytes(), 'CLI bundles must share the same wheel'
         cli.append({'file': archive.name, **data})
-subprocess.run([sys.executable, 'scripts/releasing/check-cli-package.py', str(wheel),
+# Release recovery may check out a source revision predating cli-python/.
+cli_checker = Path('cli-python/scripts/check-cli-package.py')
+cli_install_doc = Path('cli-python/scripts/windows/INSTALL.md')
+if not Path('cli-python').is_dir():
+    cli_checker = Path('scripts/releasing/check-cli-package.py')
+    cli_install_doc = Path('scripts/windows/INSTALL.md')
+subprocess.run([sys.executable, str(cli_checker), str(wheel),
                 *map(str, archives)], check=True)
 assert {item['mode'] for item in cli} == {'online', 'offline'}
 assistant = out / f'permission-notifier-{version}-windows-source.zip'
@@ -82,7 +88,7 @@ manifest['validation'] = [
 (out / 'manifest.json').write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + '\n')
 shutil.copyfile('docs/权限管理系统Docker安装部署与调试指南.md', out / 'Docker-runbook.md')
 shutil.copyfile(f'docs/权限管理系统结构12升级至{version}指南.md', out / f'Docker-upgrade-{version}.md')
-shutil.copyfile('scripts/windows/INSTALL.md', out / 'CLI-install.md')
+shutil.copyfile(cli_install_doc, out / 'CLI-install.md')
 shutil.copyfile('docs/WiseRec CLI 使用手册.md', out / 'CLI-reference.md')
 expected = {wheel.name, assistant.name, *(a.name for a in archives), manifest['image_file'],
             'manifest.json', 'SHA256SUMS', 'README.md', 'service.env.example', 'CLI-install.md',

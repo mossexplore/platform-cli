@@ -82,7 +82,7 @@ ml service host mock SERVICE_ID --pod-ip POD_IP -o json
 
 已核对命令定义和以下仓库实现；未进行真实平台联调。路径用于维护追溯，不要求使用者访问源码。
 
-- `src/wiserec_cli/commands/service_mock.py`
-- `src/wiserec_cli/services/service_mock.py`
+- `cli-python/src/wiserec_cli/commands/service_mock.py`
+- `cli-python/src/wiserec_cli/services/service_mock.py`
 
 命令入口函数 `host_mock`，记录时起始行 132。服务端额外字段、权限差异和未显式校验的长度/数量限制不作推断。

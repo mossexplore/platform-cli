@@ -24,14 +24,14 @@ jobs:
           python - <<'PY'
           import os, re, pathlib, tomllib
           version = pathlib.Path('access-service/VERSION').read_text().strip()
-          cli_version = tomllib.loads(pathlib.Path('pyproject.toml').read_text())['project']['version']
+          cli_version = tomllib.loads(pathlib.Path('cli-python/pyproject.toml').read_text())['project']['version']
           assert re.fullmatch(r'\d+\.\d+\.\d+\.\d+', version)
           assert cli_version == version, 'CLI and permission service release versions must match'
           assert tomllib.loads(pathlib.Path('permission-notifier/pyproject.toml').read_text())['project']['version'] == version
           assert f"__version__ = '{version}'" in pathlib.Path('permission-notifier/src/permission_notifier/__init__.py').read_text()
           assert tomllib.loads(pathlib.Path('agent-service/pyproject.toml').read_text())['project']['version'] == version
           assert pathlib.Path(f'docs/RELEASE_NOTES_{version}.md').is_file()
-          assert f'__version__ = "{cli_version}"' in pathlib.Path('src/wiserec_cli/__init__.py').read_text()
+          assert f'__version__ = "{cli_version}"' in pathlib.Path('cli-python/src/wiserec_cli/__init__.py').read_text()
           with open(os.environ['GITHUB_OUTPUT'], 'a') as f:
               f.write(f'version={version}\ncli_version={cli_version}\n')
           PY
@@ -61,14 +61,14 @@ jobs:
           python-version: '3.12'
           architecture: x64
       - name: Prepare CI example configuration
-        run: python -c "from shutil import copyfile; copyfile('config.example.json', 'config.json')"
+        run: python -c "from shutil import copyfile; copyfile('cli-python/config.example.json', 'cli-python/config.json')"
       - name: Build Windows online and offline packages
         shell: powershell
         run: |
           $env:SOURCE_DATE_EPOCH = git show -s --format=%ct HEAD
           py -3 -c "import sys; assert sys.version_info[:2] == (3, 12)"
-          ./scripts/windows/build-release.ps1 -Online
-          ./scripts/windows/build-release.ps1 -Offline
+          ./cli-python/scripts/windows/build-release.ps1 -Online
+          ./cli-python/scripts/windows/build-release.ps1 -Offline
           $offline = Get-Content release/wiserec-cli-*-offline/release.json | ConvertFrom-Json
           if ($offline.python_minor -ne 12 -or $offline.architecture -ne 'x64') { throw 'Wrong offline target' }
       - name: Build previous CLI for upgrade test
@@ -82,7 +82,7 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'Previous build failed' }
       - name: Verify clean installs, offline install and upgrade
         shell: powershell
-        run: ./scripts/releasing/verify-windows.ps1
+        run: ./cli-python/scripts/windows/verify-windows.ps1
       - name: Collect CLI assets
         shell: powershell
         run: |
@@ -106,8 +106,8 @@ jobs:
           python-version: '3.12'
       - run: python -m pip install -r agent-service/requirements.lock pytest pytest-asyncio
       - name: Prepare CI example configuration
-        run: python -c "from shutil import copyfile; copyfile('config.example.json', 'config.json')"
-      - run: python -m pip install --no-deps -e . -e ./agent-service
+        run: python -c "from shutil import copyfile; copyfile('cli-python/config.example.json', 'cli-python/config.json')"
+      - run: python -m pip install --no-deps -e ./cli-python -e ./agent-service
       - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
         with:
           node-version: "22"

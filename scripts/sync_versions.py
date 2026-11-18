@@ -38,10 +38,13 @@ def project_version(path, value):
 def sync(root, check=False):
     root = Path(root)
     versions, tested = read_versions(root)
+    cli = root / "cli-python"
+    if not (cli / "pyproject.toml").is_file():
+        cli = root  # Standalone Python CLI source distribution.
     generated = '# Generated from versions.toml by scripts/sync_versions.py; do not edit.\n'
     files = {
-        root / 'pyproject.toml': project_version(root / 'pyproject.toml', versions['cli']),
-        root / 'src/wiserec_cli/__init__.py':
+        cli / 'pyproject.toml': project_version(cli / 'pyproject.toml', versions['cli']),
+        cli / 'src/wiserec_cli/__init__.py':
             '"""wiserec CLI package."""\n\n' + generated + f'__version__ = "{versions["cli"]}"\n',
     }
     # CLI source distributions contain the manifest but deliberately exclude services.

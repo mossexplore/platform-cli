@@ -17,11 +17,14 @@ VERSION = '1.0.9.1'
 SHA = 'a' * 40
 
 
-def assemble(tmp_path, *, wrong_revision=False, extra_file=False, leak=False):
+def assemble(tmp_path, *, wrong_revision=False, extra_file=False, leak=False, legacy_layout=False):
     scripts = tmp_path / 'scripts/releasing'
     scripts.mkdir(parents=True)
-    for name in ('prepare-assets.py', 'check-cli-package.py'):
-        shutil.copyfile(ROOT / 'scripts/releasing' / name, scripts / name)
+    shutil.copyfile(ROOT / 'scripts/releasing/prepare-assets.py', scripts / 'prepare-assets.py')
+    cli_checker = 'scripts/releasing/check-cli-package.py' if legacy_layout else 'cli-python/scripts/check-cli-package.py'
+    cli_install = 'scripts/windows/INSTALL.md' if legacy_layout else 'cli-python/scripts/windows/INSTALL.md'
+    (tmp_path / cli_checker).parent.mkdir(parents=True, exist_ok=True)
+    shutil.copyfile(ROOT / 'cli-python/scripts/check-cli-package.py', tmp_path / cli_checker)
     files = {
         'access-service/VERSION': VERSION,
         f'docs/ACCESS_RELEASE_NOTES_{VERSION}.md': 'access notes',
@@ -32,7 +35,7 @@ def assemble(tmp_path, *, wrong_revision=False, extra_file=False, leak=False):
         'docs/权限管理系统Docker安装部署与调试指南.md': 'runbook',
         f'docs/权限管理系统结构12升级至{VERSION}指南.md': 'upgrade',
         'docs/WiseRec CLI 使用手册.md': 'commands',
-        'scripts/windows/INSTALL.md': 'install',
+        cli_install: 'install',
         'permission-notifier/README.md': 'assistant install',
         'permission-notifier/pyproject.toml': f'[project]\nversion="{VERSION}"',
         'permission-notifier/src/permission_notifier/__init__.py': f"__version__ = '{VERSION}'",
@@ -95,8 +98,9 @@ def assemble(tmp_path, *, wrong_revision=False, extra_file=False, leak=False):
              'IMAGE_DIGEST': 'sha256:' + 'c' * 64}, capture_output=True, text=True)
 
 
-def test_assistant_is_third_separate_archive_with_complete_checksums(tmp_path):
-    result = assemble(tmp_path)
+@pytest.mark.parametrize('legacy_layout', [False, True])
+def test_assistant_is_third_separate_archive_with_complete_checksums(tmp_path, legacy_layout):
+    result = assemble(tmp_path, legacy_layout=legacy_layout)
     assert result.returncode == 0, result.stdout + result.stderr
     out = tmp_path / 'release-assets'
     manifest = json.loads((out / 'manifest.json').read_text())

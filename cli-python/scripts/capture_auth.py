@@ -9,7 +9,9 @@ from typing import Any, Union
 from urllib.parse import urlsplit
 
 
-CONFIG_PATH = Path(__file__).with_name("config.json")
+CONFIG_PATH = Path(__file__).resolve().parents[1] / "config.json"
+if not CONFIG_PATH.is_file() and (CONFIG_PATH.parent.parent / "config.json").is_file():
+    CONFIG_PATH = CONFIG_PATH.parent.parent / "config.json"
 
 
 def load_current_profile(config_path: Path = CONFIG_PATH) -> tuple[dict[str, Any], dict[str, Any]]:

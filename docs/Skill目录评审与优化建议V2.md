@@ -48,7 +48,7 @@
 
 正式 Agent 资源合计 36033 字符，按需读取，并非一次全部进入上下文。`skill-lab/` 中有 107 个 Markdown 文件、196283 字符。未随正式安装分发不等于不能被 Agent 手动读取，也不能据此推断无人使用。
 
-依据：[打包扩展](../setup.py)、[sdist 清单](../MANIFEST.in)、[资源测试](../tests/test_skill_resources.py)。实际加载时机、缓存和上下文占用仍取决于 Agent 实现。
+依据：[打包扩展](../cli-python/setup.py)、[sdist 清单](../cli-python/MANIFEST.in)、[资源测试](../tests/test_skill_resources.py)。实际加载时机、缓存和上下文占用仍取决于 Agent 实现。
 
 ### 2.2 分发与安装
 
@@ -65,7 +65,7 @@ OpenCode 配置目录默认为 `~/.config/opencode`，可由 `OPENCODE_CONFIG_DI
 
 安装器具备资源预校验和父目录符号链接检查，但**没有旧资源恢复机制**：预校验失败时旧资源保留；替换阶段先删除旧资源，复制等后续步骤失败时清理残留，不恢复原文件。不得将此表述为“失败回滚”。
 
-依据：[安装器](../src/wiserec_cli/opencode_install.py)、[安装器测试](../tests/test_opencode_install.py)、[Windows 安装说明](../scripts/windows/INSTALL.md)。
+依据：[安装器](../cli-python/src/wiserec_cli/opencode_install.py)、[安装器测试](../cli-python/tests/test_opencode_install.py)、[Windows 安装说明](../cli-python/scripts/windows/INSTALL.md)。
 
 ### 2.3 已执行的核查
 
@@ -87,7 +87,7 @@ OpenCode 配置目录默认为 `~/.config/opencode`，可由 `OPENCODE_CONFIG_DI
 
 应修正该 README 的安装位置、替换对象和 `OPENCODE_CONFIG_DIR` 的影响范围，或将完整安装步骤集中到 Windows 安装说明，其他文档只保留入口链接。
 
-依据：[skill README](../skill/wiserec-platform/README.md)、[安装器](../src/wiserec_cli/opencode_install.py)。
+依据：[skill README](../skill/wiserec-platform/README.md)、[安装器](../cli-python/src/wiserec_cli/opencode_install.py)。
 
 ### 3.2 日志选择说明冲突
 
@@ -95,7 +95,7 @@ OpenCode 配置目录默认为 `~/.config/opencode`，可由 `OPENCODE_CONFIG_DI
 
 应保留的行为边界是：该命令会请求平台归档并写入本地文件；显式传入 `--select` 可避免编号输入提示，但不保证归档已经完成或存在可下载记录。它不是纯只读查询，也没有 `--yes` 确认选项。
 
-依据：[命令索引](../skill/wiserec-platform/references/commands.md)、[正式 skill](../skill/wiserec-platform/SKILL.md)、[日志下载实现](../src/wiserec_cli/commands/train_logs.py)。
+依据：[命令索引](../skill/wiserec-platform/references/commands.md)、[正式 skill](../skill/wiserec-platform/SKILL.md)、[日志下载实现](../cli-python/src/wiserec_cli/commands/train_logs.py)。
 
 ### 3.3 实验版说明与分发状态不一致
 
@@ -129,7 +129,7 @@ ml quality wide-featureset label-assemble feature list
 
 接口差异增加文档与解析成本，但不直接构成功能错误。新增别名和输出模式应兼容现有调用，不必为了形式统一而改变所有命令。
 
-依据：[会话参考](../skill/wiserec-platform/references/session.md)、[认证命令](../src/wiserec_cli/commands/auth.py)、[上下文命令](../src/wiserec_cli/commands/context.py)、[统一输出](../src/wiserec_cli/output.py)。
+依据：[会话参考](../skill/wiserec-platform/references/session.md)、[认证命令](../cli-python/src/wiserec_cli/commands/auth.py)、[上下文命令](../cli-python/src/wiserec_cli/commands/context.py)、[统一输出](../cli-python/src/wiserec_cli/output.py)。
 
 ### 3.6 安全规则与权限示例存在覆盖差异
 
@@ -139,7 +139,7 @@ ml quality wide-featureset label-assemble feature list
 
 正式 skill 对名为 `product` 的环境增加写操作确认要求，当前环境模型没有独立的“受保护环境”标记。生产环境采用其他名字时，无法仅依赖该字面规则获得同样的额外保护；其他写操作核对规则仍然存在。
 
-依据：[正式 skill](../skill/wiserec-platform/SKILL.md)、[权限示例](../skill/wiserec-platform/README.md)、[登录实现](../src/wiserec_cli/auth.py)、[TTY 检查](../src/wiserec_cli/jupyter/terminal.py)、[环境模型](../src/wiserec_cli/models.py)。
+依据：[正式 skill](../skill/wiserec-platform/SKILL.md)、[权限示例](../skill/wiserec-platform/README.md)、[登录实现](../cli-python/src/wiserec_cli/auth.py)、[TTY 检查](../cli-python/src/wiserec_cli/jupyter/terminal.py)、[环境模型](../cli-python/src/wiserec_cli/models.py)。
 
 ### 3.7 内容维护和来源追踪不足
 

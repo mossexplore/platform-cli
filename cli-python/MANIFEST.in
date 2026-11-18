@@ -1,0 +1,4 @@
+include config.example.json
+include scripts/jupyter_local.py
+include examples/jupyter/hello.ipynb
+prune tests

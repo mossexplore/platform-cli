@@ -21,7 +21,7 @@ if (-not (Test-Path -LiteralPath $BuildScript -PathType Leaf)) {
     throw "Build script not found: $BuildScript"
 }
 if ([string]::IsNullOrWhiteSpace($OutputDirectory)) {
-    $OutputDirectory = Join-Path $ScriptDirectory "..\release\local-builds"
+    $OutputDirectory = Join-Path $ScriptDirectory "..\..\release\local-builds"
 }
 # Always use a new directory, including for repeated builds of the same version.
 $RunDirectory = Join-Path ([System.IO.Path]::GetFullPath($OutputDirectory)) (

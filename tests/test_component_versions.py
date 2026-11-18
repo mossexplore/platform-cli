@@ -12,7 +12,7 @@ SYNC = runpy.run_path(str(ROOT / 'scripts/sync_versions.py'))['sync']
 
 
 def checkout(tmp_path):
-    for name in ('versions.toml', 'pyproject.toml', 'src/wiserec_cli/__init__.py',
+    for name in ('versions.toml', 'cli-python/pyproject.toml', 'cli-python/src/wiserec_cli/__init__.py',
                  'access-service/VERSION', 'agent-service/pyproject.toml',
                  'permission-notifier/pyproject.toml'):
         target = tmp_path / name
@@ -38,13 +38,13 @@ notifier = "4.5.6"
 [compatibility]
 agent_cli = "2.3.4"
 ''')
-    before = (root / 'pyproject.toml').read_bytes()
+    before = (root / 'cli-python/pyproject.toml').read_bytes()
     with pytest.raises(ValueError, match='未同步'):
         SYNC(root, check=True)
-    assert (root / 'pyproject.toml').read_bytes() == before
+    assert (root / 'cli-python/pyproject.toml').read_bytes() == before
     SYNC(root)
     assert SYNC(root, check=True) == []
-    assert runpy.run_path(str(root / 'src/wiserec_cli/__init__.py'))['__version__'] == '2.3.4'
+    assert runpy.run_path(str(root / 'cli-python/src/wiserec_cli/__init__.py'))['__version__'] == '2.3.4'
     assert (root / 'access-service/VERSION').read_text().strip() == '5.6.7.8'
     assert runpy.run_path(str(root / 'access-service/app/_version.py'))['__version__'] == '5.6.7.8'
     agent = runpy.run_path(str(root / 'agent-service/app/_version.py'))
@@ -59,10 +59,10 @@ def test_invalid_version_cannot_partially_update_files(tmp_path):
     root = checkout(tmp_path)
     manifest = root / 'versions.toml'
     manifest.write_text(manifest.read_text().replace('cli = "1.0.9.6"', 'cli = "bad"', 1))
-    before = (root / 'pyproject.toml').read_bytes()
+    before = (root / 'cli-python/pyproject.toml').read_bytes()
     with pytest.raises(ValueError, match='版本'):
         SYNC(root)
-    assert (root / 'pyproject.toml').read_bytes() == before
+    assert (root / 'cli-python/pyproject.toml').read_bytes() == before
 
 
 @pytest.mark.parametrize('component', ['agent-service', 'permission-notifier'])

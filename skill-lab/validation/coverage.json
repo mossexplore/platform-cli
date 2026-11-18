@@ -25,9 +25,9 @@
         }
       ],
       "sources": [
-        "src/wiserec_cli/commands/access.py",
-        "src/wiserec_cli/access.py",
-        "src/wiserec_cli/access_transport.py"
+        "cli-python/src/wiserec_cli/commands/access.py",
+        "cli-python/src/wiserec_cli/access.py",
+        "cli-python/src/wiserec_cli/access_transport.py"
       ],
       "callback_line": 14,
       "evidence": "source-reviewed; not live verified"
@@ -104,8 +104,8 @@
         }
       ],
       "sources": [
-        "src/wiserec_cli/commands/algorithm.py",
-        "src/wiserec_cli/services/algorithm.py"
+        "cli-python/src/wiserec_cli/commands/algorithm.py",
+        "cli-python/src/wiserec_cli/services/algorithm.py"
       ],
       "callback_line": 144,
       "evidence": "source-reviewed; not live verified"
@@ -156,9 +156,9 @@
         }
       ],
       "sources": [
-        "src/wiserec_cli/commands/algorithm.py",
-        "src/wiserec_cli/services/algorithm.py",
-        "src/wiserec_cli/algorithm_download.py"
+        "cli-python/src/wiserec_cli/commands/algorithm.py",
+        "cli-python/src/wiserec_cli/services/algorithm.py",
+        "cli-python/src/wiserec_cli/algorithm_download.py"
       ],
       "callback_line": 110,
       "evidence": "source-reviewed; not live verified"
@@ -266,8 +266,8 @@
         }
       ],
       "sources": [
-        "src/wiserec_cli/commands/algorithm.py",
-        "src/wiserec_cli/services/algorithm.py"
+        "cli-python/src/wiserec_cli/commands/algorithm.py",
+        "cli-python/src/wiserec_cli/services/algorithm.py"
       ],
       "callback_line": 83,
       "evidence": "source-reviewed; not live verified"
@@ -276,7 +276,7 @@
       "document": "references/commands/auth/ping/start.md",
       "parameters": [],
       "sources": [
-        "src/wiserec_cli/commands/auth.py"
+        "cli-python/src/wiserec_cli/commands/auth.py"
       ],
       "callback_line": 75,
       "evidence": "source-reviewed; not live verified"
@@ -285,8 +285,8 @@
       "document": "references/commands/auth/ping/status.md",
       "parameters": [],
       "sources": [
-        "src/wiserec_cli/commands/auth.py",
-        "src/wiserec_cli/ping.py"
+        "cli-python/src/wiserec_cli/commands/auth.py",
+        "cli-python/src/wiserec_cli/ping.py"
       ],
       "callback_line": 94,
       "evidence": "source-reviewed; not live verified"
@@ -295,7 +295,7 @@
       "document": "references/commands/auth/ping/stop.md",
       "parameters": [],
       "sources": [
-        "src/wiserec_cli/commands/auth.py"
+        "cli-python/src/wiserec_cli/commands/auth.py"
       ],
       "callback_line": 84,
       "evidence": "source-reviewed; not live verified"
@@ -304,7 +304,7 @@
       "document": "references/commands/auth/status.md",
       "parameters": [],
       "sources": [
-        "src/wiserec_cli/commands/auth.py"
+        "cli-python/src/wiserec_cli/commands/auth.py"
       ],
       "callback_line": 103,
       "evidence": "source-reviewed; not live verified"
@@ -313,7 +313,7 @@
       "document": "references/commands/business/list.md",
       "parameters": [],
       "sources": [
-        "src/wiserec_cli/commands/business.py"
+        "cli-python/src/wiserec_cli/commands/business.py"
       ],
       "callback_line": 90,
       "evidence": "source-reviewed; not live verified"
@@ -322,7 +322,7 @@
       "document": "references/commands/business/refresh.md",
       "parameters": [],
       "sources": [
-        "src/wiserec_cli/commands/business.py"
+        "cli-python/src/wiserec_cli/commands/business.py"
       ],
       "callback_line": 288,
       "evidence": "source-reviewed; not live verified"
@@ -331,7 +331,7 @@
       "document": "references/commands/business/show.md",
       "parameters": [],
       "sources": [
-        "src/wiserec_cli/commands/business.py"
+        "cli-python/src/wiserec_cli/commands/business.py"
       ],
       "callback_line": 137,
       "evidence": "source-reviewed; not live verified"
@@ -405,7 +405,7 @@
         }
       ],
       "sources": [
-        "src/wiserec_cli/commands/business.py"
+        "cli-python/src/wiserec_cli/commands/business.py"
       ],
       "callback_line": 151,
       "evidence": "source-reviewed; not live verified"
@@ -433,8 +433,8 @@
         }
       ],
       "sources": [
-        "src/wiserec_cli/commands/context.py",
-        "src/wiserec_cli/execution.py"
+        "cli-python/src/wiserec_cli/commands/context.py",
+        "cli-python/src/wiserec_cli/execution.py"
       ],
       "callback_line": 13,
       "evidence": "source-reviewed; not live verified"
@@ -477,8 +477,8 @@
         }
       ],
       "sources": [
-        "src/wiserec_cli/commands/dataset.py",
-        "src/wiserec_cli/services/dataset.py"
+        "cli-python/src/wiserec_cli/commands/dataset.py",
+        "cli-python/src/wiserec_cli/services/dataset.py"
       ],
       "callback_line": 166,
       "evidence": "source-reviewed; not live verified"
@@ -537,8 +537,8 @@
         }
       ],
       "sources": [
-        "src/wiserec_cli/commands/dataset_files.py",
-        "src/wiserec_cli/services/dataset_files.py"
+        "cli-python/src/wiserec_cli/commands/dataset_files.py",
+        "cli-python/src/wiserec_cli/services/dataset_files.py"
       ],
       "callback_line": 41,
       "evidence": "source-reviewed; not live verified"
@@ -646,8 +646,8 @@
         }
       ],
       "sources": [
-        "src/wiserec_cli/commands/dataset_files.py",
-        "src/wiserec_cli/services/dataset_files.py"
+        "cli-python/src/wiserec_cli/commands/dataset_files.py",
+        "cli-python/src/wiserec_cli/services/dataset_files.py"
       ],
       "callback_line": 61,
       "evidence": "source-reviewed; not live verified"
@@ -787,8 +787,8 @@
         }
       ],
       "sources": [
-        "src/wiserec_cli/commands/dataset.py",
-        "src/wiserec_cli/services/dataset.py"
+        "cli-python/src/wiserec_cli/commands/dataset.py",
+        "cli-python/src/wiserec_cli/services/dataset.py"
       ],
       "callback_line": 133,
       "evidence": "source-reviewed; not live verified"
@@ -831,8 +831,8 @@
         }
       ],
       "sources": [
-        "src/wiserec_cli/commands/deployment.py",
-        "src/wiserec_cli/services/deployment.py"
+        "cli-python/src/wiserec_cli/commands/deployment.py",
+        "cli-python/src/wiserec_cli/services/deployment.py"
       ],
       "callback_line": 154,
       "evidence": "source-reviewed; not live verified"
@@ -971,8 +971,8 @@
         }
       ],
       "sources": [
-        "src/wiserec_cli/commands/deployment.py",
-        "src/wiserec_cli/services/deployment.py"
+        "cli-python/src/wiserec_cli/commands/deployment.py",
+        "cli-python/src/wiserec_cli/services/deployment.py"
       ],
       "callback_line": 133,
       "evidence": "source-reviewed; not live verified"
@@ -981,8 +981,8 @@
       "document": "references/commands/env/list.md",
       "parameters": [],
       "sources": [
-        "src/wiserec_cli/commands/env.py",
-        "src/wiserec_cli/env_access.py"
+        "cli-python/src/wiserec_cli/commands/env.py",
+        "cli-python/src/wiserec_cli/env_access.py"
       ],
       "callback_line": 18,
       "evidence": "source-reviewed; not live verified"
@@ -991,7 +991,7 @@
       "document": "references/commands/env/show.md",
       "parameters": [],
       "sources": [
-        "src/wiserec_cli/commands/env.py"
+        "cli-python/src/wiserec_cli/commands/env.py"
       ],
       "callback_line": 44,
       "evidence": "source-reviewed; not live verified"
@@ -1017,8 +1017,8 @@
         }
       ],
       "sources": [
-        "src/wiserec_cli/commands/env.py",
-        "src/wiserec_cli/config.py"
+        "cli-python/src/wiserec_cli/commands/env.py",
+        "cli-python/src/wiserec_cli/config.py"
       ],
       "callback_line": 64,
       "evidence": "source-reviewed; not live verified"
@@ -1127,8 +1127,8 @@
         }
       ],
       "sources": [
-        "src/wiserec_cli/commands/feature_execution.py",
-        "src/wiserec_cli/services/feature_execution.py"
+        "cli-python/src/wiserec_cli/commands/feature_execution.py",
+        "cli-python/src/wiserec_cli/services/feature_execution.py"
       ],
       "callback_line": 67,
       "evidence": "source-reviewed; not live verified"
@@ -1277,8 +1277,8 @@
         }
       ],
       "sources": [
-        "src/wiserec_cli/commands/feature_execution.py",
-        "src/wiserec_cli/services/feature_execution.py"
+        "cli-python/src/wiserec_cli/commands/feature_execution.py",
+        "cli-python/src/wiserec_cli/services/feature_execution.py"
       ],
       "callback_line": 92,
       "evidence": "source-reviewed; not live verified"
@@ -1401,8 +1401,8 @@
         }
       ],
       "sources": [
-        "src/wiserec_cli/commands/feature_task.py",
-        "src/wiserec_cli/services/feature_task.py"
+        "cli-python/src/wiserec_cli/commands/feature_task.py",
+        "cli-python/src/wiserec_cli/services/feature_task.py"
       ],
       "callback_line": 60,
       "evidence": "source-reviewed; not live verified"
@@ -1428,8 +1428,8 @@
         }
       ],
       "sources": [
-        "src/wiserec_cli/commands/featureset.py",
-        "src/wiserec_cli/services/featureset.py"
+        "cli-python/src/wiserec_cli/commands/featureset.py",
+        "cli-python/src/wiserec_cli/services/featureset.py"
       ],
       "callback_line": 91,
       "evidence": "source-reviewed; not live verified"
@@ -1513,9 +1513,9 @@
         }
       ],
       "sources": [
-        "src/wiserec_cli/commands/featureset.py",
-        "src/wiserec_cli/services/featureset.py",
-        "src/wiserec_cli/featureset_export.py"
+        "cli-python/src/wiserec_cli/commands/featureset.py",
+        "cli-python/src/wiserec_cli/services/featureset.py",
+        "cli-python/src/wiserec_cli/featureset_export.py"
       ],
       "callback_line": 112,
       "evidence": "source-reviewed; not live verified"
@@ -1606,8 +1606,8 @@
         }
       ],
       "sources": [
-        "src/wiserec_cli/commands/featureset.py",
-        "src/wiserec_cli/services/featureset.py"
+        "cli-python/src/wiserec_cli/commands/featureset.py",
+        "cli-python/src/wiserec_cli/services/featureset.py"
       ],
       "callback_line": 66,
       "evidence": "source-reviewed; not live verified"
@@ -1633,8 +1633,8 @@
         }
       ],
       "sources": [
-        "src/wiserec_cli/commands/featureset.py",
-        "src/wiserec_cli/services/featureset.py"
+        "cli-python/src/wiserec_cli/commands/featureset.py",
+        "cli-python/src/wiserec_cli/services/featureset.py"
       ],
       "callback_line": 91,
       "evidence": "source-reviewed; not live verified"
@@ -1718,9 +1718,9 @@
         }
       ],
       "sources": [
-        "src/wiserec_cli/commands/featureset.py",
-        "src/wiserec_cli/services/featureset.py",
-        "src/wiserec_cli/featureset_export.py"
+        "cli-python/src/wiserec_cli/commands/featureset.py",
+        "cli-python/src/wiserec_cli/services/featureset.py",
+        "cli-python/src/wiserec_cli/featureset_export.py"
       ],
       "callback_line": 112,
       "evidence": "source-reviewed; not live verified"
@@ -1811,8 +1811,8 @@
         }
       ],
       "sources": [
-        "src/wiserec_cli/commands/featureset.py",
-        "src/wiserec_cli/services/featureset.py"
+        "cli-python/src/wiserec_cli/commands/featureset.py",
+        "cli-python/src/wiserec_cli/services/featureset.py"
       ],
       "callback_line": 66,
       "evidence": "source-reviewed; not live verified"
@@ -1872,7 +1872,7 @@
         }
       ],
       "sources": [
-        "src/wiserec_cli/commands/history.py"
+        "cli-python/src/wiserec_cli/commands/history.py"
       ],
       "callback_line": 123,
       "evidence": "source-reviewed; not live verified"
@@ -1971,8 +1971,8 @@
         }
       ],
       "sources": [
-        "src/wiserec_cli/commands/history.py",
-        "src/wiserec_cli/history_recording.py"
+        "cli-python/src/wiserec_cli/commands/history.py",
+        "cli-python/src/wiserec_cli/history_recording.py"
       ],
       "callback_line": 109,
       "evidence": "source-reviewed; not live verified"
@@ -1998,7 +1998,7 @@
         }
       ],
       "sources": [
-        "src/wiserec_cli/commands/jupyter.py"
+        "cli-python/src/wiserec_cli/commands/jupyter.py"
       ],
       "callback_line": 60,
       "evidence": "source-reviewed; not live verified"
@@ -2163,9 +2163,9 @@
         }
       ],
       "sources": [
-        "src/wiserec_cli/commands/jupyter_exec.py",
-        "src/wiserec_cli/jupyter/execution.py",
-        "src/wiserec_cli/jupyter/exec_worker.py"
+        "cli-python/src/wiserec_cli/commands/jupyter_exec.py",
+        "cli-python/src/wiserec_cli/jupyter/execution.py",
+        "cli-python/src/wiserec_cli/jupyter/exec_worker.py"
       ],
       "callback_line": 10,
       "evidence": "source-reviewed; not live verified"
@@ -2240,9 +2240,9 @@
         }
       ],
       "sources": [
-        "src/wiserec_cli/commands/jupyter_files.py",
-        "src/wiserec_cli/jupyter/files.py",
-        "src/wiserec_cli/jupyter/connection.py"
+        "cli-python/src/wiserec_cli/commands/jupyter_files.py",
+        "cli-python/src/wiserec_cli/jupyter/files.py",
+        "cli-python/src/wiserec_cli/jupyter/connection.py"
       ],
       "callback_line": 144,
       "evidence": "source-reviewed; not live verified"
@@ -2301,8 +2301,8 @@
         }
       ],
       "sources": [
-        "src/wiserec_cli/commands/jupyter_files.py",
-        "src/wiserec_cli/jupyter/files.py"
+        "cli-python/src/wiserec_cli/commands/jupyter_files.py",
+        "cli-python/src/wiserec_cli/jupyter/files.py"
       ],
       "callback_line": 153,
       "evidence": "source-reviewed; not live verified"
@@ -2404,8 +2404,8 @@
         }
       ],
       "sources": [
-        "src/wiserec_cli/commands/jupyter_files.py",
-        "src/wiserec_cli/jupyter/files.py"
+        "cli-python/src/wiserec_cli/commands/jupyter_files.py",
+        "cli-python/src/wiserec_cli/jupyter/files.py"
       ],
       "callback_line": 125,
       "evidence": "source-reviewed; not live verified"
@@ -2464,9 +2464,9 @@
         }
       ],
       "sources": [
-        "src/wiserec_cli/commands/jupyter_files.py",
-        "src/wiserec_cli/jupyter/files.py",
-        "src/wiserec_cli/jupyter/connection.py"
+        "cli-python/src/wiserec_cli/commands/jupyter_files.py",
+        "cli-python/src/wiserec_cli/jupyter/files.py",
+        "cli-python/src/wiserec_cli/jupyter/connection.py"
       ],
       "callback_line": 49,
       "evidence": "source-reviewed; not live verified"
@@ -2525,9 +2525,9 @@
         }
       ],
       "sources": [
-        "src/wiserec_cli/commands/jupyter_files.py",
-        "src/wiserec_cli/jupyter/files.py",
-        "src/wiserec_cli/jupyter/connection.py"
+        "cli-python/src/wiserec_cli/commands/jupyter_files.py",
+        "cli-python/src/wiserec_cli/jupyter/files.py",
+        "cli-python/src/wiserec_cli/jupyter/connection.py"
       ],
       "callback_line": 106,
       "evidence": "source-reviewed; not live verified"
@@ -2602,9 +2602,9 @@
         }
       ],
       "sources": [
-        "src/wiserec_cli/commands/jupyter_files.py",
-        "src/wiserec_cli/jupyter/files.py",
-        "src/wiserec_cli/jupyter/connection.py"
+        "cli-python/src/wiserec_cli/commands/jupyter_files.py",
+        "cli-python/src/wiserec_cli/jupyter/files.py",
+        "cli-python/src/wiserec_cli/jupyter/connection.py"
       ],
       "callback_line": 135,
       "evidence": "source-reviewed; not live verified"
@@ -2711,8 +2711,8 @@
         }
       ],
       "sources": [
-        "src/wiserec_cli/commands/jupyter_files.py",
-        "src/wiserec_cli/jupyter/files.py"
+        "cli-python/src/wiserec_cli/commands/jupyter_files.py",
+        "cli-python/src/wiserec_cli/jupyter/files.py"
       ],
       "callback_line": 70,
       "evidence": "source-reviewed; not live verified"
@@ -2771,9 +2771,9 @@
         }
       ],
       "sources": [
-        "src/wiserec_cli/commands/jupyter_files.py",
-        "src/wiserec_cli/jupyter/files.py",
-        "src/wiserec_cli/jupyter/connection.py"
+        "cli-python/src/wiserec_cli/commands/jupyter_files.py",
+        "cli-python/src/wiserec_cli/jupyter/files.py",
+        "cli-python/src/wiserec_cli/jupyter/connection.py"
       ],
       "callback_line": 61,
       "evidence": "source-reviewed; not live verified"
@@ -2877,9 +2877,9 @@
         }
       ],
       "sources": [
-        "src/wiserec_cli/commands/jupyter_files.py",
-        "src/wiserec_cli/jupyter/files.py",
-        "src/wiserec_cli/jupyter/connection.py"
+        "cli-python/src/wiserec_cli/commands/jupyter_files.py",
+        "cli-python/src/wiserec_cli/jupyter/files.py",
+        "cli-python/src/wiserec_cli/jupyter/connection.py"
       ],
       "callback_line": 115,
       "evidence": "source-reviewed; not live verified"
@@ -3001,9 +3001,9 @@
         }
       ],
       "sources": [
-        "src/wiserec_cli/commands/jupyter_files.py",
-        "src/wiserec_cli/jupyter/files.py",
-        "src/wiserec_cli/jupyter/connection.py"
+        "cli-python/src/wiserec_cli/commands/jupyter_files.py",
+        "cli-python/src/wiserec_cli/jupyter/files.py",
+        "cli-python/src/wiserec_cli/jupyter/connection.py"
       ],
       "callback_line": 91,
       "evidence": "source-reviewed; not live verified"
@@ -3178,8 +3178,8 @@
         }
       ],
       "sources": [
-        "src/wiserec_cli/commands/jupyter.py",
-        "src/wiserec_cli/jupyter/notebook.py"
+        "cli-python/src/wiserec_cli/commands/jupyter.py",
+        "cli-python/src/wiserec_cli/jupyter/notebook.py"
       ],
       "callback_line": 76,
       "evidence": "source-reviewed; not live verified"
@@ -3221,7 +3221,7 @@
         }
       ],
       "sources": [
-        "src/wiserec_cli/commands/jupyter.py"
+        "cli-python/src/wiserec_cli/commands/jupyter.py"
       ],
       "callback_line": 141,
       "evidence": "source-reviewed; not live verified"
@@ -3263,7 +3263,7 @@
         }
       ],
       "sources": [
-        "src/wiserec_cli/commands/jupyter.py"
+        "cli-python/src/wiserec_cli/commands/jupyter.py"
       ],
       "callback_line": 154,
       "evidence": "source-reviewed; not live verified"
@@ -3289,7 +3289,7 @@
         }
       ],
       "sources": [
-        "src/wiserec_cli/commands/jupyter.py"
+        "cli-python/src/wiserec_cli/commands/jupyter.py"
       ],
       "callback_line": 112,
       "evidence": "source-reviewed; not live verified"
@@ -3315,7 +3315,7 @@
         }
       ],
       "sources": [
-        "src/wiserec_cli/commands/jupyter.py"
+        "cli-python/src/wiserec_cli/commands/jupyter.py"
       ],
       "callback_line": 128,
       "evidence": "source-reviewed; not live verified"
@@ -3343,8 +3343,8 @@
         }
       ],
       "sources": [
-        "src/wiserec_cli/commands/auth.py",
-        "src/wiserec_cli/auth.py"
+        "cli-python/src/wiserec_cli/commands/auth.py",
+        "cli-python/src/wiserec_cli/auth.py"
       ],
       "callback_line": 25,
       "evidence": "source-reviewed; not live verified"
@@ -3390,7 +3390,7 @@
         }
       ],
       "sources": [
-        "src/wiserec_cli/commands/auth.py"
+        "cli-python/src/wiserec_cli/commands/auth.py"
       ],
       "callback_line": 46,
       "evidence": "source-reviewed; not live verified"
@@ -3433,9 +3433,9 @@
         }
       ],
       "sources": [
-        "src/wiserec_cli/commands/mep.py",
-        "src/wiserec_cli/services/mep.py",
-        "src/wiserec_cli/services/user.py"
+        "cli-python/src/wiserec_cli/commands/mep.py",
+        "cli-python/src/wiserec_cli/services/mep.py",
+        "cli-python/src/wiserec_cli/services/user.py"
       ],
       "callback_line": 19,
       "evidence": "source-reviewed; not live verified"
@@ -3728,9 +3728,9 @@
         }
       ],
       "sources": [
-        "src/wiserec_cli/commands/model_deploy.py",
-        "src/wiserec_cli/services/model_deploy.py",
-        "src/wiserec_cli/services/deploy_payload.py"
+        "cli-python/src/wiserec_cli/commands/model_deploy.py",
+        "cli-python/src/wiserec_cli/services/model_deploy.py",
+        "cli-python/src/wiserec_cli/services/deploy_payload.py"
       ],
       "callback_line": 42,
       "evidence": "source-reviewed; not live verified"
@@ -3773,8 +3773,8 @@
         }
       ],
       "sources": [
-        "src/wiserec_cli/commands/model.py",
-        "src/wiserec_cli/services/model.py"
+        "cli-python/src/wiserec_cli/commands/model.py",
+        "cli-python/src/wiserec_cli/services/model.py"
       ],
       "callback_line": 145,
       "evidence": "source-reviewed; not live verified"
@@ -3913,8 +3913,8 @@
         }
       ],
       "sources": [
-        "src/wiserec_cli/commands/model.py",
-        "src/wiserec_cli/services/model.py"
+        "cli-python/src/wiserec_cli/commands/model.py",
+        "cli-python/src/wiserec_cli/services/model.py"
       ],
       "callback_line": 124,
       "evidence": "source-reviewed; not live verified"
@@ -3975,8 +3975,8 @@
         }
       ],
       "sources": [
-        "src/wiserec_cli/commands/model.py",
-        "src/wiserec_cli/services/model.py"
+        "cli-python/src/wiserec_cli/commands/model.py",
+        "cli-python/src/wiserec_cli/services/model.py"
       ],
       "callback_line": 162,
       "evidence": "source-reviewed; not live verified"
@@ -4019,8 +4019,8 @@
         }
       ],
       "sources": [
-        "src/wiserec_cli/commands/mtp.py",
-        "src/wiserec_cli/services/swanboard.py"
+        "cli-python/src/wiserec_cli/commands/mtp.py",
+        "cli-python/src/wiserec_cli/services/swanboard.py"
       ],
       "callback_line": 229,
       "evidence": "source-reviewed; not live verified"
@@ -4063,8 +4063,8 @@
         }
       ],
       "sources": [
-        "src/wiserec_cli/commands/mtp.py",
-        "src/wiserec_cli/services/swanboard.py"
+        "cli-python/src/wiserec_cli/commands/mtp.py",
+        "cli-python/src/wiserec_cli/services/swanboard.py"
       ],
       "callback_line": 192,
       "evidence": "source-reviewed; not live verified"
@@ -4155,8 +4155,8 @@
         }
       ],
       "sources": [
-        "src/wiserec_cli/commands/mtp.py",
-        "src/wiserec_cli/services/swanboard.py"
+        "cli-python/src/wiserec_cli/commands/mtp.py",
+        "cli-python/src/wiserec_cli/services/swanboard.py"
       ],
       "callback_line": 169,
       "evidence": "source-reviewed; not live verified"
@@ -4199,8 +4199,8 @@
         }
       ],
       "sources": [
-        "src/wiserec_cli/commands/mtp.py",
-        "src/wiserec_cli/services/swanboard.py"
+        "cli-python/src/wiserec_cli/commands/mtp.py",
+        "cli-python/src/wiserec_cli/services/swanboard.py"
       ],
       "callback_line": 247,
       "evidence": "source-reviewed; not live verified"
@@ -4264,8 +4264,8 @@
         }
       ],
       "sources": [
-        "src/wiserec_cli/commands/mtp.py",
-        "src/wiserec_cli/services/swanboard.py"
+        "cli-python/src/wiserec_cli/commands/mtp.py",
+        "cli-python/src/wiserec_cli/services/swanboard.py"
       ],
       "callback_line": 210,
       "evidence": "source-reviewed; not live verified"
@@ -4340,8 +4340,8 @@
         }
       ],
       "sources": [
-        "src/wiserec_cli/commands/mtp.py",
-        "src/wiserec_cli/services/swanboard.py"
+        "cli-python/src/wiserec_cli/commands/mtp.py",
+        "cli-python/src/wiserec_cli/services/swanboard.py"
       ],
       "callback_line": 145,
       "evidence": "source-reviewed; not live verified"
@@ -4448,8 +4448,8 @@
         }
       ],
       "sources": [
-        "src/wiserec_cli/commands/mtp.py",
-        "src/wiserec_cli/services/swanboard.py"
+        "cli-python/src/wiserec_cli/commands/mtp.py",
+        "cli-python/src/wiserec_cli/services/swanboard.py"
       ],
       "callback_line": 85,
       "evidence": "source-reviewed; not live verified"
@@ -4508,8 +4508,8 @@
         }
       ],
       "sources": [
-        "src/wiserec_cli/commands/mtp.py",
-        "src/wiserec_cli/services/swanboard.py"
+        "cli-python/src/wiserec_cli/commands/mtp.py",
+        "cli-python/src/wiserec_cli/services/swanboard.py"
       ],
       "callback_line": 116,
       "evidence": "source-reviewed; not live verified"
@@ -4605,8 +4605,8 @@
         }
       ],
       "sources": [
-        "src/wiserec_cli/commands/offline.py",
-        "src/wiserec_cli/services/experiment.py"
+        "cli-python/src/wiserec_cli/commands/offline.py",
+        "cli-python/src/wiserec_cli/services/experiment.py"
       ],
       "callback_line": 205,
       "evidence": "source-reviewed; not live verified"
@@ -4762,8 +4762,8 @@
         }
       ],
       "sources": [
-        "src/wiserec_cli/commands/offline.py",
-        "src/wiserec_cli/services/experiment.py"
+        "cli-python/src/wiserec_cli/commands/offline.py",
+        "cli-python/src/wiserec_cli/services/experiment.py"
       ],
       "callback_line": 87,
       "evidence": "source-reviewed; not live verified"
@@ -4934,8 +4934,8 @@
         }
       ],
       "sources": [
-        "src/wiserec_cli/commands/offline.py",
-        "src/wiserec_cli/services/experiment.py"
+        "cli-python/src/wiserec_cli/commands/offline.py",
+        "cli-python/src/wiserec_cli/services/experiment.py"
       ],
       "callback_line": 156,
       "evidence": "source-reviewed; not live verified"
@@ -4978,8 +4978,8 @@
         }
       ],
       "sources": [
-        "src/wiserec_cli/commands/resource.py",
-        "src/wiserec_cli/services/resource.py"
+        "cli-python/src/wiserec_cli/commands/resource.py",
+        "cli-python/src/wiserec_cli/services/resource.py"
       ],
       "callback_line": 179,
       "evidence": "source-reviewed; not live verified"
@@ -5150,8 +5150,8 @@
         }
       ],
       "sources": [
-        "src/wiserec_cli/commands/resource.py",
-        "src/wiserec_cli/services/resource.py"
+        "cli-python/src/wiserec_cli/commands/resource.py",
+        "cli-python/src/wiserec_cli/services/resource.py"
       ],
       "callback_line": 156,
       "evidence": "source-reviewed; not live verified"
@@ -5260,8 +5260,8 @@
         }
       ],
       "sources": [
-        "src/wiserec_cli/commands/sample_execution.py",
-        "src/wiserec_cli/services/sample_execution.py"
+        "cli-python/src/wiserec_cli/commands/sample_execution.py",
+        "cli-python/src/wiserec_cli/services/sample_execution.py"
       ],
       "callback_line": 117,
       "evidence": "source-reviewed; not live verified"
@@ -5450,8 +5450,8 @@
         }
       ],
       "sources": [
-        "src/wiserec_cli/commands/sample_task.py",
-        "src/wiserec_cli/services/sample_task.py"
+        "cli-python/src/wiserec_cli/commands/sample_task.py",
+        "cli-python/src/wiserec_cli/services/sample_task.py"
       ],
       "callback_line": 81,
       "evidence": "source-reviewed; not live verified"
@@ -5592,8 +5592,8 @@
         }
       ],
       "sources": [
-        "src/wiserec_cli/commands/sample_execution.py",
-        "src/wiserec_cli/services/sample_execution.py"
+        "cli-python/src/wiserec_cli/commands/sample_execution.py",
+        "cli-python/src/wiserec_cli/services/sample_execution.py"
       ],
       "callback_line": 97,
       "evidence": "source-reviewed; not live verified"
@@ -5636,8 +5636,8 @@
         }
       ],
       "sources": [
-        "src/wiserec_cli/commands/service.py",
-        "src/wiserec_cli/services/service.py"
+        "cli-python/src/wiserec_cli/commands/service.py",
+        "cli-python/src/wiserec_cli/services/service.py"
       ],
       "callback_line": 248,
       "evidence": "source-reviewed; not live verified"
@@ -5696,8 +5696,8 @@
         }
       ],
       "sources": [
-        "src/wiserec_cli/commands/service.py",
-        "src/wiserec_cli/services/service.py"
+        "cli-python/src/wiserec_cli/commands/service.py",
+        "cli-python/src/wiserec_cli/services/service.py"
       ],
       "callback_line": 222,
       "evidence": "source-reviewed; not live verified"
@@ -5807,8 +5807,8 @@
         }
       ],
       "sources": [
-        "src/wiserec_cli/commands/service_mock.py",
-        "src/wiserec_cli/services/service_mock.py"
+        "cli-python/src/wiserec_cli/commands/service_mock.py",
+        "cli-python/src/wiserec_cli/services/service_mock.py"
       ],
       "callback_line": 132,
       "evidence": "source-reviewed; not live verified"
@@ -5932,8 +5932,8 @@
         }
       ],
       "sources": [
-        "src/wiserec_cli/commands/service.py",
-        "src/wiserec_cli/services/service.py"
+        "cli-python/src/wiserec_cli/commands/service.py",
+        "cli-python/src/wiserec_cli/services/service.py"
       ],
       "callback_line": 191,
       "evidence": "source-reviewed; not live verified"
@@ -6159,8 +6159,8 @@
         }
       ],
       "sources": [
-        "src/wiserec_cli/commands/service_logs.py",
-        "src/wiserec_cli/services/service.py"
+        "cli-python/src/wiserec_cli/commands/service_logs.py",
+        "cli-python/src/wiserec_cli/services/service.py"
       ],
       "callback_line": 120,
       "evidence": "source-reviewed; not live verified"
@@ -6254,8 +6254,8 @@
         }
       ],
       "sources": [
-        "src/wiserec_cli/commands/service_mock.py",
-        "src/wiserec_cli/services/service_mock.py"
+        "cli-python/src/wiserec_cli/commands/service_mock.py",
+        "cli-python/src/wiserec_cli/services/service_mock.py"
       ],
       "callback_line": 109,
       "evidence": "source-reviewed; not live verified"
@@ -6300,8 +6300,8 @@
         }
       ],
       "sources": [
-        "src/wiserec_cli/commands/train.py",
-        "src/wiserec_cli/services/train.py"
+        "cli-python/src/wiserec_cli/commands/train.py",
+        "cli-python/src/wiserec_cli/services/train.py"
       ],
       "callback_line": 154,
       "evidence": "source-reviewed; not live verified"
@@ -6378,8 +6378,8 @@
         }
       ],
       "sources": [
-        "src/wiserec_cli/commands/train.py",
-        "src/wiserec_cli/services/train.py"
+        "cli-python/src/wiserec_cli/commands/train.py",
+        "cli-python/src/wiserec_cli/services/train.py"
       ],
       "callback_line": 236,
       "evidence": "source-reviewed; not live verified"
@@ -6430,10 +6430,10 @@
         }
       ],
       "sources": [
-        "src/wiserec_cli/commands/train.py",
-        "src/wiserec_cli/services/train.py",
-        "src/wiserec_cli/services/train_export.py",
-        "src/wiserec_cli/downloads.py"
+        "cli-python/src/wiserec_cli/commands/train.py",
+        "cli-python/src/wiserec_cli/services/train.py",
+        "cli-python/src/wiserec_cli/services/train_export.py",
+        "cli-python/src/wiserec_cli/downloads.py"
       ],
       "callback_line": 124,
       "evidence": "source-reviewed; not live verified"
@@ -6475,8 +6475,8 @@
         }
       ],
       "sources": [
-        "src/wiserec_cli/commands/train.py",
-        "src/wiserec_cli/services/train.py"
+        "cli-python/src/wiserec_cli/commands/train.py",
+        "cli-python/src/wiserec_cli/services/train.py"
       ],
       "callback_line": 298,
       "evidence": "source-reviewed; not live verified"
@@ -6521,8 +6521,8 @@
         }
       ],
       "sources": [
-        "src/wiserec_cli/commands/train.py",
-        "src/wiserec_cli/services/train.py"
+        "cli-python/src/wiserec_cli/commands/train.py",
+        "cli-python/src/wiserec_cli/services/train.py"
       ],
       "callback_line": 205,
       "evidence": "source-reviewed; not live verified"
@@ -6565,8 +6565,8 @@
         }
       ],
       "sources": [
-        "src/wiserec_cli/commands/train.py",
-        "src/wiserec_cli/services/train.py"
+        "cli-python/src/wiserec_cli/commands/train.py",
+        "cli-python/src/wiserec_cli/services/train.py"
       ],
       "callback_line": 356,
       "evidence": "source-reviewed; not live verified"
@@ -6650,9 +6650,9 @@
         }
       ],
       "sources": [
-        "src/wiserec_cli/commands/train.py",
-        "src/wiserec_cli/services/train.py",
-        "src/wiserec_cli/downloads.py"
+        "cli-python/src/wiserec_cli/commands/train.py",
+        "cli-python/src/wiserec_cli/services/train.py",
+        "cli-python/src/wiserec_cli/downloads.py"
       ],
       "callback_line": 322,
       "evidence": "source-reviewed; not live verified"
@@ -6695,8 +6695,8 @@
         }
       ],
       "sources": [
-        "src/wiserec_cli/commands/train.py",
-        "src/wiserec_cli/services/train.py"
+        "cli-python/src/wiserec_cli/commands/train.py",
+        "cli-python/src/wiserec_cli/services/train.py"
       ],
       "callback_line": 400,
       "evidence": "source-reviewed; not live verified"
@@ -6787,8 +6787,8 @@
         }
       ],
       "sources": [
-        "src/wiserec_cli/commands/train.py",
-        "src/wiserec_cli/services/train.py"
+        "cli-python/src/wiserec_cli/commands/train.py",
+        "cli-python/src/wiserec_cli/services/train.py"
       ],
       "callback_line": 378,
       "evidence": "source-reviewed; not live verified"
@@ -6814,8 +6814,8 @@
         }
       ],
       "sources": [
-        "src/wiserec_cli/commands/train.py",
-        "src/wiserec_cli/services/train.py"
+        "cli-python/src/wiserec_cli/commands/train.py",
+        "cli-python/src/wiserec_cli/services/train.py"
       ],
       "callback_line": 278,
       "evidence": "source-reviewed; not live verified"
@@ -6824,7 +6824,7 @@
       "document": "references/commands/tree.md",
       "parameters": [],
       "sources": [
-        "src/wiserec_cli/commands/tree.py"
+        "cli-python/src/wiserec_cli/commands/tree.py"
       ],
       "callback_line": 45,
       "evidence": "source-reviewed; not live verified"
@@ -6851,9 +6851,9 @@
         }
       ],
       "sources": [
-        "src/wiserec_cli/commands/user.py",
-        "src/wiserec_cli/services/user.py",
-        "src/wiserec_cli/services/mep.py"
+        "cli-python/src/wiserec_cli/commands/user.py",
+        "cli-python/src/wiserec_cli/services/user.py",
+        "cli-python/src/wiserec_cli/services/mep.py"
       ],
       "callback_line": 17,
       "evidence": "source-reviewed; not live verified"
@@ -7008,8 +7008,8 @@
         }
       ],
       "sources": [
-        "src/wiserec_cli/commands/webstudio.py",
-        "src/wiserec_cli/services/webstudio.py"
+        "cli-python/src/wiserec_cli/commands/webstudio.py",
+        "cli-python/src/wiserec_cli/services/webstudio.py"
       ],
       "callback_line": 35,
       "evidence": "source-reviewed; not live verified"
@@ -7053,9 +7053,9 @@
         }
       ],
       "sources": [
-        "src/wiserec_cli/commands/webstudio.py",
-        "src/wiserec_cli/services/webstudio.py",
-        "src/wiserec_cli/webstudio/resolve.py"
+        "cli-python/src/wiserec_cli/commands/webstudio.py",
+        "cli-python/src/wiserec_cli/services/webstudio.py",
+        "cli-python/src/wiserec_cli/webstudio/resolve.py"
       ],
       "callback_line": 69,
       "evidence": "source-reviewed; not live verified"
@@ -7064,9 +7064,9 @@
       "document": "references/commands/webstudio/show.md",
       "parameters": [],
       "sources": [
-        "src/wiserec_cli/commands/webstudio.py",
-        "src/wiserec_cli/services/webstudio.py",
-        "src/wiserec_cli/webstudio/store.py"
+        "cli-python/src/wiserec_cli/commands/webstudio.py",
+        "cli-python/src/wiserec_cli/services/webstudio.py",
+        "cli-python/src/wiserec_cli/webstudio/store.py"
       ],
       "callback_line": 107,
       "evidence": "source-reviewed; not live verified"
@@ -7092,8 +7092,8 @@
         }
       ],
       "sources": [
-        "src/wiserec_cli/commands/webstudio.py",
-        "src/wiserec_cli/services/webstudio.py"
+        "cli-python/src/wiserec_cli/commands/webstudio.py",
+        "cli-python/src/wiserec_cli/services/webstudio.py"
       ],
       "callback_line": 81,
       "evidence": "source-reviewed; not live verified"
@@ -7119,8 +7119,8 @@
         }
       ],
       "sources": [
-        "src/wiserec_cli/commands/webstudio.py",
-        "src/wiserec_cli/services/webstudio.py"
+        "cli-python/src/wiserec_cli/commands/webstudio.py",
+        "cli-python/src/wiserec_cli/services/webstudio.py"
       ],
       "callback_line": 94,
       "evidence": "source-reviewed; not live verified"
@@ -7246,9 +7246,9 @@
         }
       ],
       "sources": [
-        "src/wiserec_cli/commands/quality.py",
-        "src/wiserec_cli/commands/quality_display.py",
-        "src/wiserec_cli/services/quality.py"
+        "cli-python/src/wiserec_cli/commands/quality.py",
+        "cli-python/src/wiserec_cli/commands/quality_display.py",
+        "cli-python/src/wiserec_cli/services/quality.py"
       ],
       "callback_line": 43,
       "evidence": "source-reviewed and mock-tested; not live verified"
@@ -7329,9 +7329,9 @@
         }
       ],
       "sources": [
-        "src/wiserec_cli/commands/quality.py",
-        "src/wiserec_cli/commands/quality_display.py",
-        "src/wiserec_cli/services/quality.py"
+        "cli-python/src/wiserec_cli/commands/quality.py",
+        "cli-python/src/wiserec_cli/commands/quality_display.py",
+        "cli-python/src/wiserec_cli/services/quality.py"
       ],
       "callback_line": 65,
       "evidence": "source-reviewed and mock-tested; not live verified"
@@ -7372,9 +7372,9 @@
         }
       ],
       "sources": [
-        "src/wiserec_cli/commands/quality.py",
-        "src/wiserec_cli/commands/quality_assembly.py",
-        "src/wiserec_cli/services/quality.py"
+        "cli-python/src/wiserec_cli/commands/quality.py",
+        "cli-python/src/wiserec_cli/commands/quality_assembly.py",
+        "cli-python/src/wiserec_cli/services/quality.py"
       ],
       "callback_line": 79,
       "evidence": "source-reviewed; mock tested; not live verified"
@@ -7470,9 +7470,9 @@
         }
       ],
       "sources": [
-        "src/wiserec_cli/commands/quality.py",
-        "src/wiserec_cli/commands/quality_assembly.py",
-        "src/wiserec_cli/services/quality.py"
+        "cli-python/src/wiserec_cli/commands/quality.py",
+        "cli-python/src/wiserec_cli/commands/quality_assembly.py",
+        "cli-python/src/wiserec_cli/services/quality.py"
       ],
       "callback_line": 93,
       "evidence": "source-reviewed; mock tested; not live verified"
@@ -7513,9 +7513,9 @@
         }
       ],
       "sources": [
-        "src/wiserec_cli/commands/quality.py",
-        "src/wiserec_cli/commands/quality_assembly.py",
-        "src/wiserec_cli/services/quality.py"
+        "cli-python/src/wiserec_cli/commands/quality.py",
+        "cli-python/src/wiserec_cli/commands/quality_assembly.py",
+        "cli-python/src/wiserec_cli/services/quality.py"
       ],
       "callback_line": 79,
       "evidence": "source-reviewed; mock tested; not live verified"
@@ -7611,9 +7611,9 @@
         }
       ],
       "sources": [
-        "src/wiserec_cli/commands/quality.py",
-        "src/wiserec_cli/commands/quality_assembly.py",
-        "src/wiserec_cli/services/quality.py"
+        "cli-python/src/wiserec_cli/commands/quality.py",
+        "cli-python/src/wiserec_cli/commands/quality_assembly.py",
+        "cli-python/src/wiserec_cli/services/quality.py"
       ],
       "callback_line": 93,
       "evidence": "source-reviewed; mock tested; not live verified"
@@ -8024,81 +8024,81 @@
     "Windows 安装包仅静态核对构建路径，未在本机执行 Windows 安装"
   ],
   "sources": {
-    "src/wiserec_cli/commands/access.py": "120125c82bde487f509c0f532d18f70baf0c443210c20e13cfa30c86a27bc1fb",
-    "src/wiserec_cli/commands/algorithm.py": "2042df9109fd3278d91ee90caebec91fa1304347ef9656079ab682e80733f9b3",
-    "src/wiserec_cli/services/algorithm.py": "406c3734f84e4ceb2850609056d1f209c6ef4263537d78e2ca3866482b69016e",
-    "src/wiserec_cli/algorithm_download.py": "42fb005ef5c613b09089774e57557c2e2eb0522fbb0e19e5a384cd2d2e7bf048",
-    "src/wiserec_cli/commands/auth.py": "aaa0addd1dfe5bdb8929e482ead4fba60b9da76db319f4a87f39a28fdf1f6e7c",
-    "src/wiserec_cli/ping.py": "f72c8fdab0a46398e6768d5941ba5b04b02ff300a0bc6c8c11e85b0d365eb165",
-    "src/wiserec_cli/commands/business.py": "ecba150d79a612596aa9ae53b8028bc46d0be426880b281691dfd790626573bb",
-    "src/wiserec_cli/commands/context.py": "f3a0e4a9bb948c5ba5c3391167eb333cd9e173811f2c953422efa74ed10e7ee8",
-    "src/wiserec_cli/execution.py": "d4128f7f7e92888c1359a7a80e5f14c29b3e2804f78f1d7747e46628ba84b81a",
-    "src/wiserec_cli/commands/dataset.py": "78d835b33337af9232905d10f6d1d48e98a72352a972d591ebeac9c3e9f98036",
-    "src/wiserec_cli/services/dataset.py": "20d3f460aae93928baca06fd622b9ebc35d7ce25f0a44a47442d2f80cbf3c4e7",
-    "src/wiserec_cli/commands/dataset_files.py": "3ed750ee4ea632624a658fb7af9c66248340f6994ae53665ab7966dd9950527f",
-    "src/wiserec_cli/services/dataset_files.py": "3cbdcbeb9a098e799bd1e6ec57a961f4c929f1261d911dabce03d5ec220029c0",
-    "src/wiserec_cli/commands/deployment.py": "88b6ba7037e7d81174b4222f383c41387bef60841a58a29fdcff9cede4b0fbdc",
-    "src/wiserec_cli/services/deployment.py": "fbf48c036b1fa1d1f2c2e8a67249d1de915bb8515d8087725ebed6d74005f9cb",
-    "src/wiserec_cli/commands/env.py": "1b2d9002aca2eb8de7797e7bd7baba0e72f4e13f51a1cd65609ef3836ce5d747",
-    "src/wiserec_cli/env_access.py": "0384b8e1193ad57dd6e5451600f6efd1f74d7c047fde8553bf69c5f81ac2b25e",
-    "src/wiserec_cli/config.py": "79a888d5c4a061b42e0970db0cf767b68e06edd59de0a02fff64a9951edfae11",
-    "src/wiserec_cli/commands/feature_execution.py": "2924164f9882e17d83df317cd7c7a9757999f32edce3c7ec7f5d5432aa5f3a73",
-    "src/wiserec_cli/services/feature_execution.py": "74444dd879a3941d9cf14e16008f20f45fff0584cb7b40afa6a126b883804e4c",
-    "src/wiserec_cli/commands/feature_task.py": "ab7987caa5f2da30abc4fdd2b60b09535685c6c6af0b8f54c85a776beb9d7756",
-    "src/wiserec_cli/services/feature_task.py": "6d0f302e6517ccefa3f20ee60b02201b4fd2fde57fd3a01d94f5dfecd617ccba",
-    "src/wiserec_cli/commands/featureset.py": "9fdf77346296e54b4ae0f34a5a270267073ff6ecff9d85e6025c923fb7afe8c3",
-    "src/wiserec_cli/services/featureset.py": "141ccabd9021c936f3105f1f86ba96dd28e7d174490926d32c8849e9162f8d58",
-    "src/wiserec_cli/featureset_export.py": "e0e83591e5473ba7b44ea9db9ddc3bdf3beaea8d5930c7227d6a307da427d84c",
-    "src/wiserec_cli/commands/history.py": "0ce734ad3678d06c353f4c2bf790cb8bf420dc38c3410153f8413793dd7c56aa",
-    "src/wiserec_cli/history_recording.py": "0ce55c6017ad0e529543ae1f0b077e9bca4fb1c97388e0619f33635818b978e2",
-    "src/wiserec_cli/commands/jupyter.py": "d17488f2687fe6b95f5a48b67c5a7e50c292290af7b6a926e915043c6c3e8b90",
-    "src/wiserec_cli/commands/jupyter_exec.py": "027929dae6e345c46d29db10f9a78f2ce79e324bbf9370d727d7b1676c970770",
-    "src/wiserec_cli/jupyter/execution.py": "a3bea0e3aa9d49ca69704ba9b30d83f6353f0fed1d9f06d3bc59fd239e2f0212",
-    "src/wiserec_cli/jupyter/exec_worker.py": "01447ded9d5b8c1f8bcf88c4e64c0e1ab92f390ae7a56ebbec217814215696a1",
-    "src/wiserec_cli/commands/jupyter_files.py": "78f8be52446eb271d71c2a2bcdef52971d795b5dad2bc936e09b087e6d7959ba",
-    "src/wiserec_cli/jupyter/files.py": "c39b3860a369ebfcbcc4d0c561dae473bd25fd3ab04fffe031f1876fd54243ee",
-    "src/wiserec_cli/jupyter/connection.py": "7a1c47bb2ce6caa71502a04113410fe75d7dbdfd2693b4d68144e799eac9801b",
-    "src/wiserec_cli/jupyter/notebook.py": "bdb56c7772e139c1c28cc9109a7e8ccdafce9cc73910e9d306020899f6c1bb2e",
-    "src/wiserec_cli/auth.py": "cfa2f716359d86c0589a2ea4a082efec2b06e893e2b9e7a62436f043e24926c9",
-    "src/wiserec_cli/commands/mep.py": "1d06194a0f0e1a13191edaab02de785861d1759f711aedf922cc44b7de5f6094",
-    "src/wiserec_cli/services/mep.py": "9d97bb7619a58c23cb02422c05a2412a569168a5d99251e0ccb22b0319f9e4da",
-    "src/wiserec_cli/services/user.py": "7d0058df8957f7079beebeed5e669dd35dc85aebbd6fc9911279af2f72f0bc98",
-    "src/wiserec_cli/commands/model_deploy.py": "250df3d3f86826a0cc139a77c3830771e3317f45ca376a83353f3977a770764d",
-    "src/wiserec_cli/services/model_deploy.py": "eb16a1966373daa33b8034c01e0b4e9608d18e6830a410eb29cd980e52b2c07d",
-    "src/wiserec_cli/services/deploy_payload.py": "a9554fe33f03f37d1cfd05c3566d9cd3cd71bbf7657d17c1d1ca060237055952",
-    "src/wiserec_cli/commands/model.py": "6eb0af4ed0f0915cd9461629edc47a5f2ae72e1375f58e116eceb7217bd366e6",
-    "src/wiserec_cli/services/model.py": "ce9f855c51a459de1dafc079451d94778b5d65d12b4c321017a85b5ee451a94c",
-    "src/wiserec_cli/commands/mtp.py": "116080a61e5e7a0850e70693c1c51334ee0fac144e4a30b02b69fb4534c5965c",
-    "src/wiserec_cli/services/swanboard.py": "31dfacabf693e32aa07ab6906bec16b7b9d34e983d3af81bf29b77794765a699",
-    "src/wiserec_cli/commands/offline.py": "2610f6105377cc7f931febc1e32b599418e0016aca290b90aaa8d7f48d620c42",
-    "src/wiserec_cli/services/experiment.py": "05b0b93bf3f51ec59fa02a55f309c976fef8a5d1b9def1f895019181a166281e",
-    "src/wiserec_cli/commands/resource.py": "01e77f594b098ff6ab3636ad04c70fa2727c2b54ab6744771edf0b36383bfb01",
-    "src/wiserec_cli/services/resource.py": "be4797263aa8b22bf354bf76b6c518763cf3fbb209392ad0ab2dd9f86d0bf10b",
-    "src/wiserec_cli/commands/sample_execution.py": "cd200b5a350e74b9a311d61013b8e1e0f4bac98ffc8097fa6ae9a9ddb1a99e69",
-    "src/wiserec_cli/services/sample_execution.py": "74ba5752e5f11abeb8d24abc9375ffad142a0aa6e7e72ce312f8442f4ceaffcb",
-    "src/wiserec_cli/commands/sample_task.py": "509c7efb97f41c818929275ae7bfcae1d682af90fcd7973f21951392eaac2361",
-    "src/wiserec_cli/services/sample_task.py": "e6d9c06ee3f95495689289ffe5bd08008ec2c2a77a8cb8a059f793b0a5b9b5ea",
-    "src/wiserec_cli/commands/service.py": "3e9df2ea62db62861ccb5e6b73e24dc1b03dcb29ac2c5e0a783042e1288b85bc",
-    "src/wiserec_cli/services/service.py": "97239d093a98c10fee0dc5ef377be8519f8c4fe4c971a2105902147a5ebd0bd4",
-    "src/wiserec_cli/commands/service_mock.py": "25d07c39d8490c79281bcd996303becffa8f315680ed3aa159c2f78ce107bea6",
-    "src/wiserec_cli/services/service_mock.py": "0cc1287f1db4e2797e65616412a5f72ece280fcc0b1a6099d3dbf18e4c3b5aa2",
-    "src/wiserec_cli/commands/service_logs.py": "3baa64d095805dad84a9432a7a71c358f6ca832656a4ea65d03fc68499baa5fb",
-    "src/wiserec_cli/commands/train.py": "197514cbbe3281300f50a2b95e50451ba6f17354dc85c2e06bc1db7adc858dba",
-    "src/wiserec_cli/services/train.py": "5af3cfa6f5e7abe41dadebc1098ba441e1003ef9e7615645afb156d349d41462",
-    "src/wiserec_cli/services/train_export.py": "62c93ab9afc384cbb7f7eb34f687ab1ace072e21df6b03fdc590e886c7a12069",
-    "src/wiserec_cli/downloads.py": "7166556045dbbbed8067554234281d617219ce9036f450d2b4e8a18d5fce33f6",
-    "src/wiserec_cli/commands/tree.py": "6608bcadb8e64e567d302c2c2224b76653318d9cfdb6bc3e07bbe65af3a1de41",
-    "src/wiserec_cli/commands/user.py": "bf6a70befcdc32c6f97a3c21c565fa53af37c010ba15338be463d6d9bfd9b538",
-    "src/wiserec_cli/commands/webstudio.py": "7bd14151a7c72348cef63ac4a7ba42d421aad88090fe9d964d55cc70e8300389",
-    "src/wiserec_cli/services/webstudio.py": "0c64a45a2e1e5ae37f3a15384df98bdc432c4a1719c4eec241d675123d76b03f",
-    "src/wiserec_cli/webstudio/resolve.py": "290b496b3ec2648d87de42587dd9e426eb1db46b1b91720cb0a1d95f714ab088",
-    "src/wiserec_cli/webstudio/store.py": "7f3c0dc15f8eefe9eba8ca1c4b89a1539d8284b1673bcc1df027ab26a5d8ee48",
-    "src/wiserec_cli/commands/quality.py": "dd10b2732c894a8112720759b6dbb2d63f45875e60fc601b263a6dafccb73b37",
-    "src/wiserec_cli/commands/quality_display.py": "735e00227c68aeaef8734ffb2b2e0ae7452b48ab75b4a2e796c9342f7661af94",
-    "src/wiserec_cli/services/quality.py": "9029613df0239daef30a78903caf56edef1f96f674f98ae6082c2024022e29e7",
-    "src/wiserec_cli/commands/quality_assembly.py": "7f739fe92a9f49a99554ef6abd29016095343af23f0ee7760222b042707fd14e",
-    "src/wiserec_cli/access.py": "ba1bc29039ce59a4bb2d31f9e05f71cd9167a55c3420447ceb891d21b7f718e0",
-    "src/wiserec_cli/access_transport.py": "e40c6d13736296df9614cc28efee023843487daf97357dd47fb0598b426bdeaf",
-    "src/wiserec_cli/access_guidance.py": "66fac607c8570f2e23cbaacc7c12f7e42ae676f12bc03379b74fb533012fc5db"
+    "cli-python/src/wiserec_cli/commands/access.py": "120125c82bde487f509c0f532d18f70baf0c443210c20e13cfa30c86a27bc1fb",
+    "cli-python/src/wiserec_cli/commands/algorithm.py": "2042df9109fd3278d91ee90caebec91fa1304347ef9656079ab682e80733f9b3",
+    "cli-python/src/wiserec_cli/services/algorithm.py": "406c3734f84e4ceb2850609056d1f209c6ef4263537d78e2ca3866482b69016e",
+    "cli-python/src/wiserec_cli/algorithm_download.py": "42fb005ef5c613b09089774e57557c2e2eb0522fbb0e19e5a384cd2d2e7bf048",
+    "cli-python/src/wiserec_cli/commands/auth.py": "aaa0addd1dfe5bdb8929e482ead4fba60b9da76db319f4a87f39a28fdf1f6e7c",
+    "cli-python/src/wiserec_cli/ping.py": "f72c8fdab0a46398e6768d5941ba5b04b02ff300a0bc6c8c11e85b0d365eb165",
+    "cli-python/src/wiserec_cli/commands/business.py": "ecba150d79a612596aa9ae53b8028bc46d0be426880b281691dfd790626573bb",
+    "cli-python/src/wiserec_cli/commands/context.py": "f3a0e4a9bb948c5ba5c3391167eb333cd9e173811f2c953422efa74ed10e7ee8",
+    "cli-python/src/wiserec_cli/execution.py": "d4128f7f7e92888c1359a7a80e5f14c29b3e2804f78f1d7747e46628ba84b81a",
+    "cli-python/src/wiserec_cli/commands/dataset.py": "78d835b33337af9232905d10f6d1d48e98a72352a972d591ebeac9c3e9f98036",
+    "cli-python/src/wiserec_cli/services/dataset.py": "20d3f460aae93928baca06fd622b9ebc35d7ce25f0a44a47442d2f80cbf3c4e7",
+    "cli-python/src/wiserec_cli/commands/dataset_files.py": "3ed750ee4ea632624a658fb7af9c66248340f6994ae53665ab7966dd9950527f",
+    "cli-python/src/wiserec_cli/services/dataset_files.py": "3cbdcbeb9a098e799bd1e6ec57a961f4c929f1261d911dabce03d5ec220029c0",
+    "cli-python/src/wiserec_cli/commands/deployment.py": "88b6ba7037e7d81174b4222f383c41387bef60841a58a29fdcff9cede4b0fbdc",
+    "cli-python/src/wiserec_cli/services/deployment.py": "fbf48c036b1fa1d1f2c2e8a67249d1de915bb8515d8087725ebed6d74005f9cb",
+    "cli-python/src/wiserec_cli/commands/env.py": "1b2d9002aca2eb8de7797e7bd7baba0e72f4e13f51a1cd65609ef3836ce5d747",
+    "cli-python/src/wiserec_cli/env_access.py": "0384b8e1193ad57dd6e5451600f6efd1f74d7c047fde8553bf69c5f81ac2b25e",
+    "cli-python/src/wiserec_cli/config.py": "79a888d5c4a061b42e0970db0cf767b68e06edd59de0a02fff64a9951edfae11",
+    "cli-python/src/wiserec_cli/commands/feature_execution.py": "2924164f9882e17d83df317cd7c7a9757999f32edce3c7ec7f5d5432aa5f3a73",
+    "cli-python/src/wiserec_cli/services/feature_execution.py": "74444dd879a3941d9cf14e16008f20f45fff0584cb7b40afa6a126b883804e4c",
+    "cli-python/src/wiserec_cli/commands/feature_task.py": "ab7987caa5f2da30abc4fdd2b60b09535685c6c6af0b8f54c85a776beb9d7756",
+    "cli-python/src/wiserec_cli/services/feature_task.py": "6d0f302e6517ccefa3f20ee60b02201b4fd2fde57fd3a01d94f5dfecd617ccba",
+    "cli-python/src/wiserec_cli/commands/featureset.py": "9fdf77346296e54b4ae0f34a5a270267073ff6ecff9d85e6025c923fb7afe8c3",
+    "cli-python/src/wiserec_cli/services/featureset.py": "141ccabd9021c936f3105f1f86ba96dd28e7d174490926d32c8849e9162f8d58",
+    "cli-python/src/wiserec_cli/featureset_export.py": "e0e83591e5473ba7b44ea9db9ddc3bdf3beaea8d5930c7227d6a307da427d84c",
+    "cli-python/src/wiserec_cli/commands/history.py": "0ce734ad3678d06c353f4c2bf790cb8bf420dc38c3410153f8413793dd7c56aa",
+    "cli-python/src/wiserec_cli/history_recording.py": "0ce55c6017ad0e529543ae1f0b077e9bca4fb1c97388e0619f33635818b978e2",
+    "cli-python/src/wiserec_cli/commands/jupyter.py": "d17488f2687fe6b95f5a48b67c5a7e50c292290af7b6a926e915043c6c3e8b90",
+    "cli-python/src/wiserec_cli/commands/jupyter_exec.py": "027929dae6e345c46d29db10f9a78f2ce79e324bbf9370d727d7b1676c970770",
+    "cli-python/src/wiserec_cli/jupyter/execution.py": "a3bea0e3aa9d49ca69704ba9b30d83f6353f0fed1d9f06d3bc59fd239e2f0212",
+    "cli-python/src/wiserec_cli/jupyter/exec_worker.py": "01447ded9d5b8c1f8bcf88c4e64c0e1ab92f390ae7a56ebbec217814215696a1",
+    "cli-python/src/wiserec_cli/commands/jupyter_files.py": "78f8be52446eb271d71c2a2bcdef52971d795b5dad2bc936e09b087e6d7959ba",
+    "cli-python/src/wiserec_cli/jupyter/files.py": "c39b3860a369ebfcbcc4d0c561dae473bd25fd3ab04fffe031f1876fd54243ee",
+    "cli-python/src/wiserec_cli/jupyter/connection.py": "7a1c47bb2ce6caa71502a04113410fe75d7dbdfd2693b4d68144e799eac9801b",
+    "cli-python/src/wiserec_cli/jupyter/notebook.py": "bdb56c7772e139c1c28cc9109a7e8ccdafce9cc73910e9d306020899f6c1bb2e",
+    "cli-python/src/wiserec_cli/auth.py": "cfa2f716359d86c0589a2ea4a082efec2b06e893e2b9e7a62436f043e24926c9",
+    "cli-python/src/wiserec_cli/commands/mep.py": "1d06194a0f0e1a13191edaab02de785861d1759f711aedf922cc44b7de5f6094",
+    "cli-python/src/wiserec_cli/services/mep.py": "9d97bb7619a58c23cb02422c05a2412a569168a5d99251e0ccb22b0319f9e4da",
+    "cli-python/src/wiserec_cli/services/user.py": "7d0058df8957f7079beebeed5e669dd35dc85aebbd6fc9911279af2f72f0bc98",
+    "cli-python/src/wiserec_cli/commands/model_deploy.py": "250df3d3f86826a0cc139a77c3830771e3317f45ca376a83353f3977a770764d",
+    "cli-python/src/wiserec_cli/services/model_deploy.py": "eb16a1966373daa33b8034c01e0b4e9608d18e6830a410eb29cd980e52b2c07d",
+    "cli-python/src/wiserec_cli/services/deploy_payload.py": "a9554fe33f03f37d1cfd05c3566d9cd3cd71bbf7657d17c1d1ca060237055952",
+    "cli-python/src/wiserec_cli/commands/model.py": "6eb0af4ed0f0915cd9461629edc47a5f2ae72e1375f58e116eceb7217bd366e6",
+    "cli-python/src/wiserec_cli/services/model.py": "ce9f855c51a459de1dafc079451d94778b5d65d12b4c321017a85b5ee451a94c",
+    "cli-python/src/wiserec_cli/commands/mtp.py": "116080a61e5e7a0850e70693c1c51334ee0fac144e4a30b02b69fb4534c5965c",
+    "cli-python/src/wiserec_cli/services/swanboard.py": "31dfacabf693e32aa07ab6906bec16b7b9d34e983d3af81bf29b77794765a699",
+    "cli-python/src/wiserec_cli/commands/offline.py": "2610f6105377cc7f931febc1e32b599418e0016aca290b90aaa8d7f48d620c42",
+    "cli-python/src/wiserec_cli/services/experiment.py": "05b0b93bf3f51ec59fa02a55f309c976fef8a5d1b9def1f895019181a166281e",
+    "cli-python/src/wiserec_cli/commands/resource.py": "01e77f594b098ff6ab3636ad04c70fa2727c2b54ab6744771edf0b36383bfb01",
+    "cli-python/src/wiserec_cli/services/resource.py": "be4797263aa8b22bf354bf76b6c518763cf3fbb209392ad0ab2dd9f86d0bf10b",
+    "cli-python/src/wiserec_cli/commands/sample_execution.py": "cd200b5a350e74b9a311d61013b8e1e0f4bac98ffc8097fa6ae9a9ddb1a99e69",
+    "cli-python/src/wiserec_cli/services/sample_execution.py": "74ba5752e5f11abeb8d24abc9375ffad142a0aa6e7e72ce312f8442f4ceaffcb",
+    "cli-python/src/wiserec_cli/commands/sample_task.py": "509c7efb97f41c818929275ae7bfcae1d682af90fcd7973f21951392eaac2361",
+    "cli-python/src/wiserec_cli/services/sample_task.py": "e6d9c06ee3f95495689289ffe5bd08008ec2c2a77a8cb8a059f793b0a5b9b5ea",
+    "cli-python/src/wiserec_cli/commands/service.py": "3e9df2ea62db62861ccb5e6b73e24dc1b03dcb29ac2c5e0a783042e1288b85bc",
+    "cli-python/src/wiserec_cli/services/service.py": "97239d093a98c10fee0dc5ef377be8519f8c4fe4c971a2105902147a5ebd0bd4",
+    "cli-python/src/wiserec_cli/commands/service_mock.py": "25d07c39d8490c79281bcd996303becffa8f315680ed3aa159c2f78ce107bea6",
+    "cli-python/src/wiserec_cli/services/service_mock.py": "0cc1287f1db4e2797e65616412a5f72ece280fcc0b1a6099d3dbf18e4c3b5aa2",
+    "cli-python/src/wiserec_cli/commands/service_logs.py": "3baa64d095805dad84a9432a7a71c358f6ca832656a4ea65d03fc68499baa5fb",
+    "cli-python/src/wiserec_cli/commands/train.py": "197514cbbe3281300f50a2b95e50451ba6f17354dc85c2e06bc1db7adc858dba",
+    "cli-python/src/wiserec_cli/services/train.py": "5af3cfa6f5e7abe41dadebc1098ba441e1003ef9e7615645afb156d349d41462",
+    "cli-python/src/wiserec_cli/services/train_export.py": "62c93ab9afc384cbb7f7eb34f687ab1ace072e21df6b03fdc590e886c7a12069",
+    "cli-python/src/wiserec_cli/downloads.py": "7166556045dbbbed8067554234281d617219ce9036f450d2b4e8a18d5fce33f6",
+    "cli-python/src/wiserec_cli/commands/tree.py": "6608bcadb8e64e567d302c2c2224b76653318d9cfdb6bc3e07bbe65af3a1de41",
+    "cli-python/src/wiserec_cli/commands/user.py": "bf6a70befcdc32c6f97a3c21c565fa53af37c010ba15338be463d6d9bfd9b538",
+    "cli-python/src/wiserec_cli/commands/webstudio.py": "7bd14151a7c72348cef63ac4a7ba42d421aad88090fe9d964d55cc70e8300389",
+    "cli-python/src/wiserec_cli/services/webstudio.py": "0c64a45a2e1e5ae37f3a15384df98bdc432c4a1719c4eec241d675123d76b03f",
+    "cli-python/src/wiserec_cli/webstudio/resolve.py": "290b496b3ec2648d87de42587dd9e426eb1db46b1b91720cb0a1d95f714ab088",
+    "cli-python/src/wiserec_cli/webstudio/store.py": "7f3c0dc15f8eefe9eba8ca1c4b89a1539d8284b1673bcc1df027ab26a5d8ee48",
+    "cli-python/src/wiserec_cli/commands/quality.py": "dd10b2732c894a8112720759b6dbb2d63f45875e60fc601b263a6dafccb73b37",
+    "cli-python/src/wiserec_cli/commands/quality_display.py": "735e00227c68aeaef8734ffb2b2e0ae7452b48ab75b4a2e796c9342f7661af94",
+    "cli-python/src/wiserec_cli/services/quality.py": "9029613df0239daef30a78903caf56edef1f96f674f98ae6082c2024022e29e7",
+    "cli-python/src/wiserec_cli/commands/quality_assembly.py": "7f739fe92a9f49a99554ef6abd29016095343af23f0ee7760222b042707fd14e",
+    "cli-python/src/wiserec_cli/access.py": "ba1bc29039ce59a4bb2d31f9e05f71cd9167a55c3420447ceb891d21b7f718e0",
+    "cli-python/src/wiserec_cli/access_transport.py": "e40c6d13736296df9614cc28efee023843487daf97357dd47fb0598b426bdeaf",
+    "cli-python/src/wiserec_cli/access_guidance.py": "66fac607c8570f2e23cbaacc7c12f7e42ae676f12bc03379b74fb533012fc5db"
   }
 }

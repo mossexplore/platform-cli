@@ -97,7 +97,7 @@ python scripts/sync_skill_index.py --check
 
 ### 4.2 构建时记录来源
 
-[setup.py](../setup.py) 在构建后的 `SKILL.md` metadata 中加入：
+[setup.py](../cli-python/setup.py) 在构建后的 `SKILL.md` metadata 中加入：
 
 - `source_cli_version`：从 `versions.toml` 读取的 CLI 版本。
 - `source_sha256`：构建前正式入口、正文和参考文件的路径与文件摘要形成的稳定内容摘要。

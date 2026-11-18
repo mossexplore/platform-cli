@@ -54,7 +54,7 @@ ml offline experiment list --name "训练" --page-size 50 -o json | jq '.items[]
 ```bash
 # 1. 安装（开发模式，建议在虚拟环境中执行）
 py -m pip install --upgrade pip
-py -m pip install -e .
+py -m pip install -e ./cli-python
 
 # 2. 确认安装
 ml --version
@@ -481,11 +481,11 @@ ml/
 ### 分层
 
 ```text
-命令层  src/wiserec_cli/commands/*      参数解析、交互提示、输出
+命令层  cli-python/src/wiserec_cli/commands/*      参数解析、交互提示、输出
    ↓
-服务层  src/wiserec_cli/services/*      业务接口封装（路径、参数、响应校验）
+服务层  cli-python/src/wiserec_cli/services/*      业务接口封装（路径、参数、响应校验）
    ↓
-客户端  src/wiserec_cli/client.py       统一请求头、超时、重试、错误分类
+客户端  cli-python/src/wiserec_cli/client.py       统一请求头、超时、重试、错误分类
 ```
 
 周边支撑：
@@ -500,7 +500,7 @@ ml/
 ### 目录结构
 
 ```text
-src/wiserec_cli/
+cli-python/src/wiserec_cli/
 ├── cli.py                 # 入口与命令注册
 ├── runtime.py             # 运行时与认证重试
 ├── config.py              # 配置管理
@@ -539,7 +539,7 @@ CLI 测试位于 `tests/`，使用 mock 与临时目录验证逻辑，不访问�
 配置解析与覆盖、认证信息读写、业务目录解析与选择、HTTP 客户端错误分类、运行时重试、
 各 service 的响应校验、命令可用性、Jupyter HTTP/WebSocket、Web Studio region 路由与 Windows 打包脚本约束。权限服务另有 `access-service/tests/`；GitHub 发布流程还会验证 Windows 安装升级、Docker 离线导入和真实 MySQL，不能用 CLI 单元测试代替这些验证。
 
-> 仓库根目录的 `capture_auth.py` 是早期用于单独验证登录流程的独立脚本，不属于安装包，
+> `cli-python/scripts/capture_auth.py` 是早期用于单独验证登录流程的独立脚本，不属于安装包，
 > 日常使用无需关心。
 
 ---
@@ -593,7 +593,7 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass `
 
 升级：解压新包再次运行 `install.cmd`；CLI 程序会升级，登录缓存与 Edge Profile 保留。
 
-> 详细步骤、常见问题与包源优先级见 [scripts/windows/INSTALL.md](../scripts/windows/INSTALL.md)。
+> 详细步骤、常见问题与包源优先级见 [cli-python/scripts/windows/INSTALL.md](../cli-python/scripts/windows/INSTALL.md)。
 
 ---
 
@@ -642,7 +642,7 @@ ml business show
 ## 贡献
 
 1. Fork 仓库并创建特性分支：`git checkout -b feature/your-feature`。
-2. 安装开发依赖（`py -m pip install -e .`），确保测试通过：
+2. 安装开发依赖（`py -m pip install -e ./cli-python`），确保测试通过：
 
    ```powershell
    py -m pytest
@@ -659,7 +659,7 @@ ml business show
 
 - [docs/WiseRec CLI 使用手册.md](WiseRec%20CLI%20使用手册.md) — 每个命令、参数、配置项与退出行为的完整参考
 - [docs/REQUIREMENTS_DESIGN_SPEC.md](REQUIREMENTS_DESIGN_SPEC.md) — 功能设计与实现细节规格
-- [scripts/windows/INSTALL.md](../scripts/windows/INSTALL.md) — Windows 安装器详细说明
+- [cli-python/scripts/windows/INSTALL.md](../cli-python/scripts/windows/INSTALL.md) — Windows 安装器详细说明
 
 ---
 

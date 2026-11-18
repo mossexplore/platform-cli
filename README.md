@@ -2,7 +2,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Release](https://img.shields.io/github/v/release/mossexplore/platform-cli)](https://github.com/mossexplore/platform-cli/releases/latest)
-[![Python](https://img.shields.io/badge/Python-3.9%2B-green.svg)](pyproject.toml)
+[![Python](https://img.shields.io/badge/Python-3.9%2B-green.svg)](cli-python/pyproject.toml)
 
 面向 **WiseRec 机器学习/深度学习平台**的命令行工具（`ml`）及配套企业级权限治理套件，用于在终端中完成算法管理、训练任务、分布式训练、数据集管理、在线推理服务部署、资源监控与 Jupyter 远程开发。
 
@@ -52,7 +52,7 @@ flowchart LR
 - **联网版**：`wiserec-cli-<version>-windows-py3-online.zip`（需 Python 3.9+）
 - **离线版**：`wiserec-cli-<version>-windows-x64-py312-offline.zip`（面向 Windows x64 + Python 3.12 离线环境，不含 Python 本体）
 
-安装与升级细节请参阅 [Windows 安装说明](scripts/windows/INSTALL.md)。
+安装与升级细节请参阅 [Windows 安装说明](cli-python/scripts/windows/INSTALL.md)。
 
 #### 方式 B：通过 `pip` 安装（macOS / Linux / 开发者）
 
@@ -62,7 +62,7 @@ flowchart LR
 # 从源码可编辑安装（需要 Python >= 3.9）
 git clone https://github.com/mossexplore/platform-cli.git
 cd platform-cli
-pip install -e .
+pip install -e ./cli-python
 
 # 验证安装
 ml --version
@@ -98,7 +98,8 @@ ml access status
 
 | 组件 | 目录 | 当前源码版本 | 说明 | 文档入口 |
 | --- | --- | --- | --- | --- |
-| **WiseRec CLI** | `src/wiserec_cli/` | `1.0.9.6` | 核心命令行工具（`ml`） | [使用手册](docs/WiseRec%20CLI%20使用手册.md) · [维护说明](docs/CLI使用与维护说明.md) |
+| **WiseRec CLI（Python）** | `cli-python/` | `1.0.9.6` | 正式命令行工具（`ml`） | [使用手册](docs/WiseRec%20CLI%20使用手册.md) · [维护说明](docs/CLI使用与维护说明.md) |
+| **WiseRec CLI（Go 预览）** | `cli-go/` | — | 独立试运行客户端 | [预览说明](cli-go/README.md) |
 | **权限管理系统** | `access-service/` | `1.0.9.1` | 授权、版本准入与审计管理台 | [README](access-service/README.md) · [Docker 部署指南](docs/权限管理系统Docker安装部署与调试指南.md) |
 | **Agent 服务** | `agent-service/` | `1.0.9.1` | AI Agent 集成与部署工具 | [README](agent-service/README.md) · [配置示例](agent-service/config.example.json) |
 | **权限通知助手** | `permission-notifier/` | `1.0.9.1` | 权限申请桌面通知客户端 | [README](permission-notifier/README.md) |

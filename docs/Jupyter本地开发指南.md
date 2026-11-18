@@ -4,13 +4,13 @@
 
 ## 安装和启动
 
-在项目根目录执行，Python 3.9+：
+在仓库根目录执行，Python 3.9+。从 Python CLI 源码包解压后启动本地 Jupyter 时，将安装命令中的 `./cli-python` 改为 `.`，并去掉脚本和示例路径中的 `cli-python/` 前缀。
 
 ```bash
 python3 -m venv .venv
 .venv/bin/python -m pip install --upgrade pip
-.venv/bin/python -m pip install -e '.[jupyter-local]'
-.venv/bin/python scripts/jupyter_local.py
+.venv/bin/python -m pip install -e './cli-python[jupyter-local]'
+.venv/bin/python cli-python/scripts/jupyter_local.py
 ```
 
 该脚本前台运行 JupyterLab，默认监听 `127.0.0.1:8888`。按 Ctrl+C 后遵循 Jupyter 提示停止服务。换端口使用 `--port 8889`，只生成配置使用 `--prepare-only`。脚本不后台派生服务，不修改已有 dev/test 环境配置。端口被占用时启动失败，不会悄悄换端口。
@@ -39,9 +39,9 @@ Windows 对应使用 `.venv\Scripts\python.exe` 和 `.venv\Scripts\ml.exe`。交
 ```bash
 source .venv/bin/activate
 ml --version
-python scripts/jupyter_local.py --cli doctor
-python scripts/jupyter_local.py --cli notebook run examples/jupyter/hello.ipynb --download .jupyter-local/results
-python scripts/jupyter_local.py --cli terminal open
+python cli-python/scripts/jupyter_local.py --cli doctor
+python cli-python/scripts/jupyter_local.py --cli notebook run cli-python/examples/jupyter/hello.ipynb --download .jupyter-local/results
+python cli-python/scripts/jupyter_local.py --cli terminal open
 ```
 
 `doctor` 验证 HTTP 认证、Kernel 列表和 Terminal 接口，不创建 Kernel。WebSocket 在执行或连接 Terminal 时验证。结果文件按执行 UUID 分目录保存，失败也保留 Notebook 和 summary.json。
@@ -49,9 +49,9 @@ python scripts/jupyter_local.py --cli terminal open
 Terminal 中可输入普通命令；Ctrl+C 传给远程 Shell，Ctrl+D 发送 EOF，Ctrl+] 仅离开本地连接。另开终端可以执行：
 
 ```bash
-python scripts/jupyter_local.py --cli terminal list
-python scripts/jupyter_local.py --cli terminal attach 1
-python scripts/jupyter_local.py --cli terminal close 1
+python cli-python/scripts/jupyter_local.py --cli terminal list
+python cli-python/scripts/jupyter_local.py --cli terminal attach 1
+python cli-python/scripts/jupyter_local.py --cli terminal close 1
 ```
 
 将 `1` 换成实际终端名称。close 会终止指定远程终端，可能影响其中的进程。退出客户端不承诺保留任务，重连不承诺完整历史回放。
@@ -107,9 +107,9 @@ ml business use
 ml webstudio list --status online
 ml webstudio login <envId>
 ml webstudio show
-python scripts/jupyter_local.py --cli doctor
-python scripts/jupyter_local.py --cli notebook run examples/jupyter/hello.ipynb --download results
-python scripts/jupyter_local.py --cli terminal open
+python cli-python/scripts/jupyter_local.py --cli doctor
+python cli-python/scripts/jupyter_local.py --cli notebook run cli-python/examples/jupyter/hello.ipynb --download results
+python cli-python/scripts/jupyter_local.py --cli terminal open
 ```
 
 所有 Jupyter 命令均支持 `--studio-id ENV_ID` 临时指定实例。未指定时使用 `webstudio login` 保存的默认实例；每次操作仍重新查询实例状态、region 和访问地址，不复用旧 Token。
@@ -133,8 +133,8 @@ Token 非空时，CLI 访问 `/lab?token=...` 建立会话并发送 Token 认证
 ```bash
 .venv/bin/python -m pip install pytest build
 .venv/bin/python -m pytest -q
-ML_JUPYTER_TEST_CONFIG="$PWD/.jupyter-local/config.json" .venv/bin/python -m pytest -q tests/test_jupyter_live.py
-.venv/bin/python -m build
+ML_JUPYTER_TEST_CONFIG="$PWD/.jupyter-local/config.json" .venv/bin/python -m pytest -q cli-python/tests/test_jupyter_live.py
+.venv/bin/python -m build cli-python
 ```
 
 真实服务测试会创建并清理测试 Kernel 和 Terminal，保留测试执行目录；请仅对专用开发服务运行，不指向生产。

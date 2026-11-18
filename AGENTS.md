@@ -10,7 +10,7 @@
 4. **首列 ID 展示**：若第一列展示 ID，该列宽度必须固定为 `36`，不得换行、截断或省略 ID；其他长字段优先换行，以便用户完整复制第一列的 ID。
 5. **接口地址来源**：用户给出的请求 URL 若包含 `xxx` 占位符，`xxx` 必须取自 `config.json` 中的 `api_endpoint` 值，不得硬编码为其他地址。
 6. **使用手册同步**：若新增或修改 CLI 命令，必须同步更新 `docs/WiseRec CLI 使用手册.md`，检查并更新命令树及对应命令的用途、使用前提、参数与选项、调用示例和输出说明。
-7. **新增命令版本递增**：若新增 CLI 命令，必须主动将打包版本和 CLI 版本的补丁号同步加 `1`，无需用户另行提醒。例如，`0.3.27` 升级为 `0.3.28`。同步修改 `pyproject.toml` 的 `project.version` 和 `src/wiserec_cli/__init__.py` 的 `__version__`，确保两者一致，并更新相关版本测试及 README、发布说明中的当前版本信息；`docs/WiseRec CLI 使用手册.md` 不得写入版本信息。一次变更包含多个新增命令时统一递增一次；若本次变更已完成版本递增，不重复递增。打包后必须确认包元数据与 `ml --version` 均为新版本。
+7. **新增命令版本递增**：若新增 CLI 命令，必须主动将打包版本和 CLI 版本的补丁号同步加 `1`，无需用户另行提醒。例如，`0.3.27` 升级为 `0.3.28`。同步修改 `cli-python/pyproject.toml` 的 `project.version` 和 `cli-python/src/wiserec_cli/__init__.py` 的 `__version__`，确保两者一致，并更新相关版本测试及 README、发布说明中的当前版本信息；`docs/WiseRec CLI 使用手册.md` 不得写入版本信息。一次变更包含多个新增命令时统一递增一次；若本次变更已完成版本递增，不重复递增。打包后必须确认包元数据与 `ml --version` 均为新版本。
 
 8. **命令树说明格式**：`ml tree` 输出中，每个命令及命令分组的说明结尾均不得出现任何标点符号；说明正文中的必要标点保留。末尾括注应改写为完整的补充说明，不能仅删除右括号而留下残缺文本。新增命令或修改说明后，必须检查实际命令树输出，确保所有层级遵守此规则。
 
@@ -65,7 +65,7 @@ v1.0.3.1 数据看板曾因 MySQL 聚合结果包含 `Decimal`，在模板的 `c
 ### 1. 确认范围、版本与授权
 
 - 明确目标版本、上一正式版本、本次新增能力及兼容性变化。以 GitHub 实际 Release、标签及源码为准，不把源码版本等同于已发布版本。
-- `pyproject.toml` 的 `project.version`、`src/wiserec_cli/__init__.py` 的 `__version__`、发布说明、附件版本和镜像版本必须一致。版本已递增到目标值时不重复递增。
+- `cli-python/pyproject.toml` 的 `project.version`、`cli-python/src/wiserec_cli/__init__.py` 的 `__version__`、发布说明、附件版本和镜像版本必须一致。版本已递增到目标值时不重复递增。
 - 用户明确要求“发布正式版本”时，授权包含本流程中的 main 提交与推送、构建、草稿核验及最终发布，无需再次确认同一发布动作；只要求分析、准备、出包或草稿时，不擅自正式发布。
 - GitHub 发布不等于部署生产。没有另行授权，不连接生产库执行迁移、不替换生产容器、不调整业务版本准入策略。
 
@@ -73,7 +73,7 @@ v1.0.3.1 数据看板曾因 MySQL 聚合结果包含 `Decimal`，在模板的 `c
 
 - 检查分支、工作区、远程、待推送提交。仅向 `main` 推送；明确纳入的文件，不使用不加选择的 `git add .`，不提交个人文件、临时验证文件、真实配置、密码或 Token。
 - 用 `gh release view`、远程标签和镜像仓库检查目标版本是否已存在。正式 Release、正式标签和正式镜像不得覆盖、移动或删除重发；同版本已有草稿时先核对其源提交与原工作流，不直接重复创建。
-- 核对上一正式版本的附件清单与 `.github/workflows/release.yml`、`access-image.yml`、`release-recover.yml`、`scripts/releasing/prepare-assets.py`、`verify-windows.ps1`。
+- 核对上一正式版本的附件清单与 `.github/workflows/release.yml`、`access-image.yml`、`release-recover.yml`、`scripts/releasing/prepare-assets.py`、`cli-python/scripts/windows/verify-windows.ps1`。
 - 工作流必须读取目标版本的发布说明，不得固定引用旧版说明。Windows 升级测试必须使用明确的上一正式版本提交，并同步升级前版本断言和 manifest 的验证描述。
 - 检查组装脚本中的升级指南文件名、附件名及版本常量，按本次发布更新。v1.0.3 时这些地方曾固定为 1.0.0 升级基线及 `Docker-upgrade-1.0.3.md`，后续不得照搬旧值。
 - 检查 GitHub 凭据权限。若 HTTPS 推送因缺少 `workflow` scope 被拒，可使用本机**已有且有权访问同一仓库**的 SSH 身份，不改变账号授权或安全设置；没有可用身份时说明具体缺失权限。不得输出 Token、私钥或自动扩大凭据权限。
@@ -97,7 +97,7 @@ v1.0.3.1 数据看板曾因 MySQL 聚合结果包含 `Decimal`，在模板的 `c
 提交前完成适用的本地测试及差异检查，使用安装了项目依赖的 Python/Node 环境：
 
 ```bash
-python -m pytest tests -q
+python -m pytest cli-python/tests tests -q
 PYTHONPATH=access-service python -m pytest access-service/tests -q
 node --test access-service/tests/test_time_presets.cjs
 git diff --check

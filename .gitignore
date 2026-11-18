@@ -28,3 +28,4 @@ agent-service/test-results/
 
 # User-specific root configuration; only the example is tracked
 /config.json
+/cli-python/config.json

@@ -16,8 +16,10 @@ $ScriptDirectory = Split-Path -Parent $MyInvocation.MyCommand.Path
 if ([string]::IsNullOrWhiteSpace($ScriptDirectory)) {
     throw "Unable to determine the directory containing build-release.ps1."
 }
+$ProjectRoot = (Resolve-Path (Join-Path $ScriptDirectory "..\..")).Path
+$RepositoryRoot = Split-Path -Parent $ProjectRoot
 if ([string]::IsNullOrWhiteSpace($OutputDirectory)) {
-    $OutputDirectory = Join-Path $ScriptDirectory "..\..\release"
+    $OutputDirectory = Join-Path $RepositoryRoot "release"
 }
 
 function Find-Python {
@@ -64,9 +66,9 @@ foreach ($RequiredCommand in @(
     Assert-RequiredCommand -Name $RequiredCommand
 }
 
-$RepositoryRoot = (Resolve-Path (Join-Path $ScriptDirectory "..\..")).Path
-if (-not (Test-Path -LiteralPath (Join-Path $RepositoryRoot "config.json") -PathType Leaf)) {
-    throw "Missing project-root config.json. Copy config.example.json to config.json, edit it, then rebuild."
+if (-not (Test-Path -LiteralPath (Join-Path $ProjectRoot "config.json") -PathType Leaf) -and
+    -not (Test-Path -LiteralPath (Join-Path $RepositoryRoot "config.json") -PathType Leaf)) {
+    throw "Missing config.json. Copy cli-python/config.example.json to cli-python/config.json, edit it, then rebuild."
 }
 if ($Online -and $Offline) {
     throw "Use either -Online or -Offline, not both. Online is the default."
@@ -81,7 +83,7 @@ if (-not [string]::IsNullOrWhiteSpace($IndexUrl)) {
     }
 }
 $script:IndexUrl = $IndexUrl
-$PyProjectPath = Join-Path $RepositoryRoot "pyproject.toml"
+$PyProjectPath = Join-Path $ProjectRoot "pyproject.toml"
 $VersionMatch = Select-String -Path $PyProjectPath -Pattern '^version\s*=\s*"([^"]+)"$'
 if (-not $VersionMatch -or $VersionMatch.Matches.Count -ne 1) {
     throw "Could not determine a unique project version from pyproject.toml."
@@ -154,7 +156,7 @@ try {
     Invoke-CheckedPython -Arguments $BuildToolArguments
 
     Write-Host "[2/5] Building wiserec-cli $Version..." -ForegroundColor Cyan
-    Push-Location $RepositoryRoot
+    Push-Location $ProjectRoot
     try {
         Invoke-CheckedPython -Arguments @(
             "-m", "build", "--wheel", "--no-isolation", "--outdir", $WheelDirectory
@@ -168,7 +170,7 @@ try {
         throw "Expected exactly one Wheel, but found $($Wheels.Count)."
     }
     Invoke-CheckedPython -Arguments @(
-        (Join-Path $RepositoryRoot "scripts\releasing\check-cli-package.py"), $Wheels[0].FullName
+        (Join-Path $ProjectRoot "scripts\check-cli-package.py"), $Wheels[0].FullName
     )
     $WheelPath = Join-Path $BundleDirectory $Wheels[0].Name
     Copy-Item -LiteralPath $Wheels[0].FullName -Destination $WheelPath
@@ -231,7 +233,7 @@ try {
 
     Write-Host ""
     Invoke-CheckedPython -Arguments @(
-        (Join-Path $RepositoryRoot "scripts\releasing\check-cli-package.py"), $ArchivePath
+        (Join-Path $ProjectRoot "scripts\check-cli-package.py"), $ArchivePath
     )
     Write-Host "Release package created:" -ForegroundColor Green
     Write-Host "  Directory: $BundleDirectory"

@@ -58,7 +58,8 @@ assert actual == expected, 'Installer must replace all config fields except loca
     if ($LASTEXITCODE -ne 0) { throw 'Installed config differs from package except current' }
 }
 
-$version = (Select-String -Path pyproject.toml -Pattern '^version = "([^"]+)"').Matches[0].Groups[1].Value
+$versionPath = Join-Path $PSScriptRoot "..\..\pyproject.toml"
+$version = (Select-String -Path $versionPath -Pattern '^version = "([^"]+)"').Matches[0].Groups[1].Value
 foreach ($mode in @('online', 'offline')) {
     $zip = @(Get-ChildItem release -Filter "*-$mode.zip")
     if ($zip.Count -ne 1) { throw "Expected one $mode archive" }

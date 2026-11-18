@@ -48,7 +48,7 @@ def verify(directory, release, version, revision, digest):
     assert manifest['image_tag'] == 'cli-access:' + version
     assert manifest['image_reference'] == 'ghcr.io/mossexplore/cli-access@' + digest
     wheel = directory / f'wiserec_cli-{version}-py3-none-any.whl'
-    check_cli = runpy.run_path('scripts/releasing/check-cli-package.py')['check']
+    check_cli = runpy.run_path('cli-python/scripts/check-cli-package.py')['check']
     check_cli(wheel)
     with ZipFile(wheel) as z:
         metadata, = [n for n in z.namelist() if n.endswith('.dist-info/METADATA')]
@@ -83,7 +83,7 @@ def verify(directory, release, version, revision, digest):
             assert hashlib.sha256(content).hexdigest() == value
             assert content == (Path('permission-notifier') / name).read_bytes()
     docs = {
-        'CLI-install.md': 'scripts/windows/INSTALL.md',
+        'CLI-install.md': 'cli-python/scripts/windows/INSTALL.md',
         'CLI-reference.md': 'docs/WiseRec CLI 使用手册.md',
         'Notifier-install.md': 'permission-notifier/README.md',
         'Docker-runbook.md': 'docs/权限管理系统Docker安装部署与调试指南.md',

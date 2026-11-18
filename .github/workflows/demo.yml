@@ -13,11 +13,11 @@ jobs:
         with:
           python-version: '3.12'
       - name: Prepare CI example configuration
-        run: python -c "from shutil import copyfile; copyfile('config.example.json', 'config.json')"
-      - run: python -m pip install -e '.[jupyter-local]' -e ./devtools/mock-platform pytest build -r access-service/requirements.lock
-      - run: python -m pytest devtools/mock-platform/tests tests/test_execution_context.py -q
-      - run: python -m build --outdir /tmp/formal
-      - run: python scripts/releasing/check-cli-package.py /tmp/formal/*
+        run: python -c "from shutil import copyfile; copyfile('cli-python/config.example.json', 'cli-python/config.json')"
+      - run: python -m pip install -e './cli-python[jupyter-local]' -e ./devtools/mock-platform pytest build -r access-service/requirements.lock
+      - run: python -m pytest devtools/mock-platform/tests cli-python/tests/test_execution_context.py -q
+      - run: python -m build --outdir /tmp/formal cli-python
+      - run: python cli-python/scripts/check-cli-package.py /tmp/formal/*
       - run: python scripts/demo/build-demo.py --offline
       - run: python devtools/mock-platform/tests/validate_bundle.py release/demo/*-demo-offline.zip
   windows-demo:
@@ -28,6 +28,8 @@ jobs:
       - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1
         with:
           python-version: '3.12'
+      - name: Prepare CI example configuration
+        run: python -c "from shutil import copyfile; copyfile('cli-python/config.example.json', 'cli-python/config.json')"
       - run: python -m pip install build -r access-service/requirements.lock
       - run: python scripts/demo/build-demo.py --offline
       - name: Install isolated ml and verify actual permission service calls
