@@ -12,9 +12,13 @@ function Get-PublisherHash([string] $Path) {
     if ($signature.Status -ne 'Valid' -or -not $signature.SignerCertificate) {
         throw "无法验证 Authenticode 签名（$($signature.Status)）。"
     }
+    return Get-Sha256 $signature.SignerCertificate.RawData
+}
+
+function Get-Sha256($InputData) {
     $sha256 = [System.Security.Cryptography.SHA256]::Create()
     try {
-        return [BitConverter]::ToString($sha256.ComputeHash($signature.SignerCertificate.RawData)).Replace('-', '')
+        return [BitConverter]::ToString($sha256.ComputeHash($InputData)).Replace('-', '')
     } finally {
         $sha256.Dispose()
     }
@@ -84,12 +88,22 @@ try {
         }
     }
 
-    $publisher = $env:WISECLI_UPGRADE_SIGNER
-    if (-not $publisher) { $publisher = Get-PublisherHash $exe }
-    if ($mode -eq 'signer') { exit 0 }
-    # Pin the verified package on disk until installation has finished.
+    if ($mode -eq 'signer') {
+        $null = Get-PublisherHash $exe
+        exit 0
+    }
+    # Keep the same package on disk through verification and installation.
     $packageLock = [IO.File]::Open($package, 'Open', 'Read', 'Read')
-    if ((Get-PublisherHash $package) -ne $publisher) { throw 'MSI 签名发布者与可信发布者不匹配。' }
+    $expectedHash = $env:WISECLI_UPGRADE_SHA256
+    if ($expectedHash) {
+        if ((Get-Sha256 $packageLock) -ne $expectedHash) {
+            throw 'MSI SHA-256 校验失败，请核对升级说明地址和安装包。'
+        }
+    } else {
+        $publisher = $env:WISECLI_UPGRADE_SIGNER
+        if (-not $publisher) { $publisher = Get-PublisherHash $exe }
+        if ((Get-PublisherHash $package) -ne $publisher) { throw 'MSI 签名发布者与可信发布者不匹配。' }
+    }
     $targetText = Get-PackageVersion $package
     $target = ConvertTo-ComparableVersion $targetText
     $current = ConvertTo-ComparableVersion $env:WISECLI_UPGRADE_CURRENT

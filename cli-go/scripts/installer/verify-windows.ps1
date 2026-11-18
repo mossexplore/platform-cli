@@ -56,7 +56,9 @@ function Invoke-AutomaticUpgradeFixture($Package, $Exe) {
     $powershell = Join-Path ([Environment]::SystemDirectory) 'WindowsPowerShell/v1.0/powershell.exe'
     $env:WISECLI_UPGRADE_EXE = $Exe
     $env:WISECLI_UPGRADE_PACKAGE = $download
-    $env:WISECLI_UPGRADE_SIGNER = (Get-FileHash -Algorithm SHA256 -LiteralPath $download).Hash
+    $msiHash = (Get-FileHash -Algorithm SHA256 -LiteralPath $download).Hash
+    $env:WISECLI_UPGRADE_SIGNER = $msiHash
+    $env:WISECLI_UPGRADE_SHA256 = ''
     $env:WISECLI_UPGRADE_CURRENT = $baselineVersion
     $env:WISECLI_UPGRADE_MINIMUM = $baselineVersion
     $env:WISECLI_UPGRADE_RECOMMENDED = ''
@@ -76,18 +78,18 @@ function Invoke-AutomaticUpgradeFixture($Package, $Exe) {
             throw "Expected unsigned MSI rejection from Windows PowerShell (exit $($result.ExitCode)): $output"
         }
 
-        # Use a fixture signer for the unsigned CI artifact. Windows Installer still
-        # reads, validates, and installs the real MSI in the second phase.
-        $signatureFixture = @'
-function Get-AuthenticodeSignature([string] $LiteralPath) {
-    return [pscustomobject]@{
-        Status = 'Valid'
-        SignerCertificate = [pscustomobject]@{ RawData = [IO.File]::ReadAllBytes($LiteralPath) }
-    }
-}
-'@
+        $env:WISECLI_UPGRADE_SHA256 = '0' * 64
+        $result = Start-Process -FilePath $powershell -Wait -PassThru -ArgumentList ($shellArguments + $encoded) `
+            -RedirectStandardOutput $stdout -RedirectStandardError $stderr
+        $output = Get-Content -LiteralPath $stderr -Raw
+        if ($result.ExitCode -ne 1 -or "$output" -notlike '*SHA-256*') {
+            throw "Expected SHA-256 mismatch rejection (exit $($result.ExitCode)): $output"
+        }
+
+        # Verify the published bytes of the real unsigned MSI and install it.
+        $env:WISECLI_UPGRADE_SIGNER = ''
+        $env:WISECLI_UPGRADE_SHA256 = $msiHash.ToLowerInvariant()
         $env:WISECLI_UPGRADE_MODE = 'install'
-        $encoded = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes("$signatureFixture`n$script"))
         $result = Start-Process -FilePath $powershell -Wait -PassThru -ArgumentList ($shellArguments + $encoded) `
             -RedirectStandardOutput $stdout -RedirectStandardError $stderr
         Get-Content -LiteralPath $stderr
@@ -98,7 +100,7 @@ function Get-AuthenticodeSignature([string] $LiteralPath) {
         }
         if (Test-Path -LiteralPath $download) { throw 'Automatic upgrade left the staged package' }
     } finally {
-        foreach ($name in @('EXE', 'PACKAGE', 'SIGNER', 'CURRENT', 'MINIMUM', 'RECOMMENDED', 'LOCK', 'PARENT', 'MODE')) {
+        foreach ($name in @('EXE', 'PACKAGE', 'SIGNER', 'SHA256', 'CURRENT', 'MINIMUM', 'RECOMMENDED', 'LOCK', 'PARENT', 'MODE')) {
             Remove-Item -LiteralPath "Env:WISECLI_UPGRADE_$name" -ErrorAction SilentlyContinue
         }
     }

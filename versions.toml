@@ -1,7 +1,7 @@
 # 唯一人工维护入口；修改后运行 python scripts/sync_versions.py
 [components]
 cli = "1.0.9.6"
-cli_go = "1.0.15"
+cli_go = "1.0.16"
 access = "1.0.9.1"
 agent = "1.0.9.1"
 notifier = "1.0.9.1"

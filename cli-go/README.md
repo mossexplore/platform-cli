@@ -121,11 +121,15 @@ MSI 自动将正式 Skill 放入 `~/.agents/skills/wiserec-platform` 和 `~/.cac
 
 ### 版本拒绝时从终端升级
 
-权限系统的生效策略需把「升级说明地址」配置为带 `.msi` 路径的 HTTPS 直链，可含查询参数或跳转至 HTTPS 下载地址。链接上的包应为高于旧版且满足准入版本要求的 WiseRec CLI（Go）Windows x64 MSI。Go 和 Python 共用此字段，若同一策略覆盖两者，Python 也会显示这个链接。
+运行 `build.cmd` 生成 MSI 后，窗口会输出 `MSI upgrade URL suffix: #sha256=...`。将 MSI 上传到 HTTPS 下载地址，把这段后缀追加到 MSI 直链，再将完整链接填入权限系统的「升级说明地址」。
 
-使用 MSI 安装的 Go 客户端在交互式终端遇到版本过低时会询问是否升级。确认后下载并校验包，等待本次命令退出，再调用 Windows Installer 显示安装进度。安装失败时根据提示查看日志。非交互调用、JSON 输出、便携 ZIP 和文档链接继续使用手动升级。已经安装且没有此功能的版本需要先手动升级一次。
+```text
+https://downloads.example.com/wiserec-cli-windows-x64.msi#sha256=<64位SHA-256>
+```
 
-出包时使用受 Windows 信任的代码签名证书为 MSI 签名。若当前安装的 `ml.exe` 已签名，可沿用同一证书。若只给 MSI 签名，或签名证书即将轮换，在准备分发的 Go 构建配置里预先提供 `update.signer_sha256`，值为被信任签名证书的 DER 内容的 SHA-256 指纹，64 位十六进制字符。客户端下载时始终校验 HTTPS，并确认 MSI 由这张证书签名。示例配置构建出的测试包不会自动签名。
+SHA-256 模式使用经证书校验的 HTTPS 权限服务响应。MSI 下载使用 HTTPS，可含查询参数和 HTTPS 跳转。哈希以实际上传的 MSI 为准。权限系统若共用该策略，Python CLI 也会显示这一链接。
+
+通过 MSI 安装的 Go 客户端在交互终端遇到版本过低时会询问是否升级。确认后下载并校验 SHA-256，同时检查 MSI 产品、架构和准入版本要求。验证通过后等待本次命令退出，再调用 Windows Installer。没有哈希的 MSI 直链沿用 Authenticode 校验，可在打包配置中通过 `update.signer_sha256` 固定签名证书指纹。脚本、JSON 输出、便携 ZIP 和文档链接可走手动升级。旧客户端需要先手动安装支持 SHA-256 的 MSI。
 
 ## 便携 ZIP
 

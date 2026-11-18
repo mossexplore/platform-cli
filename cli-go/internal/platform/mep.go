@@ -72,7 +72,8 @@ func (s Session) requireAccess(ctx context.Context, metadata *invocation, profil
 	if validJSON && status == http.StatusOK && result.Username == username && result.Environment == profile.Name {
 		s.Paths.RememberPolicy(s.Config.Access, profile, result.Policy)
 	}
-	if err := metadata.checkVersion(payload); err != nil {
+	denied := validJSON && status == http.StatusOK && result.Allowed != nil && !*result.Allowed
+	if err := metadata.checkAccessVersion(payload, base, denied); err != nil {
 		return err
 	}
 	if status != http.StatusOK {

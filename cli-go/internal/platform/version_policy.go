@@ -1,6 +1,8 @@
 package platform
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"net/url"
@@ -11,6 +13,7 @@ import (
 
 type VersionDenial struct {
 	Code, Current, Minimum, Recommended, UpgradeURL string
+	verifiedAccessDenial                            bool
 }
 
 var policyVersion = regexp.MustCompile(`^(0|[1-9][0-9]{0,8})(\.(0|[1-9][0-9]{0,8})){2,3}$`)
@@ -60,10 +63,40 @@ func (d *VersionDenial) Error() string {
 	return result.String()
 }
 
-func (d *VersionDenial) MSIDownloadURL() string {
+// checkAccessVersion marks only explicit denials returned by the configured
+// permission service over its certificate-verified HTTPS transport.
+func (i *invocation) checkAccessVersion(payload json.RawMessage, endpoint string, denied bool) error {
+	err := i.checkVersion(payload)
+	if refusal, ok := err.(*VersionDenial); ok && denied {
+		address, parseErr := url.Parse(endpoint)
+		refusal.verifiedAccessDenial = parseErr == nil && validSignedURL(address)
+	}
+	return err
+}
+
+type MSIUpgrade struct {
+	URL    string
+	SHA256 string
+}
+
+func (d *VersionDenial) MSIUpgrade() MSIUpgrade {
 	address, err := url.Parse(d.UpgradeURL)
 	if err != nil || !validSignedURL(address) || !strings.HasSuffix(strings.ToLower(address.Path), ".msi") {
-		return ""
+		return MSIUpgrade{}
 	}
-	return d.UpgradeURL
+	key, hash, _ := strings.Cut(address.Fragment, "=")
+	address.Fragment, address.RawFragment = "", ""
+	if !strings.EqualFold(key, "sha256") {
+		return MSIUpgrade{URL: address.String()}
+	}
+
+	// A digest in an unauthenticated response could otherwise authorize any MSI
+	// chosen by the sender. A fragment declaring a digest never falls back to signing.
+	if !d.verifiedAccessDenial || len(hash) != 2*sha256.Size {
+		return MSIUpgrade{}
+	}
+	if _, err := hex.DecodeString(hash); err != nil {
+		return MSIUpgrade{}
+	}
+	return MSIUpgrade{URL: address.String(), SHA256: strings.ToLower(hash)}
 }

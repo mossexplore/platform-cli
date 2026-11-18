@@ -30,7 +30,8 @@ import (
 var installerScript string
 
 func Offer(ctx context.Context, in io.Reader, out, stderr io.Writer, paths func() (localstate.Paths, error), format string, denial *platform.VersionDenial) {
-	if denial.MSIDownloadURL() == "" || !terminal(in) || !terminal(out) || !terminal(stderr) {
+	artifact := denial.MSIUpgrade()
+	if artifact.URL == "" || !terminal(in) || !terminal(out) || !terminal(stderr) {
 		return
 	}
 	state, err := paths()
@@ -53,7 +54,7 @@ func Offer(ctx context.Context, in io.Reader, out, stderr io.Writer, paths func(
 	if answer = strings.ToLower(strings.TrimSpace(answer)); answer != "y" && answer != "yes" {
 		return
 	}
-	if err := stageUpgrade(ctx, state, executable, stderr, denial); err != nil {
+	if err := stageUpgrade(ctx, state, executable, stderr, denial, artifact); err != nil {
 		fmt.Fprintln(stderr, "[错误] 自动升级未完成：", err)
 	}
 }
@@ -81,7 +82,7 @@ func installedExecutable() (string, error) {
 	return installed, nil
 }
 
-func stageUpgrade(ctx context.Context, paths localstate.Paths, executable string, stderr io.Writer, denial *platform.VersionDenial) error {
+func stageUpgrade(ctx context.Context, paths localstate.Paths, executable string, stderr io.Writer, denial *platform.VersionDenial, artifact platform.MSIUpgrade) error {
 	systemDir, err := windows.GetSystemDirectory()
 	if err != nil {
 		return errors.New("无法定位 Windows PowerShell")
@@ -102,6 +103,7 @@ func stageUpgrade(ctx context.Context, paths localstate.Paths, executable string
 		"WISECLI_UPGRADE_EXE=" + executable,
 		"WISECLI_UPGRADE_PACKAGE=" + packagePath,
 		"WISECLI_UPGRADE_SIGNER=" + paths.UpdateSignerSHA256(),
+		"WISECLI_UPGRADE_SHA256=" + artifact.SHA256,
 		"WISECLI_UPGRADE_CURRENT=" + denial.Current,
 		"WISECLI_UPGRADE_MINIMUM=" + denial.Minimum,
 		"WISECLI_UPGRADE_RECOMMENDED=" + denial.Recommended,
@@ -109,7 +111,7 @@ func stageUpgrade(ctx context.Context, paths localstate.Paths, executable string
 		"WISECLI_UPGRADE_LOCK=" + filepath.Join(paths.Dir, "upgrade-go.lock"),
 	}
 
-	if paths.UpdateSignerSHA256() == "" {
+	if artifact.SHA256 == "" && paths.UpdateSignerSHA256() == "" {
 		signerCtx, cancel := context.WithTimeout(ctx, time.Minute)
 		err := installerCommand(signerCtx, shell, "signer", env, stderr).Run()
 		cancel()
@@ -119,7 +121,7 @@ func stageUpgrade(ctx context.Context, paths localstate.Paths, executable string
 	}
 	fmt.Fprintln(stderr, "[信息] 正在下载 MSI 安装包")
 	var lastProgress time.Time
-	err = platform.DownloadUpgradeMSI(ctx, denial.MSIDownloadURL(), packagePath, func(received, total int64) {
+	err = platform.DownloadUpgradeMSI(ctx, artifact.URL, packagePath, func(received, total int64) {
 		if time.Since(lastProgress) < 500*time.Millisecond && received != total {
 			return
 		}
@@ -134,7 +136,11 @@ func stageUpgrade(ctx context.Context, paths localstate.Paths, executable string
 	if err != nil {
 		return err
 	}
-	fmt.Fprintln(stderr, "[信息] 下载完成，正在校验发布者签名和安装包版本")
+	if artifact.SHA256 != "" {
+		fmt.Fprintln(stderr, "[信息] 下载完成，正在校验安装包 SHA-256 和版本")
+	} else {
+		fmt.Fprintln(stderr, "[信息] 下载完成，正在校验发布者签名和安装包版本")
+	}
 	verifyCtx, cancelVerify := context.WithTimeout(ctx, time.Minute)
 	defer cancelVerify()
 	if err := installerCommand(verifyCtx, shell, "verify", env, stderr).Run(); err != nil {

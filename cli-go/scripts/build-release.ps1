@@ -64,11 +64,17 @@ try {
     Write-Verbose "Compressing $baseName.zip"
     Add-Type -AssemblyName System.IO.Compression.FileSystem
     [System.IO.Compression.ZipFile]::CreateFromDirectory($payload, (Join-Path $work "$baseName.zip"))
+    if (-not $PortableOnly) {
+        $msiHash = (Get-FileHash -LiteralPath (Join-Path $work "$baseName.msi") -Algorithm SHA256).Hash.ToLowerInvariant()
+    }
     foreach ($name in $names) {
         $destination = Join-Path $output $name
         [System.IO.File]::Move((Join-Path $work $name), $destination)
         $published.Add($destination)
         Write-Verbose "Package saved: $destination"
+    }
+    if (-not $PortableOnly) {
+        Write-Host "MSI upgrade URL suffix: #sha256=$msiHash"
     }
 } catch {
     foreach ($path in $published) { Remove-Item -LiteralPath $path -Force }

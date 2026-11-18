@@ -123,7 +123,7 @@ func (s Session) EnvironmentStatuses(ctx context.Context, audit string) (map[str
 			(*decision.Allowed && (decision.Username != request.Username || decision.Environment != request.Name)) {
 			return nil, errors.New("批量环境权限查询返回的环境、账号或业务不匹配")
 		}
-		if err := metadata.checkVersion(check.Result); err != nil {
+		if err := metadata.checkAccessVersion(check.Result, base, !*decision.Allowed); err != nil {
 			return nil, err
 		}
 		decisions[check.Name] = *decision.Allowed
