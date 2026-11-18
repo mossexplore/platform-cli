@@ -10,6 +10,7 @@ from uuid import UUID, uuid5
 import xml.etree.ElementTree as ET
 
 ROOT = Path(__file__).resolve().parents[3]
+INSTALLER_NAMESPACE = UUID("432c0a6c-7def-4b10-b19f-baebdd4e5fe9")
 sys.path.insert(0, str(ROOT / "scripts"))
 from stage_skill_resources import stage_skill_resources
 from sync_versions import read_versions, sync
@@ -29,8 +30,7 @@ def stage(work, include_msi):
     if include_msi:
         write_agent_components(work / "agent.wxs", resources)
     # Keep product identities stable for MSI maintenance and distinct across upgrades.
-    product = uuid5(UUID("432c0a6c-7def-4b10-b19f-baebdd4e5fe9"), version)
-    return {"version": version, "productCode": "{" + str(product).upper() + "}"}
+    return {"version": version, "productCode": installer_guid(version)}
 
 
 def write_agent_components(path, resources):
@@ -52,7 +52,8 @@ def write_agent_components(path, resources):
     def component(root, parts, marker):
         directory = directory_for(root, parts)
         component_id = identifier((root, *parts, marker))
-        obj = ET.SubElement(directory, "Component", Id=component_id, Guid="*")
+        # WiX requires an explicit GUID for components with files and HKCU key paths.
+        obj = ET.SubElement(directory, "Component", Id=component_id, Guid=installer_guid("component:" + component_id))
         ET.SubElement(obj, "RegistryValue", Root="HKCU", Key=r"Software\WiseRec\CLIGo\AgentResources",
                       Name=component_id, Type="integer", Value="1", KeyPath="yes")
         ET.SubElement(group, "ComponentRef", Id=component_id)
@@ -88,6 +89,10 @@ def write_agent_components(path, resources):
 
 def identifier(parts):
     return "R_" + sha256("/".join(parts).encode("utf-8")).hexdigest()[:32]
+
+
+def installer_guid(name):
+    return "{" + str(uuid5(INSTALLER_NAMESPACE, name)).upper() + "}"
 
 
 if __name__ == "__main__":

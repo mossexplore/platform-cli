@@ -9,7 +9,7 @@
     <StandardDirectory Id="LocalAppDataFolder">
       <Directory Id="UserPrograms" Name="Programs">
         <Directory Id="INSTALLFOLDER" Name="WiseRecCLIGo">
-          <Component Id="CliFiles" Guid="*">
+          <Component Id="CliFiles" Guid="{7EEC9D0B-B843-5F09-AD9A-E1FF5545E308}">
             <RegistryValue Root="HKCU" Key="Software\WiseRec\CLIGo" Name="Path"
                            Value="[INSTALLFOLDER]" Type="string" KeyPath="yes" />
             <File Id="MlExe" Source="$(var.Payload)\ml.exe" />
