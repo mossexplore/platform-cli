@@ -6,6 +6,8 @@ $mode = $env:WISECLI_UPGRADE_MODE
 $upgradeCode = '{432C0A6C-7DEF-4B10-B19F-BAEBDD4E5FE9}'
 
 function Get-PublisherHash([string] $Path) {
+    # Use Windows PowerShell's own module even if the caller is PowerShell 7.
+    Import-Module (Join-Path $PSHOME 'Modules/Microsoft.PowerShell.Security/Microsoft.PowerShell.Security.psd1')
     $signature = Get-AuthenticodeSignature -LiteralPath $Path
     if ($signature.Status -ne 'Valid' -or -not $signature.SignerCertificate) {
         throw "无法验证 Authenticode 签名（$($signature.Status)）。"

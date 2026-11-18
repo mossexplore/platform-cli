@@ -13,12 +13,11 @@ ROOT = Path(__file__).resolve().parents[3]
 INSTALLER_NAMESPACE = UUID("432c0a6c-7def-4b10-b19f-baebdd4e5fe9")
 sys.path.insert(0, str(ROOT / "scripts"))
 from stage_skill_resources import stage_skill_resources
-from sync_versions import read_versions, sync
+from sync_versions import sync_go
 
 
 def stage(work, include_msi):
-    sync(ROOT, check=True)
-    version = read_versions(ROOT)[0]["cli_go"]
+    version = sync_go(ROOT)
     payload = work / "payload"
     payload.mkdir()
     resources = stage_skill_resources(ROOT, payload / "agent", version)

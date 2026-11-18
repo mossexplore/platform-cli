@@ -1,4 +1,5 @@
 """Single-source version updates survive independent component changes and packaging."""
+import json
 from pathlib import Path
 import re
 import runpy
@@ -57,6 +58,31 @@ agent_cli = "2.3.4"
     assert runpy.run_path(str(root / 'permission-notifier/src/permission_notifier/__init__.py'))['__version__'] == '4.5.6'
     assert 'version = "3.2.1"' in (root / 'agent-service/pyproject.toml').read_text()
     assert 'version = "4.5.6"' in (root / 'permission-notifier/pyproject.toml').read_text()
+
+
+def test_go_packaging_synchronizes_only_its_version(tmp_path):
+    root = checkout(tmp_path)
+    for name in ('scripts/sync_versions.py', 'scripts/stage_skill_resources.py',
+                 'cli-go/scripts/installer/stage.py', 'cli-go/README.md', 'LICENSE'):
+        target = root / name
+        target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(ROOT / name, target)
+    shutil.copytree(ROOT / 'skill', root / 'skill')
+    manifest = root / 'versions.toml'
+    manifest.write_text(re.sub(r'^cli_go = ".*"$', 'cli_go = "2.3.5"', manifest.read_text(), flags=re.M))
+    python_file = root / 'cli-python/pyproject.toml'
+    python_before = python_file.read_bytes()
+    work = tmp_path / 'package'
+    work.mkdir()
+
+    result = subprocess.run([sys.executable, str(root / 'cli-go/scripts/installer/stage.py'), str(work), '--msi'],
+                            capture_output=True, text=True)
+    assert result.returncode == 0, result.stderr
+    assert json.loads(result.stdout)['version'] == '2.3.5'
+    assert json.loads((work / 'payload/release.json').read_text())['version'] == '2.3.5'
+    assert 'const version = "2.3.5"' in (root / 'cli-go/cmd/ml/version.go').read_text()
+    assert python_file.read_bytes() == python_before
+    assert not (root / 'access-service/app/_version.py').exists()
 
 
 def test_invalid_version_cannot_partially_update_files(tmp_path):

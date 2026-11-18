@@ -43,6 +43,22 @@ def project_version(path, value):
     return text[:start] + section + text[end:]
 
 
+def go_version_source(version):
+    return ('// Code generated from versions.toml by scripts/sync_versions.py; DO NOT EDIT.\n\n'
+            f'package main\n\nconst version = "{version}"\n')
+
+
+def sync_go(root):
+    """Refresh only the Go runtime version for the Windows packager."""
+    root = Path(root)
+    version = read_versions(root)[0]['cli_go']
+    version_path = root / 'cli-go/cmd/ml/version.go'
+    content = go_version_source(version)
+    if not version_path.is_file() or version_path.read_text(encoding='utf-8') != content:
+        version_path.write_text(content, encoding='utf-8')
+    return version
+
+
 def sync(root, check=False):
     root = Path(root)
     versions, tested = read_versions(root)
@@ -56,10 +72,7 @@ def sync(root, check=False):
             '"""wiserec CLI package."""\n\n' + generated + f'__version__ = "{versions["cli"]}"\n',
     }
     if (root / 'cli-go/go.mod').is_file():
-        files[root / 'cli-go/cmd/ml/version.go'] = (
-            '// Code generated from versions.toml by scripts/sync_versions.py; DO NOT EDIT.\n\n'
-            f'package main\n\nconst version = "{versions["cli_go"]}"\n'
-        )
+        files[root / 'cli-go/cmd/ml/version.go'] = go_version_source(versions['cli_go'])
     # CLI source distributions contain the manifest but deliberately exclude services.
     if (root / 'access-service/VERSION').is_file():
         files[root / 'access-service/VERSION'] = versions['access'] + '\n'
