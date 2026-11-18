@@ -31,29 +31,32 @@ jobs:
           go test ./...
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           go vet ./...
-      - name: Set up WiX and build the Windows packages
+      - name: Set up WiX and build through the Windows CMD launcher
+        working-directory: cli-go
         shell: pwsh
         run: |
           $tools = Join-Path $env:RUNNER_TEMP 'wix'
           dotnet tool install wix --version 5.0.2 --tool-path $tools
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           $tools >> $env:GITHUB_PATH
-          ./cli-go/scripts/build-release.ps1 -Wix (Join-Path $tools 'wix.exe') -ConfigPath cli-python/config.example.json
+          ./scripts/build-release.cmd -Wix (Join-Path $tools 'wix.exe') -ConfigPath ../cli-python/config.example.json
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Build a higher version in an isolated source tree for upgrade verification
+        working-directory: cli-go
         shell: pwsh
         run: |
           $archive = Join-Path $env:RUNNER_TEMP 'go-upgrade-source.zip'
           $fixture = Join-Path $env:RUNNER_TEMP 'go-upgrade-source'
-          git archive --format=zip --output=$archive HEAD
+          git -C .. archive --format=zip --output=$archive HEAD
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           Expand-Archive $archive $fixture
-          Push-Location $fixture
+          Push-Location (Join-Path $fixture 'cli-go')
           try {
             @'
           from pathlib import Path
           import re
 
-          path = Path("versions.toml")
+          path = Path("../versions.toml")
           text = path.read_text(encoding="utf-8")
           match = re.search(r'^cli_go = "(\d+)\.(\d+)\.(\d+)"$', text, re.M)
           major, minor, patch = map(int, match.groups())
@@ -64,24 +67,26 @@ jobs:
           path.write_text(text[:match.start()] + f'cli_go = "{version}"' + text[match.end():], encoding="utf-8")
           '@ | python -
             if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-            python scripts/sync_versions.py
+            python ../scripts/sync_versions.py
             if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-            ./cli-go/scripts/build-release.ps1 -ConfigPath cli-python/config.example.json -OutputDirectory "$env:RUNNER_TEMP/go-upgrade-packages"
+            ./scripts/build-release.cmd -ConfigPath ../cli-python/config.example.json -OutputDirectory "$env:RUNNER_TEMP/go-upgrade-packages"
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           } finally {
             Pop-Location
           }
       - name: Verify portable package and MSI lifecycle
+        working-directory: cli-go
         shell: pwsh
         run: |
-          ./cli-go/scripts/installer/verify-windows.ps1 -Packages dist/cli-go `
+          ./scripts/installer/verify-windows.ps1 -Packages dist `
             -UpgradePackages "$env:RUNNER_TEMP/go-upgrade-packages" -Work "$env:RUNNER_TEMP/go-msi-verification"
       - name: Upload example-config test packages
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: cli-go-windows-x64-test
           path: |
-            dist/cli-go/*.msi
-            dist/cli-go/*.zip
+            cli-go/dist/*.msi
+            cli-go/dist/*.zip
           if-no-files-found: error
       - name: Upload Windows Installer logs on failure
         if: failure()

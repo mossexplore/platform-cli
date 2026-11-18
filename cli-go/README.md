@@ -6,6 +6,12 @@ Go 客户端使用独立版本，当前源码版本为 `1.0.11`，由根目录 `
 
 同时构建 ZIP 和 MSI 时，请在 Windows x64 上准备 Go 1.25 或以上、Python 3.12、.NET SDK 和 WiX Toolset 5.0.2。**先安装 .NET SDK，再安装 WiX。**
 
+在 PowerShell 中从仓库根目录进入 `cli-go`。本节后续命令都在该目录执行。安装工具后重新打开终端时，请先回到 `platform-cli\cli-go`。
+
+```powershell
+Set-Location .\cli-go
+```
+
 ### 1. 安装并验证 .NET SDK
 
 在 PowerShell 中运行以下命令，安装 .NET 10 SDK。也可以从微软页面下载 Windows x64 的 **SDK 安装程序**。[微软 .NET SDK 安装说明](https://learn.microsoft.com/en-us/dotnet/core/install/windows)
@@ -48,25 +54,29 @@ python --version
 
 ### 4. 准备配置并打包
 
-从仓库根目录执行。已有 `cli-go/config.json` 时，直接检查其中的平台地址和权限服务配置。
+已有当前目录的 `config.json` 时，直接检查其中的平台地址和权限服务配置。
 
 ```powershell
-if (-not (Test-Path .\cli-go\config.json)) {
-    Copy-Item .\cli-python\config.example.json .\cli-go\config.json
+if (-not (Test-Path .\config.json)) {
+    Copy-Item ..\cli-python\config.example.json .\config.json
 }
-notepad .\cli-go\config.json
-# 保存配置后，执行下一行。
-.\cli-go\scripts\build-release.cmd -ConfigPath .\cli-go\config.json
+notepad .\config.json
 ```
 
-也可使用 `./cli-go/scripts/build-release.ps1`。配置优先取 `-ConfigPath PATH`，其次依次查找 `cli-go/config.json`、`cli-python/config.json` 和仓库根目录的 `config.json`。只打 ZIP 时加 `-PortableOnly`，也可在装有 PowerShell 的 macOS 或 Linux 上执行。使用 `-OutputDirectory DIR` 指定新输出目录；默认输出在 `dist/cli-go/`。构建脚本校验环境和权限配置并编译进 `ml.exe`。更新这些配置需重新出包。构建输入请使用获准分发的环境信息，密码、Token 等秘密由服务端管理。
+保存配置后，执行打包命令。
+
+```powershell
+.\scripts\build-release.cmd -ConfigPath .\config.json
+```
+
+也可使用 `./scripts/build-release.ps1`。配置优先取 `-ConfigPath PATH`，其次依次查找 `./config.json`、`../cli-python/config.json` 和 `../config.json`。只打 ZIP 时加 `-PortableOnly`，也可在装有 PowerShell 的 macOS 或 Linux 上执行。默认输出在 `cli-go/dist/`，可用 `-OutputDirectory DIR` 指定其他目录。构建脚本校验环境和权限配置并编译进 `ml.exe`。更新这些配置需重新出包。构建输入请使用获准分发的环境信息，密码、Token 等秘密由服务端管理。
 
 | 产物 | 内容 |
 | --- | --- |
 | `wiserec-cli-VERSION-windows-x64.zip` | 含部署配置的 `ml.exe`、正式 Skill 和 `/ml` 资源、`release.json` 和本说明 |
 | `wiserec-cli-VERSION-windows-x64.msi` | 同一个 `ml.exe`、正式 Skill 和 `/ml` 的每用户安装包 |
 
-开发时只需裸 EXE，可运行 `./cli-go/scripts/build-windows.ps1 -OutputDirectory DIR -ConfigPath PATH`。命令使用相同的构建配置优先级，生成的 EXE 可单独运行。
+开发时只需裸 EXE，可运行 `./scripts/build-windows.ps1 -OutputDirectory ./dist/exe -ConfigPath ./config.json`。命令使用相同的构建配置优先级，生成的 EXE 可单独运行。
 
 ## MSI 安装、升级与卸载
 

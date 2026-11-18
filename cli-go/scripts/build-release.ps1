@@ -1,6 +1,6 @@
 [CmdletBinding()]
 param(
-    [string] $OutputDirectory = (Join-Path $PSScriptRoot '../../dist/cli-go'),
+    [string] $OutputDirectory,
     [string] $ConfigPath,
     [switch] $PortableOnly,
     [string] $Python = 'python',
@@ -8,6 +8,9 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
+if (-not $OutputDirectory) {
+    $OutputDirectory = Join-Path (Split-Path -Parent $PSScriptRoot) 'dist'
+}
 $output = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($OutputDirectory)
 $work = Join-Path $output ('.work-' + [Guid]::NewGuid().ToString('N'))
 $payload = Join-Path $work 'payload'
