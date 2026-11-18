@@ -12,6 +12,8 @@
 - 项目目录或兼容目录中的同名副本需自行移除，以免 OpenCode 加载旧副本。
 - 安装后完全退出并重新打开 OpenCode，使其获得新的 PATH，然后输入 `/ml 查询当前业务下的模型`；只输入 `/ml` 会检查使用上下文并显示用法。
 
+Go 客户端预览通过独立路径试运行。命令名称、参数和平台支持范围以正式客户端为基线，联调范围见 [Go 客户端试运行](../../cli-go/README.md)。配置 Agent 或 harness 的 `/ml` 入口时，继续使用正式 Windows 安装提供的 `ml`。
+
 正式 Windows 安装方式见 [安装说明](../../scripts/windows/INSTALL.md)。通用正文为 `SKILL.md` 与 `references/`（不绑定特定 Agent）；`skill/commands/ml.md` 为支持 `/ml`（`$ARGUMENTS` + `skill` 工具）的 OpenCode 等 harness 的入口。下面的 OpenCode 权限示例供安装人员参考。
 
 ## 建议的权限配置

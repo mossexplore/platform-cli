@@ -1,0 +1,106 @@
+context	shared	--json
+login	shared	--show-secrets
+logout	shared	--all --forget-browser
+tree	shared	--all
+history list	shared	--limit --search --env --status --output -o
+history clear	shared	--env --before --yes
+auth status	shared
+auth ping start	shared
+auth ping stop	shared
+auth ping status	shared
+access status	shared	--diagnose
+business list	shared
+business show	shared
+business use	shared	--tenant --team --department --search
+business refresh	shared
+env list	shared	--output -o
+env show	shared
+env use	shared
+user info	shared	--output -o
+mep config get	shared	--output -o
+mtp swanboard project list	wiserec	--page --page-size --team-id --creator --output -o
+mtp swanboard project namespace list	wiserec	--team-id --output -o
+mtp swanboard project experiment list	wiserec	--team-id --output -o
+mtp swanboard experiment metrics	wiserec	--tag --output -o
+mtp swanboard experiment inspect	wiserec	--output -o
+mtp swanboard experiment feature list	wiserec	--page --page-size --output -o
+mtp swanboard experiment environment get	wiserec	--output -o
+mtp swanboard experiment config list	wiserec	--output -o
+offline experiment list	wiserec	--page --page-size --name --project-name --description --create-user --update-user --team-id --output -o
+offline experiment clone	wiserec	--name --yes -y --dry-run --output -o
+offline experiment trial list	wiserec	--page --page-size --name --type --creator --updater --ai-module --output -o
+train cancel	shared	--yes -y
+train delete	shared	--yes -y
+train clone	shared	--name --customize-config --yes -y
+train start	shared
+train detail	shared	--output -o
+train list	shared	--name --page --page-size --output -o
+train instance list	shared	--page --page-size --output -o
+train instance logs download	shared	--select --directory --output -o
+train history list	shared	--page --page-size --output -o
+train history detail	shared	--output -o
+train history logs download	shared	--type --directory --output -o --role-job-id --wait-timeout
+train config export	shared	--file
+train config update	shared	--customize-config
+sample-task list	wiserec	--source --page --page-size --name --creator --updater --type --status --sort --output -o
+sample-task period list	wiserec	--page --page-size --start-time --end-time --state --output -o
+sample-task execution list	wiserec	--page --page-size --include-history --output -o
+model list	shared	--page --page-size --name --type --owner --team-id --output -o
+model detail	shared	--output -o
+model source	shared	--train-task --output -o
+model deploy	shared	--template --service-timeout --execute-limit --qps --update-mode --health-check-mode --health-port --description --request-file --response-file --dry-run --yes --output -o
+resource template list	shared	--page --page-size --name --env --framework-name --framework-type --resource-type --template-type --output -o
+resource template detail	shared	--output -o
+deployment template list	shared	--page --page-size --name --framework-name --env --framework-type --output -o
+deployment template detail	shared	--output -o
+algorithm list	wiserec	--page --page-size --name --algorithm-name --bucket-name --output -o
+algorithm download	wiserec	--file
+algorithm clone	wiserec	--name --version --yes -y
+dataset list	shared	--page --page-size --name --dataset-name --create-user --update-user --bucket-name --output -o
+dataset detail	shared	--output -o
+dataset files list	shared	--dir --output -o
+dataset files upload	shared	--dir --timeout --output -o
+service list	shared	--page --page-size --name --service-name --model-name --model-version --output -o
+service logs	shared	--pod --cluster-name --type --file --keyword -k --lines -n --list --no-input --search-order --grep-scope --grep-line
+service mock	shared	--transmission-tag --request-sample-file --output -o
+service host list	shared	--pod-ip --output -o
+service host mock	shared	--pod-ip --transmission-tag --request-sample-file --output -o
+service deployment list	shared	--output -o
+featureset wide list	wiserec	--name --page --page-size --output -o
+featureset wide config	wiserec
+featureset wide export	wiserec	--lang --file --output -o
+featureset model list	wiserec	--name --page --page-size --output -o
+featureset model config	wiserec
+featureset model export	wiserec	--lang --file --output -o
+feature-task list	shared	--name --category --create-user --page --page-size --output -o
+feature-task detail	shared	--output -o
+feature-task execution list	shared	--page --page-size --include-history --output -o
+feature-task execution logs search	shared	--start-line --end-line --keyword --scope --scope-lines --output -o
+quality feature list	wiserec	--name --table-name --feature-value-type --indicator-type --page --page-size --output -o
+quality wide-featureset list	wiserec	--name --page --page-size --output -o
+quality wide-featureset feature-assemble list	wiserec	--set-id --output -o
+quality wide-featureset feature-assemble feature list	wiserec	--set-id --definition-id --page --page-size --output -o
+quality wide-featureset label-assemble list	wiserec	--set-id --output -o
+quality wide-featureset label-assemble feature list	wiserec	--set-id --definition-id --page --page-size --output -o
+jupyter exec	shared	--cwd --timeout --startup-timeout --max-output --kernel --output -o --studio-id
+jupyter doctor	shared	--studio-id
+jupyter files list	shared	--output -o --studio-id
+jupyter files stat	shared	--output -o --studio-id
+jupyter files read	shared	--start-line --end-line --output -o --studio-id
+jupyter files write	shared	--from-file --stdin --overwrite --output -o --studio-id
+jupyter files mkdir	shared	--output -o --studio-id
+jupyter files upload	shared	--overwrite --output -o --studio-id
+jupyter files download	shared	--overwrite --output -o --studio-id
+jupyter files move	shared	--output -o --studio-id
+jupyter files copy	shared	--output -o --studio-id
+jupyter files delete	shared	--output -o --studio-id
+jupyter notebook run	shared	--download --kernel --cwd --timeout --startup-timeout --output -o --studio-id
+jupyter terminal list	shared	--studio-id
+jupyter terminal open	shared	--studio-id
+jupyter terminal attach	shared	--studio-id
+jupyter terminal close	shared	--studio-id
+webstudio list	shared	--page --page-size --name --status --relator --env-id --business-id --output -o
+webstudio login	shared	--refresh
+webstudio start	shared
+webstudio stop	shared
+webstudio show	shared
