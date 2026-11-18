@@ -1,25 +1,52 @@
 package localstate
 
 import (
+	"bytes"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
 )
 
-// LoadOrInitializeConfig is used at the foreground command entry point before
-// callers can acquire state locks or check a previously established target.
-func (p Paths) LoadOrInitializeConfig() (Config, error) {
+type environmentSelection struct {
+	Current string `json:"current"`
+}
+
+func (p Paths) loadConfig() (Config, bool, error) {
+	if p.packaged == nil {
+		return Config{}, false, errors.New("Go CLI 未加载内置配置")
+	}
+	cfg := *p.packaged
 	data, err := os.ReadFile(p.Config())
-	if !errors.Is(err, os.ErrNotExist) || p.configTemplate == "" {
-		return decodeConfig(p.Config(), data, err)
-	}
-	seed, err := os.ReadFile(p.configTemplate)
 	if errors.Is(err, os.ErrNotExist) {
-		return decodeConfig(p.Config(), nil, err)
+		return cfg, true, nil
 	}
-	cfg, err := decodeConfig(p.configTemplate, seed, err)
 	if err != nil {
-		return Config{}, err
+		return Config{}, false, fmt.Errorf("无法读取环境选择文件 %s: %w", p.Config(), err)
+	}
+
+	// Legacy files may contain the entire editable configuration. Only current
+	// is read, even when other fields are present or have incompatible types.
+	var fields map[string]json.RawMessage
+	var current string
+	if json.Unmarshal(bytes.TrimPrefix(data, []byte("\xef\xbb\xbf")), &fields) == nil &&
+		json.Unmarshal(fields["current"], &current) == nil && current != "" {
+		selected := cfg
+		selected.Current = current
+		if selected.Profile().Name != "" {
+			canonical, _ := json.Marshal(environmentSelection{Current: current})
+			return selected, !bytes.Equal(bytes.TrimSpace(data), canonical), nil
+		}
+	}
+	return cfg, true, nil
+}
+
+// LoadOrInitializeConfig migrates the selection at the foreground entry point,
+// before commands take state locks or check a previously established target.
+func (p Paths) LoadOrInitializeConfig() (Config, error) {
+	cfg, rewrite, err := p.loadConfig()
+	if err != nil || !rewrite {
+		return cfg, err
 	}
 	unlock, err := p.LockState()
 	if err != nil {
@@ -27,14 +54,14 @@ func (p Paths) LoadOrInitializeConfig() (Config, error) {
 	}
 	defer unlock()
 
-	// Another ml process may have initialized or selected an environment while
-	// we were validating the template. Keep its configuration in that case.
-	data, err = os.ReadFile(p.Config())
-	if !errors.Is(err, os.ErrNotExist) {
-		return decodeConfig(p.Config(), data, err)
+	// Respect a selection saved by another process while we waited for the lock.
+	cfg, rewrite, err = p.loadConfig()
+	if err == nil && rewrite {
+		err = p.writeCurrent(cfg.Current)
 	}
-	if err := WritePrivate(p.Config(), seed); err != nil {
-		return Config{}, fmt.Errorf("无法初始化配置文件 %s: %w", p.Config(), err)
-	}
-	return cfg, nil
+	return cfg, err
+}
+
+func (p Paths) writeCurrent(name string) error {
+	return writeState(p.Config(), environmentSelection{Current: name})
 }

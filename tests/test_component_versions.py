@@ -1,5 +1,6 @@
 """Single-source version updates survive independent component changes and packaging."""
 from pathlib import Path
+import re
 import runpy
 import shutil
 import subprocess
@@ -73,7 +74,7 @@ def test_go_version_must_fit_msi_and_differ_from_python(tmp_path, go_version):
     root = checkout(tmp_path)
     manifest = root / 'versions.toml'
     text = manifest.read_text().replace('cli = "1.0.9.6"', 'cli = "1.0.9.0"', 1)
-    manifest.write_text(text.replace('cli_go = "1.0.10"', f'cli_go = "{go_version}"', 1))
+    manifest.write_text(re.sub(r'^cli_go = ".*"$', f'cli_go = "{go_version}"', text, count=1, flags=re.M))
     with pytest.raises(ValueError, match='Go CLI.*版本'):
         SYNC(root)
 

@@ -42,7 +42,7 @@ func TestModelDeployDryRunBuildsPayloadWithoutPublishing(t *testing.T) {
 		}
 	}))
 	defer server.Close()
-	writeConfig(t, paths, server.URL, server.URL, false)
+	paths = fixtureConfig(t, paths.Dir, server.URL, server.URL, false, "mlops", "")
 	saveState(t, paths, server.URL)
 	code, out, stderr := run(t, paths, "model", "deploy", "model-1", "--template", "template-1", "--execute-limit", "2", "--dry-run", "--yes", "-o", "json")
 	var payload struct {

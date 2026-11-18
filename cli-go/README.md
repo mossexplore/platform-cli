@@ -1,6 +1,6 @@
 # WiseRec CLI Go 客户端
 
-Go 客户端使用独立版本，当前源码版本为 `1.0.10`，由根目录 `versions.toml` 的 `components.cli_go` 管理。Windows x64 安装后使用同一套 `ml` 命令和 WiseRec Platform Skill。支持范围用 `ml tree --all` 核对，实际参数用子命令的 `--help` 核对。
+Go 客户端使用独立版本，当前源码版本为 `1.0.11`，由根目录 `versions.toml` 的 `components.cli_go` 管理。Windows x64 安装后使用同一套 `ml` 命令和 WiseRec Platform Skill。支持范围用 `ml tree --all` 核对，实际参数用子命令的 `--help` 核对。
 
 ## 一键打包
 
@@ -13,14 +13,14 @@ Copy-Item cli-python/config.example.json cli-go/config.json
 .\cli-go\scripts\build-release.cmd
 ```
 
-也可使用 `./cli-go/scripts/build-release.ps1`。配置优先取 `-ConfigPath PATH`，其次依次查找 `cli-go/config.json`、`cli-python/config.json` 和仓库根目录的 `config.json`。只打 ZIP 时加 `-PortableOnly`，也可在装有 PowerShell 的 macOS 或 Linux 上执行。使用 `-OutputDirectory DIR` 指定新输出目录；默认输出在 `dist/cli-go/`。包内配置将随产物分发，业务凭据与登录状态留在用户电脑。
+也可使用 `./cli-go/scripts/build-release.ps1`。配置优先取 `-ConfigPath PATH`，其次依次查找 `cli-go/config.json`、`cli-python/config.json` 和仓库根目录的 `config.json`。只打 ZIP 时加 `-PortableOnly`，也可在装有 PowerShell 的 macOS 或 Linux 上执行。使用 `-OutputDirectory DIR` 指定新输出目录；默认输出在 `dist/cli-go/`。构建脚本校验环境和权限配置并编译进 `ml.exe`。更新这些配置需重新出包。构建输入请使用获准分发的环境信息，密码、Token 等秘密由服务端管理。
 
 | 产物 | 内容 |
 | --- | --- |
-| `wiserec-cli-go-VERSION-windows-x64.zip` | `ml.exe`、配置模板、正式 Skill 和 `/ml` 资源、`release.json` 和本说明 |
-| `wiserec-cli-go-VERSION-windows-x64.msi` | 同一个 `ml.exe`、配置模板、正式 Skill 和 `/ml` 的每用户安装包 |
+| `wiserec-cli-go-VERSION-windows-x64.zip` | 含部署配置的 `ml.exe`、正式 Skill 和 `/ml` 资源、`release.json` 和本说明 |
+| `wiserec-cli-go-VERSION-windows-x64.msi` | 同一个 `ml.exe`、正式 Skill 和 `/ml` 的每用户安装包 |
 
-开发时只需裸 EXE，可运行 `./cli-go/scripts/build-windows.ps1 -OutputDirectory DIR`。将有效配置放入 Go 用户目录后，以二进制路径运行。标准 ZIP 与 MSI 会携带配置模板。
+开发时只需裸 EXE，可运行 `./cli-go/scripts/build-windows.ps1 -OutputDirectory DIR -ConfigPath PATH`。命令使用相同的构建配置优先级，生成的 EXE 可单独运行。
 
 ## MSI 安装、升级与卸载
 
@@ -42,7 +42,7 @@ MSI 自动将正式 Skill 放入 `~/.agents/skills/wiserec-platform` 和 `~/.cac
 
 ## 便携 ZIP
 
-解压到一个目录并保留 `ml.exe` 和 `config.template.json`，在 PowerShell 中用 `.\ml.exe` 或绝对路径调用。这种方式可与 Python CLI 并行试用。解压不会修改系统、注册 PATH 或安装 Skill。需要在当前终端用 `ml` 时，可临时把解压目录放到该终端 PATH 首位，再用 `where.exe ml` 核对。
+解压后在 PowerShell 中用 `.\ml.exe` 或绝对路径调用。这种方式可与 Python CLI 并行试用。解压不会修改系统、注册 PATH 或安装 Skill。需要在当前终端用 `ml` 时，可临时把解压目录放到该终端 PATH 首位，再用 `where.exe ml` 核对。
 
 ```powershell
 .\ml.exe --version
@@ -53,7 +53,7 @@ ml --version
 
 ## 首次使用与状态
 
-带配置的安装包在首次运行需要配置的命令时，用包内模板初始化 `%APPDATA%\ml-go-preview\config.json`。后续包保留已存在的 Go 配置，包括当前环境和自定义字段。登录、业务选择、浏览器会话和历史也在独立 Go 用户目录内。MSI 与便携 Go 客户端共用这一套 Go 状态。Python 客户端仍使用 `%APPDATA%\ml\`。浏览器登录依赖已安装的 Microsoft Edge。
+首次运行需要配置的命令时，`%APPDATA%\ml-go-preview\config.json` 写入形如 `{"current":"dev"}` 的环境选择。新版首次读取旧配置时，只保留仍在 EXE 内置列表中的 `current`；旧环境已移除、文件缺失或无法解析时，使用包内默认环境。`ml env use NAME` 只能选择内置列表中的环境。登录、业务选择、浏览器会话和历史也在独立 Go 用户目录内。MSI 与便携 Go 客户端共用这一套 Go 状态。Python 客户端仍使用 `%APPDATA%\ml\`。浏览器登录依赖已安装的 Microsoft Edge。
 
 ```powershell
 ml env list
@@ -63,7 +63,7 @@ ml auth status
 ml business show
 ```
 
-如需切换业务，执行 `ml business use --tenant TENANT_ID`。Go 业务命令需要启用在线权限校验，并配置可访问的权限服务。需要企业 CA 时，按环境配置权限服务的 `access_control.ca_source` 与 `ca_file`。权限服务收到 Go 的独立版本，请按实际准入规则验证环境。
+如需切换业务，执行 `ml business use --tenant TENANT_ID`。Go 业务命令需要启用在线权限校验，并配置可访问的权限服务。需要企业 CA 时，由出包人员在构建配置中设置 `access_control.ca_source` 与 `ca_file`。权限服务收到 Go 的独立版本，请按实际准入规则验证环境。
 
 ## 验证范围
 

@@ -93,10 +93,7 @@ func TestJupyterExecUsesDedicatedKernelAndCleansIt(t *testing.T) {
 		}
 	}))
 	defer server.Close()
-	writeConfig(t, paths, server.URL, server.URL, false)
-	updateFixtureProfile(t, paths, func(profile map[string]any) {
-		profile["jupyter"] = map[string]string{"server_url": server.URL + "/jupyter/"}
-	})
+	paths = fixtureConfig(t, paths.Dir, server.URL, server.URL, false, "mlops", server.URL+"/jupyter/")
 	saveState(t, paths, server.URL)
 	code, out, stderr := run(t, paths, "jupyter", "exec", "-o", "json", "--", "echo", "测试")
 	var envelope struct {
@@ -129,7 +126,7 @@ func TestJupyterFileDeletionRejectsNonemptyDirectory(t *testing.T) {
 		}
 	}))
 	defer server.Close()
-	writeConfig(t, paths, server.URL, server.URL, false)
+	paths = fixtureConfig(t, paths.Dir, server.URL, server.URL, false, "mlops", "")
 	saveState(t, paths, server.URL)
 	code, out, stderr := run(t, paths, "jupyter", "files", "delete", "not-empty", "-o", "json")
 	if code != 1 || stderr != "" || !strings.Contains(out, "仅允许删除空目录") || writes.Load() != 0 {

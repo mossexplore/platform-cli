@@ -103,7 +103,7 @@ ml access status
 | 组件 | 目录 | 当前源码版本 | 说明 | 文档入口 |
 | --- | --- | --- | --- | --- |
 | **WiseRec CLI（Python）** | `cli-python/` | `1.0.9.6` | 正式命令行工具（`ml`） | [使用手册](docs/WiseRec%20CLI%20使用手册.md) · [维护说明](docs/CLI使用与维护说明.md) |
-| **WiseRec CLI（Go）** | `cli-go/` | `1.0.10` | Windows x64 便携 ZIP 和每用户 MSI | [构建与安装](cli-go/README.md) |
+| **WiseRec CLI（Go）** | `cli-go/` | `1.0.11` | Windows x64 便携 ZIP 和每用户 MSI | [构建与安装](cli-go/README.md) |
 | **权限管理系统** | `access-service/` | `1.0.9.1` | 授权、版本准入与审计管理台 | [README](access-service/README.md) · [Docker 部署指南](docs/权限管理系统Docker安装部署与调试指南.md) |
 | **Agent 服务** | `agent-service/` | `1.0.9.1` | AI Agent 集成与部署工具 | [README](agent-service/README.md) · [配置示例](agent-service/config.example.json) |
 | **权限通知助手** | `permission-notifier/` | `1.0.9.1` | 权限申请桌面通知客户端 | [README](permission-notifier/README.md) |
@@ -114,7 +114,7 @@ ml access status
 
 ## 配置与安全说明
 
-- **配置目录**：两个客户端分别保存状态。Windows 上 Python 使用 `%APPDATA%\ml`，Go 使用 `%APPDATA%\ml-go-preview`。
+- **配置目录**：两个客户端分别保存状态。Windows 上 Python 使用 `%APPDATA%\ml`，Go 使用 `%APPDATA%\ml-go-preview`，其中 `config.json` 只保存当前环境，部署配置随 Go 程序分发。
 - **环境与认证信息**：登录状态、Token 与当前选定的业务空间保存在本地配置目录中，请勿将真实配置文件、密钥或 `service.env` 提交到版本库。
 - **权限与命令限制**：当接入 `access-service` 后，管理员可按环境配置版本准入规则与禁用命令列表，CLI 会在执行对应命令前自动校验并提示。
 

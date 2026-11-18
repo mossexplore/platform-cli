@@ -2,7 +2,6 @@ package localstate
 
 import (
 	"crypto/sha256"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -24,12 +23,7 @@ func (p Paths) UseEnvironment(name string) (Profile, error) {
 		if profile.Name != name {
 			continue
 		}
-		var document map[string]json.RawMessage
-		if err := readJSON(p.Config(), &document); err != nil {
-			return Profile{}, err
-		}
-		document["current"], _ = json.Marshal(name)
-		return profile, writeState(p.Config(), document)
+		return profile, p.writeCurrent(name)
 	}
 	return Profile{}, fmt.Errorf("环境 %q 不存在", name)
 }

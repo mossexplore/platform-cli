@@ -32,13 +32,11 @@ type HistoryEntry struct {
 }
 
 func (p Paths) CurrentEnvironment() *string {
-	var config struct {
-		Current *string `json:"current"`
-	}
-	if readJSON(p.Config(), &config) != nil {
+	cfg, err := LoadConfig(p)
+	if err != nil {
 		return nil
 	}
-	return config.Current
+	return &cfg.Current
 }
 
 func (p Paths) ReadHistory() ([]HistoryEntry, int, error) {

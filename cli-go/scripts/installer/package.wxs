@@ -13,7 +13,7 @@
             <RegistryValue Root="HKCU" Key="Software\WiseRec\CLIGo" Name="Path"
                            Value="[INSTALLFOLDER]" Type="string" KeyPath="yes" />
             <File Id="MlExe" Source="$(var.Payload)\ml.exe" />
-            <File Id="ConfigTemplate" Source="$(var.Payload)\config.template.json" />
+            <RemoveFile Id="RemoveOldConfigTemplate" Name="config.template.json" On="install" />
             <File Id="License" Source="$(var.Payload)\LICENSE" />
             <Environment Id="UserPath" Name="PATH" Value="[INSTALLFOLDER]"
                          Action="set" Part="last" System="no" Permanent="no" />

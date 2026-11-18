@@ -1,4 +1,4 @@
-"""Stage the same configuration and Skill payload for the portable ZIP and MSI."""
+"""Stage the shared Skill and metadata for the portable ZIP and MSI."""
 
 import argparse
 from hashlib import sha256
@@ -15,21 +15,11 @@ from stage_skill_resources import stage_skill_resources
 from sync_versions import read_versions, sync
 
 
-def stage(work, config, include_msi):
+def stage(work, include_msi):
     sync(ROOT, check=True)
     version = read_versions(ROOT)[0]["cli_go"]
-    if config is None:
-        candidates = (ROOT / "cli-go/config.json", ROOT / "cli-python/config.json", ROOT / "config.json")
-        config = next((candidate for candidate in candidates if candidate.is_file()), None)
-    if config is None:
-        raise ValueError("Missing config.json. Supply -ConfigPath or prepare cli-go/config.json.")
     payload = work / "payload"
     payload.mkdir()
-    # Accept JSON saved with a BOM by Windows editors, but ship UTF-8 without it.
-    source = config.read_text(encoding="utf-8-sig")
-    if not isinstance(json.loads(source), dict):
-        raise ValueError("config.json must contain a JSON object.")
-    (payload / "config.template.json").write_bytes(source.encode("utf-8"))
     resources = stage_skill_resources(ROOT, payload / "agent", version)
     shutil.copyfile(ROOT / "cli-go/README.md", payload / "README.md")
     shutil.copyfile(ROOT / "LICENSE", payload / "LICENSE")
@@ -103,7 +93,6 @@ def identifier(parts):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("work", type=Path)
-    parser.add_argument("--config", type=Path)
     parser.add_argument("--msi", action="store_true")
     args = parser.parse_args()
-    print(json.dumps(stage(args.work, args.config, args.msi)))
+    print(json.dumps(stage(args.work, args.msi)))

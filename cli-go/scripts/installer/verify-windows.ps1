@@ -51,6 +51,9 @@ function Assert-Installed($Payload) {
     if ((Get-FileHash $installedExe).Hash -ne (Get-FileHash (Join-Path $Payload 'ml.exe')).Hash) {
         throw 'ZIP and MSI have different executables'
     }
+    if (Test-Path -LiteralPath (Join-Path (Split-Path $installedExe) 'config.template.json')) {
+        throw 'MSI left a standalone deployment configuration'
+    }
     $resources = Get-Content (Join-Path $Payload 'agent/manifest.json') -Raw | ConvertFrom-Json
     foreach ($item in $resources.PSObject.Properties) {
         $roots = if ($item.Name.StartsWith('skills/')) { @($agents, $cac) } else { @($openCode, $cac) }
@@ -63,6 +66,13 @@ function Assert-Installed($Payload) {
     if ($LASTEXITCODE -ne 0 -or $context.'配置路径' -ne $goConfig) { throw 'Incorrect Go configuration path' }
 }
 
+function Assert-Selection($Expected) {
+    $selection = Get-Content -LiteralPath $goConfig -Raw | ConvertFrom-Json -AsHashtable
+    if ($selection.Count -ne 1 -or $selection.current -ne $Expected) {
+        throw "Expected the Go user configuration to contain only current=$Expected"
+    }
+}
+
 New-Item -ItemType Directory -Path $Work -Force | Out-Null
 $baseline = Get-Package $Packages 'msi'
 $upgrade = Get-Package $UpgradePackages 'msi'
@@ -70,6 +80,11 @@ $portable = Join-Path $Work 'portable'
 $portableUpgrade = Join-Path $Work 'portable-upgrade'
 Expand-Archive (Get-Package $Packages 'zip') $portable
 Expand-Archive (Get-Package $UpgradePackages 'zip') $portableUpgrade
+foreach ($payload in @($portable, $portableUpgrade)) {
+    if (Get-ChildItem -LiteralPath $payload -File -Filter '*config*.json') {
+        throw 'Portable package contains a standalone deployment configuration'
+    }
+}
 $currentVersion = (Get-Content (Join-Path $portable 'release.json') -Raw | ConvertFrom-Json).version
 $upgradeVersion = (Get-Content (Join-Path $portableUpgrade 'release.json') -Raw | ConvertFrom-Json).version
 if ((Get-MsiVersion $baseline) -ne $currentVersion -or (Get-MsiVersion $upgrade) -ne $upgradeVersion) {
@@ -105,15 +120,28 @@ try {
     Invoke-Msi '/i' $baseline 'install' | Out-Null
     $installedMsi = $baseline
     Assert-Installed $portable
+    Assert-Selection 'dev'
     if (Test-Path (Join-Path $openCode 'commands/ml-lab.md')) { throw 'Legacy shortcut remains' }
 
+    Set-Content -LiteralPath $goConfig -Value '{"current":"test","profiles":[],"access_control":{"enable":false}}'
+    $portableContext = & (Join-Path $portable 'ml.exe') --no-history context --json | ConvertFrom-Json
+    if ($LASTEXITCODE -ne 0 -or $portableContext.'当前环境' -ne 'test' -or $portableContext.'平台地址') {
+        throw 'Portable exe did not load the selected embedded environment'
+    }
+    Assert-Selection 'test'
+
+    & ml --no-history env use dev
+    if ($LASTEXITCODE -ne 0) { throw 'Could not select the default test environment' }
+    Assert-Selection 'dev'
     & ml --no-history env use test
     if ($LASTEXITCODE -ne 0) { throw 'Could not select the other test environment' }
+    Assert-Selection 'test'
     $configDigest = (Get-FileHash $goConfig).Hash
     Remove-Item -LiteralPath (Join-Path $openCode 'commands/ml.md')
     Invoke-Msi '/fa' $baseline 'repair' | Out-Null
     Assert-Installed $portable
 
+    Set-Content -LiteralPath (Join-Path (Split-Path $installedExe) 'config.template.json') -Value 'old template'
     [Environment]::SetEnvironmentVariable('OPENCODE_CONFIG_DIR', (Join-Path $Work 'different OpenCode'), 'User')
     Invoke-Msi '/i' $upgrade 'upgrade' | Out-Null
     $installedMsi = $upgrade

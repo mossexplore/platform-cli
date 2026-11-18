@@ -8,8 +8,7 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
-$module = Split-Path $PSScriptRoot
-$output = [System.IO.Path]::GetFullPath($OutputDirectory)
+$output = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($OutputDirectory)
 $work = Join-Path $output ('.work-' + [Guid]::NewGuid().ToString('N'))
 $payload = Join-Path $work 'payload'
 $installer = Join-Path $PSScriptRoot 'installer'
@@ -25,7 +24,6 @@ New-Item -ItemType Directory -Path $work -Force | Out-Null
 $published = [System.Collections.Generic.List[string]]::new()
 try {
     $arguments = @((Join-Path $installer 'stage.py'), $work)
-    if ($ConfigPath) { $arguments += @('--config', $ConfigPath) }
     if (-not $PortableOnly) { $arguments += '--msi' }
     $metadata = & $Python @arguments
     if ($LASTEXITCODE -ne 0) { throw 'Preparing package inputs failed.' }
@@ -39,16 +37,7 @@ try {
         }
     }
 
-    # Validate the exact bundled template with the Go parser on the build host.
-    Push-Location $module
-    try {
-        & go run ./cmd/check-config (Join-Path $payload 'config.template.json')
-        if ($LASTEXITCODE -ne 0) { throw 'Validating the Go configuration failed.' }
-    } finally {
-        Pop-Location
-    }
-
-    $build = @{ OutputDirectory = $payload }
+    $build = @{ OutputDirectory = $payload; ConfigPath = $ConfigPath }
     if (-not $PortableOnly) {
         $build.PreflightPath = Join-Path $work 'path-check.exe'
     }

@@ -32,10 +32,10 @@ func TestVersionDoesNotReadState(t *testing.T) {
 
 func TestContextAndTree(t *testing.T) {
 	paths := localstate.Paths{Dir: t.TempDir()}
-	writeConfig(t, paths, "https://preview.example.test/path?private=value#secret", "https://permissions.example.test", true)
+	paths = fixtureConfig(t, paths.Dir, "https://preview.example.test/path?private=value#secret", "https://permissions.example.test", true, "mlops", "")
 	code, out, stderr := run(t, paths, "context", "--json")
-	if code != 0 || stderr != "" || !strings.Contains(out, "https://preview.example.test/path") ||
-		strings.Contains(out, "secret") || strings.Contains(out, "?private=") {
+	if code != 0 || stderr != "" || !strings.Contains(out, "当前环境") ||
+		strings.Contains(out, "preview.example.test") || strings.Contains(out, "平台地址") {
 		t.Fatalf("context: %d %s %s", code, out, stderr)
 	}
 	code, out, stderr = run(t, paths, "context")
@@ -103,8 +103,12 @@ func TestMEPRequestBoundaries(t *testing.T) {
 	mu.Lock()
 	serverOrigin = server.URL
 	mu.Unlock()
-	writeConfig(t, paths, server.URL+"/ui?local=fixture", server.URL, false)
+	paths = fixtureConfig(t, paths.Dir, server.URL+"/ui?local=fixture", server.URL, false, "mlops", "")
 	saveState(t, paths, server.URL)
+	legacy := `{"current":"preview","profiles":[{"name":"preview","api_endpoint":"https://untrusted.example.test"}],"access_control":{"enable":false}}`
+	if err := os.WriteFile(paths.Config(), []byte(legacy), 0600); err != nil {
+		t.Fatal(err)
+	}
 	code, out, stderr := run(t, paths, "mep", "config", "get", "test-key", "-o", "json")
 	if code != 0 || stderr != "" || !strings.Contains(out, "9223372036854775807") {
 		t.Fatalf("query: %d %s %s", code, out, stderr)
@@ -160,12 +164,12 @@ func TestMEPRequestBoundaries(t *testing.T) {
 	mu.Lock()
 	events = nil
 	mu.Unlock()
-	writeConfig(t, paths, "http://127.0.0.1:1/ui", server.URL, false)
+	paths = fixtureConfig(t, paths.Dir, "http://127.0.0.1:1/ui", server.URL, false, "mlops", "")
 	code, out, stderr = run(t, paths, "mep", "config", "get", "test-key")
 	if code == 0 || out != "" || !strings.Contains(stderr, "登录缓存") {
 		t.Fatalf("changed origin: %d %s %s", code, out, stderr)
 	}
-	writeConfig(t, paths, server.URL, server.URL, false)
+	paths = fixtureConfig(t, paths.Dir, server.URL, server.URL, false, "mlops", "")
 	business, err := os.ReadFile(paths.Business())
 	if err != nil {
 		t.Fatal(err)
@@ -199,7 +203,7 @@ func run(t *testing.T, paths localstate.Paths, args ...string) (int, string, str
 	return code, out.String(), stderr.String()
 }
 
-func writeConfig(t *testing.T, paths localstate.Paths, endpoint, access string, deny bool) {
+func fixtureConfig(t *testing.T, dir, endpoint, access string, deny bool, manager, jupyterURL string) localstate.Paths {
 	t.Helper()
 	rules := "[]"
 	if deny {
@@ -207,11 +211,13 @@ func writeConfig(t *testing.T, paths localstate.Paths, endpoint, access string, 
 	}
 	input := fmt.Sprintf(`{"current":"preview","profiles":[
 		{"name":"other","api_endpoint":"https://other.example.test","platform_type":"wiserec"},
-		{"name":"preview","api_endpoint":%q,"platform_type":"mlops","command_policy":{"deny":%s}}],
-		"access_control":{"url":%q}}`, endpoint, rules, access)
-	if err := os.WriteFile(paths.Config(), []byte(input), 0600); err != nil {
+		{"name":"preview","api_endpoint":%q,"platform_type":%q,"command_policy":{"deny":%s},"jupyter":{"server_url":%q}}],
+		"access_control":{"url":%q}}`, endpoint, manager, rules, jupyterURL, access)
+	paths, err := localstate.NewPaths(dir, []byte(input))
+	if err != nil {
 		t.Fatal(err)
 	}
+	return paths
 }
 
 func saveState(t *testing.T, paths localstate.Paths, origin string) {

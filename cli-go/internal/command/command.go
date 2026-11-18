@@ -97,7 +97,6 @@ func newRoot(options Options) *cobra.Command {
 			result := output.Fields{
 				{Key: "运行模式", Value: "Go CLI"},
 				{Key: "当前环境", Value: cfg.Current},
-				{Key: "平台地址", Value: cfg.Profile().PublicEndpoint()},
 				{Key: "CLI 版本", Value: options.Version},
 				{Key: "CLI 路径", Value: executable},
 				{Key: "配置路径", Value: paths.Config()},

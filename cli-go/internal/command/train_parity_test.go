@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
-	"os"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -48,8 +47,7 @@ func TestTrainListUsesCorrectManagerProtocol(t *testing.T) {
 				}
 			}))
 			defer server.Close()
-			writeConfig(t, paths, server.URL, server.URL, false)
-			updateFixtureProfile(t, paths, func(profileDocument map[string]any) { profileDocument["platform_type"] = profile })
+			paths = fixtureConfig(t, paths.Dir, server.URL, server.URL, false, profile, "")
 			saveState(t, paths, server.URL)
 			code, out, stderr := run(t, paths, "train", "list", "--page", "2", "--page-size", "7", "--name", "样例", "-o", "json")
 			if code != 0 || stderr != "" {
@@ -106,7 +104,7 @@ func TestTrainingMutationStopsAfterBusinessChange(t *testing.T) {
 		}
 	}))
 	defer server.Close()
-	writeConfig(t, paths, server.URL, server.URL, false)
+	paths = fixtureConfig(t, paths.Dir, server.URL, server.URL, false, "mlops", "")
 	saveState(t, paths, server.URL)
 	code, _, stderr := run(t, paths, "train", "delete", "fixture-task", "--yes")
 	if code == 0 || !strings.Contains(stderr, "业务已变化") || probes.Load() != 2 || deletes.Load() != 0 {
@@ -135,31 +133,4 @@ func readRequest(t *testing.T, r *http.Request) map[string]any {
 		t.Error(err)
 	}
 	return body
-}
-func updateFixtureProfile(t *testing.T, paths localstate.Paths, update func(map[string]any)) {
-	t.Helper()
-	raw, err := os.ReadFile(paths.Config())
-	if err != nil {
-		t.Fatal(err)
-	}
-	var config struct {
-		Current  string           `json:"current"`
-		Access   map[string]any   `json:"access_control"`
-		Profiles []map[string]any `json:"profiles"`
-	}
-	if err := json.Unmarshal(raw, &config); err != nil {
-		t.Fatal(err)
-	}
-	for _, item := range config.Profiles {
-		if item["name"] == config.Current {
-			update(item)
-		}
-	}
-	data, err := json.Marshal(config)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(paths.Config(), data, 0600); err != nil {
-		t.Fatal(err)
-	}
 }

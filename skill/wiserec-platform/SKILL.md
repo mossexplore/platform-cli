@@ -22,7 +22,7 @@ metadata:
 
 ## 最小会话预检与复用
 
-- **首次建立上下文**：先运行 `ml context --json` 核对配置路径为当前平台标准用户路径（Windows 上 Python 客户端为 `%APPDATA%\ml\config.json`，Go 客户端为 `%APPDATA%\ml-go-preview\config.json`），再运行 `ml auth status` 检查 `status=valid`、`profile` 与当前环境一致且 `businessId` 有效。路径不符或配置缺失时停止。详细字段、Windows shell 调用及故障处理见 [session.md](references/session.md)。
+- **首次建立上下文**：先运行 `ml context --json` 核对配置路径为当前平台标准用户路径（Windows 上 Python 客户端为 `%APPDATA%\ml\config.json`，Go 客户端为仅保存当前环境的 `%APPDATA%\ml-go-preview\config.json`），再运行 `ml auth status` 检查 `status=valid`、`profile` 与当前环境一致且 `businessId` 有效。路径不符或配置缺失时停止。详细字段、Windows shell 调用及故障处理见 [session.md](references/session.md)。
 - **上下文复用与切换**：共用同一套本地 CLI 状态的聊天共享当前环境和已选业务。未指定租户或团队时，使用 CLI 执行时的当前选择；用户指定业务时，先用 `ml business show` 核对。切换环境用 `ml env use NAME` 后重新运行上述两条命令确认；长任务前查 `auth status` 剩余有效期。
 
 ## 调用与结果准则

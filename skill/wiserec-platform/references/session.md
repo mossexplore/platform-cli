@@ -2,7 +2,7 @@
 
 ## 首次确认与上下文复用
 
-当前聊天尚无已确认上下文时，先运行 `ml context --json` 核对实际配置路径。确认它是当前客户端的标准用户配置（Windows 上 Python 客户端为 `%APPDATA%\ml\config.json`，Go 客户端为 `%APPDATA%\ml-go-preview\config.json`）后，再运行 `ml auth status`。
+当前聊天尚无已确认上下文时，先运行 `ml context --json` 核对实际配置路径。确认它是当前客户端的标准用户配置（Windows 上 Python 客户端为 `%APPDATA%\ml\config.json`，Go 客户端为仅保存当前环境的 `%APPDATA%\ml-go-preview\config.json`）后，再运行 `ml auth status`。
 
 ```powershell
 ml context --json
@@ -15,7 +15,7 @@ ml auth status
 - 在当前聊天内可复用已确认的 CLI 路径、配置来源和命令语法。共用同一套本地 CLI 状态的聊天共享当前环境及各环境的业务选择。会话 A 切换租户后，会话 B 下一次未指定业务的查询使用该环境的新选择。
 - 用户要求切换到另一环境时，运行对应的 `ml env use NAME`，再用上述两条命令更新上下文。与已确认环境相同时不重复切换；未指定环境时沿用已确认的当前环境，不擅自切换。若用户给的是显示名，用 `ml env list -o json` 匹配“环境名”，取唯一匹配行的“环境标识”用于切换。未找到或匹配多行时，请用户确认环境标识。开启自动保活时，目标环境未登录或登录过期会提示运行 `ml login`。
 - `ml env list` 默认输出表格。加 `-o json` 返回环境数组，无可展示环境时返回 `[]`。两种格式都隐藏已确认未授权的环境，保留授权状态未知的环境。列表可显示「已授权」「登录使用中」「登录已过期」或「授权状态未知」。管理台类型显示为「搜推广工程平台」或「WiseMLOps平台」。
-- 按 CLI 实际运行的平台核对用户配置路径。Windows 为 `%APPDATA%\ml\config.json`，macOS 为 `~/Library/Application Support/ml/config.json`，Linux 为 `$XDG_CONFIG_HOME/ml/config.json`，未设置该变量时为 `~/.config/ml/config.json`。Windows 安装器用包内的 `wiserec_cli/config.json` 初始化和更新用户配置。若实际配置路径不符或文件缺失，停止后续 CLI 操作并告知用户。
+- 按客户端核对用户配置路径。Python 客户端的 Windows 路径为 `%APPDATA%\ml\config.json`，macOS 为 `~/Library/Application Support/ml/config.json`，Linux 为 `${XDG_CONFIG_HOME:-~/.config}/ml/config.json`。Go 客户端使用相同系统目录下的 `ml-go-preview/config.json`。Go 首次加载内置配置时会初始化环境选择。若 `context` 报错或路径不符，停止后续操作并告知用户。
 
 ## 何时重新检查
 
@@ -66,7 +66,7 @@ Windows Git Bash 可用 `cygpath -u` 转换 `LOCALAPPDATA` 后拼接安装路径
 | `ml` 不在 PATH 中 | 直接调用默认安装目录的 `ml.exe`，路径见上方示例 |
 | 默认路径缺少 `ml.exe` 或版本异常 | 向用户核对安装目录和实际调用的版本 |
 | `配置文件不存在` | 按上方列出的当前平台用户配置路径核对。路径不符或文件缺失时，告知用户实际路径并停止操作 |
-| `安装包中缺少 config.json` | 在报错的 Agent 终端运行 `Get-Command ml` 和 `ml --version`，核对实际调用的 CLI。若该安装缺少包内配置，用完整安装包重新安装 |
+| `安装包中缺少 config.json` 或 `Go CLI 内置配置无效` | 在报错的 Agent 终端运行 `Get-Command ml` 和 `ml --version`，核对实际调用的 CLI。若该安装缺少包内配置，用完整安装包重新安装 |
 | 认证过期或缺失 | 请用户登录后复查 |
 | 未选业务 | 列候选并按用户选择设置；空结果不等于平台无数据 |
 | `当前环境 selected.businessId 与业务目录不一致，请运行 ml business refresh` | 刷新当前环境的业务目录，再用 `ml business show` 核对所选业务。需要重新选择时请用户确认目标 |

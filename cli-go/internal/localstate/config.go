@@ -1,6 +1,8 @@
 package localstate
 
 import (
+	"bytes"
+	_ "embed"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -17,20 +19,29 @@ import (
 type Paths struct {
 	Dir              string
 	BusinessOverride string
-	configTemplate   string
+	packaged         *Config
 }
 
+// The packaging script overlays this placeholder with the validated build input.
+//
+//go:embed config.embedded.json
+var packagedConfig []byte
+
 func DefaultPaths() (Paths, error) {
-	// Keep the Go preview's state independent of the Python client.
+	// Keep the Go client's state independent of the Python client.
 	root, err := os.UserConfigDir()
 	if err != nil {
 		return Paths{}, errors.New("无法定位当前账号的用户配置目录")
 	}
-	paths := Paths{Dir: filepath.Join(root, "ml-go-preview")}
-	if executable, err := os.Executable(); err == nil {
-		paths.configTemplate = filepath.Join(filepath.Dir(executable), "config.template.json")
+	return NewPaths(filepath.Join(root, "ml-go-preview"), packagedConfig)
+}
+
+func NewPaths(dir string, packaged []byte) (Paths, error) {
+	cfg, err := decodeConfig(packaged)
+	if err != nil {
+		return Paths{}, fmt.Errorf("Go CLI 内置配置无效，请使用完整的安装包: %w", err)
 	}
-	return paths, nil
+	return Paths{Dir: dir, packaged: &cfg}, nil
 }
 
 func (p Paths) Config() string      { return filepath.Join(p.Dir, "config.json") }
@@ -104,20 +115,22 @@ type Access struct {
 }
 
 func LoadConfig(paths Paths) (Config, error) {
-	return readConfigFile(paths.Config())
+	cfg, _, err := paths.loadConfig()
+	return cfg, err
 }
 
 func ValidateConfigFile(path string) error {
-	_, err := readConfigFile(path)
-	return err
-}
-
-func readConfigFile(path string) (Config, error) {
 	data, err := os.ReadFile(path)
-	return decodeConfig(path, data, err)
+	if err != nil {
+		return err
+	}
+	if _, err := decodeConfig(data); err != nil {
+		return fmt.Errorf("打包配置无效: %s（%w）", path, err)
+	}
+	return nil
 }
 
-func decodeConfig(path string, data []byte, err error) (Config, error) {
+func decodeConfig(data []byte) (Config, error) {
 	cfg := Config{}
 	cfg.API.TimeoutMS = 30000
 	cfg.Auth.TTLSeconds = 1800
@@ -125,17 +138,11 @@ func decodeConfig(path string, data []byte, err error) (Config, error) {
 	cfg.Browser.LoginTimeoutMS = 300000
 	cfg.Access.TimeoutSecs = 15
 	cfg.Access.CASource = "env"
-	if errors.Is(err, os.ErrNotExist) {
-		return Config{}, fmt.Errorf("配置文件不存在: %s。请使用完整的 Go 安装包，或准备独立配置", path)
-	}
-	if err != nil {
-		return Config{}, fmt.Errorf("无法读取配置文件: %s", path)
-	}
-	if err := json.Unmarshal(data, &cfg); err != nil {
-		return Config{}, fmt.Errorf("配置文件不是有效的 JSON 或字段类型不符: %s", path)
+	if err := json.Unmarshal(bytes.TrimPrefix(data, []byte("\xef\xbb\xbf")), &cfg); err != nil {
+		return Config{}, errors.New("配置不是有效的 JSON 或字段类型不符")
 	}
 	if err := cfg.validate(); err != nil {
-		return Config{}, fmt.Errorf("配置文件无效: %s（%w）", path, err)
+		return Config{}, err
 	}
 	return cfg, nil
 }

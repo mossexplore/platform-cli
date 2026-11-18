@@ -17,7 +17,7 @@ func TestPythonCommandContract(t *testing.T) {
 	expected := make(map[string]bool)
 	root := newRoot(Options{Version: "test"})
 	for _, line := range strings.Split(strings.TrimSuffix(string(raw), "\n"), "\n") {
-		path, metadata, ok := strings.Cut(line, "\t")
+		path, metadata, ok := strings.Cut(strings.TrimSuffix(line, "\r"), "\t")
 		if !ok {
 			t.Fatalf("invalid Python command fixture row %q", line)
 		}
