@@ -1,6 +1,8 @@
 # WiseRec CLI Go 客户端
 
-Go 客户端使用独立版本，当前源码版本为 `1.0.13`，由根目录 `versions.toml` 的 `components.cli_go` 管理。Windows x64 安装后使用同一套 `ml` 命令和 WiseRec Platform Skill。支持范围用 `ml tree --all` 核对，实际参数用子命令的 `--help` 核对。
+Go 客户端使用独立版本，当前源码版本为 `1.0.14`，由根目录 `versions.toml` 的 `components.cli_go` 管理。Windows x64 安装后使用同一套 `ml` 命令和 WiseRec Platform Skill。支持范围用 `ml tree --all` 核对，实际参数用子命令的 `--help` 核对。
+
+Go 的各级 `--help` 随 EXE 分发，使用 Python CLI 的帮助文案和面板。调整 Python 帮助后，在已安装 Python CLI 开发依赖的环境中从 `cli-go` 运行 `python scripts/sync-python-help.py`，再用 `python scripts/sync-python-help.py --check` 核对。生成时使用 Typer 0.23.2、Click 8.1.8、Rich 14.3.4。
 
 ## 一键打包
 
@@ -80,11 +82,28 @@ notepad .\config.json
 
 开发时只需裸 EXE，可运行 `./scripts/build-windows.ps1 -OutputDirectory ./dist/exe -ConfigPath ./config.json`。命令使用相同的构建配置优先级，生成的 EXE 可单独运行。
 
+### Go 依赖下载超时
+
+如果打包时请求 `proxy.golang.org` 超时，可在能联网的机器上准备离线缓存。先将当前终端的 `GOMODCACHE` 指向一个新的空目录，再从同一版本的 `cli-go` 目录执行 `go mod download` 和 `go mod verify`。将新缓存中的 `cache/download` 放进 ZIP，压缩包根目录应为 `cache/`，内部保留 `download/`。
+
+拿到离线 Go 模块缓存 ZIP 后，在 Windows 的 `platform-cli\cli-go` 下运行。将 `CACHE_ZIP_PATH` 替换为压缩包路径。
+
+```powershell
+$modCache = Join-Path (Get-Location).Path 'dist\go-module-cache'
+Expand-Archive -LiteralPath 'CACHE_ZIP_PATH' -DestinationPath $modCache
+$env:GOMODCACHE = $modCache
+$env:GOPROXY = 'off'
+go mod download
+go mod verify
+```
+
+两条 `go mod` 命令成功后，在同一个 PowerShell 窗口运行 `.\scripts\build-release.cmd -ConfigPath .\config.json`。这些环境变量只在当前窗口生效。若仓库的 `go.mod` 或 `go.sum` 更新，请准备与新提交匹配的缓存。
+
 ## MSI 安装、升级与卸载
 
 1. 双击 MSI，或通过 `msiexec` 安装。安装范围为当前用户，程序位于 `%LOCALAPPDATA%\Programs\WiseRecCLIGo\ml.exe`。
 2. 如果用户 PATH 中已有旧版 WiseRec Python 安装器注册的入口，MSI 会自动移除该条目并继续安装。旧版程序、配置和登录数据会保留。安装失败回滚时会恢复移除的旧入口。
-3. 交互安装成功后会出现完成提示。关闭提示，重新打开终端与 Agent，再运行 `where.exe ml`、`ml --version` 和 `ml context --json` 核对入口、版本和配置路径。
+3. 交互安装成功后，安装器会显示已填满的进度条和「安装成功（100%）」。点击「确定」关闭窗口，重新打开终端与 Agent，再运行 `where.exe ml`、`ml --version` 和 `ml context --json` 核对入口、版本和配置路径。
 
 系统 PATH 中的冲突由管理员调整。其他工具目录中的 `ml` 需要手动核对，以免删除它们共享的 PATH 条目。PowerShell 别名或函数可用 `Get-Command ml -All` 检查。
 

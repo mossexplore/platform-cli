@@ -1,8 +1,11 @@
 package command
 
 import (
+	"bufio"
+	"context"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"slices"
 	"strings"
@@ -14,10 +17,12 @@ import (
 	"golang.org/x/term"
 )
 
+const historyPageSize = 20
+
 func newHistory(options Options) *cobra.Command {
 	group := &cobra.Command{Use: "history", Short: "查看和管理本地命令历史", Args: positional(0)}
 	list := &cobra.Command{Use: "list", Short: "查询历史执行记录", Args: positional(0)}
-	limit := list.Flags().Int("limit", 20, "最多显示条数")
+	limit := list.Flags().Int("limit", historyPageSize, "最多显示条数，非交互和 JSON 默认 20")
 	query := list.Flags().String("search", "", "命令内容关键字")
 	env := list.Flags().String("env", "", "执行前的环境")
 	status := list.Flags().String("status", "", "success、failed 或 interrupted")
@@ -38,6 +43,13 @@ func newHistory(options Options) *cobra.Command {
 		if damaged != 0 {
 			fmt.Fprintf(cmd.ErrOrStderr(), "[警告] 历史文件有 %d 条损坏记录，已跳过\n", damaged)
 		}
+		in, inOK := cmd.InOrStdin().(*os.File)
+		out, outOK := cmd.OutOrStdout().(*os.File)
+		browse := *format == "table" && inOK && outOK && term.IsTerminal(int(in.Fd())) && term.IsTerminal(int(out.Fd()))
+		maxRows := *limit
+		if browse && !cmd.Flags().Changed("limit") {
+			maxRows = len(rows)
+		}
 		filtered := []localstate.HistoryEntry{}
 		slices.Reverse(rows)
 		slices.SortStableFunc(rows, func(a, b localstate.HistoryEntry) int {
@@ -56,30 +68,17 @@ func newHistory(options Options) *cobra.Command {
 			}
 			row.Key = ""
 			filtered = append(filtered, row)
-			if len(filtered) == *limit {
+			if len(filtered) == maxRows {
 				break
 			}
 		}
 		if *format == "json" {
 			return output.JSON(cmd.OutOrStdout(), filtered)
 		}
-		table := [][]string{}
-		for _, row := range filtered {
-			env := "-"
-			if row.Before != nil {
-				env = *row.Before
-			}
-			state := labelOrID(map[string]string{"success": "成功", "failed": "失败", "interrupted": "中断"}[row.Status], row.Status)
-			table = append(table, []string{row.Time, env, state, fmt.Sprintf("%.2fs", float64(row.Duration)/1000), row.Command})
+		if browse && len(filtered) > 0 {
+			return browseHistory(cmd.Context(), in, out, cmd.ErrOrStderr(), filtered)
 		}
-		if err := output.Table(cmd.OutOrStdout(), []string{"执行时间", "环境", "结果", "耗时", "命令"}, table); err != nil {
-			return err
-		}
-		if len(filtered) == 0 {
-			_, err := fmt.Fprintln(cmd.OutOrStdout(), "暂无匹配的历史记录")
-			return err
-		}
-		return nil
+		return renderHistory(cmd.OutOrStdout(), filtered)
 	}
 	group.RunE = list.RunE
 	clear := &cobra.Command{Use: "clear", Short: "清理历史记录", Args: positional(0)}
@@ -137,13 +136,90 @@ func newHistory(options Options) *cobra.Command {
 	return group
 }
 
+func renderHistory(out io.Writer, rows []localstate.HistoryEntry) error {
+	table := make([][]string, 0, len(rows))
+	for _, row := range rows {
+		env := "-"
+		if row.Before != nil {
+			env = *row.Before
+		}
+		state := labelOrID(map[string]string{"success": "成功", "failed": "失败", "interrupted": "中断"}[row.Status], row.Status)
+		table = append(table, []string{row.Time, env, state, fmt.Sprintf("%.2fs", float64(row.Duration)/1000), row.Command})
+	}
+	if err := output.Table(out, []string{"执行时间", "环境", "结果", "耗时", "命令"}, table); err != nil {
+		return err
+	}
+	if len(rows) == 0 {
+		_, err := fmt.Fprintln(out, "暂无匹配的历史记录")
+		return err
+	}
+	return nil
+}
+
+func browseHistory(ctx context.Context, in io.Reader, out, prompts io.Writer, rows []localstate.HistoryEntry) error {
+	page, pages := 0, (len(rows)+historyPageSize-1)/historyPageSize
+	reader := bufio.NewReader(in)
+render:
+	for {
+		start := page * historyPageSize
+		if err := renderHistory(out, rows[start:min(start+historyPageSize, len(rows))]); err != nil {
+			return err
+		}
+		if _, err := fmt.Fprintf(out, "第 %d / %d 页 · 共 %d 条记录\n", page+1, pages, len(rows)); err != nil {
+			return err
+		}
+		for {
+			fmt.Fprint(prompts, "[n] 下一页  [p] 上一页  [q] 退出，请输入：")
+			type input struct {
+				line string
+				err  error
+			}
+			result := make(chan input, 1)
+			// A console read can block after Ctrl+C until the process exits.
+			go func() {
+				line, err := reader.ReadString('\n')
+				result <- input{line, err}
+			}()
+			select {
+			case <-ctx.Done():
+				return nil
+			case answer := <-result:
+				if answer.err != nil {
+					if errors.Is(answer.err, io.EOF) {
+						return nil
+					}
+					return answer.err
+				}
+				switch strings.ToLower(strings.TrimSpace(answer.line)) {
+				case "q":
+					return nil
+				case "n":
+					if page+1 < pages {
+						page++
+						continue render
+					}
+					fmt.Fprintln(prompts, "已经是最后一页")
+				case "p":
+					if page > 0 {
+						page--
+						continue render
+					}
+					fmt.Fprintln(prompts, "已经是第一页")
+				default:
+					fmt.Fprintln(prompts, "请输入 n、p 或 q 后按回车")
+				}
+			}
+		}
+	}
+}
+
 type historyInvocation struct {
 	paths localstate.Paths
 	start time.Time
 	entry localstate.HistoryEntry
 }
 
-func startHistory(cmd *cobra.Command, options Options, args []string) *historyInvocation {
+func startHistory(cmd *cobra.Command, options Options) *historyInvocation {
 	path := cmd.CommandPath()
 	if path == "ml" || strings.HasPrefix(path, "ml tree") || strings.HasPrefix(path, "ml history") ||
 		path == "ml help" || os.Getenv("ML_HISTORY") == "0" {
@@ -157,14 +233,12 @@ func startHistory(cmd *cobra.Command, options Options, args []string) *historyIn
 		return nil
 	}
 	now := time.Now()
-	redacted := len(args) != 0 || cmd.Flags().NFlag() != 0
-	if redacted {
-		path += " [REDACTED]"
-	}
+	command, redacted, truncated := formatHistoryCommand(path, options.Args)
 	cwd, _ := os.Getwd()
 	return &historyInvocation{paths: paths, start: now, entry: localstate.HistoryEntry{
-		Time: now.In(beijing).Format("2006-01-02 15:04:05"), Started: float64(now.UnixNano()) / 1e9, Command: path,
+		Time: now.In(beijing).Format("2006-01-02 15:04:05"), Started: float64(now.UnixNano()) / 1e9, Command: command,
 		Config: paths.Config(), CWD: cwd, Before: paths.CurrentEnvironment(), Version: options.Version, Redacted: redacted,
+		Truncated: truncated,
 	}}
 }
 

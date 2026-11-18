@@ -32,8 +32,8 @@ func Run(ctx context.Context, options Options) (code int) {
 	}
 	root := newRoot(options)
 	var invocation *historyInvocation
-	root.PersistentPreRun = func(cmd *cobra.Command, args []string) {
-		invocation = startHistory(cmd, options, args)
+	root.PersistentPreRun = func(cmd *cobra.Command, _ []string) {
+		invocation = startHistory(cmd, options)
 	}
 	defer func() { invocation.finish(code, options) }()
 	if err := root.ExecuteContext(ctx); err != nil {
@@ -62,6 +62,8 @@ func newRoot(options Options) *cobra.Command {
 		DisableSuggestions: true,
 	}
 	root.CompletionOptions.DisableDefaultCmd = true
+	root.SetHelpFunc(pythonHelpFunc(root.HelpFunc()))
+	addCompletionOptions(root)
 	root.SetVersionTemplate("ml {{.Version}}\n")
 	root.PersistentFlags().Bool("no-history", false, "不保存本次命令历史")
 	root.SetArgs(append([]string{}, options.Args...))

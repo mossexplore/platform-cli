@@ -4,9 +4,12 @@ import (
 	"bytes"
 	"compress/gzip"
 	"context"
+	"crypto/tls"
+	"errors"
 	"fmt"
 	"io"
 	"mime"
+	"net"
 	"net/http"
 	"net/url"
 	"os"
@@ -131,23 +134,29 @@ func SaveDownload(destination string, response *http.Response) (string, int64, e
 }
 
 func (a *API) SignedDownload(ctx context.Context, raw, destination, fallback string, useURLName bool) (string, int64, error) {
-	return a.signedDownload(ctx, raw, destination, ".", fallback, useURLName)
+	return signedDownload(ctx, businessTransport(a.session.Config), raw, destination, ".", fallback, useURLName)
 }
 
 func (a *API) SignedLogDownload(ctx context.Context, raw, destination, directory, name string) (string, int64, error) {
-	return a.signedDownload(ctx, raw, destination, directory, name, false)
+	// Match the Python log downloader. OBS can use private trust roots and a
+	// different network route from the console API. No platform headers or cookies
+	// are used for this client.
+	transport := http.DefaultTransport.(*http.Transport).Clone()
+	transport.Proxy = http.ProxyFromEnvironment
+	transport.TLSClientConfig = &tls.Config{InsecureSkipVerify: true} // #nosec G402
+	client := &http.Client{Transport: transport, CheckRedirect: rejectRedirect}
+	return signedDownload(ctx, client, raw, destination, directory, name, false)
 }
 
 func LogDownloadName(value string) string {
 	return sanitizeDownloadName(value, "download-logs")
 }
 
-func (a *API) signedDownload(ctx context.Context, raw, destination, directory, fallback string, useURLName bool) (string, int64, error) {
+func signedDownload(ctx context.Context, client *http.Client, raw, destination, directory, fallback string, useURLName bool) (string, int64, error) {
 	address, err := url.Parse(raw)
 	if err != nil || !validSignedURL(address) {
 		return "", 0, fmt.Errorf("下载地址为空或不是有效的 HTTPS 地址")
 	}
-	client := businessTransport(a.session.Config)
 	client.Timeout = 60 * time.Second
 	defer client.CloseIdleConnections()
 	for redirects := 0; redirects <= 5; redirects++ {
@@ -161,7 +170,7 @@ func (a *API) signedDownload(ctx context.Context, raw, destination, directory, f
 			if ctx.Err() != nil {
 				return "", 0, ctx.Err()
 			}
-			return "", 0, fmt.Errorf("下载网络请求失败")
+			return "", 0, downloadNetworkError(err)
 		}
 		switch response.StatusCode {
 		case 301, 302, 303, 307, 308:
@@ -193,6 +202,27 @@ func (a *API) signedDownload(ctx context.Context, raw, destination, directory, f
 		}
 	}
 	return "", 0, fmt.Errorf("下载重定向次数过多")
+}
+
+func downloadNetworkError(err error) error {
+	// net/http includes the whole signed URL in errors. Report only the
+	// category so credentials in a URL or proxy address never reach the output.
+	var cert *tls.CertificateVerificationError
+	var dns *net.DNSError
+	var op *net.OpError
+	var network net.Error
+	switch {
+	case errors.As(err, &cert):
+		return errors.New("下载网络请求失败：HTTPS 证书验证失败")
+	case errors.As(err, &network) && network.Timeout():
+		return errors.New("下载网络请求失败：连接或等待响应超时")
+	case errors.As(err, &op) && op.Op == "proxyconnect":
+		return errors.New("下载网络请求失败：无法通过代理建立连接")
+	case errors.As(err, &dns):
+		return errors.New("下载网络请求失败：无法解析下载主机")
+	default:
+		return errors.New("下载网络请求失败：无法建立连接或连接已中断")
+	}
 }
 
 func validSignedURL(address *url.URL) bool {

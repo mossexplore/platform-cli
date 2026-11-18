@@ -29,7 +29,7 @@ WiseRec 和 MLOps 均支持 `train` 和 `feature-task` 命令，`algorithm` 仅�
 | `ml business refresh` | 打开 Edge 刷新业务目录 | | 本地配置 |
 | `ml user info` | 当前账号 | | |
 | `ml mep config get [KEY]` | 查询一个 MEP 配置项 | | |
-| `ml history list -o json` | 本地调用记录，不证明远端结果 | | |
+| `ml history list [--limit COUNT] -o json` | 最近 20 条本地调用记录，可用 limit 扩大范围，不证明远端结果 | | |
 | `ml history clear [--env NAME] [--before TIME] --yes` | 删除本地调用记录 | 是 | 本地记录 |
 
 ## 训练与实验

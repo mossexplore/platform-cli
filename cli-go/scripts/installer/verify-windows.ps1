@@ -24,13 +24,13 @@ function Invoke-Msi($Mode, $Package, $Operation, $Expected = 0) {
     return $log
 }
 
-function Get-MsiVersion($Package) {
+function Get-MsiValue($Package, $Query) {
     $installer = New-Object -ComObject WindowsInstaller.Installer
     $database = $installer.GetType().InvokeMember('OpenDatabase', 'InvokeMethod', $null, $installer, @($Package, 0))
-    $query = 'SELECT `Value` FROM `Property` WHERE `Property` = ''ProductVersion'''
-    $view = $database.GetType().InvokeMember('OpenView', 'InvokeMethod', $null, $database, @($query))
+    $view = $database.GetType().InvokeMember('OpenView', 'InvokeMethod', $null, $database, @($Query))
     $view.GetType().InvokeMember('Execute', 'InvokeMethod', $null, $view, $null)
     $record = $view.GetType().InvokeMember('Fetch', 'InvokeMethod', $null, $view, $null)
+    if ($null -eq $record) { return }
     $record.GetType().InvokeMember('StringData', 'GetProperty', $null, $record, @(1))
 }
 
@@ -138,8 +138,14 @@ foreach ($payload in @($portable, $portableUpgrade)) {
 }
 $currentVersion = (Get-Content (Join-Path $portable 'release.json') -Raw | ConvertFrom-Json).version
 $upgradeVersion = (Get-Content (Join-Path $portableUpgrade 'release.json') -Raw | ConvertFrom-Json).version
-if ((Get-MsiVersion $baseline) -ne $currentVersion -or (Get-MsiVersion $upgrade) -ne $upgradeVersion) {
+$versionQuery = 'SELECT `Value` FROM `Property` WHERE `Property` = ''ProductVersion'''
+if ((Get-MsiValue $baseline $versionQuery) -ne $currentVersion -or
+    (Get-MsiValue $upgrade $versionQuery) -ne $upgradeVersion) {
     throw 'MSI metadata and ZIP release.json must report the same version'
+}
+$successDialog = 'SELECT `Action` FROM `InstallUISequence` WHERE `Action` = ''InstallationComplete'' AND `Sequence` = -1'
+if ((Get-MsiValue $baseline $successDialog) -ne 'InstallationComplete') {
+    throw 'MSI must show the completion dialog only after the installation succeeds'
 }
 if ((& (Join-Path $portable 'ml.exe') --version) -ne "ml $currentVersion") { throw 'Wrong portable version' }
 
@@ -187,7 +193,7 @@ try {
 
     $log = Invoke-Msi '/i' $baseline 'install-with-legacy-path'
     $installedMsi = $baseline
-    if (Select-String -LiteralPath $log -SimpleMatch 'Doing action: ShowInstallationSuccess') {
+    if (Select-String -LiteralPath $log -SimpleMatch 'Doing action: InstallationComplete') {
         throw 'Silent MSI ran the interactive success notification'
     }
     Assert-Installed $portable

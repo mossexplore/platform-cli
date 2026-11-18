@@ -1,7 +1,7 @@
 <Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
   <Package Name="WiseRec CLI (Go)" Manufacturer="WiseRec" Version="$(var.Version)"
            ProductCode="$(var.ProductCode)" UpgradeCode="{432C0A6C-7DEF-4B10-B19F-BAEBDD4E5FE9}"
-           Scope="perUser" InstallerVersion="500">
+           Scope="perUser" InstallerVersion="500" Codepage="936">
     <MajorUpgrade Schedule="afterInstallInitialize"
                   DowngradeErrorMessage="A newer WiseRec CLI (Go) is already installed." />
     <MediaTemplate EmbedCab="yes" />
@@ -71,15 +71,76 @@
                   ExeCommand="apply &quot;[INSTALLFOLDER].&quot; &quot;[LocalAppDataFolder]WiseRecCLI-PATH-[ProductCode].json&quot;" />
     <CustomAction Id="FinishMlPathSwitch" BinaryRef="PathCheck" Execute="commit" Impersonate="yes" Return="ignore"
                   ExeCommand="commit &quot;[LocalAppDataFolder]WiseRecCLI-PATH-[ProductCode].json&quot;" />
-    <CustomAction Id="ShowInstallationSuccess" BinaryRef="PathCheck" ExeCommand="success" Return="ignore" />
     <InstallExecuteSequence>
       <Custom Action="CheckForExistingMl" Before="ProcessComponents" Condition="NOT Installed" />
       <!-- Roll back the user PATH edit before MSI reverses its own PATH registration. -->
       <Custom Action="RestorePreviousMlPath" After="WriteEnvironmentStrings" Condition="NOT Installed" />
       <Custom Action="ApplyMlPathSwitch" After="RestorePreviousMlPath" Condition="NOT Installed" />
       <Custom Action="FinishMlPathSwitch" After="ApplyMlPathSwitch" Condition="NOT Installed" />
-      <Custom Action="ShowInstallationSuccess" After="InstallFinalize" Condition="NOT Installed AND UILevel &gt;= 4" />
     </InstallExecuteSequence>
+
+    <UI>
+      <TextStyle Id="InstallerFont" FaceName="Segoe UI" Size="9" />
+      <Property Id="DefaultUIFont" Value="InstallerFont" />
+      <Property Id="ErrorDialog" Value="InstallerError" />
+      <Binary Id="CompletedProgressBar" SourceFile="$(sys.SOURCEFILEDIR)progress-complete.bmp" />
+      <Dialog Id="Installing" Width="300" Height="105" Title="WiseRec CLI" Modeless="yes">
+        <Control Id="Cancel" Type="PushButton" X="232" Y="75" Width="56" Height="17" Default="yes" Cancel="yes" Text="取消">
+          <Publish Event="SpawnDialog" Value="ConfirmCancel" />
+        </Control>
+        <Control Id="Status" Type="Text" X="12" Y="14" Width="276" Height="13" Text="正在安装 WiseRec CLI…" />
+        <Control Id="Progress" Type="ProgressBar" X="12" Y="32" Width="276" Height="10">
+          <Subscribe Event="SetProgress" Attribute="Progress" />
+        </Control>
+      </Dialog>
+      <Dialog Id="ConfirmCancel" Width="240" Height="75" Title="WiseRec CLI">
+        <Control Id="Continue" Type="PushButton" X="116" Y="44" Width="56" Height="17" Default="yes" Cancel="yes" Text="继续安装">
+          <Publish Event="EndDialog" Value="Return" />
+        </Control>
+        <Control Id="Stop" Type="PushButton" X="176" Y="44" Width="56" Height="17" Text="取消安装">
+          <Publish Event="EndDialog" Value="Exit" />
+        </Control>
+        <Control Id="Question" Type="Text" X="12" Y="14" Width="216" Height="16" Text="确定要取消安装吗？" />
+      </Dialog>
+      <Dialog Id="InstallationComplete" Width="300" Height="105" Title="WiseRec CLI">
+        <Control Id="Ok" Type="PushButton" X="232" Y="75" Width="56" Height="17" Default="yes" Cancel="yes" Text="确定">
+          <Publish Event="EndDialog" Value="Return" />
+        </Control>
+        <Control Id="Status" Type="Text" X="12" Y="14" Width="276" Height="13" Text="WiseRec CLI 安装成功（100%）" />
+        <Control Id="Progress" Type="Bitmap" X="12" Y="32" Width="276" Height="10" Text="CompletedProgressBar" />
+        <Control Id="NextStep" Type="Text" X="12" Y="51" Width="276" Height="13" Text="请重新打开终端，运行 ml --version 验证。" />
+      </Dialog>
+      <Dialog Id="InstallerError" Width="300" Height="120" Title="WiseRec CLI" ErrorDialog="yes">
+        <Control Id="ErrorText" Type="Text" X="12" Y="14" Width="276" Height="68" TabSkip="no" NoPrefix="yes" />
+        <!-- Windows Installer chooses and positions the buttons for each error. -->
+        <Control Id="Y" Type="PushButton" X="122" Y="91" Width="56" Height="17" TabSkip="yes" Text="是">
+          <Publish Event="EndDialog" Value="ErrorYes" />
+        </Control>
+        <Control Id="N" Type="PushButton" X="122" Y="91" Width="56" Height="17" TabSkip="yes" Text="否">
+          <Publish Event="EndDialog" Value="ErrorNo" />
+        </Control>
+        <Control Id="O" Type="PushButton" X="122" Y="91" Width="56" Height="17" TabSkip="yes" Text="确定">
+          <Publish Event="EndDialog" Value="ErrorOk" />
+        </Control>
+        <Control Id="C" Type="PushButton" X="122" Y="91" Width="56" Height="17" TabSkip="yes" Text="取消">
+          <Publish Event="EndDialog" Value="ErrorCancel" />
+        </Control>
+        <Control Id="A" Type="PushButton" X="122" Y="91" Width="56" Height="17" TabSkip="yes" Text="中止">
+          <Publish Event="EndDialog" Value="ErrorAbort" />
+        </Control>
+        <Control Id="R" Type="PushButton" X="122" Y="91" Width="56" Height="17" TabSkip="yes" Text="重试">
+          <Publish Event="EndDialog" Value="ErrorRetry" />
+        </Control>
+        <Control Id="I" Type="PushButton" X="122" Y="91" Width="56" Height="17" TabSkip="yes" Text="忽略">
+          <Publish Event="EndDialog" Value="ErrorIgnore" />
+        </Control>
+      </Dialog>
+      <InstallUISequence>
+        <Show Dialog="Installing" Before="ExecuteAction" Condition="NOT Installed AND UILevel &gt;= 4" />
+        <!-- Only the success exit can show the filled progress bar. -->
+        <Show Dialog="InstallationComplete" OnExit="success" Condition="NOT Installed AND UILevel &gt;= 4" />
+      </InstallUISequence>
+    </UI>
 
     <Feature Id="Complete" Title="WiseRec CLI (Go)" Level="1">
       <ComponentRef Id="CliFiles" />

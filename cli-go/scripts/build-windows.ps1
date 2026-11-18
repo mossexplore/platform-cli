@@ -37,7 +37,9 @@ Push-Location $moduleDirectory
 try {
     Copy-Item -LiteralPath $source -Destination $snapshot
     & go run ./cmd/check-config $snapshot
-    if ($LASTEXITCODE -ne 0) { throw 'Validating the Go build configuration failed.' }
+    if ($LASTEXITCODE -ne 0) {
+        throw 'Go configuration check failed. For Go module download errors, see cli-go/README.md.'
+    }
 
     # Build against a temporary replacement for the embed input. The checkout and
     # the published payload never receive a copy of the real configuration file.
