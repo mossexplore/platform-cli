@@ -103,7 +103,7 @@ go mod verify
 
 1. 双击 MSI，或通过 `msiexec` 安装。安装范围为当前用户，程序位于 `%LOCALAPPDATA%\Programs\WiseRecCLIGo\ml.exe`。
 2. 如果用户 PATH 中已有旧版 WiseRec Python 安装器注册的入口，MSI 会自动移除该条目并继续安装。旧版程序、配置和登录数据会保留。安装失败回滚时会恢复移除的旧入口。
-3. 交互安装成功后，安装器会显示已填满的进度条和「安装成功（100%）」。点击「确定」关闭窗口，重新打开终端与 Agent，再运行 `where.exe ml`、`ml --version` 和 `ml context --json` 核对入口、版本和配置路径。
+3. 交互安装期间显示一个进度条，成功后显示「安装成功」提示。点击「确定」关闭窗口，重新打开终端与 Agent，再运行 `where.exe ml`、`ml --version` 和 `ml context --json` 核对入口、版本和配置路径。
 
 系统 PATH 中的冲突由管理员调整。其他工具目录中的 `ml` 需要手动核对，以免删除它们共享的 PATH 条目。PowerShell 别名或函数可用 `Get-Command ml -All` 检查。
 

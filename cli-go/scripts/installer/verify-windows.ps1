@@ -24,14 +24,14 @@ function Invoke-Msi($Mode, $Package, $Operation, $Expected = 0) {
     return $log
 }
 
-function Get-MsiValue($Package, $Query) {
+function Get-MsiValues($Package, $Query) {
     $installer = New-Object -ComObject WindowsInstaller.Installer
     $database = $installer.GetType().InvokeMember('OpenDatabase', 'InvokeMethod', $null, $installer, @($Package, 0))
     $view = $database.GetType().InvokeMember('OpenView', 'InvokeMethod', $null, $database, @($Query))
     $view.GetType().InvokeMember('Execute', 'InvokeMethod', $null, $view, $null)
-    $record = $view.GetType().InvokeMember('Fetch', 'InvokeMethod', $null, $view, $null)
-    if ($null -eq $record) { return }
-    $record.GetType().InvokeMember('StringData', 'GetProperty', $null, $record, @(1))
+    while ($record = $view.GetType().InvokeMember('Fetch', 'InvokeMethod', $null, $view, $null)) {
+        $record.GetType().InvokeMember('StringData', 'GetProperty', $null, $record, @(1))
+    }
 }
 
 function New-RollbackFixture($Source, $Destination) {
@@ -139,13 +139,21 @@ foreach ($payload in @($portable, $portableUpgrade)) {
 $currentVersion = (Get-Content (Join-Path $portable 'release.json') -Raw | ConvertFrom-Json).version
 $upgradeVersion = (Get-Content (Join-Path $portableUpgrade 'release.json') -Raw | ConvertFrom-Json).version
 $versionQuery = 'SELECT `Value` FROM `Property` WHERE `Property` = ''ProductVersion'''
-if ((Get-MsiValue $baseline $versionQuery) -ne $currentVersion -or
-    (Get-MsiValue $upgrade $versionQuery) -ne $upgradeVersion) {
+if ((Get-MsiValues $baseline $versionQuery) -ne $currentVersion -or
+    (Get-MsiValues $upgrade $versionQuery) -ne $upgradeVersion) {
     throw 'MSI metadata and ZIP release.json must report the same version'
 }
 $successDialog = 'SELECT `Action` FROM `InstallUISequence` WHERE `Action` = ''InstallationComplete'' AND `Sequence` = -1'
-if ((Get-MsiValue $baseline $successDialog) -ne 'InstallationComplete') {
-    throw 'MSI must show the completion dialog only after the installation succeeds'
+$progressQuery = 'SELECT `Dialog_` FROM `Control` WHERE `Type` = ''ProgressBar'''
+$completionBitmap = 'SELECT `Control` FROM `Control` WHERE `Dialog_` = ''InstallationComplete'' AND `Type` = ''Bitmap'''
+foreach ($package in @($baseline, $upgrade)) {
+    $progress = @(Get-MsiValues $package $progressQuery)
+    if ($progress.Count -ne 1 -or $progress[0] -ne 'Installing' -or (Get-MsiValues $package $completionBitmap)) {
+        throw "MSI must show a single progress bar in the Installing dialog: $package"
+    }
+    if ((Get-MsiValues $package $successDialog) -ne 'InstallationComplete') {
+        throw 'MSI must show the completion dialog only after the installation succeeds'
+    }
 }
 if ((& (Join-Path $portable 'ml.exe') --version) -ne "ml $currentVersion") { throw 'Wrong portable version' }
 
