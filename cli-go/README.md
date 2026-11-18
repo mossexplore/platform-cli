@@ -1,6 +1,6 @@
 # WiseRec CLI Go 客户端
 
-Go 客户端使用独立版本，当前源码版本为 `1.0.14`，由根目录 `versions.toml` 的 `components.cli_go` 管理。Windows x64 安装后使用同一套 `ml` 命令和 WiseRec Platform Skill。支持范围用 `ml tree --all` 核对，实际参数用子命令的 `--help` 核对。
+Go 客户端使用独立版本，当前源码版本为 `1.0.15`，由根目录 `versions.toml` 的 `components.cli_go` 管理。Windows x64 安装后使用同一套 `ml` 命令和 WiseRec Platform Skill。支持范围用 `ml tree --all` 核对，实际参数用子命令的 `--help` 核对。
 
 Go 的各级 `--help` 随 EXE 分发，使用 Python CLI 的帮助文案和面板。调整 Python 帮助后，在已安装 Python CLI 开发依赖的环境中从 `cli-go` 运行 `python scripts/sync-python-help.py`，再用 `python scripts/sync-python-help.py --check` 核对。生成时使用 Typer 0.23.2、Click 8.1.8、Rich 14.3.4。
 
@@ -118,6 +118,14 @@ ml tree --all
 升级或卸载前，结束仍在执行的 Go 命令，并对正在保活的环境运行 `ml auth ping stop`。直接运行更高版本 MSI 即可升级。修复可在 Windows“已安装的应用”中操作，或执行 `msiexec /fa "PATH_TO_INSTALLED_MSI"`。卸载可在同一界面执行，或运行 `msiexec /x "PATH_TO_INSTALLED_MSI"`。静默执行可加 `/qn /norestart /l*v "PATH_TO_LOG"`。静默安装时也会自动清理旧入口，并通过退出码和日志报告结果。升级拒绝降级覆盖。卸载移除 MSI 安装的程序、PATH 条目、Skill 和快捷命令，保留两套客户端的配置和登录数据。恢复使用 Python 时先卸载 Go MSI，再恢复 Python PATH 或重跑 Python 安装包。
 
 MSI 自动将正式 Skill 放入 `~/.agents/skills/wiserec-platform` 和 `~/.cac/skills/wiserec-platform`，并将 `ml.md` 放入 OpenCode 配置目录的 `commands/` 和 `~/.cac/commands/`。OpenCode 默认目录为 `~/.config/opencode`。如需自定义，安装前设置用户环境变量 `OPENCODE_CONFIG_DIR` 为绝对路径。修复、升级和卸载沿用首次安装选定的位置，切换目录时卸载后重装。MSI 停用历史 `ml-lab.md` 和旧 Skill 的 `SKILL.md` 入口，保留其余用户文件。
+
+### 版本拒绝时从终端升级
+
+权限系统的生效策略需把「升级说明地址」配置为带 `.msi` 路径的 HTTPS 直链，可含查询参数或跳转至 HTTPS 下载地址。链接上的包应为高于旧版且满足准入版本要求的 WiseRec CLI（Go）Windows x64 MSI。Go 和 Python 共用此字段，若同一策略覆盖两者，Python 也会显示这个链接。
+
+使用 MSI 安装的 Go 客户端在交互式终端遇到版本过低时会询问是否升级。确认后下载并校验包，等待本次命令退出，再调用 Windows Installer 显示安装进度。安装失败时根据提示查看日志。非交互调用、JSON 输出、便携 ZIP 和文档链接继续使用手动升级。已经安装且没有此功能的版本需要先手动升级一次。
+
+出包时使用受 Windows 信任的代码签名证书为 MSI 签名。若当前安装的 `ml.exe` 已签名，可沿用同一证书。若只给 MSI 签名，或签名证书即将轮换，在准备分发的 Go 构建配置里预先提供 `update.signer_sha256`，值为被信任签名证书的 DER 内容的 SHA-256 指纹，64 位十六进制字符。客户端下载时始终校验 HTTPS，并确认 MSI 由这张证书签名。示例配置构建出的测试包不会自动签名。
 
 ## 便携 ZIP
 

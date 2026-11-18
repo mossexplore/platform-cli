@@ -7,10 +7,13 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/mossexplore/platform-cli/cli-go/internal/edgelogin"
 	"github.com/mossexplore/platform-cli/cli-go/internal/localstate"
 	"github.com/mossexplore/platform-cli/cli-go/internal/output"
+	"github.com/mossexplore/platform-cli/cli-go/internal/platform"
+	"github.com/mossexplore/platform-cli/cli-go/internal/updater"
 	"github.com/spf13/cobra"
 )
 
@@ -44,6 +47,21 @@ func Run(ctx context.Context, options Options) (code int) {
 			return int(silent)
 		}
 		fmt.Fprintln(options.Stderr, "[错误]", err)
+		var denial *platform.VersionDenial
+		if errors.As(err, &denial) && denial.Code == "CLI_VERSION_TOO_OLD" {
+			cmd, _, findErr := root.Find(options.Args)
+			if findErr == nil {
+				format := ""
+				if cmd.Flags().Changed("output") {
+					format, _ = cmd.Flags().GetString("output")
+				}
+				jsonOutput, _ := cmd.Flags().GetBool("json")
+				noInput, _ := cmd.Flags().GetBool("no-input")
+				if !jsonOutput && !noInput && !strings.EqualFold(format, "json") {
+					updater.Offer(ctx, cmd.InOrStdin(), options.Stdout, options.Stderr, options.Paths, format, denial)
+				}
+			}
+		}
 		var usage usageError
 		if errors.As(err, &usage) {
 			return 2

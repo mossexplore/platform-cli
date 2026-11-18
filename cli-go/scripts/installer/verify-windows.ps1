@@ -34,6 +34,58 @@ function Get-MsiValues($Package, $Query) {
     }
 }
 
+function Invoke-AutomaticUpgradeFixture($Package, $Exe) {
+    $fixture = Join-Path $Work 'automatic-upgrade'
+    New-Item -ItemType Directory -Path $fixture | Out-Null
+    $download = Join-Path $fixture 'upgrade.msi'
+    Copy-Item -LiteralPath $Package -Destination $download
+
+    $baselineVersion = (& $Exe --version) -replace '^ml ', ''
+    $script = Get-Content -Raw -Encoding UTF8 (Join-Path $PSScriptRoot '../../internal/updater/upgrade.ps1')
+    $powershell = Join-Path ([Environment]::SystemDirectory) 'WindowsPowerShell/v1.0/powershell.exe'
+    $env:WISECLI_UPGRADE_EXE = $Exe
+    $env:WISECLI_UPGRADE_PACKAGE = $download
+    $env:WISECLI_UPGRADE_SIGNER = (Get-FileHash -Algorithm SHA256 -LiteralPath $download).Hash
+    $env:WISECLI_UPGRADE_CURRENT = $baselineVersion
+    $env:WISECLI_UPGRADE_MINIMUM = $baselineVersion
+    $env:WISECLI_UPGRADE_RECOMMENDED = ''
+    $env:WISECLI_UPGRADE_LOCK = Join-Path $Work 'test-updater.lock'
+    $env:WISECLI_UPGRADE_PARENT = '2147483647'
+
+    try {
+        $env:WISECLI_UPGRADE_MODE = 'verify'
+        $encoded = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($script))
+        $output = & $powershell -NoProfile -NonInteractive -EncodedCommand $encoded 2>&1
+        if ($LASTEXITCODE -ne 1 -or "$output" -notlike '*NotSigned*') {
+            throw "Expected unsigned MSI rejection from Windows PowerShell: $output"
+        }
+
+        # Use a fixture signer for the unsigned CI artifact. Windows Installer still
+        # reads, validates, and installs the real MSI in the second phase.
+        $signatureFixture = @'
+function Get-AuthenticodeSignature([string] $LiteralPath) {
+    return [pscustomobject]@{
+        Status = 'Valid'
+        SignerCertificate = [pscustomobject]@{ RawData = [IO.File]::ReadAllBytes($LiteralPath) }
+    }
+}
+'@
+        $env:WISECLI_UPGRADE_MODE = 'install'
+        $encoded = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes("$signatureFixture`n$script"))
+        & $powershell -NoProfile -NonInteractive -EncodedCommand $encoded
+        if ($LASTEXITCODE -ne 0) {
+            $log = Join-Path $fixture 'install.log'
+            if (Test-Path -LiteralPath $log) { Get-Content -LiteralPath $log -Tail 120 }
+            throw "Automatic upgrade worker failed: $LASTEXITCODE"
+        }
+        if (Test-Path -LiteralPath $download) { throw 'Automatic upgrade left the staged package' }
+    } finally {
+        foreach ($name in @('EXE', 'PACKAGE', 'SIGNER', 'CURRENT', 'MINIMUM', 'RECOMMENDED', 'LOCK', 'PARENT', 'MODE')) {
+            Remove-Item -LiteralPath "Env:WISECLI_UPGRADE_$name" -ErrorAction SilentlyContinue
+        }
+    }
+}
+
 function New-RollbackFixture($Source, $Destination) {
     Copy-Item -LiteralPath $Source -Destination $Destination
     # Inject a deferred failure after the PATH change into the test copy only.
@@ -235,7 +287,7 @@ try {
 
     Set-Content -LiteralPath (Join-Path (Split-Path $installedExe) 'config.template.json') -Value 'old template'
     [Environment]::SetEnvironmentVariable('OPENCODE_CONFIG_DIR', (Join-Path $Work 'different OpenCode'), 'User')
-    Invoke-Msi '/i' $upgrade 'upgrade' | Out-Null
+    Invoke-AutomaticUpgradeFixture $upgrade $installedExe
     $installedMsi = $upgrade
     Assert-Installed $portableUpgrade
     if ((Get-FileHash $goConfig).Hash -ne $configDigest) { throw 'Upgrade replaced the user configuration' }

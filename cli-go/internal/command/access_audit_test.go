@@ -72,3 +72,26 @@ func TestEnvironmentAccessAuditIncludesOptions(t *testing.T) {
 		t.Fatalf("unexpected result (%d): %s %s", code, out, stderr)
 	}
 }
+
+func TestOldVersionShowsUpgradeLinkWithoutPromptOrBusinessRequest(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assertBusinessHeader(t, r)
+		if r.URL.Path != "/cli-permission/api/v1/access/check" {
+			t.Errorf("version denial allowed a business request: %s", r.URL.Path)
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+		fmt.Fprintln(w, `{"allowed":false,"code":"CLI_VERSION_TOO_OLD","minimum_version":"2.0.0",
+			"recommended_version":"2.0.1","upgrade_url":"https://example.test/upgrade.msi"}`)
+	}))
+	defer server.Close()
+	paths := fixtureConfig(t, t.TempDir(), server.URL, server.URL, false, "mlops", "")
+	saveState(t, paths, server.URL)
+
+	code, out, stderr := run(t, paths, "user", "info", "-o", "json")
+	if code != 1 || out != "" || !strings.Contains(stderr, "[错误] WiseRec Go CLI 版本过低") ||
+		!strings.Contains(stderr, "最低要求：2.0.0") || !strings.Contains(stderr, "推荐版本：2.0.1") ||
+		!strings.Contains(stderr, "升级说明：https://example.test/upgrade.msi") || strings.Contains(stderr, "[y/N]") {
+		t.Fatalf("unexpected result: %d %q %q", code, out, stderr)
+	}
+}

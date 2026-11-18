@@ -135,7 +135,7 @@ func (i *invocation) checkVersion(payload json.RawMessage) error {
 	switch code {
 	case "CLI_VERSION_REQUIRED", "CLI_VERSION_INVALID", "CLI_VERSION_TOO_OLD",
 		"CLI_VERSION_BLOCKED", "CLI_PROTOCOL_UNSUPPORTED":
-		return fmt.Errorf("当前 CLI 版本或协议未获准入（%s）", code)
+		return versionDenial(code, i.version, payload)
 	}
 	if envelope.Allowed != nil && !*envelope.Allowed &&
 		(envelope.Reason == "COMMAND_DISABLED" || envelope.Reason == "COMMAND_REQUIRED") {
