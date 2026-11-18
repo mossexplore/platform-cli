@@ -65,7 +65,14 @@ try {
     Add-Type -AssemblyName System.IO.Compression.FileSystem
     [System.IO.Compression.ZipFile]::CreateFromDirectory($payload, (Join-Path $work "$baseName.zip"))
     if (-not $PortableOnly) {
-        $msiHash = (Get-FileHash -LiteralPath (Join-Path $work "$baseName.msi") -Algorithm SHA256).Hash.ToLowerInvariant()
+        $msiStream = [System.IO.File]::OpenRead((Join-Path $work "$baseName.msi"))
+        $sha256 = [System.Security.Cryptography.SHA256]::Create()
+        try {
+            $msiHash = [BitConverter]::ToString($sha256.ComputeHash($msiStream)).Replace('-', '').ToLowerInvariant()
+        } finally {
+            $sha256.Dispose()
+            $msiStream.Dispose()
+        }
     }
     foreach ($name in $names) {
         $destination = Join-Path $output $name
@@ -74,7 +81,7 @@ try {
         Write-Verbose "Package saved: $destination"
     }
     if (-not $PortableOnly) {
-        Write-Host "MSI upgrade URL suffix: #sha256=$msiHash"
+        [Console]::WriteLine("MSI upgrade URL suffix: #sha256=$msiHash")
     }
 } catch {
     foreach ($path in $published) { Remove-Item -LiteralPath $path -Force }
