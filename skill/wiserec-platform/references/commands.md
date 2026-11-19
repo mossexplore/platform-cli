@@ -2,11 +2,11 @@
 
 # `ml` 命令速查
 
-本表列出全部命令，用于定位命令和判断风险；参数以 `ml <子命令> --help` 为准。通过本 skill 调用时必须使用当前平台标准用户配置（Windows 上 Python 客户端为 `%APPDATA%\ml\config.json`，Go 客户端为仅保存当前环境的 `%APPDATA%\ml-go-preview\config.json`）。
+本表列出全部命令，用于定位命令和判断风险；参数以 `ml <子命令> --help` 为准。通过本 skill 调用时必须使用当前平台标准用户配置（Windows 上为 `%APPDATA%\ml-go-preview\config.json`）。
 
 WiseRec 和 MLOps 均支持 `train` 和 `feature-task` 命令，`algorithm` 仅在 WiseRec 环境可用；用 `ml tree --all` 查看当前环境的支持与禁用标记。
 
-仅在命令 `--help` 声明支持时传 `-o json` 或 `--output json`（`context` 用 `--json`，特征集配置和 `webstudio show` 固定输出 JSON）。常见不支持 `-o/--output` 的命令：`env show`、`access status`、`auth status`、`auth ping status`、`business list/show`、`service logs`、`jupyter doctor`、`jupyter terminal list`、`train start/cancel/delete/clone`、`train config export/update`、`algorithm download/clone`。
+仅在命令 `--help` 声明支持时传 `-o json` 或 `--output json`（`context` 用 `--json`，特征集配置和 `webstudio show` 固定输出 JSON）。常见不支持 `-o/--output` 的命令：`env show`、`access status`、`auth status`、`auth ping status`、`business list/show`、`service host log-search`、`jupyter doctor`、`jupyter terminal list`、`train start/cancel/delete/clone`、`train config export/update`、`algorithm download/clone`。
 
 “确认”列为“是”表示 CLI 内置确认，可用 `--yes` 跳过提示。非交互调用在用户授权后传 `--yes`。**命令可能产生平台或远端副作用时，即使“确认”列为空，也须在执行前核对目标与用户授权，执行后核验结果。**
 
@@ -35,7 +35,7 @@ WiseRec 和 MLOps 均支持 `train` 和 `feature-task` 命令，`algorithm` 仅�
 
 详见 [training.md](training.md)。
 
-训练日志的下载步骤、失败阶段和 Go 客户端代理设置见 [训练任务](training.md#训练任务)。
+训练日志的下载步骤、失败阶段和代理设置见 [训练任务](training.md#训练任务)。
 
 | 命令 | 用途 | 确认 | 副作用 |
 | --- | --- | --- | --- |
@@ -67,7 +67,7 @@ WiseRec 和 MLOps 均支持 `train` 和 `feature-task` 命令，`algorithm` 仅�
 | `ml train config export TASK_ID [--file PATH]` | 导出 YAML 配置 | | 本地文件 |
 | `ml train config update TASK_ID --customize-config VALUE` | 更新自定义参数 | | 写（无内置确认）：修改任务 |
 | `ml algorithm list` | 算法仓 | | |
-| `ml algorithm download ALGORITHM_ID [--file PATH]` | 下载算法仓 ZIP，Go 客户端沿用训练日志下载的代理设置 | | 本地文件 |
+| `ml algorithm download ALGORITHM_ID [--file PATH]` | 下载算法仓 ZIP，沿用训练日志下载的代理设置 | | 本地文件 |
 | `ml algorithm clone ALGORITHM_ID --name NAME --version VERSION` | 克隆算法仓 | 是 | 创建算法仓 |
 
 ## 模型、模板与服务
@@ -84,9 +84,11 @@ WiseRec 和 MLOps 均支持 `train` 和 `feature-task` 命令，`algorithm` 仅�
 | `ml deployment template list` / `detail DEPLOY_TEMPLATE_ID` | 部署模板 | | |
 | `ml service list` | 服务 | | |
 | `ml service mock SERVICE_ID [--request-sample-file PATH] [--transmission-tag 0\|1]` | 使用文档或 JSON 文件样例测试服务，默认不调用透传接口 | | 写（无内置确认）：调用一次服务 |
-| `ml service logs SERVICE_ID --no-input` | 日志文件列表或正文 | | |
 | `ml service host list SERVICE_ID [--pod-ip IP]` | 主机视图，可按 Pod IP 筛选 | | |
 | `ml service host mock SERVICE_ID --pod-ip POD_IP [--request-sample-file PATH] [--transmission-tag 0\|1]` | 先按 Pod IP 查询主机，再使用文档或文件样例测试 | | 写（无内置确认）：调用一次服务 |
+| `ml service host pod-event [SERVICE_ID] [--pod POD_NAME] [--cluster-name CLUSTER_NAME] [--no-input] [-o table\|json]` | 查询指定主机的 Pod 事件，支持 `SERVICE_ID` 或 `--pod --cluster-name` 双模式 | | |
+| `ml service host log-stdout [SERVICE_ID] [--pod POD_NAME] [-c CONTAINER] [--no-input] [-o text\|json]` | 查询指定主机的标准输出日志，默认 `appcontainer` 并动态校验容器列表 | | |
+| `ml service host log-search SERVICE_ID --no-input` | 检索指定主机的业务日志文件列表或正文 | | |
 | `ml service deployment list SERVICE_ID` | 部署视图 | | |
 
 ## 数据集与特征集

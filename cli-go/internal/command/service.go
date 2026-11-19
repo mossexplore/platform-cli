@@ -12,8 +12,16 @@ import (
 )
 
 func newService(options Options, load loadConfig) *cobra.Command {
-	group := &cobra.Command{Use: "service", Short: "服务查询、模拟调用与日志查看"}
-	host := &cobra.Command{Use: "host", Short: "服务主机查询与测试"}
+	group := &cobra.Command{
+		Use: "service", Short: "服务查询、模拟调用与主机诊断",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if len(args) > 0 {
+				return usageError{fmt.Errorf("unknown command %q for %q", args[0], cmd.CommandPath())}
+			}
+			return cmd.Help()
+		},
+	}
+	host := &cobra.Command{Use: "host", Short: "服务主机查询、测试与诊断"}
 	deploy := &cobra.Command{Use: "deployment", Short: "服务部署视图查询"}
 	const prefix = "/ai/backend/mep/services/"
 	fixed := defaultFields("teamId", "inferenceType env selectService selectModelName infraType owner status isAccess noAccessDays isLowLoad lowLoadDays clusterId isCluster dailTestTaskStatus scaleFlag", "tags noticeTime")
@@ -54,7 +62,7 @@ func newService(options Options, load loadConfig) *cobra.Command {
 			body["serviceId"], body["businessId"], body["hostIp"] = args[0], api.BusinessID(), ip
 			return body, nil
 		}, items: "data", total: "count", totalJSON: "total", empty: "暂无服务主机记录", value: serviceValue,
-		columns: []recordColumn{{"部署 ID", "deployId"}, {"集群", "clusterName"}, {"pod名称", "nodeName"}, {"podIP", "nodeHost"},
+		columns: []recordColumn{{"集群", "clusterName"}, {"pod名称", "nodeName"}, {"podIP", "nodeHost"},
 			{"主机IP", "hostIp"}, {"规格", "spec"}, {"状态", "health_status"}, {"最大并发数", "execute_limit"}, {"超时时间(ms)", "service_timeout"},
 			{"CPU", "cpuUsage"}, {"GPU", "gpuUsage"}, {"内存", "memUsage"}, {"NPU", "npuUsage"}, {"创建时间", "create_time"}, {"更新时间", "update_time"}},
 	}
@@ -65,9 +73,9 @@ func newService(options Options, load loadConfig) *cobra.Command {
 		columns: []recordColumn{{"blockId", "blockId"}, {"区域", "region"}, {"站点", "domain"}, {"集群名称", "clusterName"},
 			{"镜像", "image"}, {"规格", "resourceSpec"}, {"推理框架", "framework"}, {"yaml模板", "yamlId"}, {"创建时间", "createTime"}, {"更新时间", "updateTime"}},
 	}
-	host.AddCommand(hostList.build(options, load), newServiceMock(options, load, true))
+	host.AddCommand(hostList.build(options, load), newServiceMock(options, load, true), newServiceLogs(options, load), newServiceHostPodEvent(options, load), newServiceHostLogStdout(options, load))
 	deploy.AddCommand(deployList.build(options, load))
-	group.AddCommand(list, host, deploy, newServiceMock(options, load, false), newServiceLogs(options, load))
+	group.AddCommand(list, host, deploy, newServiceMock(options, load, false))
 	return group
 }
 

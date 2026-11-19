@@ -102,10 +102,12 @@ ml                                              WiseRec 命令行工具
 ├── service                                     服务管理
 │   ├── list                                    查看服务列表
 │   ├── mock                                    使用样例报文测试服务响应
-│   ├── logs                                    选择服务主机和文件并查看日志
-│   ├── host                                    服务主机查询与测试
+│   ├── host                                    服务主机查询、测试与诊断
 │   │   ├── list                                查看指定服务的主机列表
-│   │   └── mock                                使用样例报文测试指定主机
+│   │   ├── mock                                使用样例报文测试指定主机
+│   │   ├── pod-event                           查询指定主机的 Pod 事件（Go 客户端）
+│   │   ├── log-stdout                          查询指定主机的标准输出日志（Go 客户端）
+│   │   └── log-search                          检索指定主机的业务日志文件（Go 客户端，Python 客户端为 service logs）
 │   └── deployment                              服务部署视图
 │       └── list                                查看指定服务的部署列表
 ├── dataset                                     数据集管理
@@ -712,9 +714,12 @@ ml algorithm clone SOURCE_ID --name mnist_copy --version VERSION
 ```text
 ml service list [OPTIONS]
 ml service mock SERVICE_ID [--request-sample-file PATH] [--transmission-tag 0|1] [-o table|json]
-ml service logs SERVICE_ID [--pod POD_NAME --cluster-name CLUSTER_NAME] [--type TYPE] [--file FILE_NAME] [-k TEXT] [-n N] [--list] [--no-input]
 ml service host list SERVICE_ID [--pod-ip IP] [-o table|json]
 ml service host mock SERVICE_ID --pod-ip POD_IP [--request-sample-file PATH] [--transmission-tag 0|1] [-o table|json]
+ml service host pod-event [SERVICE_ID] [--pod POD_NAME] [--cluster-name CLUSTER_NAME] [--no-input] [-o table|json]
+ml service host log-stdout [SERVICE_ID] [--pod POD_NAME] [-c|--container CONTAINER_NAME] [--no-input] [-o text|json]
+ml service host log-search SERVICE_ID [--pod POD_NAME --cluster-name CLUSTER_NAME] [--type TYPE] [--file FILE_NAME] [-k TEXT] [-n N] [--list] [--no-input]
+ml service logs SERVICE_ID [--pod POD_NAME --cluster-name CLUSTER_NAME] [--type TYPE] [--file FILE_NAME] [-k TEXT] [-n N] [--list] [--no-input]
 ml service deployment list SERVICE_ID [-o table|json]
 ```
 
@@ -725,7 +730,9 @@ ml service deployment list SERVICE_ID [-o table|json]
 | `list` | `--page`、`--page-size`；可用 `--name` / `--service-name`、`--model-name`、`--model-version` 筛选；可选 `--output` / `-o` |
 | `mock` | 必填 `SERVICE_ID`；`--transmission-tag` 默认 `0`，表示不调用透传接口，设为 `1` 表示调用透传接口，仅支持这两个整数；`--output` / `-o` 支持 `table`、`json`，默认沿用当前环境输出配置 |
 | `mock`、`host mock` | 可选 `--request-sample-file PATH` 读取本地 UTF-8 JSON 文件，兼容 BOM；不传则使用服务文档中的请求样例 |
-| `logs` | 必填 `SERVICE_ID`；可选成对的 `--pod` 与 `--cluster-name`，以及 `--type`、`--file`；`--keyword` / `-k` 可重复，`--lines` / `-n` 默认 200；`--list` 只列文件，`--no-input` 禁止交互；高级选项 `--search-order` 默认 tail、`--grep-scope` 默认 C、`--grep-line` 默认 0 |
+| `host log-search` / `logs` | 必填 `SERVICE_ID`；可选成对的 `--pod` 与 `--cluster-name`，以及 `--type`、`--file`；`--keyword` / `-k` 可重复，`--lines` / `-n` 默认 200；`--list` 只列文件，`--no-input` 禁止交互；高级选项 `--search-order` 默认 tail、`--grep-scope` 默认 C、`--grep-line` 默认 0。Go 客户端使用 `host log-search`，Python 客户端使用 `logs` |
+| `host pod-event` | 仅 Go 客户端；可选 `SERVICE_ID`、`--pod POD_NAME`、`--cluster-name CLUSTER_NAME`、`--no-input`；可选 `--output` / `-o`（`table` 或 `json`） |
+| `host log-stdout` | 仅 Go 客户端；可选 `SERVICE_ID`、`--pod POD_NAME`、`-c` / `--container CONTAINER_NAME`（默认 `appcontainer`）、`--no-input`；可选 `--output` / `-o`（`text` 或 `json`，默认 `text`） |
 | `host mock` | 必填 `SERVICE_ID` 和 `--pod-ip POD_IP`，按所传值查询主机视图；`--transmission-tag` 默认 `0`，仅支持 `0`、`1`，含义同 `mock`；可选 `--output` / `-o` |
 | `host list` | 必填 `SERVICE_ID`；可选 `--pod-ip IP` 按 Pod IP 筛选，不传则不按 IP 筛选，不能传空值；可选 `--output` / `-o` |
 | `deployment list` | 必填 `SERVICE_ID`；可选 `--output` / `-o` |
@@ -734,7 +741,7 @@ ml service deployment list SERVICE_ID [-o table|json]
 
 WiseRec 和 MLOps 环境均支持本章全部命令，参数及操作方式相同；连接地址和业务上下文取自当前环境。
 
-先登录并选择业务，从 `list` 获取服务 ID。服务列表默认每页 10 条；主机和部署详情显示第一页 10 条，时间按北京时间显示。主机列表不展示主机ID列；podIP 按接口返回的完整 `IP:端口` 优先单行展示，便于复制，其他长字段可换行。
+先登录并选择业务，从 `list` 获取服务 ID。服务列表默认每页 10 条；主机和部署详情显示第一页 10 条，时间按北京时间显示。主机列表不展示主机ID列（Go 客户端表格同时不展示部署ID列，`-o json` 仍保留 `deployId`）；podIP 按接口返回的完整 `IP:端口` 优先单行展示，便于复制，其他长字段可换行。
 
 `ml service host list SERVICE_ID --pod-ip IP` 按指定 Pod IP 查询主机；主机测试命令 `host mock` 也使用所传 `--pod-ip` 查询主机视图。
 
@@ -748,11 +755,17 @@ Go 客户端的 `mock` 和 `host mock` 支持文档样例中的 JSON 文本、�
 
 `ml service host mock` 先按 `--pod-ip` 查询主机视图，再使用默认文档样例或 `--request-sample-file` 指定的报文测试查到的主机。请求中的 `hostId` 取自该记录的 `nodeId`，`hostAddress` 原样取自 `nodeHost`，不手填主机ID，也不拼接端口。查无主机时提示“目前主机不存在，请检查！”，停止后续调用；匹配多台、查询失败或必要字段缺失时同样停止。表格按每个返回节点分别使用“字段 / 值”两列展示，行顺序为主机名称、机器规格、站点、结果码、耗时(ms)、结果报文，结果报文在最后一行完整展示缩进 JSON。JSON 输出和失败处理同 `mock`；Pod IP 提示写入标准错误，JSON 结果可单独重定向保存。
 
-推荐使用 `ml service logs SERVICE_ID`。主机以表格展示编号、集群、pod名称、podIP、主机IP、状态、创建时间和更新时间，时间按北京时间显示；每页 10 条，先显示第一页，输入 n/p 按需翻页，输入 q 退出；选中后立即继续，不扫描剩余页。整个服务仅一台主机或仅一个文件时自动选择；类别无默认值，交互时以“编号、日志类别”表格展示，在“请选择日志类别”提示后输入编号，也可通过 `--type` 指定。文件选择仅展示一次文件表格，再输入编号，不重复列出文件名称。自动获取集群，Python 主机自动设置对应请求类型。`infer-python` 支持 run、interface、metrics、engine、ascend、mslite、alarm；`rtc` 支持 rtc、run、interface、dcs、metrics、gc、interface_manager、interface_extend、engine、monitor、catalina、dmq。文件列表和正文使用相同类别。
+推荐使用 `ml service host log-search SERVICE_ID`（Go 客户端；Python 客户端为 `ml service logs SERVICE_ID`）。主机以表格展示编号、集群、pod名称、podIP、主机IP、状态、创建时间和更新时间，时间按北京时间显示；每页 10 条，先显示第一页，输入 n/p 按需翻页，输入 q 退出；选中后立即继续，不扫描剩余页。整个服务仅一台主机或仅一个文件时自动选择；类别无默认值，交互时以“编号、日志类别”表格展示，在“请选择日志类别”提示后输入编号，也可通过 `--type` 指定。文件选择仅展示一次文件表格，再输入编号，不重复列出文件名称。自动获取集群，Python 主机自动设置对应请求类型。`infer-python` 支持 run、interface、metrics、engine、ascend、mslite、alarm；`rtc` 支持 rtc、run、interface、dcs、metrics、gc、interface_manager、interface_extend、engine、monitor、catalina、dmq。文件列表和正文使用相同类别。
 
 指定 `--pod` 时必须同时提供 `--cluster-name`；仅查询第一页，使用第一条主机的类型，直接查询指定 Pod 和集群，不验证其归属。请确保该服务主机类型一致且 Pod、集群填写正确。
 
 非交互环境或指定 `--no-input` 时，选择不唯一会报错并提示补充参数；不默认选择第一台主机。未知主机类型、无匹配主机或文件会报错，文件列表为空时提示暂无日志文件。`--list` 不可与 `--file`、关键词、行数及正文检索选项混用，显式传入默认值也视为冲突；冲突时在请求平台前报错。默认读取末尾 200 行，不持续刷新；日志正文写入标准输出，选择提示和上下文写入标准错误，可将正文重定向保存。
+
+Go 客户端新增 `ml service host pod-event` 与 `ml service host log-stdout`，支持双模式主机寻址：仅传 `SERVICE_ID` 时自动选择唯一主机或在终端交互分页选择；已从 `ml service host list SERVICE_ID` 获取 Pod 信息时，可直接传 `--pod`（`pod-event` 同时传 `--cluster-name`）免 `SERVICE_ID` 查询；`pod-event` 也可传 `SERVICE_ID --pod POD_NAME` 自动补全集群名称。
+
+`ml service host pod-event` 以表格展示 `类型`、`事件原因`、`消息`、`最后更新时间`（北京时间 `YYYY-MM-DD HH:mm:ss`）与 `次数`，事件列表为空时提示 `暂无 Pod 事件`，传 `-o json` 输出完整接口结果。
+
+`ml service host log-stdout` 默认查询 `appcontainer`，容器集合以接口返回的 `result.containerStates` 为准，不限制固定个数。若 `-c` / `--container` 指定的容器类型不在该 Pod 实际容器列表中，则提示“该容器没有<容器类型>类型日志，请确认容器类型是否正确！”并终止。文本模式先逐行展示全部容器状态（`容器名称：<name>，重启次数：<restartCount>，状态：<state>`），再输出 `详细日志：` 与按换行展开的日志正文；传 `-o json` 输出完整接口结果。
 
 
 ### 13.4 示例
@@ -764,16 +777,22 @@ ml service mock SERVICE_ID
 ml service mock SERVICE_ID --transmission-tag 1
 ml service mock SERVICE_ID --request-sample-file './sample.json'
 ml service mock SERVICE_ID -o json > service-mock-result.json
-ml service logs SERVICE_ID
-ml service logs SERVICE_ID -k error -n 500
-ml service logs SERVICE_ID --list
-ml service logs SERVICE_ID --pod POD_NAME --cluster-name CLUSTER_NAME --type interface --file FILE_NAME --no-input
 ml service host list SERVICE_ID
 ml service host list SERVICE_ID --pod-ip POD_IP -o json
 ml service host mock SERVICE_ID --pod-ip POD_IP
 ml service host mock SERVICE_ID --pod-ip POD_IP --request-sample-file './sample.json'
 ml service host mock SERVICE_ID --pod-ip POD_IP --transmission-tag 1 -o json
 ml service host mock SERVICE_ID --pod-ip "IPv6"
+ml service host pod-event SERVICE_ID
+ml service host pod-event --pod POD_NAME --cluster-name CLUSTER_NAME
+ml service host pod-event SERVICE_ID --pod POD_NAME -o json
+ml service host log-stdout SERVICE_ID
+ml service host log-stdout --pod POD_NAME
+ml service host log-stdout --pod POD_NAME -c filebeat -o json
+ml service host log-search SERVICE_ID
+ml service host log-search SERVICE_ID -k error -n 500
+ml service host log-search SERVICE_ID --list
+ml service host log-search SERVICE_ID --pod POD_NAME --cluster-name CLUSTER_NAME --type interface --file FILE_NAME --no-input
 ml service deployment list SERVICE_ID -o json
 ```
 

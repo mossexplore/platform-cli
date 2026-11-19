@@ -2,12 +2,11 @@
 
 from pathlib import Path
 import re
+import runpy
 
 import click
-import typer
 
-from wiserec_cli.cli import app
-
+SCRIPT = runpy.run_path(str(Path(__file__).resolve().parents[1] / "scripts/sync_skill_index.py"))
 SKILL_DIR = Path(__file__).resolve().parents[1] / "skill" / "wiserec-platform"
 REFERENCES = SKILL_DIR / "references"
 LINK = re.compile(r"\]\(([^)#\s]+)(?:#[^)]*)?\)")
@@ -33,7 +32,7 @@ def _indexed(path: tuple[str, ...], lines: list[str]) -> bool:
 
 def test_command_index_covers_every_command():
     lines = (REFERENCES / "commands.md").read_text(encoding="utf-8").splitlines()
-    missing = [" ".join(path) for path in _leaf_paths(typer.main.get_command(app))
+    missing = [" ".join(path) for path in _leaf_paths(SCRIPT["go_cli_tree"]())
                if not _indexed(path, lines)]
     assert not missing, f"commands.md 缺少命令: {missing}"
 

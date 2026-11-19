@@ -20,6 +20,15 @@ var pythonHelp []byte
 
 var helpSGR = regexp.MustCompile("\x1b\\[[0-9;]*m")
 
+// Go CLI commands that intentionally diverge from cli-python and must render live Cobra help.
+var goNativeHelpPaths = map[string]bool{
+	"ml service":                 true,
+	"ml service host":            true,
+	"ml service host log-search": true,
+	"ml service host log-stdout": true,
+	"ml service host pod-event":  true,
+}
+
 func loadHelpFile(name string, target any) error {
 	archive, err := zip.NewReader(bytes.NewReader(pythonHelp), int64(len(pythonHelp)))
 	if err != nil {
@@ -49,6 +58,10 @@ func helpWidth(out io.Writer) int {
 
 func pythonHelpFunc(fallback func(*cobra.Command, []string)) func(*cobra.Command, []string) {
 	return func(cmd *cobra.Command, args []string) {
+		if goNativeHelpPaths[cmd.CommandPath()] {
+			fallback(cmd, args)
+			return
+		}
 		out := cmd.OutOrStdout()
 		page, err := pythonHelpPage(cmd.CommandPath(), helpWidth(out))
 		if err != nil {

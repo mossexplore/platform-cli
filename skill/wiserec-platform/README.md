@@ -4,9 +4,7 @@
 
 ## 安装
 
-Python Windows 安装包分两个阶段执行：先安装并验证 CLI，再安装 `wiserec-platform` skill 和 `/ml` command。第二阶段失败会显示原因，CLI 仍可正常使用；排除文件占用或目录权限问题后重新运行安装程序即可重试。直接通过 pip 安装 Wheel 不会安装 skill。正式安装提供 `/ml`。实验版已停止维护，仅在仓库 `skill-lab/` 保存历史资料，不再提供活跃的 `/ml-lab` 入口。
-
-Go Windows MSI 先安装 CLI，再安装 `wiserec-platform` Skill 和 `/ml`。Skill 安装失败时，交互安装会提示手动安装，CLI 仍可使用。可按 [Go Windows 安装说明](../../cli-go/README.md) 运行 MSI 修复，重试安装 Skill。
+Windows MSI 安装包先安装 CLI，再安装 `wiserec-platform` Skill 和 `/ml`。Skill 安装失败时，交互安装会提示手动安装，CLI 仍可使用。可按 [Windows 安装说明](../../cli-go/README.md) 运行 MSI 修复，重试安装 Skill。实验版已停止维护，仅在仓库 `skill-lab/` 保存历史资料，不再提供活跃的 `/ml-lab` 入口。
 
 - 正式 skill 安装到 `~/.agents/skills/wiserec-platform` 和 `~/.cac/skills/wiserec-platform`。`/ml` 位于当前 OpenCode 配置目录的 `commands/ml.md` 和 `~/.cac/commands/ml.md`。OpenCode 配置目录默认 `~/.config/opencode`，`OPENCODE_CONFIG_DIR` 只改变该配置目录，不改变共享 skill 或 CAC 路径。
 - 每次安装替换上述正式资源；成功后清理相应管理目录中的历史详细版、`ml-lab.md` 和当前 OpenCode 配置目录中的旧正式 skill。历史上使用过的其他配置目录不会被遍历。其他资源保留。
@@ -14,9 +12,9 @@ Go Windows MSI 先安装 CLI，再安装 `wiserec-platform` Skill 和 `/ml`。Sk
 - 项目目录或兼容目录中的同名副本需自行移除，以免 OpenCode 加载旧副本。
 - 安装后完全退出并重新打开 OpenCode，使其获得新的 PATH，然后输入 `/ml 查询当前业务下的模型`；只输入 `/ml` 会检查使用上下文并显示用法。
 
-Go MSI 将同一套正式 Skill 和 `/ml` 安装到上述位置，支持 Windows Installer 的修复、升级和卸载，并停用已知旧入口。如果用户 PATH 中已有旧版 Python 安装器注册的 `ml`，安装时会自动移除该 PATH 条目。Go 便携 ZIP 携带资源供开发人员查看，解压不会配置 Agent。见 [Go Windows 安装说明](../../cli-go/README.md)。
+MSI 将正式 Skill 和 `/ml` 安装到上述位置，支持 Windows Installer 的修复、升级和卸载，并停用已知旧入口。便携 ZIP 携带资源供开发人员查看，解压不会配置 Agent。见 [Windows 安装说明](../../cli-go/README.md)。
 
-Python Windows 安装方式见 [安装说明](../../cli-python/scripts/windows/INSTALL.md)。通用正文为 `SKILL.md` 与 `references/`（不绑定特定 Agent）；`skill/commands/ml.md` 为支持 `/ml`（`$ARGUMENTS` + `skill` 工具）的 OpenCode 等 harness 的入口。下面的 OpenCode 权限示例供安装人员参考。
+通用正文为 `SKILL.md` 与 `references/`（不绑定特定 Agent）；`skill/commands/ml.md` 为支持 `/ml`（`$ARGUMENTS` + `skill` 工具）的 OpenCode 等 harness 的入口。下面的 OpenCode 权限示例供安装人员参考。
 
 ## 建议的权限配置
 
@@ -76,8 +74,10 @@ Python Windows 安装方式见 [安装说明](../../cli-python/scripts/windows/I
       "ml deployment template list*": "allow",
       "ml deployment template detail*": "allow",
       "ml service list*": "allow",
-      "ml service logs * --no-input*": "allow",
       "ml service host list*": "allow",
+      "ml service host pod-event*": "allow",
+      "ml service host log-stdout*": "allow",
+      "ml service host log-search * --no-input*": "allow",
       "ml service deployment list*": "allow",
       "ml dataset list*": "allow",
       "ml dataset detail*": "allow",
@@ -119,7 +119,7 @@ Python Windows 安装方式见 [安装说明](../../cli-python/scripts/windows/I
 
 业务任务中不得修改 CLI、依赖、业务代码、脚本或 Notebook 代码单元；程序缺陷交由独立开发流程处理。该限制是 Agent 行为要求，不代表安装器已实现文件系统隔离。
 
-命令索引由维护者运行 `python scripts/sync_skill_index.py` 生成，`--check` 检查漂移。人工语义保存在仓库 `scripts/skill_index/commands.md.in`，命令与选项存在性、叶子命令覆盖及确认列由当前 Click 命令树校验或生成。不自动推断 JSON 语义、敏感性或权限策略。
+命令索引由维护者运行 `python scripts/sync_skill_index.py` 生成，`--check` 检查漂移。人工语义保存在仓库 `scripts/skill_index/commands.md.in`，命令与选项存在性、叶子命令覆盖及确认列由当前 CLI 命令契约校验或生成。不自动推断 JSON 语义、敏感性或权限策略。
 
 构建时在正式 `SKILL.md` 的 metadata 中写入 `source_cli_version` 和 `source_sha256`，不修改源文件中的版本。前者来自 `versions.toml`，后者标识构建前全部正式资源的内容。它们用于排查来源，不是 Agent 版本门槛；版本一致不代表加载路径或文件一定正确。
 

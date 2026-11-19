@@ -24,7 +24,7 @@ var serviceLogTypes = map[string][]string{
 }
 
 func newServiceLogs(options Options, load loadConfig) *cobra.Command {
-	cmd := &cobra.Command{Use: "logs SERVICE_ID", Short: "选择服务主机和文件并查看日志", Args: positional(1)}
+	cmd := &cobra.Command{Use: "log-search SERVICE_ID", Short: "检索指定主机的业务日志文件", Args: positional(1)}
 	pod := cmd.Flags().String("pod", "", "Pod 名称")
 	cluster := cmd.Flags().String("cluster-name", "", "集群名称")
 	logType := cmd.Flags().String("type", "", "日志类别")

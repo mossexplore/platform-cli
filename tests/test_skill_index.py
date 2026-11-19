@@ -4,9 +4,6 @@ import runpy
 
 import click
 import pytest
-import typer
-
-from wiserec_cli.cli import app
 
 SCRIPT = runpy.run_path(str(Path(__file__).resolve().parents[1] / "scripts/sync_skill_index.py"))
 render = SCRIPT["render"]
@@ -29,7 +26,7 @@ TEMPLATE = """| 命令 | 用途 | 确认 | 副作用 |
 
 
 def test_generated_index_matches_current_cli():
-    expected = render(typer.main.get_command(app), SCRIPT["TEMPLATE"].read_text(encoding="utf-8"))
+    expected = render(SCRIPT["go_cli_tree"](), SCRIPT["TEMPLATE"].read_text(encoding="utf-8"))
     assert SCRIPT["OUTPUT"].read_text(encoding="utf-8") == expected
 
 

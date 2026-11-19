@@ -60,8 +60,8 @@ ml train instance logs download TASK_ID JOB_ID --select all --directory 'D:\logs
 - `history detail` 自动翻页查找记录。`jobType=dps-train` 时展示角色列表，首列为完整角色作业 ID，JSON 保留角色及额外字段。通过本 Skill 下载分布式普通日志或 plog 时，先从 `history detail -o json` 获取对应的角色作业 ID，再用 `--role-job-id` 指定角色。多个目标角色按用户指定范围逐个调用。普通训练不接受此参数。
 - `history logs download` 下载普通日志前先查询是否存在。日志未就绪，或下载链接接口返回 `failedUploadSwitch=false` 时，按作业提交手动归档。提交成功后立即提示“手动归档中，请稍后再次下载日志！”，返回 `not_ready` 和非零退出码。稍后重试时重新检查日志是否存在。同次命令内同一作业最多归档一次，批量下载继续处理其余选中角色。
 - 所有训练类型下载 plog 前均检查 `sysParam` JSON 字符串中的 `plogUploadSuccess`，其值须为字符串 `"1"`。普通训练检查执行记录自身，分布式训练检查角色。CLI 直接获取 plog 链接并下载。执行记录或所选角色无 plog 时，提示“该记录没有plog日志，停止下载”。分布式 plog 文件命名为 `<roleJobId>_plog.zip`。
-- 历史日志下载按编号显示查询记录、选择和校验角色、检查日志、归档、获取和校验地址、下载及保存结果。plog 按实际执行的步骤显示。Go 的执行实例日志也显示查询、归档、选取及下载步骤，并在交互终端显示接收字节数。进度写入 stderr，逐条失败的 JSON 摘要含 `stage` 和带阶段名称的 `error`。根据失败阶段排查日志检查、地址或传输问题。
-- Go 下载日志 ZIP 时优先使用终端的 `HTTPS_PROXY`，其次使用 `ALL_PROXY`，并按 `NO_PROXY` 绕过代理。没有环境代理配置时，Windows 和 macOS 使用手动配置的系统 HTTPS 代理。仅使用 PAC 的环境可在当前终端设置 `HTTPS_PROXY` 后重试。已取到链接但下载失败时，按错误类别核对代理、DNS 或连接超时，不复述签名参数。
+- 历史日志下载按编号显示查询记录、选择和校验角色、检查日志、归档、获取和校验地址、下载及保存结果。plog 按实际执行的步骤显示。执行实例日志也显示查询、归档、选取及下载步骤，并在交互终端显示接收字节数。进度写入 stderr，逐条失败的 JSON 摘要含 `stage` 和带阶段名称的 `error`。根据失败阶段排查日志检查、地址或传输问题。
+- 下载日志 ZIP 时优先使用终端的 `HTTPS_PROXY`，其次使用 `ALL_PROXY`，并按 `NO_PROXY` 绕过代理。没有环境代理配置时，Windows 和 macOS 使用手动配置的系统 HTTPS 代理。仅使用 PAC 的环境可在当前终端设置 `HTTPS_PROXY` 后重试。已取到链接但下载失败时，按错误类别核对代理、DNS 或连接超时，不复述签名参数。
 - `history list` 和 `instance list` 的 `-o json` 保留原始状态与时长字段（`runningTime`、`queueTime` 为分钟，`waitTime` 为秒）；表格模式会自动换算为中文状态和可读时长。
 - `ml train start TASK_ID` 返回 `jobId` 只表示请求已被接受，之后用 `history list` 确认状态。
 - `cancel`、`delete`、`clone` 默认询问确认，授权后加 `--yes`。`cancel` 逐个取消全部执行实例，需看逐条结果和退出码，没有实例时退出 1。`clone` 成功后可能返回新任务 ID。
@@ -98,7 +98,7 @@ ml sample-task execution list TASK_ID --include-history --page 2 --page-size 20 
 ```
 
 - `period list` 默认第 1 页、每页 20 条。起止时间按北京时间输入 `YYYY-MM-DD HH:mm:ss`，可只指定一端，开始时间不得晚于结束时间。`--state` 可重复指定，未指定不限状态；状态枚举见命令帮助。
-- Go 和 Python 的周期表格均采用无表头四列网格，每格显示页内编号、周期和中文状态。按返回顺序从左往右填充，编号每页从 1 开始，末行未填满的单元格留空。空列表提示「暂无执行周期」。
+- 周期表格采用无表头四列网格，每格显示页内编号、周期和中文状态。按返回顺序从左往右填充，编号每页从 1 开始，末行未填满的单元格留空。空列表提示「暂无执行周期」。
 - `execution list` 默认第 1 页、每页 10 条，不包含历史实例；`--include-history` 开启后包含历史实例。任务 ID 和记录中的 JOB ID 不互换。
 - 执行记录表格展示 JOB ID、算法名称、中文状态、文件大小、周期时间、执行时长、最新实例及检查、开始、结束时间。大小按 1024 进制，执行时长按分钟转换，时间戳按北京时间展示。
 - 两种执行查询的 JSON 均为 `taskId`、`page`、`pageSize`、`total`、`items`，保留原始状态、时间和额外字段，不加入网格编号。每次只查询指定页，不把第一页当成全部结果。
@@ -114,7 +114,7 @@ ml algorithm clone ALGORITHM_ID --name NEW_NAME --version VERSION --yes
 ```
 
 - 下载先获取签名链接再保存 ZIP；父目录必须已存在，不覆盖同名文件。不要把签名链接写入回复或日志。
-- Go 的算法仓 ZIP 下载使用与训练日志相同的代理设置。优先使用 `HTTPS_PROXY`，其次使用 `ALL_PROXY`，并按 `NO_PROXY` 绕过代理。没有环境代理配置时，Windows 和 macOS 读取手动配置的系统 HTTPS 代理。
+- 算法仓 ZIP 下载使用与训练日志相同的代理设置。优先使用 `HTTPS_PROXY`，其次使用 `ALL_PROXY`，并按 `NO_PROXY` 绕过代理。没有环境代理配置时，Windows 和 macOS 读取手动配置的系统 HTTPS 代理。
 - 克隆默认询问确认，授权后加 `--yes`；结果不明时先按新名称和版本查询，再决定是否重试。
 
 ## 结果核验

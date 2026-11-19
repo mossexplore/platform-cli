@@ -1,19 +1,35 @@
-"""Render the skill index and check its command examples against Click, without calls."""
+"""Render the skill index and check its command examples against the CLI contract, without calls."""
 import argparse
 from pathlib import Path
 import re
-import sys
-
-ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT / "cli-python/src"))
 
 import click
-import typer
 
-from wiserec_cli.cli import app
-
+ROOT = Path(__file__).resolve().parents[1]
+CONTRACT = ROOT / "cli-go/internal/command/testdata/python-cli.tsv"
 TEMPLATE = ROOT / "scripts/skill_index/commands.md.in"
 OUTPUT = ROOT / "skill/wiserec-platform/references/commands.md"
+
+
+def go_cli_tree(contract_path=CONTRACT):
+    root = click.Group(params=[click.Option(["--version"], is_flag=True)])
+    for raw_line in contract_path.read_text(encoding="utf-8").splitlines():
+        line = raw_line.rstrip("\r")
+        if not line:
+            continue
+        parts = line.split("\t")
+        path = parts[0].split()
+        options = parts[2].split() if len(parts) > 2 else []
+        group = root
+        for segment in path[:-1]:
+            child = group.commands.get(segment)
+            if not isinstance(child, click.Group):
+                child = click.Group(segment)
+                group.add_command(child)
+            group = child
+        params = [click.Option([opt], is_flag=True) for opt in options if opt.startswith("-")]
+        group.add_command(click.Command(path[-1], params=params))
+    return root
 
 
 def leaves(command, prefix=()):
@@ -78,7 +94,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--check", action="store_true", help="Reject drift without writing")
     args = parser.parse_args()
-    result = render(typer.main.get_command(app), TEMPLATE.read_text(encoding="utf-8"))
+    result = render(go_cli_tree(), TEMPLATE.read_text(encoding="utf-8"))
     if args.check:
         if not OUTPUT.is_file() or OUTPUT.read_text(encoding="utf-8") != result:
             raise SystemExit("Skill command index is stale; run python scripts/sync_skill_index.py")

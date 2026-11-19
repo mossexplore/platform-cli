@@ -18,7 +18,13 @@ func TestPythonHelpParity(t *testing.T) {
 	if err := loadHelpFile("options.json", &pythonOptions); err != nil {
 		t.Fatal(err)
 	}
+	removedPythonHelpPaths := map[string]bool{
+		"ml service logs": true,
+	}
 	for path, expected := range pythonOptions {
+		if goNativeHelpPaths[path] || removedPythonHelpPaths[path] {
+			continue
+		}
 		t.Run(path, func(t *testing.T) {
 			var out, stderr bytes.Buffer
 			args := strings.Fields(path)[1:]
@@ -68,8 +74,10 @@ func TestPythonHelpParity(t *testing.T) {
 	}
 	var check func(*cobra.Command)
 	check = func(cmd *cobra.Command) {
-		if _, ok := pythonOptions[cmd.CommandPath()]; !ok {
-			t.Errorf("public Go command is missing Python help: %s", cmd.CommandPath())
+		if !goNativeHelpPaths[cmd.CommandPath()] {
+			if _, ok := pythonOptions[cmd.CommandPath()]; !ok {
+				t.Errorf("public Go command is missing Python help: %s", cmd.CommandPath())
+			}
 		}
 		for _, child := range cmd.Commands() {
 			if !child.Hidden {

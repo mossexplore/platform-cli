@@ -60,10 +60,12 @@ dataset detail	shared	--output -o
 dataset files list	shared	--dir --output -o
 dataset files upload	shared	--dir --timeout --output -o
 service list	shared	--page --page-size --name --service-name --model-name --model-version --output -o
-service logs	shared	--pod --cluster-name --type --file --keyword -k --lines -n --list --no-input --search-order --grep-scope --grep-line
 service mock	shared	--transmission-tag --request-sample-file --output -o
 service host list	shared	--pod-ip --output -o
+service host log-search	shared	--pod --cluster-name --type --file --keyword -k --lines -n --list --no-input --search-order --grep-scope --grep-line
+service host log-stdout	shared	--pod --container -c --no-input --output -o
 service host mock	shared	--pod-ip --transmission-tag --request-sample-file --output -o
+service host pod-event	shared	--pod --cluster-name --no-input --output -o
 service deployment list	shared	--output -o
 featureset wide list	wiserec	--name --page --page-size --output -o
 featureset wide config	wiserec
