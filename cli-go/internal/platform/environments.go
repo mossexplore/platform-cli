@@ -19,7 +19,11 @@ func (s Session) EnvironmentStatuses(ctx context.Context, audit string) (map[str
 	if !cfg.Access.Active() || cfg.Access.URL == "" {
 		return nil, errors.New("权限检查未配置，无法查询环境授权状态")
 	}
-	current, err := s.Paths.CredentialsFor(cfg.Profile())
+	profile, err := cfg.RequireProfile()
+	if err != nil {
+		return nil, errors.New("当前会话尚未绑定环境，无法查询实时环境授权状态，请先执行 ml env use <环境名>")
+	}
+	current, err := s.Paths.CredentialsFor(profile)
 	if err != nil {
 		return nil, errors.New("当前环境尚无登录账号，请先执行 ml login 查询 CLI 权限")
 	}

@@ -112,12 +112,33 @@ func newRoot(options Options) *cobra.Command {
 			if resolved, err := filepath.EvalSymlinks(executable); err == nil {
 				executable = resolved
 			}
+			currentEnv := cfg.Current
+			if currentEnv == "" {
+				currentEnv = "未绑定"
+			}
+			sessionID, sessionFile := "-", "-"
+			if paths.IsSessionIsolated() {
+				sessionID = paths.Session.ID
+				sessionFile = paths.SessionFile()
+			}
+			currentBusiness := "未绑定"
+			if profile, err := cfg.RequireProfile(); err == nil {
+				if creds, err := paths.CredentialsFor(profile); err == nil {
+					if id, err := paths.SelectedBusiness(creds); err == nil && id != "" {
+						currentBusiness = id
+					}
+				}
+			}
 			result := output.Fields{
 				{Key: "运行模式", Value: "Go CLI"},
-				{Key: "当前环境", Value: cfg.Current},
+				{Key: "上下文模式", Value: paths.Session.Label()},
+				{Key: "会话 ID", Value: sessionID},
+				{Key: "当前环境", Value: currentEnv},
+				{Key: "当前业务", Value: currentBusiness},
 				{Key: "CLI 版本", Value: options.Version},
 				{Key: "CLI 路径", Value: executable},
 				{Key: "配置路径", Value: paths.Config()},
+				{Key: "会话文件", Value: sessionFile},
 				{Key: "状态目录", Value: paths.Dir},
 			}
 			asJSON, _ := cmd.Flags().GetBool("json")
@@ -148,6 +169,9 @@ func newRoot(options Options) *cobra.Command {
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			paths, cfg, err := config()
 			if err != nil {
+				return err
+			}
+			if _, err := cfg.RequireProfile(); err != nil {
 				return err
 			}
 			result, err := edgelogin.Run(cmd.Context(), paths, cfg, cmd.ErrOrStderr())

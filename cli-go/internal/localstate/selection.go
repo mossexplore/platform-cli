@@ -10,6 +10,21 @@ import (
 )
 
 func (p Paths) UseEnvironment(name string) (Profile, error) {
+	if err := p.ValidateSession(); err != nil {
+		return Profile{}, err
+	}
+	if p.IsSessionIsolated() {
+		if p.packaged == nil {
+			return Profile{}, errors.New("Go CLI 未加载内置配置")
+		}
+		for _, profile := range p.packaged.Profiles {
+			if profile.Name != name {
+				continue
+			}
+			return profile, p.setSessionEnvironment(name)
+		}
+		return Profile{}, fmt.Errorf("环境 %q 不存在", name)
+	}
 	unlock, err := p.LockState()
 	if err != nil {
 		return Profile{}, err
@@ -68,6 +83,9 @@ func (p Paths) Logout(profile Profile, all, forget bool) error {
 }
 
 func (p Paths) SelectBusiness(profile Profile, creds Credentials, department, tenant, team string) (BusinessEntry, error) {
+	if err := p.ValidateSession(); err != nil {
+		return BusinessEntry{}, err
+	}
 	unlock, err := p.LockState()
 	if err != nil {
 		return BusinessEntry{}, err
@@ -100,6 +118,19 @@ func (p Paths) SelectBusiness(profile Profile, creds Credentials, department, te
 		return BusinessEntry{}, err
 	}
 	entry.Selected = selection
+	if p.IsSessionIsolated() {
+		err = p.UpdateSessionState(func(state *SessionState) error {
+			if state.Current != profile.Name {
+				return errors.New("选择期间当前环境已变化，请重新选择")
+			}
+			if state.Selections == nil {
+				state.Selections = make(map[string]SessionSelection)
+			}
+			state.Selections[profile.Name] = sessionSelectionFrom(latest.Username, selection)
+			return nil
+		})
+		return entry, err
+	}
 	file.Profiles[profile.Name] = entry
 	return entry, writeState(p.Business(), file)
 }

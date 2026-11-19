@@ -103,6 +103,9 @@ func newBusiness(options Options, load loadConfig) *cobra.Command {
 		if err != nil {
 			return err
 		}
+		if _, err := cfg.RequireProfile(); err != nil {
+			return err
+		}
 		if _, err := edgelogin.Run(cmd.Context(), paths, cfg, cmd.ErrOrStderr()); err != nil {
 			return err
 		}
@@ -118,9 +121,13 @@ func currentBusiness(load loadConfig, live bool) (localstate.Paths, localstate.C
 	if err != nil {
 		return paths, cfg, localstate.Credentials{}, localstate.BusinessEntry{}, err
 	}
-	creds, err := paths.CredentialsFor(cfg.Profile())
+	profile, err := cfg.RequireProfile()
+	if err != nil {
+		return paths, cfg, localstate.Credentials{}, localstate.BusinessEntry{}, err
+	}
+	creds, err := paths.CredentialsFor(profile)
 	if live {
-		creds, err = paths.LoadCredentials(cfg.Profile(), time.Now())
+		creds, err = paths.LoadCredentials(profile, time.Now())
 	}
 	if err != nil {
 		return paths, cfg, creds, localstate.BusinessEntry{}, err

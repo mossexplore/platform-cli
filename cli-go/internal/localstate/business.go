@@ -115,11 +115,32 @@ type BusinessEntry struct {
 }
 
 func (p Paths) BusinessEntry(creds Credentials) (BusinessEntry, error) {
+	if err := p.ValidateSession(); err != nil {
+		return BusinessEntry{}, err
+	}
 	var file businessFile
 	if err := readJSON(p.Business(), &file); err != nil {
 		return BusinessEntry{}, err
 	}
-	return file.entry(creds, p.BusinessOverride != "")
+	entry, err := file.entry(creds, p.BusinessOverride != "")
+	if err != nil {
+		return BusinessEntry{}, err
+	}
+	if !p.IsSessionIsolated() || p.BusinessOverride != "" {
+		return entry, nil
+	}
+	state, _, err := p.LoadSessionState()
+	if err != nil {
+		return BusinessEntry{}, err
+	}
+	entry.Selected = Selection{}
+	if sel, ok := state.Selections[creds.Profile]; ok && sel.Username == creds.Username {
+		candidate := sel.toSelection()
+		if validHeader(candidate.BusinessID) && matchesSelection(entry.Catalog, candidate) {
+			entry.Selected = candidate
+		}
+	}
+	return entry, nil
 }
 
 func (file businessFile) entry(creds Credentials, allowLegacy bool) (BusinessEntry, error) {
@@ -134,15 +155,41 @@ func (file businessFile) entry(creds Credentials, allowLegacy bool) (BusinessEnt
 }
 
 func (p Paths) SelectedBusiness(creds Credentials) (string, error) {
-	entry, err := p.BusinessEntry(creds)
+	if err := p.ValidateSession(); err != nil {
+		return "", err
+	}
+	if !p.IsSessionIsolated() || p.BusinessOverride != "" {
+		entry, err := p.BusinessEntry(creds)
+		if err != nil {
+			return "", err
+		}
+		saved := entry.Selected
+		if !validHeader(saved.BusinessID) || !matchesSelection(entry.Catalog, saved) {
+			return "", errors.New("当前环境 selected.businessId 无效或业务选择已失效")
+		}
+		return saved.BusinessID, nil
+	}
+	var file businessFile
+	if err := readJSON(p.Business(), &file); err != nil {
+		return "", err
+	}
+	entry, err := file.entry(creds, false)
 	if err != nil {
 		return "", err
 	}
-	saved := entry.Selected
-	if !validHeader(saved.BusinessID) || !matchesSelection(entry.Catalog, saved) {
-		return "", errors.New("当前环境 selected.businessId 无效或业务选择已失效")
+	state, _, err := p.LoadSessionState()
+	if err != nil {
+		return "", err
 	}
-	return saved.BusinessID, nil
+	sel, ok := state.Selections[creds.Profile]
+	if !ok || sel.BusinessID == "" {
+		return "", sessionBusinessUnboundError(creds.Profile)
+	}
+	candidate := sel.toSelection()
+	if sel.Username != creds.Username || !validHeader(candidate.BusinessID) || !matchesSelection(entry.Catalog, candidate) {
+		return "", sessionBusinessInvalidError(creds.Profile)
+	}
+	return candidate.BusinessID, nil
 }
 
 func matchesSelection(departments []Department, selected Selection) bool {

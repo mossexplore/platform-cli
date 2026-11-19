@@ -20,9 +20,13 @@ func newMEP(options Options, load loadConfig) *cobra.Command {
 			if err != nil {
 				return err
 			}
+			profile, err := cfg.RequireProfile()
+			if err != nil {
+				return err
+			}
 			format, _ := cmd.Flags().GetString("output")
 			if format == "" {
-				format = cfg.Profile().Output
+				format = profile.Output
 			}
 			format = strings.ToLower(format)
 			if format != "table" && format != "json" {

@@ -33,7 +33,7 @@ type HistoryEntry struct {
 
 func (p Paths) CurrentEnvironment() *string {
 	cfg, err := LoadConfig(p)
-	if err != nil {
+	if err != nil || cfg.Current == "" {
 		return nil
 	}
 	return &cfg.Current

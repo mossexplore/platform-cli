@@ -19,7 +19,11 @@ func newAuth(options Options, load loadConfig) (*cobra.Command, *cobra.Command) 
 		if err != nil {
 			return err
 		}
-		creds, err := paths.CredentialsFor(cfg.Profile())
+		profile, err := cfg.RequireProfile()
+		if err != nil {
+			return err
+		}
+		creds, err := paths.CredentialsFor(profile)
 		if err != nil {
 			return err
 		}
@@ -60,13 +64,20 @@ func newAuth(options Options, load loadConfig) (*cobra.Command, *cobra.Command) 
 		if err != nil {
 			return err
 		}
-		if err := keepalive.Stop(paths, cfg.Current, *all); err != nil {
+		profile := cfg.Profile()
+		if !*all {
+			profile, err = cfg.RequireProfile()
+			if err != nil {
+				return err
+			}
+		}
+		if err := keepalive.Stop(paths, profile.Name, *all); err != nil {
 			return err
 		}
-		if err := paths.Logout(cfg.Profile(), *all, *forget); err != nil {
+		if err := paths.Logout(profile, *all, *forget); err != nil {
 			return err
 		}
-		target := cfg.Current
+		target := profile.Name
 		if *all {
 			target = "所有环境"
 		}

@@ -21,6 +21,9 @@ func newPing(options Options, load loadConfig) *cobra.Command {
 		if err != nil {
 			return err
 		}
+		if _, err := cfg.RequireProfile(); err != nil {
+			return err
+		}
 		if !cfg.PingEnabled() {
 			_, err := fmt.Fprintln(cmd.ErrOrStderr(), "自动保活已在配置中关闭")
 			return err
@@ -44,7 +47,11 @@ func newPing(options Options, load loadConfig) *cobra.Command {
 		if err != nil {
 			return err
 		}
-		if err := keepalive.Stop(paths, cfg.Current, false); err != nil {
+		profile, err := cfg.RequireProfile()
+		if err != nil {
+			return err
+		}
+		if err := keepalive.Stop(paths, profile.Name, false); err != nil {
 			return err
 		}
 		_, err = fmt.Fprintln(cmd.ErrOrStderr(), "[成功] 当前环境的自动保活已停止")
@@ -56,7 +63,11 @@ func newPing(options Options, load loadConfig) *cobra.Command {
 		if err != nil {
 			return err
 		}
-		entry, running, err := keepalive.View(paths, cfg.Current)
+		profile, err := cfg.RequireProfile()
+		if err != nil {
+			return err
+		}
+		entry, running, err := keepalive.View(paths, profile.Name)
 		if err != nil {
 			return err
 		}
@@ -68,7 +79,7 @@ func newPing(options Options, load loadConfig) *cobra.Command {
 			state, pid = entry.Status, strconv.Itoa(entry.WorkerPID)
 			next = pingTime(entry.LastActivity.Add(time.Duration(cfg.Auth.PingMinutes) * time.Minute))
 		}
-		fields := output.Fields{{Key: "环境", Value: cfg.Current}, {Key: "自动保活", Value: enabled},
+		fields := output.Fields{{Key: "环境", Value: profile.Name}, {Key: "自动保活", Value: enabled},
 			{Key: "状态", Value: state}, {Key: "进程 ID", Value: pid}, {Key: "保活终端数", Value: strconv.Itoa(keepalive.TerminalCount(entry))},
 			{Key: "间隔（分钟）", Value: strconv.Itoa(cfg.Auth.PingMinutes)}, {Key: "上次请求", Value: pingTime(entry.LastAttempt)},
 			{Key: "上次平台确认成功", Value: pingTime(entry.LastConfirmed)}, {Key: "下次预计请求", Value: next},

@@ -19,6 +19,7 @@ import (
 type Paths struct {
 	Dir              string
 	BusinessOverride string
+	Session          SessionScope
 	packaged         *Config
 }
 
@@ -33,7 +34,12 @@ func DefaultPaths() (Paths, error) {
 	if err != nil {
 		return Paths{}, errors.New("无法定位当前账号的用户配置目录")
 	}
-	return NewPaths(filepath.Join(root, "ml-go-preview"), packagedConfig)
+	paths, err := NewPaths(filepath.Join(root, "ml-go-preview"), packagedConfig)
+	if err != nil {
+		return Paths{}, err
+	}
+	paths.Session = DetectSessionScope(os.LookupEnv)
+	return paths, nil
 }
 
 func NewPaths(dir string, packaged []byte) (Paths, error) {
@@ -217,6 +223,17 @@ func (c Config) Profile() Profile {
 		}
 	}
 	return Profile{}
+}
+
+func (c Config) RequireProfile() (Profile, error) {
+	if c.Current == "" {
+		return Profile{}, ErrSessionEnvUnbound
+	}
+	profile := c.Profile()
+	if profile.Name == "" {
+		return Profile{}, ErrSessionEnvUnbound
+	}
+	return profile, nil
 }
 
 func (p Profile) Origin() string {

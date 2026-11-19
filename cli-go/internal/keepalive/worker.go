@@ -5,6 +5,7 @@ import (
 	"errors"
 	"os"
 	"os/exec"
+	"strings"
 	"time"
 
 	"github.com/mossexplore/platform-cli/cli-go/internal/localstate"
@@ -19,7 +20,10 @@ func Start(ctx context.Context, paths localstate.Paths, cfg localstate.Config, v
 	if !cfg.PingEnabled() {
 		return "自动保活已在配置中关闭", nil
 	}
-	profile := cfg.Profile()
+	profile, err := cfg.RequireProfile()
+	if err != nil {
+		return "", err
+	}
 	creds, err := paths.LoadCredentials(profile, time.Now())
 	if err != nil {
 		return "当前环境未登录，请执行 ml login 登录该环境", nil
@@ -66,6 +70,7 @@ func Start(ctx context.Context, paths localstate.Paths, cfg localstate.Config, v
 		if entry.WorkerToken == "" || !alive(entry) || entry.Version != version {
 			token := localstate.NewID()
 			proc := exec.Command(path, WorkerArg, profile.Name, token)
+			proc.Env = workerEnvironment(os.Environ())
 			detachProcess(proc)
 			if err := proc.Start(); err != nil {
 				return errors.New("无法启动后台保活进程")
@@ -110,6 +115,7 @@ func Start(ctx context.Context, paths localstate.Paths, cfg localstate.Config, v
 }
 
 func RunWorker(ctx context.Context, paths localstate.Paths, name, token, version string) error {
+	paths = paths.WithoutSession()
 	failureDelay := time.Duration(0)
 	report := func(change func(*Entry)) error {
 		return update(paths, func(entries map[string]Entry) error {
@@ -218,3 +224,17 @@ func RunWorker(ctx context.Context, paths localstate.Paths, name, token, version
 }
 
 func TerminalCount(entry Entry) int { return len(entry.Owner) }
+
+func workerEnvironment(environ []string) []string {
+	filtered := make([]string, 0, len(environ))
+	for _, entry := range environ {
+		key, _, _ := strings.Cut(entry, "=")
+		if strings.EqualFold(key, "DSH_SHELL") ||
+			strings.EqualFold(key, "DSH_SESSION_ID") ||
+			strings.EqualFold(key, "ML_SESSION_ID") {
+			continue
+		}
+		filtered = append(filtered, entry)
+	}
+	return filtered
+}

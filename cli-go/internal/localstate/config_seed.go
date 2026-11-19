@@ -13,10 +13,28 @@ type environmentSelection struct {
 }
 
 func (p Paths) loadConfig() (Config, bool, error) {
+	if err := p.ValidateSession(); err != nil {
+		return Config{}, false, err
+	}
 	if p.packaged == nil {
 		return Config{}, false, errors.New("Go CLI 未加载内置配置")
 	}
 	cfg := *p.packaged
+	if p.IsSessionIsolated() {
+		state, exists, err := p.LoadSessionState()
+		if err != nil {
+			return Config{}, false, err
+		}
+		cfg.Current = ""
+		if exists && state.Current != "" {
+			selected := cfg
+			selected.Current = state.Current
+			if selected.Profile().Name != "" {
+				cfg.Current = state.Current
+			}
+		}
+		return cfg, false, nil
+	}
 	data, err := os.ReadFile(p.Config())
 	if errors.Is(err, os.ErrNotExist) {
 		return cfg, true, nil

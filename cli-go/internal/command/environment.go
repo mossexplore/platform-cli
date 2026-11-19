@@ -65,7 +65,10 @@ func newEnv(options Options, load loadConfig) *cobra.Command {
 		if err != nil {
 			return err
 		}
-		profile := cfg.Profile()
+		profile, err := cfg.RequireProfile()
+		if err != nil {
+			return err
+		}
 		verify := profile.VerifyTLS
 		if verify == nil {
 			verify = cfg.API.VerifyTLS
@@ -81,19 +84,39 @@ func newEnv(options Options, load loadConfig) *cobra.Command {
 	}
 	use := &cobra.Command{Use: "use NAME", Short: "切换当前环境", Args: positional(1)}
 	use.RunE = func(cmd *cobra.Command, args []string) error {
-		paths, cfg, err := load()
+		paths, err := options.Paths()
 		if err != nil {
 			return err
+		}
+		if err := paths.ValidateSession(); err != nil {
+			return err
+		}
+		prevCurrent := ""
+		if !paths.IsSessionIsolated() {
+			if prevCfg, err := paths.LoadOrInitializeConfig(); err == nil {
+				prevCurrent = prevCfg.Current
+			}
 		}
 		profile, err := paths.UseEnvironment(args[0])
 		if err != nil {
 			return err
 		}
-		if cfg.Current != profile.Name && fromTerminal(cmd) {
-			_ = keepalive.Detach(paths, cfg.Current)
+		cfg, err := paths.LoadOrInitializeConfig()
+		if err != nil {
+			return err
+		}
+		if !paths.IsSessionIsolated() && prevCurrent != "" && prevCurrent != profile.Name && fromTerminal(cmd) {
+			_ = keepalive.Detach(paths, prevCurrent)
 		}
 		cfg.Current = profile.Name
 		fmt.Fprintln(cmd.ErrOrStderr(), "[成功] 当前环境已切换为: "+profile.Name)
+		if paths.IsSessionIsolated() {
+			if creds, err := paths.CredentialsFor(profile); err == nil {
+				if _, err := paths.SelectedBusiness(creds); err != nil {
+					fmt.Fprintf(cmd.ErrOrStderr(), "[提示] 当前会话在环境 %s 下尚未选择业务，请运行 ml business use --tenant <租户ID>\n", profile.Name)
+				}
+			}
+		}
 		startAutoPing(cmd, paths, cfg, options.Version, true)
 		return nil
 	}
@@ -144,6 +167,9 @@ func newAccess(options Options, load loadConfig) *cobra.Command {
 	status.RunE = func(cmd *cobra.Command, args []string) error {
 		paths, cfg, err := load()
 		if err != nil {
+			return err
+		}
+		if _, err := cfg.RequireProfile(); err != nil {
 			return err
 		}
 		if *diagnose {

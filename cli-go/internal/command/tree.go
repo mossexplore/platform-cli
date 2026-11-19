@@ -1,6 +1,7 @@
 package command
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"slices"
@@ -17,7 +18,17 @@ type branch struct {
 }
 
 func writeTree(out io.Writer, root *cobra.Command, paths localstate.Paths, cfg localstate.Config, all bool) error {
-	profile := cfg.Profile()
+	profile, err := cfg.RequireProfile()
+	if err != nil {
+		if !all {
+			return errors.New("当前会话尚未绑定环境，请先执行 ml env use <环境名>，或运行 ml tree --all 查看全部命令")
+		}
+		fmt.Fprintln(out, "当前环境：未绑定（会话模式）")
+		if _, err := fmt.Fprintln(out, "ml  WiseRec 命令行工具"); err != nil {
+			return err
+		}
+		return printBranches(out, "", treeBranches(root, "", "", nil, true))
+	}
 	fmt.Fprintf(out, "当前环境：%s · 管理台类型：%s\n", profile.Name, profile.PlatformType)
 	if !all {
 		fmt.Fprintln(out, "仅展示当前环境支持的命令；查看全部命令：ml tree --all")

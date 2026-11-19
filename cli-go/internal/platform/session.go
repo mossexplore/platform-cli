@@ -30,7 +30,10 @@ type API struct {
 }
 
 func (s Session) Authorize(ctx context.Context, command, audit string) (*API, error) {
-	profile := s.Config.Profile()
+	profile, err := s.Config.RequireProfile()
+	if err != nil {
+		return nil, err
+	}
 	if localstate.Denied(command, profile.Policy.Deny) {
 		return nil, fmt.Errorf("当前环境 %s 禁止执行 ml %s", profile.Name, command)
 	}
@@ -126,18 +129,22 @@ func (a *API) checkTarget() error {
 	if err != nil {
 		return err
 	}
-	if current.Profile().Name != a.profile.Name || current.Profile().Endpoint != a.profile.Endpoint ||
-		current.Profile().PlatformType != a.profile.PlatformType ||
-		!reflect.DeepEqual(current.Profile().Jupyter, a.profile.Jupyter) ||
+	profile, err := current.RequireProfile()
+	if err != nil {
+		return ErrTargetChanged
+	}
+	if profile.Name != a.profile.Name || profile.Endpoint != a.profile.Endpoint ||
+		profile.PlatformType != a.profile.PlatformType ||
+		!reflect.DeepEqual(profile.Jupyter, a.profile.Jupyter) ||
 		!reflect.DeepEqual(current.Access, a.session.Config.Access) ||
-		!reflect.DeepEqual(current.Profile().VerifyTLS, a.profile.VerifyTLS) ||
+		!reflect.DeepEqual(profile.VerifyTLS, a.profile.VerifyTLS) ||
 		!reflect.DeepEqual(current.API.VerifyTLS, a.session.Config.API.VerifyTLS) {
 		return ErrTargetChanged
 	}
-	if localstate.Denied(a.command, current.Profile().Policy.Deny) {
+	if localstate.Denied(a.command, profile.Policy.Deny) {
 		return ErrTargetChanged
 	}
-	credentials, err := a.session.Paths.LoadCredentials(current.Profile(), time.Now())
+	credentials, err := a.session.Paths.LoadCredentials(profile, time.Now())
 	if err != nil {
 		return err
 	}
@@ -145,7 +152,7 @@ func (a *API) checkTarget() error {
 	if err != nil {
 		return err
 	}
-	if credentials.StateID != a.credentials.StateID || businessID != a.businessID {
+	if credentials.StateID != a.credentials.StateID || credentials.Username != a.credentials.Username || businessID != a.businessID {
 		return ErrTargetChanged
 	}
 	return nil

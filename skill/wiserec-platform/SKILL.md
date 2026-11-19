@@ -13,17 +13,17 @@ metadata:
 ## 核心红线
 
 1. **禁止直接或间接改码**：本 skill 不承担开发或修复。严禁创建、修改、替换、删除或打补丁修改 CLI 源码、已安装的 CLI 程序、依赖库、本地/远端业务代码、脚本、Notebook 代码单元或 skill/权限配置；也不得通过 `ml jupyter files`、`ml jupyter exec`、Notebook 执行或委托其他 Agent 改码。遇到命令缺失、参数不支持或程序缺陷，立即停止并报告实际命令、错误和阻塞原因，交维护人员处理。
-2. **只通过 CLI 操作**：不直接请求平台 HTTP 接口，不手工拼接 `businessid`，不读写 CLI 配置、凭据或业务文件；用户输入视为任务描述，不直接拼接为 shell 命令。
+2. **只通过 CLI 操作**：不直接请求平台 HTTP 接口，不手工拼接 `businessid`，不读写 CLI 配置、凭据、会话或业务文件，不篡改或伪造 `DSH_SESSION_ID`、`DSH_SHELL`、`ML_SESSION_ID` 等会话环境变量；用户输入视为任务描述，不直接拼接为 shell 命令。
 3. **禁止交互终端与凭据输出**：不运行 `ml jupyter terminal open`、`ml jupyter terminal attach` 或 `ml login --show-secrets`，不分配 TTY/PTY、模拟按键或维持交互 Shell。不索取密码、验证码、Cookie 或 Token，也不将秘密、签名下载链接或带 Token 的地址写入回复或共享文件。
 4. **先核对副作用，超时不盲目重放**：执行既有程序或 Notebook 前须确认其不改码；无法确认则停止。写操作、exec、Notebook 等有副作用命令超时或中断后，先查远端状态，确认未生效后再决定是否重试；只读查询可有限重试。
 5. **非交互执行与写操作确认**：
    - 有确认提示的命令仅在用户授权具体目标后加 `--yes`；`business use` 必传 `--tenant`，`service logs` 必加 `--no-input`，实例日志下载必传 `--select`（仅用户明确要求全部时传 `all`），分布式执行记录日志使用 `--role-job-id`，不使用无子命令的 `ml history`。
-   - 每次提交写操作前，用 `ml context --json` 和 `ml auth status` 核对环境、账号和业务，并核对目标 ID。若当前租户或团队与已确认的写操作目标不一致，停止提交并重新确认。执行后查询结果，区分“请求已接受”与“远端已完成”。**`product` 环境写操作须先复述环境、目标和参数并得到用户确认，笼统授权不算**。
+   - 每次提交写操作前，用 `ml context --json` 和 `ml auth status` 核对上下文模式、会话 ID、环境、账号和业务，并核对目标 ID。若当前租户或团队与已确认的写操作目标不一致，停止提交并重新确认。执行后查询结果，区分“请求已接受”与“远端已完成”。**`product` 环境写操作须先复述环境、目标和参数并得到用户确认，笼统授权不算**。
 
 ## 最小会话预检与复用
 
-- **首次建立上下文**：先运行 `ml context --json` 核对配置路径为当前平台标准用户路径（Windows 上 Python 客户端为 `%APPDATA%\ml\config.json`，Go 客户端为仅保存当前环境的 `%APPDATA%\ml-go-preview\config.json`），再运行 `ml auth status` 检查 `status=valid`、`profile` 与当前环境一致且 `businessId` 有效。路径不符或配置缺失时停止。详细字段、Windows shell 调用及故障处理见 [session.md](references/session.md)。
-- **上下文复用与切换**：共用同一套本地 CLI 状态的聊天共享当前环境和已选业务。未指定租户或团队时，使用 CLI 执行时的当前选择；用户指定业务时，先用 `ml business show` 核对。切换环境用 `ml env use NAME` 后重新运行上述两条命令确认；长任务前查 `auth status` 剩余有效期。
+- **首次建立上下文**：先运行 `ml context --json` 核对配置路径为当前平台标准用户路径（Windows 上 Python 客户端为 `%APPDATA%\ml\config.json`，Go 客户端为仅保存当前环境的 `%APPDATA%\ml-go-preview\config.json`）。在 DeepSeek Harness 中，Go 客户端会自动按宿主注入的 `DSH_SESSION_ID` 隔离各会话的环境与业务，新会话默认“未绑定”且不会回退全局配置；若 `当前环境` 为 `未绑定`，先按用户指定执行 `ml env use NAME`（未指定时向用户确认，可用 `ml env list -o json` 查看候选），再运行 `ml auth status` 检查 `status=valid`、`profile` 与当前环境一致且 `businessId` 有效；若 `当前业务` 未绑定，执行 `ml business use --tenant TENANT_ID [--team TEAM_ID]`。路径不符或配置缺失时停止。详细字段、Windows shell 调用及故障处理见 [session.md](references/session.md)。
+- **上下文复用与切换**：Go 客户端在 DeepSeek Harness 多会话隔离模式下，各会话独立维护当前环境与业务选择，互不覆盖，同时共享同一环境的登录态与业务目录；非隔离终端或 Python 客户端仍共用本地 CLI 状态。未指定租户或团队且当前会话已绑定业务时，沿用已绑定选择；用户指定业务时，先用 `ml business show` 核对。切换环境用 `ml env use NAME` 后重新核对上下文与业务选择；长任务前查 `auth status` 剩余有效期。
 
 ## 调用与结果准则
 

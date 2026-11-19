@@ -26,7 +26,11 @@ func authorized(options Options, load loadConfig, run func(*cobra.Command, []str
 		if err != nil {
 			return err
 		}
-		format := cfg.Profile().Output
+		profile, err := cfg.RequireProfile()
+		if err != nil {
+			return err
+		}
+		format := profile.Output
 		textOutput := cmd.Annotations["text_output"] == "true"
 		if cmd.Flags().Lookup("output") != nil && (cmd.Flags().Changed("output") || textOutput) {
 			format, _ = cmd.Flags().GetString("output")
@@ -39,10 +43,10 @@ func authorized(options Options, load loadConfig, run func(*cobra.Command, []str
 			return usageError{errors.New("output 仅支持 table 或 json")}
 		}
 		path := strings.TrimPrefix(cmd.CommandPath(), cmd.Root().Name()+" ")
-		if cfg.Profile().PlatformType == "mlops" && wiseRecOnly(cmd) {
+		if profile.PlatformType == "mlops" && wiseRecOnly(cmd) {
 			return fmt.Errorf("管理台 mlops 不支持命令 ml %s；运行 ml tree 查看支持的命令", path)
 		}
-		if settings := cfg.Profile().Jupyter; strings.HasPrefix(path, "jupyter ") && settings.Mode != "webstudio" && settings.BusinessFile != "" {
+		if settings := profile.Jupyter; strings.HasPrefix(path, "jupyter ") && settings.Mode != "webstudio" && settings.BusinessFile != "" {
 			paths.BusinessOverride = paths.ConfigRelative(settings.BusinessFile)
 		}
 		session := platform.Session{Paths: paths, Config: cfg, CLIVersion: options.Version, Stderr: cmd.ErrOrStderr()}

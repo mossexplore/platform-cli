@@ -18,6 +18,9 @@ func (p Paths) LockState() (func(), error) {
 func (p Paths) LockPing() (func(), error) { return p.lock("ping-go.lock") }
 
 func (p Paths) SaveLogin(creds Credentials, catalog []Department, browserBusinessID string) (string, error) {
+	if err := p.ValidateSession(); err != nil {
+		return "", err
+	}
 	unlock, err := p.LockState()
 	if err != nil {
 		return "", err
@@ -59,7 +62,33 @@ func (p Paths) SaveLogin(creds Credentials, catalog []Department, browserBusines
 	if err := writeState(p.Credentials(), credentialData); err != nil {
 		return "", err
 	}
-	return entry.Selected.BusinessID, nil
+	if !p.IsSessionIsolated() {
+		return entry.Selected.BusinessID, nil
+	}
+	var sessionBusinessID string
+	err = p.UpdateSessionState(func(state *SessionState) error {
+		if state.Selections == nil {
+			state.Selections = make(map[string]SessionSelection)
+		}
+		if existing, ok := state.Selections[creds.Profile]; ok &&
+			existing.Username == creds.Username && validHeader(existing.BusinessID) &&
+			matchesSelection(catalog, existing.toSelection()) {
+			sessionBusinessID = existing.BusinessID
+			return nil
+		}
+		if selected := selectionFromBrowser(catalog, browserBusinessID); selected.BusinessID != "" {
+			state.Selections[creds.Profile] = sessionSelectionFrom(creds.Username, selected)
+			sessionBusinessID = selected.BusinessID
+			return nil
+		}
+		delete(state.Selections, creds.Profile)
+		sessionBusinessID = ""
+		return nil
+	})
+	if err != nil {
+		return "", err
+	}
+	return sessionBusinessID, nil
 }
 
 func selectionFromBrowser(catalog []Department, id string) Selection {
