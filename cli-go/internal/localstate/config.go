@@ -62,14 +62,6 @@ func (p Paths) ConfigRelative(filename string) string {
 	return filepath.Join(p.Dir, filename)
 }
 
-// UpdateSignerSHA256 is trusted only from the configuration embedded by the packager.
-func (p Paths) UpdateSignerSHA256() string {
-	if p.packaged == nil {
-		return ""
-	}
-	return p.packaged.Update.SignerSHA256
-}
-
 type Config struct {
 	Current  string    `json:"current"`
 	Profiles []Profile `json:"profiles"`
@@ -86,9 +78,6 @@ type Config struct {
 		LoginTimeoutMS int `json:"login_timeout"`
 	} `json:"browser"`
 	Access Access `json:"access_control"`
-	Update struct {
-		SignerSHA256 string `json:"signer_sha256"`
-	} `json:"update"`
 }
 
 type Profile struct {
@@ -158,14 +147,9 @@ func decodeConfig(data []byte) (Config, error) {
 	return cfg, nil
 }
 
-var sha256Fingerprint = regexp.MustCompile(`^[0-9a-fA-F]{64}$`)
-
 func (c *Config) validate() error {
 	if c.Current == "" || len(c.Profiles) == 0 {
 		return errors.New("须配置 current 和 profiles")
-	}
-	if pin := c.Update.SignerSHA256; pin != "" && !sha256Fingerprint.MatchString(pin) {
-		return errors.New("update.signer_sha256 必须是 64 位十六进制证书指纹")
 	}
 	seen := make(map[string]bool)
 	for i := range c.Profiles {

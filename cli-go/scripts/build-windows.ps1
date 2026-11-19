@@ -3,6 +3,7 @@ param(
     [Parameter(Mandatory = $true)]
     [string] $OutputDirectory,
     [string] $PreflightPath,
+    [string] $AgentArchive,
     [string] $ConfigPath
 )
 
@@ -47,7 +48,13 @@ try {
 
     # Build against a temporary replacement for the embed input. The checkout and
     # the published payload never receive a copy of the real configuration file.
-    $replacement = @{ Replace = @{ $embedded = $snapshot } } | ConvertTo-Json -Compress
+    $replacements = @{ $embedded = $snapshot }
+    if ($PreflightPath) {
+        if (-not $AgentArchive) { throw 'The MSI helper requires the staged Agent resources.' }
+        $embeddedAgent = Join-Path $moduleDirectory 'cmd/msi-preflight/agent-resources.zip.in'
+        $replacements[$embeddedAgent] = (Resolve-Path -LiteralPath $AgentArchive).ProviderPath
+    }
+    $replacement = @{ Replace = $replacements } | ConvertTo-Json -Compress
     [System.IO.File]::WriteAllText($overlay, $replacement)
 
     foreach ($name in $target.Keys) {
@@ -60,8 +67,8 @@ try {
     if ($LASTEXITCODE -ne 0) { throw "Go build failed with exit code $LASTEXITCODE." }
 
     if ($PreflightPath) {
-        Write-Verbose 'Compiling the MSI PATH check helper'
-        & go build @buildDetail -trimpath -ldflags '-s -w -H=windowsgui' -o $PreflightPath ./cmd/msi-preflight
+        Write-Verbose 'Compiling the MSI helper with Agent resources'
+        & go build @buildDetail -trimpath -overlay $overlay -ldflags '-s -w -H=windowsgui' -o $PreflightPath ./cmd/msi-preflight
         if ($LASTEXITCODE -ne 0) { throw 'Building the MSI preflight failed.' }
     }
 } finally {

@@ -12,6 +12,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 	"syscall"
@@ -28,6 +29,8 @@ import (
 
 //go:embed upgrade.ps1
 var installerScript string
+
+var upgradePackageName = regexp.MustCompile(`^wiserec-cli-[0-9]+\.[0-9]+\.[0-9]+(\.[0-9]+)?-windows-x64\.msi$`)
 
 func Offer(ctx context.Context, in io.Reader, out, stderr io.Writer, paths func() (localstate.Paths, error), format string, denial *platform.VersionDenial) {
 	if denial.UpgradeURL == "" || !terminal(in) || !terminal(out) || !terminal(stderr) {
@@ -49,7 +52,7 @@ func Offer(ctx context.Context, in io.Reader, out, stderr io.Writer, paths func(
 		}
 	}
 
-	artifact, err := denial.MSIUpgrade()
+	downloadURL, err := denial.MSIUpgradeURL()
 	if err != nil {
 		fmt.Fprintln(stderr, "[提示] 无法自动升级：", err)
 		return
@@ -68,7 +71,7 @@ func Offer(ctx context.Context, in io.Reader, out, stderr io.Writer, paths func(
 	if answer = strings.ToLower(strings.TrimSpace(answer)); answer != "y" && answer != "yes" {
 		return
 	}
-	if err := stageUpgrade(ctx, state, executable, stderr, denial, artifact); err != nil {
+	if err := stageUpgrade(ctx, state, executable, stderr, denial, downloadURL); err != nil {
 		fmt.Fprintln(stderr, "[错误] 自动升级未完成：", err)
 	}
 }
@@ -96,7 +99,7 @@ func installedExecutable() (string, error) {
 	return installed, nil
 }
 
-func stageUpgrade(ctx context.Context, paths localstate.Paths, executable string, stderr io.Writer, denial *platform.VersionDenial, artifact platform.MSIUpgrade) error {
+func stageUpgrade(ctx context.Context, paths localstate.Paths, executable string, stderr io.Writer, denial *platform.VersionDenial, downloadURL string) error {
 	systemDir, err := windows.GetSystemDirectory()
 	if err != nil {
 		return errors.New("无法定位 Windows PowerShell")
@@ -112,12 +115,9 @@ func stageUpgrade(ctx context.Context, paths localstate.Paths, executable string
 			_ = os.RemoveAll(temp)
 		}
 	}()
-	packagePath := filepath.Join(temp, "upgrade.msi")
+	packagePath := filepath.Join(temp, "download.msi")
 	env := []string{
 		"WISECLI_UPGRADE_EXE=" + executable,
-		"WISECLI_UPGRADE_PACKAGE=" + packagePath,
-		"WISECLI_UPGRADE_SIGNER=" + paths.UpdateSignerSHA256(),
-		"WISECLI_UPGRADE_SHA256=" + artifact.SHA256,
 		"WISECLI_UPGRADE_CURRENT=" + denial.Current,
 		"WISECLI_UPGRADE_MINIMUM=" + denial.Minimum,
 		"WISECLI_UPGRADE_RECOMMENDED=" + denial.Recommended,
@@ -125,17 +125,9 @@ func stageUpgrade(ctx context.Context, paths localstate.Paths, executable string
 		"WISECLI_UPGRADE_LOCK=" + filepath.Join(paths.Dir, "upgrade-go.lock"),
 	}
 
-	if artifact.SHA256 == "" && paths.UpdateSignerSHA256() == "" {
-		signerCtx, cancel := context.WithTimeout(ctx, time.Minute)
-		err := installerCommand(signerCtx, shell, "signer", env, stderr).Run()
-		cancel()
-		if err != nil {
-			return errors.New("无法从当前 CLI 确认可信发布者，请使用官方安装包手动升级")
-		}
-	}
-	fmt.Fprintf(stderr, "[信息] 正在下载 MSI 安装包：%s\n", artifact.URL)
+	fmt.Fprintf(stderr, "[信息] 正在下载 MSI 安装包：%s\n", downloadURL)
 	var lastProgress time.Time
-	err = platform.DownloadUpgradeMSI(ctx, artifact.URL, packagePath, func(received, total int64) {
+	err = platform.DownloadUpgradeMSI(ctx, downloadURL, packagePath, func(received, total int64) {
 		if time.Since(lastProgress) < 500*time.Millisecond && received != total {
 			return
 		}
@@ -150,16 +142,20 @@ func stageUpgrade(ctx context.Context, paths localstate.Paths, executable string
 	if err != nil {
 		return err
 	}
-	if artifact.SHA256 != "" {
-		fmt.Fprintln(stderr, "[信息] 下载完成，正在校验安装包 SHA-256 和版本")
-	} else {
-		fmt.Fprintln(stderr, "[信息] 下载完成，正在校验发布者签名和安装包版本")
-	}
+	fmt.Fprintln(stderr, "[信息] 下载完成，正在检查 MSI 产品、架构和版本")
 	verifyCtx, cancelVerify := context.WithTimeout(ctx, time.Minute)
 	defer cancelVerify()
-	if err := installerCommand(verifyCtx, shell, "verify", env, stderr).Run(); err != nil {
+	verify := installerCommand(verifyCtx, shell, "verify", append(env, "WISECLI_UPGRADE_PACKAGE="+packagePath), stderr)
+	verified, err := verify.Output()
+	if err != nil {
 		return errors.New("安装包验证未通过")
 	}
+	filename := strings.TrimSpace(string(verified))
+	if !upgradePackageName.MatchString(filename) {
+		return errors.New("无法确认升级安装包文件名")
+	}
+	packagePath = filepath.Join(temp, filename)
+	fmt.Fprintf(stderr, "[信息] 升级安装包：%s\n", filename)
 
 	pauseCtx, cancelPause := context.WithTimeout(ctx, 35*time.Second)
 	defer cancelPause()
@@ -169,7 +165,8 @@ func stageUpgrade(ctx context.Context, paths localstate.Paths, executable string
 	if err := ctx.Err(); err != nil {
 		return err
 	}
-	worker := installerCommand(context.Background(), shell, "install", env, stderr)
+	worker := installerCommand(context.Background(), shell, "install", append(env, "WISECLI_UPGRADE_PACKAGE="+packagePath), stderr)
+	worker.Stdout = stderr
 	worker.SysProcAttr = &syscall.SysProcAttr{CreationFlags: windows.CREATE_NEW_PROCESS_GROUP}
 	if err := worker.Start(); err != nil {
 		return errors.New("无法启动 Windows 升级进程")
@@ -190,6 +187,6 @@ func installerCommand(ctx context.Context, shell, mode string, env []string, std
 	command := exec.CommandContext(ctx, shell, "-NoLogo", "-NoProfile", "-NonInteractive", "-OutputFormat", "Text", "-EncodedCommand",
 		base64.StdEncoding.EncodeToString(data))
 	command.Env = append(command.Environ(), append(env, "WISECLI_UPGRADE_MODE="+mode)...)
-	command.Stderr, command.Stdout = stderr, stderr
+	command.Stderr = stderr
 	return command
 }

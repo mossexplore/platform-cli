@@ -17,6 +17,12 @@ type logProxySettings struct {
 
 var errInvalidDownloadProxy = errors.New("下载代理地址无效，请检查代理配置")
 
+func signedDownloadTransport(ctx context.Context) *http.Transport {
+	transport := http.DefaultTransport.(*http.Transport).Clone()
+	transport.Proxy = signedDownloadProxy(ctx)
+	return transport
+}
+
 func signedDownloadProxy(ctx context.Context) func(*http.Request) (*url.URL, error) {
 	settings := selectLogProxy(os.Environ(), func() logProxySettings {
 		return systemLogProxy(ctx)

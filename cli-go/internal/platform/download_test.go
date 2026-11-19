@@ -2,6 +2,8 @@ package platform
 
 import (
 	"context"
+	"crypto/tls"
+	"crypto/x509"
 	"fmt"
 	"io"
 	"net"
@@ -21,10 +23,16 @@ func TestSignedDownloadsUseAllProxyForHTTPS(t *testing.T) {
 				t.Errorf("storage server received %s", header)
 			}
 		}
+		if r.URL.Path == "/objects/abc" {
+			if r.RequestURI != "/objects/%61bc?Signature=a%2bb&Expires=123" {
+				t.Errorf("signed request changed: %s", r.RequestURI)
+			}
+			_, _ = w.Write(msiFileHeader)
+		}
 		fmt.Fprint(w, content)
 	}))
 	defer storage.Close()
-	const downloadHost = "obs.invalid"
+	const downloadHost = "obs.example.com"
 	proxy := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodConnect || r.Host != downloadHost+":443" {
 			t.Errorf("unexpected proxy request %s %s", r.Method, r.Host)
@@ -82,6 +90,22 @@ func TestSignedDownloadsUseAllProxyForHTTPS(t *testing.T) {
 			}
 		})
 	}
+	t.Run("MSI", func(t *testing.T) {
+		transport := signedDownloadTransport(t.Context())
+		defer transport.CloseIdleConnections()
+		roots := x509.NewCertPool()
+		roots.AddCert(storage.Certificate())
+		transport.TLSClientConfig = &tls.Config{RootCAs: roots}
+		client := &http.Client{Transport: transport}
+		destination := filepath.Join(t.TempDir(), "upgrade.msi")
+		address := "https://" + downloadHost + "/objects/%61bc?Signature=a%2bb&Expires=123"
+		if err := downloadUpgradeMSI(t.Context(), client, address, destination, nil); err != nil {
+			t.Fatal(err)
+		}
+		if data, err := os.ReadFile(destination); err != nil || string(data) != string(msiFileHeader)+content {
+			t.Fatalf("saved MSI: %q %v", data, err)
+		}
+	})
 }
 
 func TestSignedLogDownloadUsesSeparateHTTPSClient(t *testing.T) {

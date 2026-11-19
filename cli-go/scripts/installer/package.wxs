@@ -24,25 +24,11 @@
       </Directory>
     </StandardDirectory>
 
-    <!-- Set the parent before directory costing so it is independent of
-         redirected Documents and matches the Agent's home directory. -->
     <Directory Id="USERPROFILEDIR" Name=".">
-      <Directory Id="AgentsRoot" Name=".agents">
-        <Directory Id="SharedSkills" Name="skills" />
-        <Directory Id="SharedCommands" Name="commands" />
-      </Directory>
-      <Directory Id="CacRoot" Name=".cac">
-        <Directory Id="CacSkills" Name="skills" />
-        <Directory Id="CacCommands" Name="commands" />
-      </Directory>
       <Directory Id="UserDotConfig" Name=".config">
-        <Directory Id="OPENCODEDIR" Name="opencode">
-          <Directory Id="OpenCodeCommands" Name="commands" />
-          <Directory Id="OpenCodeSkills" Name="skills" />
-        </Directory>
+        <Directory Id="OPENCODEDIR" Name="opencode" />
       </Directory>
     </Directory>
-
     <SetProperty Id="USERPROFILEDIR" Value="[%USERPROFILE]" Before="CostInitialize" />
     <!-- Remember the effective location for repair, upgrade and uninstall. -->
     <Property Id="OPENCODEDIR" Secure="yes">
@@ -62,32 +48,48 @@
                      Value="[OPENCODEDIR]" Type="string" KeyPath="yes" />
     </Component>
 
-    <Binary Id="PathCheck" SourceFile="$(var.Work)\path-check.exe" />
-    <CustomAction Id="RestorePreviousMlPath" BinaryRef="PathCheck" Execute="rollback" Impersonate="yes" Return="ignore"
+    <Binary Id="InstallerHelper" SourceFile="$(var.Work)\msi-helper.exe" />
+    <CustomAction Id="RestorePreviousMlPath" BinaryRef="InstallerHelper" Execute="rollback" Impersonate="yes" Return="ignore"
                   ExeCommand="rollback &quot;[LocalAppDataFolder]WiseRecCLI-PATH-[ProductCode].json&quot;" />
-    <CustomAction Id="CheckForExistingMl" BinaryRef="PathCheck" Return="check"
+    <CustomAction Id="CheckForExistingMl" BinaryRef="InstallerHelper" Return="check"
                   ExeCommand="prepare &quot;[INSTALLFOLDER].&quot; &quot;[LocalAppDataFolder]WiseRecCLI-PATH-[ProductCode].json&quot; &quot;[UILevel]&quot; &quot;[RollbackDisabled]&quot;" />
-    <CustomAction Id="ApplyMlPathSwitch" BinaryRef="PathCheck" Execute="deferred" Impersonate="yes" Return="check"
+    <CustomAction Id="ApplyMlPathSwitch" BinaryRef="InstallerHelper" Execute="deferred" Impersonate="yes" Return="check"
                   ExeCommand="apply &quot;[INSTALLFOLDER].&quot; &quot;[LocalAppDataFolder]WiseRecCLI-PATH-[ProductCode].json&quot;" />
-    <CustomAction Id="FinishMlPathSwitch" BinaryRef="PathCheck" Execute="commit" Impersonate="yes" Return="ignore"
+    <CustomAction Id="FinishMlPathSwitch" BinaryRef="InstallerHelper" Execute="commit" Impersonate="yes" Return="ignore"
                   ExeCommand="commit &quot;[LocalAppDataFolder]WiseRecCLI-PATH-[ProductCode].json&quot;" />
+    <CustomAction Id="InstallAgentResources" BinaryRef="InstallerHelper" Return="ignore"
+                  ExeCommand="install-agent &quot;[OPENCODEDIR].&quot; &quot;[UILevel]&quot;" />
+    <CustomAction Id="RemoveAgentResources" BinaryRef="InstallerHelper" Return="ignore"
+                  ExeCommand="remove-agent &quot;[OPENCODEDIR].&quot;" />
     <InstallExecuteSequence>
       <Custom Action="CheckForExistingMl" Before="ProcessComponents" Condition="NOT Installed" />
       <!-- Roll back the user PATH edit before MSI reverses its own PATH registration. -->
       <Custom Action="RestorePreviousMlPath" After="WriteEnvironmentStrings" Condition="NOT Installed" />
       <Custom Action="ApplyMlPathSwitch" After="RestorePreviousMlPath" Condition="NOT Installed" />
       <Custom Action="FinishMlPathSwitch" After="ApplyMlPathSwitch" Condition="NOT Installed" />
+      <!-- Agent resources are optional. Run after the CLI transaction commits. -->
+      <Custom Action="InstallAgentResources" After="InstallFinalize"
+              Condition="NOT (REMOVE ~= &quot;ALL&quot;) AND (NOT Installed OR REINSTALL)" />
+      <Custom Action="RemoveAgentResources" After="InstallAgentResources"
+              Condition="REMOVE ~= &quot;ALL&quot; AND NOT UPGRADINGPRODUCTCODE" />
     </InstallExecuteSequence>
 
     <UI>
       <TextStyle Id="InstallerFont" FaceName="Segoe UI" Size="9" />
       <Property Id="DefaultUIFont" Value="InstallerFont" />
       <Property Id="ErrorDialog" Value="InstallerError" />
+      <ProgressText Action="CheckForExistingMl" Message="正在检查现有 CLI 和 PATH…" />
+      <ProgressText Action="InstallFiles" Message="正在安装 CLI…" />
+      <ProgressText Action="WriteEnvironmentStrings" Message="正在配置 CLI 命令…" />
+      <ProgressText Action="InstallAgentResources" Message="正在安装 Skill 和快捷命令…" />
       <Dialog Id="Installing" Width="300" Height="105" Title="WiseRec CLI" Modeless="yes">
-        <Control Id="Cancel" Type="PushButton" X="232" Y="75" Width="56" Height="17" Default="yes" Cancel="yes" Text="取消">
+        <Control Id="Cancel" Type="PushButton" X="232" Y="75" Width="56" Height="17"
+                 Default="yes" Cancel="yes" EnableCondition="UILevel = 5" Text="取消">
           <Publish Event="SpawnDialog" Value="ConfirmCancel" />
         </Control>
-        <Control Id="Status" Type="Text" X="12" Y="14" Width="276" Height="13" Text="正在安装 WiseRec CLI…" />
+        <Control Id="Status" Type="Text" X="12" Y="14" Width="276" Height="13" Text="正在准备安装…">
+          <Subscribe Event="ActionText" Attribute="Text" />
+        </Control>
         <Control Id="Progress" Type="ProgressBar" X="12" Y="32" Width="276" Height="10">
           <Subscribe Event="SetProgress" Attribute="Progress" />
         </Control>
@@ -100,6 +102,13 @@
           <Publish Event="EndDialog" Value="Exit" />
         </Control>
         <Control Id="Question" Type="Text" X="12" Y="14" Width="216" Height="16" Text="确定要取消安装吗？" />
+      </Dialog>
+      <Dialog Id="SameVersion" Width="300" Height="97" Title="WiseRec CLI 安装警告">
+        <Control Id="Ok" Type="PushButton" X="232" Y="67" Width="56" Height="17" Default="yes" Cancel="yes" Text="确定">
+          <Publish Event="EndDialog" Value="Exit" />
+        </Control>
+        <Control Id="Warning" Type="Text" X="12" Y="14" Width="276" Height="36"
+                 Text="已安装相同版本的 WiseRec CLI（$(var.Version)）。如需修复，请在 Windows「已安装的应用」中操作。" />
       </Dialog>
       <Dialog Id="InstallationComplete" Width="300" Height="101" Title="WiseRec CLI">
         <Control Id="Ok" Type="PushButton" X="232" Y="72" Width="56" Height="17" Default="yes" Cancel="yes" Text="确定">
@@ -135,16 +144,17 @@
         </Control>
       </Dialog>
       <InstallUISequence>
-        <Show Dialog="Installing" Before="ExecuteAction" Condition="NOT Installed AND UILevel &gt;= 4" />
-        <!-- The progress window closes before the success confirmation. -->
-        <Show Dialog="InstallationComplete" OnExit="success" Condition="NOT Installed AND UILevel &gt;= 4" />
+        <Show Dialog="SameVersion" Before="Installing"
+              Condition="Installed AND NOT REMOVE AND NOT REINSTALL AND UILevel = 5" />
+        <Show Dialog="Installing" Before="ExecuteAction" Condition="NOT REMOVE AND UILevel &gt;= 4" />
+        <!-- Reduced UI shows progress during automatic upgrade, without a final confirmation. -->
+        <Show Dialog="InstallationComplete" OnExit="success" Condition="(NOT Installed OR REINSTALL) AND NOT REMOVE AND UILevel = 5" />
       </InstallUISequence>
     </UI>
 
     <Feature Id="Complete" Title="WiseRec CLI (Go)" Level="1">
       <ComponentRef Id="CliFiles" />
       <ComponentRef Id="OpenCodeLocation" />
-      <ComponentGroupRef Id="AgentResources" />
     </Feature>
   </Package>
 </Wix>

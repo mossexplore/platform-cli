@@ -103,7 +103,7 @@ go mod verify
 
 1. 双击 MSI，或通过 `msiexec` 安装。安装范围为当前用户，程序位于 `%LOCALAPPDATA%\Programs\WiseRecCLIGo\ml.exe`。
 2. 如果用户 PATH 中已有旧版 WiseRec Python 安装器注册的入口，MSI 会自动移除该条目并继续安装。旧版程序、配置和登录数据会保留。安装失败回滚时会恢复移除的旧入口。
-3. 交互安装期间显示一个进度条，成功后显示「安装成功」提示及本次安装的 CLI 版本。点击「确定」关闭窗口，重新打开终端与 Agent，再运行 `where.exe ml`、`ml --version` 和 `ml context --json` 核对入口、版本和配置路径。
+3. 交互安装期间使用同一个进度条显示检查环境、安装 CLI、配置命令和安装 Skill 等阶段。已安装相同版本时会弹出警告。CLI 安装成功后显示「安装成功」提示及本次安装的 CLI 版本。点击「确定」关闭窗口，重新打开终端与 Agent，再运行 `where.exe ml`、`ml --version` 和 `ml context --json` 核对入口、版本和配置路径。
 
 系统 PATH 中的冲突由管理员调整。其他工具目录中的 `ml` 需要手动核对，以免删除它们共享的 PATH 条目。PowerShell 别名或函数可用 `Get-Command ml -All` 检查。
 
@@ -115,21 +115,15 @@ ml context --json
 ml tree --all
 ```
 
-升级或卸载前，结束仍在执行的 Go 命令，并对正在保活的环境运行 `ml auth ping stop`。直接运行更高版本 MSI 即可升级。修复可在 Windows“已安装的应用”中操作，或执行 `msiexec /fa "PATH_TO_INSTALLED_MSI"`。卸载可在同一界面执行，或运行 `msiexec /x "PATH_TO_INSTALLED_MSI"`。静默执行可加 `/qn /norestart /l*v "PATH_TO_LOG"`。静默安装时也会自动清理旧入口，并通过退出码和日志报告结果。升级拒绝降级覆盖。卸载移除 MSI 安装的程序、PATH 条目、Skill 和快捷命令，保留两套客户端的配置和登录数据。恢复使用 Python 时先卸载 Go MSI，再恢复 Python PATH 或重跑 Python 安装包。
+升级或卸载前，结束仍在执行的 Go 命令，并对正在保活的环境运行 `ml auth ping stop`。直接运行更高版本 MSI 即可升级。修复可在 Windows“已安装的应用”中操作，或执行 `msiexec /fa "PATH_TO_INSTALLED_MSI"`。卸载可在同一界面执行，或运行 `msiexec /x "PATH_TO_INSTALLED_MSI"`。静默执行可加 `/qn /norestart /l*v "PATH_TO_LOG"`。Skill 或快捷命令安装失败时，交互安装会提示「Skill 未安装成功，请手动安装」，CLI 仍可使用。可使用上述修复命令重试，也可解压同批便携 ZIP，按下方目录说明手动复制 `agent/` 中的 Skill 和快捷命令。静默安装可从 MSI 日志查看 Skill 安装结果。升级拒绝降级覆盖。卸载移除 MSI 安装的程序、PATH 条目、Skill 和快捷命令，保留两套客户端的配置和登录数据。恢复使用 Python 时先卸载 Go MSI，再恢复 Python PATH 或重跑 Python 安装包。
 
 MSI 自动将正式 Skill 放入 `~/.agents/skills/wiserec-platform` 和 `~/.cac/skills/wiserec-platform`，并将 `ml.md` 放入 OpenCode 配置目录的 `commands/` 和 `~/.cac/commands/`。OpenCode 默认目录为 `~/.config/opencode`。如需自定义，安装前设置用户环境变量 `OPENCODE_CONFIG_DIR` 为绝对路径。修复、升级和卸载沿用首次安装选定的位置，切换目录时卸载后重装。MSI 停用历史 `ml-lab.md` 和旧 Skill 的 `SKILL.md` 入口，保留其余用户文件。
 
 ### 版本拒绝时从终端升级
 
-运行 `build.cmd` 生成 MSI 后，窗口会输出 `MSI upgrade URL suffix: #sha256=...`。将 MSI 上传到 HTTPS 下载地址，把这段后缀追加到 MSI 直链，再将完整链接填入权限系统的「升级说明地址」。
+在权限管理系统的「升级说明地址」中直接填写 MSI 的 HTTPS 下载链接。OBS 对象可以使用无后缀的名称，带签名查询参数的链接按原样填写。自动升级仅接受经证书验证的 HTTPS 权限服务返回的下载链接。
 
-```text
-https://downloads.example.com/wiserec-cli-windows-x64.msi#sha256=<64位SHA-256>
-```
-
-SHA-256 模式使用经证书校验的 HTTPS 权限服务响应。若交互终端提示无法自动升级，可按提示检查安装路径、下载地址或 SHA-256，运行 `ml access status --diagnose` 可核对当前权限服务地址。MSI 下载使用 HTTPS，可含查询参数和 HTTPS 跳转。哈希以实际上传的 MSI 为准。权限系统若共用该策略，Python CLI 也会显示这一链接。
-
-通过 MSI 安装的 Go 客户端在交互终端遇到版本过低时会询问是否升级。确认后，终端会在开始下载时显示 MSI 下载地址，下载完成后校验 SHA-256，并检查 MSI 产品、架构和准入版本要求。验证通过后等待本次命令退出，再调用 Windows Installer。没有哈希的 MSI 直链沿用 Authenticode 校验，可在打包配置中通过 `update.signer_sha256` 固定签名证书指纹。脚本、JSON 输出、便携 ZIP 和文档链接可走手动升级。旧客户端需要先手动安装支持 SHA-256 的 MSI。
+通过 MSI 安装的 Go 客户端在交互终端遇到版本过低时会询问是否升级。确认后，终端在开始下载时显示下载地址。客户端与训练日志下载共用代理选择规则，支持 `HTTPS_PROXY`、`ALL_PROXY`、`NO_PROXY` 和系统手动代理。下载后检查 MSI 产品、架构和准入版本要求，并按包内版本将临时文件命名为 `wiserec-cli-VERSION-windows-x64.msi`。本次命令退出后，Windows Installer 开始安装。脚本、JSON 输出和便携 ZIP 可走手动升级。
 
 ## 便携 ZIP
 

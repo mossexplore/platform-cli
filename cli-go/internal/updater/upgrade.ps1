@@ -5,25 +5,6 @@ $package = $env:WISECLI_UPGRADE_PACKAGE
 $mode = $env:WISECLI_UPGRADE_MODE
 $upgradeCode = '{432C0A6C-7DEF-4B10-B19F-BAEBDD4E5FE9}'
 
-function Get-PublisherHash([string] $Path) {
-    # Use Windows PowerShell's own module even if the caller is PowerShell 7.
-    Import-Module (Join-Path $PSHOME 'Modules/Microsoft.PowerShell.Security/Microsoft.PowerShell.Security.psd1')
-    $signature = Get-AuthenticodeSignature -LiteralPath $Path
-    if ($signature.Status -ne 'Valid' -or -not $signature.SignerCertificate) {
-        throw "无法验证 Authenticode 签名（$($signature.Status)）。"
-    }
-    return Get-Sha256 $signature.SignerCertificate.RawData
-}
-
-function Get-Sha256($InputData) {
-    $sha256 = [System.Security.Cryptography.SHA256]::Create()
-    try {
-        return [BitConverter]::ToString($sha256.ComputeHash($InputData)).Replace('-', '')
-    } finally {
-        $sha256.Dispose()
-    }
-}
-
 function Get-MsiProperty($Database, [string] $Name) {
     $view = $Database.GetType().InvokeMember('OpenView', 'InvokeMethod', $null, $Database,
         @("SELECT Value FROM Property WHERE Property = '$Name'"))
@@ -88,22 +69,8 @@ try {
         }
     }
 
-    if ($mode -eq 'signer') {
-        $null = Get-PublisherHash $exe
-        exit 0
-    }
-    # Keep the same package on disk through verification and installation.
+    # Hold the inspected file open while Windows Installer reads it.
     $packageLock = [IO.File]::Open($package, 'Open', 'Read', 'Read')
-    $expectedHash = $env:WISECLI_UPGRADE_SHA256
-    if ($expectedHash) {
-        if ((Get-Sha256 $packageLock) -ne $expectedHash) {
-            throw 'MSI SHA-256 校验失败，请核对升级说明地址和安装包。'
-        }
-    } else {
-        $publisher = $env:WISECLI_UPGRADE_SIGNER
-        if (-not $publisher) { $publisher = Get-PublisherHash $exe }
-        if ((Get-PublisherHash $package) -ne $publisher) { throw 'MSI 签名发布者与可信发布者不匹配。' }
-    }
     $targetText = Get-PackageVersion $package
     $target = ConvertTo-ComparableVersion $targetText
     $current = ConvertTo-ComparableVersion $env:WISECLI_UPGRADE_CURRENT
@@ -113,7 +80,18 @@ try {
             throw "升级包版本 $targetText 未达到准入策略要求的 $required。"
         }
     }
-    if ($mode -eq 'verify') { exit 0 }
+    $packageName = "wiserec-cli-${targetText}-windows-x64.msi"
+    if ($mode -eq 'verify') {
+        # Windows requires the file to be closed before renaming it.
+        $packageLock.Dispose()
+        $packageLock = $null
+        [IO.File]::Move($package, (Join-Path (Split-Path -Parent $package) $packageName))
+        [Console]::Out.WriteLine($packageName)
+        exit 0
+    }
+    if ([IO.Path]::GetFileName($package) -cne $packageName) {
+        throw '升级包文件名与包内版本不一致。'
+    }
 
     $currentProcesses = @(Get-Process -Name 'ml' -ErrorAction SilentlyContinue |
         Where-Object { $_.Path -ieq $exe })
@@ -126,7 +104,7 @@ try {
     [Console]::Error.WriteLine("[信息] 正在安装 WiseRec Go CLI $targetText")
     $msiexec = Join-Path ([Environment]::SystemDirectory) 'msiexec.exe'
     $process = Start-Process -FilePath $msiexec -Wait -PassThru -ArgumentList @(
-        '/i', ('"' + $package + '"'), '/passive', '/norestart', '/L*v', ('"' + $log + '"'))
+        '/i', ('"' + $package + '"'), '/qr', '/norestart', '/L*v', ('"' + $log + '"'))
     switch ($process.ExitCode) {
         0 {
             $installed = & $exe --version

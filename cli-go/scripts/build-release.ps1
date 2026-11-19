@@ -50,13 +50,14 @@ try {
 
     $build = @{ OutputDirectory = $payload; ConfigPath = $ConfigPath; Verbose = ($VerbosePreference -eq 'Continue') }
     if (-not $PortableOnly) {
-        $build.PreflightPath = Join-Path $work 'path-check.exe'
+        $build.PreflightPath = Join-Path $work 'msi-helper.exe'
+        $build.AgentArchive = Join-Path $work 'agent-resources.zip'
     }
     & (Join-Path $PSScriptRoot 'build-windows.ps1') @build | ForEach-Object { Write-Verbose "$_" }
 
     if (-not $PortableOnly) {
         Write-Verbose "Building $baseName.msi with WiX"
-        & $Wix build -arch x64 (Join-Path $installer 'package.wxs') (Join-Path $work 'agent.wxs') `
+        & $Wix build -arch x64 (Join-Path $installer 'package.wxs') `
             -d "Version=$($release.version)" -d "ProductCode=$($release.productCode)" `
             -d "Work=$work" -d "Payload=$payload" -o (Join-Path $work "$baseName.msi")
         if ($LASTEXITCODE -ne 0) { throw 'WiX MSI build failed.' }
@@ -81,7 +82,7 @@ try {
         Write-Verbose "Package saved: $destination"
     }
     if (-not $PortableOnly) {
-        [Console]::WriteLine("MSI upgrade URL suffix: #sha256=$msiHash")
+        [Console]::WriteLine("MSI SHA-256: $msiHash")
     }
 } catch {
     foreach ($path in $published) { Remove-Item -LiteralPath $path -Force }

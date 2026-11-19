@@ -18,8 +18,7 @@ var msiFileHeader = []byte{0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1}
 
 // DownloadUpgradeMSI uses HTTPS with certificate verification and sends no platform credentials.
 func DownloadUpgradeMSI(ctx context.Context, address, destination string, progress func(int64, int64)) error {
-	transport := http.DefaultTransport.(*http.Transport).Clone()
-	transport.Proxy = signedDownloadProxy(ctx)
+	transport := signedDownloadTransport(ctx)
 	defer transport.CloseIdleConnections()
 	client := &http.Client{
 		Transport: transport, Timeout: 10 * time.Minute,
@@ -30,6 +29,10 @@ func DownloadUpgradeMSI(ctx context.Context, address, destination string, progre
 			return nil
 		},
 	}
+	return downloadUpgradeMSI(ctx, client, address, destination, progress)
+}
+
+func downloadUpgradeMSI(ctx context.Context, client *http.Client, address, destination string, progress func(int64, int64)) error {
 	request, err := http.NewRequestWithContext(ctx, http.MethodGet, address, nil)
 	if err != nil || !validSignedURL(request.URL) {
 		return errors.New("升级下载地址必须使用 HTTPS")
@@ -61,7 +64,10 @@ func saveUpgradeMSI(response *http.Response, destination string, progress func(i
 	if err != nil {
 		return errors.New("无法创建本地升级包")
 	}
-	writer := &downloadProgressWriter{Writer: file, total: response.ContentLength, report: progress}
+	var writer io.Writer = file
+	if progress != nil {
+		writer = &downloadProgressWriter{Writer: file, total: response.ContentLength, report: progress}
+	}
 	size, err := io.Copy(writer, io.LimitReader(body, maxUpgradeBytes+1))
 	closeErr := file.Close()
 	if size > maxUpgradeBytes {

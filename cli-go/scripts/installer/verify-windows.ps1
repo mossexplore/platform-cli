@@ -45,10 +45,10 @@ function Get-MsiValues($Package, $Query) {
     }
 }
 
-function Invoke-AutomaticUpgradeFixture($Package, $Exe) {
+function Invoke-AutomaticUpgradeFixture($Package, $Exe, $ExpectedVersion) {
     $fixture = Join-Path $Work 'automatic-upgrade'
     New-Item -ItemType Directory -Path $fixture | Out-Null
-    $download = Join-Path $fixture 'upgrade.msi'
+    $download = Join-Path $fixture 'download.msi'
     Copy-Item -LiteralPath $Package -Destination $download
 
     $baselineVersion = (& $Exe --version) -replace '^ml ', ''
@@ -56,9 +56,6 @@ function Invoke-AutomaticUpgradeFixture($Package, $Exe) {
     $powershell = Join-Path ([Environment]::SystemDirectory) 'WindowsPowerShell/v1.0/powershell.exe'
     $env:WISECLI_UPGRADE_EXE = $Exe
     $env:WISECLI_UPGRADE_PACKAGE = $download
-    $msiHash = (Get-FileHash -Algorithm SHA256 -LiteralPath $download).Hash
-    $env:WISECLI_UPGRADE_SIGNER = $msiHash
-    $env:WISECLI_UPGRADE_SHA256 = ''
     $env:WISECLI_UPGRADE_CURRENT = $baselineVersion
     $env:WISECLI_UPGRADE_MINIMUM = $baselineVersion
     $env:WISECLI_UPGRADE_RECOMMENDED = ''
@@ -66,29 +63,26 @@ function Invoke-AutomaticUpgradeFixture($Package, $Exe) {
     $env:WISECLI_UPGRADE_PARENT = '2147483647'
 
     try {
-        $env:WISECLI_UPGRADE_MODE = 'verify'
         $encoded = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($script))
         $stderr = Join-Path $Work 'updater-stderr.log'
         $stdout = Join-Path $Work 'updater-stdout.log'
         $shellArguments = @('-NoProfile', '-NonInteractive', '-OutputFormat', 'Text', '-EncodedCommand')
+
+        # The real unsigned MSI must pass verification without a hash or signer pin.
+        $env:WISECLI_UPGRADE_MODE = 'verify'
         $result = Start-Process -FilePath $powershell -Wait -PassThru -ArgumentList ($shellArguments + $encoded) `
             -RedirectStandardOutput $stdout -RedirectStandardError $stderr
-        $output = Get-Content -LiteralPath $stderr -Raw
-        if ($result.ExitCode -ne 1 -or "$output" -notlike '*NotSigned*') {
-            throw "Expected unsigned MSI rejection from Windows PowerShell (exit $($result.ExitCode)): $output"
+        if ($result.ExitCode -ne 0) {
+            throw "Unsigned MSI verification failed: $(Get-Content -LiteralPath $stderr -Raw)"
+        }
+        $filename = (Get-Content -LiteralPath $stdout -Raw).Trim()
+        $staged = Join-Path $fixture "wiserec-cli-${ExpectedVersion}-windows-x64.msi"
+        if ($filename -cne [IO.Path]::GetFileName($staged) -or
+            -not (Test-Path -LiteralPath $staged -PathType Leaf) -or (Test-Path -LiteralPath $download)) {
+            throw "Verified MSI was not staged under its product version: $filename"
         }
 
-        $env:WISECLI_UPGRADE_SHA256 = '0' * 64
-        $result = Start-Process -FilePath $powershell -Wait -PassThru -ArgumentList ($shellArguments + $encoded) `
-            -RedirectStandardOutput $stdout -RedirectStandardError $stderr
-        $output = Get-Content -LiteralPath $stderr -Raw
-        if ($result.ExitCode -ne 1 -or "$output" -notlike '*SHA-256*') {
-            throw "Expected SHA-256 mismatch rejection (exit $($result.ExitCode)): $output"
-        }
-
-        # Verify the published bytes of the real unsigned MSI and install it.
-        $env:WISECLI_UPGRADE_SIGNER = ''
-        $env:WISECLI_UPGRADE_SHA256 = $msiHash.ToLowerInvariant()
+        $env:WISECLI_UPGRADE_PACKAGE = $staged
         $env:WISECLI_UPGRADE_MODE = 'install'
         $result = Start-Process -FilePath $powershell -Wait -PassThru -ArgumentList ($shellArguments + $encoded) `
             -RedirectStandardOutput $stdout -RedirectStandardError $stderr
@@ -98,9 +92,9 @@ function Invoke-AutomaticUpgradeFixture($Package, $Exe) {
             if (Test-Path -LiteralPath $log) { Get-Content -LiteralPath $log -Tail 120 }
             throw "Automatic upgrade worker failed: $($result.ExitCode)"
         }
-        if (Test-Path -LiteralPath $download) { throw 'Automatic upgrade left the staged package' }
+        if (Test-Path -LiteralPath $staged) { throw 'Automatic upgrade left the staged package' }
     } finally {
-        foreach ($name in @('EXE', 'PACKAGE', 'SIGNER', 'SHA256', 'CURRENT', 'MINIMUM', 'RECOMMENDED', 'LOCK', 'PARENT', 'MODE')) {
+        foreach ($name in @('EXE', 'PACKAGE', 'CURRENT', 'MINIMUM', 'RECOMMENDED', 'LOCK', 'PARENT', 'MODE')) {
             Remove-Item -LiteralPath "Env:WISECLI_UPGRADE_$name" -ErrorAction SilentlyContinue
         }
     }
@@ -152,7 +146,7 @@ public static class MsiRollbackFixture
 }
 '@
     [MsiRollbackFixture]::Run($Destination, @(
-        'INSERT INTO `CustomAction` (`Action`, `Type`, `Source`, `Target`) VALUES (''TestRollbackPath'', 1026, ''PathCheck'', ''test-failure'')',
+        'INSERT INTO `CustomAction` (`Action`, `Type`, `Source`, `Target`) VALUES (''TestRollbackPath'', 1026, ''InstallerHelper'', ''test-failure'')',
         'INSERT INTO `InstallExecuteSequence` (`Action`, `Condition`, `Sequence`) VALUES (''TestRollbackPath'', ''NOT Installed'', 6550)'
     ))
 }
@@ -228,6 +222,15 @@ foreach ($package in @($baseline, $upgrade)) {
     if ((Get-MsiValues $package $successDialog) -ne 'InstallationComplete') {
         throw 'MSI must show the completion dialog only after the installation succeeds'
     }
+    $phaseQuery = 'SELECT `Description` FROM `ActionText` WHERE `Action` = '
+    if ((Get-MsiValues $package ($phaseQuery + "'InstallFiles'")) -cne '正在安装 CLI…' -or
+        (Get-MsiValues $package ($phaseQuery + "'InstallAgentResources'")) -cne '正在安装 Skill 和快捷命令…') {
+        throw 'MSI must describe the CLI and Skill installation phases.'
+    }
+    $sameVersion = 'SELECT `Text` FROM `Control` WHERE `Dialog_` = ''SameVersion'' AND `Control` = ''Warning'''
+    if ((Get-MsiValues $package $sameVersion) -notlike '*已安装相同版本*') {
+        throw 'MSI must display a same-version warning.'
+    }
     $versionLabels = @(Get-MsiValues $package $successVersion)
     $packageVersion = Get-MsiValues $package $versionQuery
     if ($versionLabels.Count -ne 1 -or $versionLabels[0] -cne "当前安装版本：$packageVersion") {
@@ -278,8 +281,18 @@ try {
         throw 'MSI did not restore the previous PATH on rollback'
     }
 
-    $log = Invoke-Msi '/i' $baseline 'install-with-legacy-path'
+    # Block only the shortcut, leaving the CLI's installation location writable.
+    $blockedSkillPath = Join-Path $openCode 'commands/ml.md'
+    New-Item -ItemType Directory -Path $blockedSkillPath | Out-Null
+    $log = Invoke-Msi '/i' $baseline 'install-with-skill-failure'
     $installedMsi = $baseline
+    if (-not (Select-String -LiteralPath $log -SimpleMatch 'CustomAction InstallAgentResources returned actual error code 1') -or
+        -not (Test-Path -LiteralPath $blockedSkillPath -PathType Container) -or
+        (& $installedExe --version) -ne "ml $currentVersion") {
+        throw 'Skill failure must leave the CLI installed and preserve the conflicting directory.'
+    }
+    Remove-Item -LiteralPath $blockedSkillPath
+    Invoke-Msi '/fa' $baseline 'repair-skill-failure' | Out-Null
     if (Select-String -LiteralPath $log -SimpleMatch 'Doing action: InstallationComplete') {
         throw 'Silent MSI ran the interactive success notification'
     }
@@ -314,7 +327,7 @@ try {
 
     Set-Content -LiteralPath (Join-Path (Split-Path $installedExe) 'config.template.json') -Value 'old template'
     [Environment]::SetEnvironmentVariable('OPENCODE_CONFIG_DIR', (Join-Path $Work 'different OpenCode'), 'User')
-    Invoke-AutomaticUpgradeFixture $upgrade $installedExe
+    Invoke-AutomaticUpgradeFixture $upgrade $installedExe $upgradeVersion
     $installedMsi = $upgrade
     Assert-Installed $portableUpgrade
     if ((Get-FileHash $goConfig).Hash -ne $configDigest) { throw 'Upgrade replaced the user configuration' }

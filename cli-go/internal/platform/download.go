@@ -170,8 +170,7 @@ func (a *API) SignedLogDownload(ctx context.Context, raw, destination, directory
 	// Match the Python log downloader. OBS can use private trust roots and a
 	// different network route from the console API. No platform headers or cookies
 	// are used for this client.
-	transport := http.DefaultTransport.(*http.Transport).Clone()
-	transport.Proxy = signedDownloadProxy(ctx)
+	transport := signedDownloadTransport(ctx)
 	transport.TLSClientConfig = &tls.Config{InsecureSkipVerify: true} // #nosec G402
 	client := &http.Client{Transport: transport, CheckRedirect: rejectRedirect}
 	return signedDownload(ctx, client, raw, destination, directory, name, false, events)

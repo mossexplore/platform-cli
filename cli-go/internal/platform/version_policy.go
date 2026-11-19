@@ -1,8 +1,6 @@
 package platform
 
 import (
-	"crypto/sha256"
-	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -72,32 +70,21 @@ func (i *invocation) checkAccessVersion(payload json.RawMessage, endpoint string
 	return err
 }
 
-type MSIUpgrade struct {
-	URL    string
-	SHA256 string
-}
-
-func (d *VersionDenial) MSIUpgrade() (MSIUpgrade, error) {
+// MSIUpgradeURL accepts OBS object paths with no extension. The installer saves
+// the response under a local .msi name and inspects the downloaded package.
+func (d *VersionDenial) MSIUpgradeURL() (string, error) {
 	if d.UpgradeURL == "" {
-		return MSIUpgrade{}, nil
+		return "", nil
 	}
 	address, err := url.Parse(d.UpgradeURL)
-	if err != nil || !validSignedURL(address) || !strings.HasSuffix(strings.ToLower(address.Path), ".msi") {
-		return MSIUpgrade{}, errors.New("MSI 下载地址必须是 HTTPS 的 .msi 直链")
-	}
-	key, hash, _ := strings.Cut(address.Fragment, "=")
-	address.Fragment, address.RawFragment = "", ""
-	if !strings.EqualFold(key, "sha256") {
-		return MSIUpgrade{URL: address.String()}, nil
-	}
-
-	// A digest in an unauthenticated response could otherwise authorize any MSI
-	// chosen by the sender. A fragment declaring a digest never falls back to signing.
-	if _, err := hex.DecodeString(hash); err != nil || len(hash) != 2*sha256.Size {
-		return MSIUpgrade{}, errors.New("MSI 下载地址的 #sha256= 后须填写完整的 64 个十六进制字符")
+	if err != nil || !validSignedURL(address) {
+		return "", errors.New("MSI 下载地址必须使用 HTTPS")
 	}
 	if !d.verifiedAccessDenial {
-		return MSIUpgrade{}, errors.New("SHA-256 升级地址须由经证书验证的 HTTPS 权限服务返回，可运行 ml access status --diagnose 核对")
+		return "", errors.New("自动升级地址须由经证书验证的 HTTPS 权限服务返回，可运行 ml access status --diagnose 核对")
 	}
-	return MSIUpgrade{URL: address.String(), SHA256: strings.ToLower(hash)}, nil
+	// Preserve the exact signed OBS path and query. A fragment is local to the
+	// client and older links may still carry a digest there.
+	downloadURL, _, _ := strings.Cut(d.UpgradeURL, "#")
+	return downloadURL, nil
 }
