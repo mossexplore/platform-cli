@@ -46,6 +46,12 @@ jobs:
           $output = @(Get-ChildItem -LiteralPath ./dist -Directory)
           if ($output.Count -ne 1) { throw 'Expected one build output directory' }
           "WISEREC_GO_PACKAGES=cli-go/dist/$($output[0].Name)" >> $env:GITHUB_ENV
+      - name: Rebuild the same version for MSI replacement verification
+        working-directory: cli-go
+        shell: pwsh
+        run: |
+          ./scripts/build-release.cmd -ConfigPath ./config.json -OutputDirectory "$env:RUNNER_TEMP/go-replacement-packages"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Build a higher version in an isolated source tree for upgrade verification
         working-directory: cli-go
         shell: pwsh
@@ -84,6 +90,7 @@ jobs:
         shell: pwsh
         run: |
           ./scripts/installer/verify-windows.ps1 -Packages (Join-Path $env:GITHUB_WORKSPACE $env:WISEREC_GO_PACKAGES) `
+            -ReplacementPackages "$env:RUNNER_TEMP/go-replacement-packages" `
             -UpgradePackages "$env:RUNNER_TEMP/go-upgrade-packages" -Work "$env:RUNNER_TEMP/go-msi-verification"
       - name: Upload example-config test packages
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4

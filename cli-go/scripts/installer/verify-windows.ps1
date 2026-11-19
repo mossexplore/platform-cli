@@ -1,6 +1,7 @@
-# Run only in a disposable Windows account. Both packages are built by this checkout.
+# Run only in a disposable Windows account. The workflow builds the input packages.
 param(
     [Parameter(Mandatory = $true)][string] $Packages,
+    [Parameter(Mandatory = $true)][string] $ReplacementPackages,
     [Parameter(Mandatory = $true)][string] $UpgradePackages,
     [Parameter(Mandatory = $true)][string] $Work
 )
@@ -13,10 +14,10 @@ function Get-Package($Directory, $Extension) {
     return $files[0].FullName
 }
 
-function Invoke-Msi($Mode, $Package, $Operation, $Expected = 0) {
+function Invoke-Msi($Mode, $Package, $Operation, $Expected = 0, $Properties = '') {
     $log = Join-Path $Work "$Operation.log"
     $process = Start-Process -FilePath "$env:SystemRoot\System32\msiexec.exe" -Wait -PassThru `
-        -ArgumentList "$Mode `"$Package`" /qn /norestart /l*v `"$log`""
+        -ArgumentList "$Mode `"$Package`" /qn /norestart /l*v `"$log`" $Properties"
     if ($process.ExitCode -ne $Expected) {
         Get-Content -LiteralPath $log -Tail 120
         throw "$Operation exited $($process.ExitCode), expected $Expected"
@@ -41,6 +42,15 @@ function Get-MsiValues($Package, $Query) {
         $null = $view.GetType().InvokeMember('Close', 'InvokeMethod', $null, $view, $null)
         $null = [Runtime.InteropServices.Marshal]::ReleaseComObject($view)
         $null = [Runtime.InteropServices.Marshal]::ReleaseComObject($database)
+        $null = [Runtime.InteropServices.Marshal]::ReleaseComObject($installer)
+    }
+}
+
+function Get-ProductState($ProductCode) {
+    $installer = New-Object -ComObject WindowsInstaller.Installer
+    try {
+        return $installer.GetType().InvokeMember('ProductState', 'GetProperty', $null, $installer, @($ProductCode))
+    } finally {
         $null = [Runtime.InteropServices.Marshal]::ReleaseComObject($installer)
     }
 }
@@ -103,7 +113,8 @@ function Invoke-AutomaticUpgradeFixture($Package, $Exe, $ExpectedVersion) {
 function New-RollbackFixture($Source, $Destination) {
     Copy-Item -LiteralPath $Source -Destination $Destination
     # Inject a deferred failure after the PATH change into the test copy only.
-    Add-Type -TypeDefinition @'
+    if (-not ('MsiRollbackFixture' -as [type])) {
+        Add-Type -TypeDefinition @'
 using System;
 using System.ComponentModel;
 using System.Runtime.InteropServices;
@@ -145,6 +156,7 @@ public static class MsiRollbackFixture
     }
 }
 '@
+    }
     [MsiRollbackFixture]::Run($Destination, @(
         'INSERT INTO `CustomAction` (`Action`, `Type`, `Source`, `Target`) VALUES (''TestRollbackPath'', 1026, ''InstallerHelper'', ''test-failure'')',
         'INSERT INTO `InstallExecuteSequence` (`Action`, `Condition`, `Sequence`) VALUES (''TestRollbackPath'', ''NOT Installed'', 6550)'
@@ -192,12 +204,15 @@ function Assert-Selection($Expected) {
 
 New-Item -ItemType Directory -Path $Work -Force | Out-Null
 $baseline = Get-Package $Packages 'msi'
+$replacement = Get-Package $ReplacementPackages 'msi'
 $upgrade = Get-Package $UpgradePackages 'msi'
 $portable = Join-Path $Work 'portable'
+$portableReplacement = Join-Path $Work 'portable-replacement'
 $portableUpgrade = Join-Path $Work 'portable-upgrade'
 Expand-Archive (Get-Package $Packages 'zip') $portable
+Expand-Archive (Get-Package $ReplacementPackages 'zip') $portableReplacement
 Expand-Archive (Get-Package $UpgradePackages 'zip') $portableUpgrade
-foreach ($payload in @($portable, $portableUpgrade)) {
+foreach ($payload in @($portable, $portableReplacement, $portableUpgrade)) {
     if (Get-ChildItem -LiteralPath $payload -File -Filter '*config*.json') {
         throw 'Portable package contains a standalone deployment configuration'
     }
@@ -206,30 +221,62 @@ $currentVersion = (Get-Content (Join-Path $portable 'release.json') -Raw | Conve
 $upgradeVersion = (Get-Content (Join-Path $portableUpgrade 'release.json') -Raw | ConvertFrom-Json).version
 $versionQuery = 'SELECT `Value` FROM `Property` WHERE `Property` = ''ProductVersion'''
 if ((Get-MsiValues $baseline $versionQuery) -ne $currentVersion -or
+    (Get-MsiValues $replacement $versionQuery) -ne $currentVersion -or
+    (Get-Content (Join-Path $portableReplacement 'release.json') -Raw | ConvertFrom-Json).version -ne $currentVersion -or
     (Get-MsiValues $upgrade $versionQuery) -ne $upgradeVersion) {
     throw 'MSI metadata and ZIP release.json must report the same version'
 }
-$successDialog = 'SELECT `Action` FROM `InstallUISequence` WHERE `Action` = ''InstallationComplete'' AND `Sequence` = -1'
+$productCodeQuery = 'SELECT `Value` FROM `Property` WHERE `Property` = ''ProductCode'''
+$baselineCode = Get-MsiValues $baseline $productCodeQuery
+$replacementCode = Get-MsiValues $replacement $productCodeQuery
+if (-not $baselineCode -or -not $replacementCode -or $baselineCode -eq $replacementCode) {
+    throw 'Two builds of the same version must have distinct ProductCodes.'
+}
+$exitDialogs = @{
+    '-1' = 'InstallationComplete'
+    '-2' = 'InstallationCancelled'
+    '-3' = 'InstallationFailed'
+}
+$fileInUseProcessLists = 'SELECT `Dialog_` FROM `Control` WHERE `Type` = ''ListBox'' AND `Property` = ''FileInUseProcess'''
+$listBoxTable = 'SELECT `Name` FROM `_Tables` WHERE `Name` = ''ListBox'''
 $successVersion = 'SELECT `Text` FROM `Control` WHERE `Dialog_` = ''InstallationComplete'' AND `Control` = ''CliVersion'''
 $progressQuery = 'SELECT `Dialog_` FROM `Control` WHERE `Type` = ''ProgressBar'''
 $completionBitmap = 'SELECT `Control` FROM `Control` WHERE `Dialog_` = ''InstallationComplete'' AND `Type` = ''Bitmap'''
-foreach ($package in @($baseline, $upgrade)) {
+foreach ($package in @($baseline, $replacement, $upgrade)) {
     $progress = @(Get-MsiValues $package $progressQuery)
     $bitmaps = @(Get-MsiValues $package $completionBitmap)
     if ($progress.Count -ne 1 -or $progress[0] -ne 'Installing' -or $bitmaps.Count -ne 0) {
         throw "Expected one Installing progress bar and no completion bitmap. Progress ($($progress.Count)): [$($progress -join ', ')]; bitmaps ($($bitmaps.Count)): [$($bitmaps -join ', ')]. MSI: $package"
     }
-    if ((Get-MsiValues $package $successDialog) -ne 'InstallationComplete') {
-        throw 'MSI must show the completion dialog only after the installation succeeds'
+    foreach ($sequence in $exitDialogs.Keys) {
+        $query = ('SELECT `Action` FROM `InstallUISequence` WHERE `Sequence` = {0}' -f $sequence)
+        if ((Get-MsiValues $package $query) -cne $exitDialogs[$sequence]) {
+            throw "MSI is missing the expected exit dialog for sequence $sequence. MSI: $package"
+        }
+    }
+    $processLists = @(Get-MsiValues $package $fileInUseProcessLists)
+    if ($processLists -cnotcontains 'FilesInUse' -or $processLists -cnotcontains 'MsiRMFilesInUse' -or
+        (Get-MsiValues $package $listBoxTable) -cne 'ListBox') {
+        throw "MSI must include both built-in file-in-use dialog names and their process lists. MSI: $package"
     }
     $phaseQuery = 'SELECT `Description` FROM `ActionText` WHERE `Action` = '
     if ((Get-MsiValues $package ($phaseQuery + "'InstallFiles'")) -cne '正在安装 CLI…' -or
         (Get-MsiValues $package ($phaseQuery + "'InstallAgentResources'")) -cne '正在安装 Skill 和快捷命令…') {
         throw 'MSI must describe the CLI and Skill installation phases.'
     }
-    $sameVersion = 'SELECT `Text` FROM `Control` WHERE `Dialog_` = ''SameVersion'' AND `Control` = ''Warning'''
-    if ((Get-MsiValues $package $sameVersion) -notlike '*已安装相同版本*') {
-        throw 'MSI must display a same-version warning.'
+    $sameVersion = 'SELECT `Text` FROM `Control` WHERE `Dialog_` = ''ConfirmSameVersionReplacement'' AND `Control` = ''Warning'''
+    $approvalEvent = 'SELECT `Argument` FROM `ControlEvent` WHERE `Dialog_` = ''ConfirmSameVersionReplacement'' AND `Control_` = ''Replace'' AND `Event` = ''[WISECLI_REPLACE_SAME_VERSION]'' AND `Ordering` = 1'
+    $cancelEvent = 'SELECT `Argument` FROM `ControlEvent` WHERE `Dialog_` = ''ConfirmSameVersionReplacement'' AND `Control_` = ''Cancel'' AND `Event` = ''EndDialog'''
+    if ((Get-MsiValues $package $sameVersion) -notlike '*是否卸载现有安装*' -or
+        (Get-MsiValues $package $approvalEvent) -ne '1' -or (Get-MsiValues $package $cancelEvent) -ne 'Exit') {
+        throw 'MSI must require explicit confirmation before replacing a same-version installation.'
+    }
+    $actionSequence = 'SELECT `Sequence` FROM `InstallUISequence` WHERE `Action` = '
+    $detect = [int](Get-MsiValues $package ($actionSequence + "'FindRelatedProducts'"))
+    $confirm = [int](Get-MsiValues $package ($actionSequence + "'ConfirmSameVersionReplacement'"))
+    $check = [int](Get-MsiValues $package ($actionSequence + "'LaunchConditions'"))
+    if ($detect -le 0 -or $confirm -le $detect -or $check -le $confirm) {
+        throw 'MSI must detect the old installation before prompting and check consent after prompting.'
     }
     $versionLabels = @(Get-MsiValues $package $successVersion)
     $packageVersion = Get-MsiValues $package $versionQuery
@@ -324,6 +371,30 @@ try {
     Remove-Item -LiteralPath (Join-Path $openCode 'commands/ml.md')
     Invoke-Msi '/fa' $baseline 'repair' | Out-Null
     Assert-Installed $portable
+
+    Invoke-Msi '/i' $replacement 'same-version-unconfirmed' 1603 | Out-Null
+    if ((Get-ProductState $baselineCode) -ne 5 -or (Get-ProductState $replacementCode) -ne -1) {
+        throw 'Unconfirmed replacement changed the installed product.'
+    }
+    Assert-Installed $portable
+
+    $sameVersionRollback = Join-Path $Work 'same-version-rollback.msi'
+    New-RollbackFixture $replacement $sameVersionRollback
+    $approval = 'WISECLI_REPLACE_SAME_VERSION=1'
+    $log = Invoke-Msi '/i' $sameVersionRollback 'same-version-rollback' 1603 $approval
+    if (-not (Select-String -LiteralPath $log -SimpleMatch 'CustomAction TestRollbackPath returned actual error code 1') -or
+        (Get-ProductState $baselineCode) -ne 5 -or (Get-ProductState $replacementCode) -ne -1) {
+        throw 'Failed replacement must roll back and restore the installed product.'
+    }
+    Assert-Installed $portable
+
+    Invoke-Msi '/i' $replacement 'same-version-confirmed' 0 $approval | Out-Null
+    $installedMsi = $replacement
+    if ((Get-ProductState $baselineCode) -ne -1 -or (Get-ProductState $replacementCode) -ne 5 -or
+        (Get-FileHash $goConfig).Hash -ne $configDigest) {
+        throw 'Confirmed replacement must remove the old package and preserve the user configuration.'
+    }
+    Assert-Installed $portableReplacement
 
     Set-Content -LiteralPath (Join-Path (Split-Path $installedExe) 'config.template.json') -Value 'old template'
     [Environment]::SetEnvironmentVariable('OPENCODE_CONFIG_DIR', (Join-Path $Work 'different OpenCode'), 'User')

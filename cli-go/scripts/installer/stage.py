@@ -5,11 +5,9 @@ import json
 from pathlib import Path
 import shutil
 import sys
-from uuid import UUID, uuid5
 from zipfile import ZIP_DEFLATED, ZipFile
 
 ROOT = Path(__file__).resolve().parents[3]
-INSTALLER_NAMESPACE = UUID("432c0a6c-7def-4b10-b19f-baebdd4e5fe9")
 sys.path.insert(0, str(ROOT / "scripts"))
 from stage_skill_resources import stage_skill_resources
 from sync_versions import sync_go
@@ -29,12 +27,7 @@ def stage(work, include_msi):
         with ZipFile(work / "agent-resources.zip", "w", ZIP_DEFLATED) as archive:
             for relative in resources:
                 archive.write(payload / "agent" / relative, relative)
-    # Keep product identities stable for MSI maintenance and distinct across upgrades.
-    return {"version": version, "productCode": installer_guid(version)}
-
-
-def installer_guid(name):
-    return "{" + str(uuid5(INSTALLER_NAMESPACE, name)).upper() + "}"
+    return {"version": version}
 
 
 if __name__ == "__main__":

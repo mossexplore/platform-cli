@@ -1,10 +1,20 @@
 <Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
   <Package Name="WiseRec CLI (Go)" Manufacturer="WiseRec" Version="$(var.Version)"
-           ProductCode="$(var.ProductCode)" UpgradeCode="{432C0A6C-7DEF-4B10-B19F-BAEBDD4E5FE9}"
+           UpgradeCode="{432C0A6C-7DEF-4B10-B19F-BAEBDD4E5FE9}"
            Scope="perUser" InstallerVersion="500" Codepage="936">
-    <MajorUpgrade Schedule="afterInstallInitialize"
+    <MajorUpgrade Schedule="afterInstallInitialize" AllowSameVersionUpgrades="yes"
                   DowngradeErrorMessage="A newer WiseRec CLI (Go) is already installed." />
+    <Upgrade Id="{432C0A6C-7DEF-4B10-B19F-BAEBDD4E5FE9}">
+      <UpgradeVersion Minimum="$(var.Version)" Maximum="$(var.Version)"
+                      IncludeMinimum="yes" IncludeMaximum="yes" OnlyDetect="yes" Property="WISECLI_SAME_VERSION" />
+    </Upgrade>
+    <Property Id="WISECLI_REPLACE_SAME_VERSION" Secure="yes" />
+    <Launch Condition="Installed OR NOT WISECLI_SAME_VERSION OR WISECLI_REPLACE_SAME_VERSION = &quot;1&quot;"
+            Message="已安装相同版本。请打开此 MSI 并确认卸载旧安装后再继续。" />
+    <Launch Condition="Installed OR NOT WISECLI_SAME_VERSION OR (NOT RollbackDisabled AND NOT DISABLEROLLBACK)"
+            Message="Windows Installer 已禁用回滚，无法安全替换相同版本的 WiseRec CLI。" />
     <MediaTemplate EmbedCab="yes" />
+    <EnsureTable Id="ListBox" />
 
     <StandardDirectory Id="LocalAppDataFolder">
       <Directory Id="UserPrograms" Name="Programs">
@@ -103,12 +113,58 @@
         </Control>
         <Control Id="Question" Type="Text" X="12" Y="14" Width="216" Height="16" Text="确定要取消安装吗？" />
       </Dialog>
-      <Dialog Id="SameVersion" Width="300" Height="97" Title="WiseRec CLI 安装警告">
+      <!-- Windows Installer opens these by name when files are locked. -->
+      <Dialog Id="FilesInUse" Width="300" Height="160" Title="WiseRec CLI" KeepModeless="yes">
+        <Control Id="Retry" Type="PushButton" X="110" Y="130" Width="56" Height="17" Default="yes" Text="重试">
+          <Publish Event="EndDialog" Value="Retry" />
+        </Control>
+        <Control Id="Ignore" Type="PushButton" X="171" Y="130" Width="56" Height="17" Text="继续安装">
+          <Publish Event="EndDialog" Value="Ignore" />
+        </Control>
+        <Control Id="Cancel" Type="PushButton" X="232" Y="130" Width="56" Height="17" Cancel="yes" Text="取消">
+          <Publish Event="EndDialog" Value="Exit" />
+        </Control>
+        <Control Id="Message" Type="Text" X="12" Y="14" Width="276" Height="30"
+                 Text="安装所需的文件正在使用。请关闭下列程序后重试。继续安装可能需要重启电脑。" />
+        <Control Id="Processes" Type="ListBox" X="12" Y="48" Width="276" Height="72"
+                 Property="FileInUseProcess" Sunken="yes" TabSkip="yes" />
+      </Dialog>
+      <Property Id="InstallerRestartOption" Value="KeepApps" />
+      <Dialog Id="MsiRMFilesInUse" Width="300" Height="180" Title="WiseRec CLI" KeepModeless="yes">
+        <Control Id="Continue" Type="PushButton" X="171" Y="150" Width="56" Height="17" Default="yes" Text="继续安装">
+          <Publish Event="EndDialog" Value="Return" />
+          <Publish Event="RMShutdownAndRestart" Value="0" Condition="InstallerRestartOption = &quot;CloseApps&quot;" />
+        </Control>
+        <Control Id="Cancel" Type="PushButton" X="232" Y="150" Width="56" Height="17" Cancel="yes" Text="取消">
+          <Publish Event="EndDialog" Value="Exit" />
+        </Control>
+        <Control Id="Message" Type="Text" X="12" Y="14" Width="276" Height="20" Text="下列程序正在使用安装所需的文件。" />
+        <Control Id="Processes" Type="ListBox" X="12" Y="37" Width="276" Height="60"
+                 Property="FileInUseProcess" Sunken="yes" TabSkip="yes" />
+        <Control Id="Options" Type="RadioButtonGroup" X="12" Y="104" Width="276" Height="38" Property="InstallerRestartOption">
+          <RadioButtonGroup Property="InstallerRestartOption">
+            <RadioButton Value="KeepApps" X="0" Y="0" Width="276" Height="16" Text="保留占用程序，安装后可能需要重启电脑" />
+            <RadioButton Value="CloseApps" X="0" Y="19" Width="276" Height="16" Text="由 Windows Installer 关闭并尝试重启占用程序" />
+          </RadioButtonGroup>
+        </Control>
+      </Dialog>
+      <Dialog Id="ConfirmSameVersionReplacement" Width="300" Height="101" Title="WiseRec CLI 同版本重装">
+        <Control Id="Cancel" Type="PushButton" X="232" Y="72" Width="56" Height="17" Default="yes" Cancel="yes" Text="取消">
+          <Publish Event="EndDialog" Value="Exit" />
+        </Control>
+        <Control Id="Replace" Type="PushButton" X="142" Y="72" Width="84" Height="17" Text="卸载并安装">
+          <Publish Property="WISECLI_REPLACE_SAME_VERSION" Value="1" Order="1" />
+          <Publish Event="EndDialog" Value="Return" Order="2" />
+        </Control>
+        <Control Id="Warning" Type="Text" X="12" Y="14" Width="276" Height="46"
+                 Text="已安装相同版本的 WiseRec CLI（$(var.Version)）。是否卸载现有安装，再安装此包？环境配置和登录数据会保留。" />
+      </Dialog>
+      <Dialog Id="AlreadyInstalled" Width="300" Height="97" Title="WiseRec CLI 安装警告">
         <Control Id="Ok" Type="PushButton" X="232" Y="67" Width="56" Height="17" Default="yes" Cancel="yes" Text="确定">
           <Publish Event="EndDialog" Value="Exit" />
         </Control>
         <Control Id="Warning" Type="Text" X="12" Y="14" Width="276" Height="36"
-                 Text="已安装相同版本的 WiseRec CLI（$(var.Version)）。如需修复，请在 Windows「已安装的应用」中操作。" />
+                 Text="此安装包已安装。需要修复时，请在 Windows「已安装的应用」中操作。" />
       </Dialog>
       <Dialog Id="InstallationComplete" Width="300" Height="101" Title="WiseRec CLI">
         <Control Id="Ok" Type="PushButton" X="232" Y="72" Width="56" Height="17" Default="yes" Cancel="yes" Text="确定">
@@ -117,6 +173,19 @@
         <Control Id="Status" Type="Text" X="12" Y="14" Width="276" Height="13" Text="WiseRec CLI 安装成功" />
         <Control Id="CliVersion" Type="Text" X="12" Y="33" Width="276" Height="13" Text="当前安装版本：$(var.Version)" />
         <Control Id="NextStep" Type="Text" X="12" Y="51" Width="276" Height="13" Text="请重新打开终端，运行 ml --version 验证。" />
+      </Dialog>
+      <Dialog Id="InstallationCancelled" Width="300" Height="75" Title="WiseRec CLI">
+        <Control Id="Ok" Type="PushButton" X="232" Y="44" Width="56" Height="17" Default="yes" Cancel="yes" Text="确定">
+          <Publish Event="EndDialog" Value="Exit" />
+        </Control>
+        <Control Id="Message" Type="Text" X="12" Y="14" Width="276" Height="20" Text="WiseRec CLI 安装已取消。" />
+      </Dialog>
+      <Dialog Id="InstallationFailed" Width="300" Height="85" Title="WiseRec CLI">
+        <Control Id="Ok" Type="PushButton" X="232" Y="55" Width="56" Height="17" Default="yes" Cancel="yes" Text="确定">
+          <Publish Event="EndDialog" Value="Exit" />
+        </Control>
+        <Control Id="Message" Type="Text" X="12" Y="14" Width="276" Height="30"
+                 Text="WiseRec CLI 安装失败。请查看上一步的错误提示，或使用 msiexec 的 /l*v 选项记录安装日志。" />
       </Dialog>
       <Dialog Id="InstallerError" Width="300" Height="120" Title="WiseRec CLI" ErrorDialog="yes">
         <Control Id="ErrorText" Type="Text" X="12" Y="14" Width="276" Height="68" TabSkip="no" NoPrefix="yes" />
@@ -144,11 +213,15 @@
         </Control>
       </Dialog>
       <InstallUISequence>
-        <Show Dialog="SameVersion" Before="Installing"
+        <Show Dialog="ConfirmSameVersionReplacement" Before="LaunchConditions"
+              Condition="NOT Installed AND WISECLI_SAME_VERSION AND NOT WIX_DOWNGRADE_DETECTED AND UILevel = 5" />
+        <Show Dialog="AlreadyInstalled" Before="Installing"
               Condition="Installed AND NOT REMOVE AND NOT REINSTALL AND UILevel = 5" />
         <Show Dialog="Installing" Before="ExecuteAction" Condition="NOT REMOVE AND UILevel &gt;= 4" />
         <!-- Reduced UI shows progress during automatic upgrade, without a final confirmation. -->
         <Show Dialog="InstallationComplete" OnExit="success" Condition="(NOT Installed OR REINSTALL) AND NOT REMOVE AND UILevel = 5" />
+        <Show Dialog="InstallationCancelled" OnExit="cancel" Condition="UILevel = 5 AND (NOT Installed OR REMOVE OR REINSTALL)" />
+        <Show Dialog="InstallationFailed" OnExit="error" Condition="UILevel = 5" />
       </InstallUISequence>
     </UI>
 

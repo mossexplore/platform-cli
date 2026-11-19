@@ -58,7 +58,7 @@ try {
     if (-not $PortableOnly) {
         Write-Verbose "Building $baseName.msi with WiX"
         & $Wix build -arch x64 (Join-Path $installer 'package.wxs') `
-            -d "Version=$($release.version)" -d "ProductCode=$($release.productCode)" `
+            -d "Version=$($release.version)" `
             -d "Work=$work" -d "Payload=$payload" -o (Join-Path $work "$baseName.msi")
         if ($LASTEXITCODE -ne 0) { throw 'WiX MSI build failed.' }
     }
