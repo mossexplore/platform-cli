@@ -80,5 +80,7 @@ def test_empty_mysql_sum_none_remains_numeric(system, monkeypatch):
     assert response.status_code == 200
     assert response.context['total'] == response.context['rejected'] == response.context['users'] == 0
     assert type(response.context['total']) is int
+    assert response.context['chart']['versions'] == []
+    assert response.context['chart']['environments'] == []
     json.dumps(response.context['chart'])
     assert 'colspan="4"' in response.text

@@ -18,12 +18,16 @@ if (host) {
   const description = document.querySelector('[data-analysis-description]');
   const buttons = [...document.querySelectorAll('[data-analysis-view]')];
   const colors = ['#0052d9', '#00a870', '#7b61c9', '#ed7b2f', '#df658b', '#a9aeb8'];
+  const versionColors = ['#0052d9', '#00a870', '#7b61c9', '#ed7b2f', '#df658b',
+    '#029cd4', '#e3a008', '#4f6ef7', '#2ba471', '#d54941', '#8b5cf6', '#6b7280'];
   const ns = 'http://www.w3.org/2000/svg';
   const labels = {
     commands: `按${data.grain}查看各命令的调用分布`,
     trend: `按${data.grain}查看授权检查、通过与拒绝的变化`,
     distribution: '所选时段内各命令的调用次数占比',
     ranking: '所选时段内调用次数最多的命令',
+    versions: '所选时段内各 CLI 版本的调用次数占比',
+    environments: '所选时段内各环境的调用次数',
   };
   let active = 'commands';
 
@@ -55,6 +59,7 @@ if (host) {
 
   function legendItems(items) {
     legend.replaceChildren();
+    legend.hidden = !items.length;
     items.forEach((item, index) => {
       const entry = document.createElement('span');
       const swatch = document.createElement('i');
@@ -160,18 +165,124 @@ if (host) {
     legendItems(data.distribution.map(item => `${item.label} ${item.value} 次 · ${(item.value / total * 100).toFixed(1)}%`));
   }
 
-  function rankingBars() {
-    const width = Math.max(560, graphic.clientWidth, data.ranking.length * 130 + 70);
+  function placeSideLabels(entries, minY, maxY, minGap) {
+    const sorted = [...entries].sort((a, b) => a.idealY - b.idealY);
+    sorted.forEach((entry, index) => {
+      entry.y = Math.max(minY, Math.min(maxY, entry.idealY));
+      if (index > 0 && entry.y < sorted[index - 1].y + minGap) {
+        entry.y = sorted[index - 1].y + minGap;
+      }
+    });
+    if (sorted.length && sorted[sorted.length - 1].y > maxY) {
+      sorted[sorted.length - 1].y = maxY;
+      for (let index = sorted.length - 2; index >= 0; index -= 1) {
+        if (sorted[index].y > sorted[index + 1].y - minGap) {
+          sorted[index].y = sorted[index + 1].y - minGap;
+        }
+      }
+    }
+    return sorted;
+  }
+
+  function versionPie() {
+    const items = data.versions || [];
+    const total = items.reduce((sum, item) => sum + item.value, 0);
+    if (!total) {
+      legendItems([]);
+      return;
+    }
+    const radius = 104;
+    const strokeWidth = 42;
+    const rOuter = radius + strokeWidth / 2;
+    const rElbow = rOuter + 14;
+    const labelOffset = rOuter + 34;
+    const circumference = 2 * Math.PI * radius;
+    const minGap = 22;
+
+    let accumulated = 0;
+    const slices = items.map((item, index) => {
+      const fraction = item.value / total;
+      const startAngle = accumulated * 2 * Math.PI - Math.PI / 2;
+      const sweep = fraction * 2 * Math.PI;
+      const midAngle = items.length === 1 ? 0 : startAngle + sweep / 2;
+      const slice = {
+        item,
+        index,
+        color: versionColors[index % versionColors.length],
+        offset: accumulated * circumference,
+        length: fraction * circumference,
+        pct: (fraction * 100).toFixed(1),
+        midAngle,
+        isRight: Math.cos(midAngle) >= 0,
+      };
+      accumulated += fraction;
+      return slice;
+    });
+
+    const rightSlices = slices.filter(slice => slice.isRight);
+    const leftSlices = slices.filter(slice => !slice.isRight);
+    const height = Math.max(340, Math.max(rightSlices.length, leftSlices.length) * minGap + 44);
+    const width = Math.max(640, graphic.clientWidth);
+    const cx = width / 2;
+    const cy = height / 2;
+    const svg = canvas(width, height);
+
+    slices.forEach(slice => {
+      slice.idealY = cy + rElbow * Math.sin(slice.midAngle);
+    });
+    placeSideLabels(rightSlices, minGap, height - minGap, minGap);
+    placeSideLabels(leftSlices, minGap, height - minGap, minGap);
+
+    slices.forEach(slice => {
+      const {item, color, offset, length, pct, midAngle, isRight, y} = slice;
+      const dash = items.length === 1 ? `${circumference} 0` : `${Math.max(1, length - 2)} ${circumference}`;
+      const x1 = cx + rOuter * Math.cos(midAngle);
+      const y1 = cy + rOuter * Math.sin(midAngle);
+      const x2 = cx + rElbow * Math.cos(midAngle);
+      const x3 = cx + (isRight ? labelOffset : -labelOffset);
+      const textX = x3 + (isRight ? 6 : -6);
+      const maxLabelWidth = Math.max(80, (isRight ? width - textX : textX) - 12);
+      const suffix = ` (${pct}%)`;
+
+      linked(svg, item.href, `${item.label}：${item.value} 次（${pct}%）`, target => {
+        add(target, 'circle', {cx, cy, r: radius, fill: 'none', stroke: color, 'stroke-width': strokeWidth,
+          'stroke-dasharray': dash, 'stroke-dashoffset': -offset,
+          transform: `rotate(-90 ${cx} ${cy})`, class: 'analysis-mark'});
+        add(target, 'polyline', {
+          points: `${x1.toFixed(1)},${y1.toFixed(1)} ${x2.toFixed(1)},${y.toFixed(1)} ${x3.toFixed(1)},${y.toFixed(1)}`,
+          stroke: color, class: 'analysis-pie-leader analysis-mark'});
+        const text = add(target, 'text', {x: textX, y: y + 4,
+          'text-anchor': isRight ? 'start' : 'end', class: 'analysis-pie-label analysis-mark'},
+          `${item.label}${suffix}`);
+        let name = String(item.label);
+        while (text.getComputedTextLength() > maxLabelWidth && name.length > 1) {
+          name = name.slice(0, -1);
+          text.textContent = `${name}…${suffix}`;
+        }
+      });
+    });
+
+    add(svg, 'text', {x: cx, y: cy - 6, 'text-anchor': 'middle', class: 'analysis-pie-total'}, String(total));
+    add(svg, 'text', {x: cx, y: cy + 18, 'text-anchor': 'middle', class: 'analysis-axis-label'}, '次授权检查');
+    legendItems([]);
+  }
+
+  function categoryBars(items, xAxisLabel, legendLabel) {
+    if (!items.length) {
+      legendItems([]);
+      return;
+    }
+    const width = Math.max(560, graphic.clientWidth, items.length * 130 + 70);
     const height = 390;
     const left = 50;
     const bottom = 96;
     const svg = canvas(width, height);
-    const maximum = countScale(Math.max(1, ...data.ranking.map(item => item.value))).maximum;
+    const maximum = countScale(Math.max(1, ...items.map(item => item.value))).maximum;
     const {top, plotHeight, plotWidth} = axes(svg, width, height, left, bottom, maximum, []);
-    const slot = plotWidth / data.ranking.length;
+    const slot = plotWidth / items.length;
     const barWidth = Math.min(64, slot * 0.62);
     add(svg, 'text', {x: 10, y: 16, class: 'analysis-axis-label'}, '次数');
-    data.ranking.forEach((item, index) => {
+    items.forEach((item, index) => {
       const x = left + slot * (index + 0.5);
       const barHeight = item.value / maximum * plotHeight;
       const y = top + plotHeight - barHeight;
@@ -196,8 +307,16 @@ if (host) {
         class: 'analysis-rank-value'}, String(item.value));
     });
     add(svg, 'text', {x: left + plotWidth / 2, y: height - 12,
-      'text-anchor': 'middle', class: 'analysis-axis-label'}, '命令名称');
-    legendItems(['按命令汇总的授权检查次数']);
+      'text-anchor': 'middle', class: 'analysis-axis-label'}, xAxisLabel);
+    legendItems([legendLabel]);
+  }
+
+  function rankingBars() {
+    categoryBars(data.ranking || [], '命令名称', '按命令汇总的授权检查次数');
+  }
+
+  function environmentBars() {
+    categoryBars(data.environments || [], '环境标识', '按环境汇总的授权检查次数');
   }
 
   function render(view) {
@@ -209,8 +328,10 @@ if (host) {
     });
     description.textContent = labels[view];
     graphic.setAttribute('aria-label', `${buttons.find(button => button.dataset.analysisView === view).textContent}：${labels[view]}`);
-    ({commands: commandBars, trend: trendLines, distribution: distributionPie, ranking: rankingBars})[view]();
-    scrollHint.hidden = graphic.querySelector('svg').width.baseVal.value <= graphic.clientWidth;
+    ({commands: commandBars, trend: trendLines, distribution: distributionPie, ranking: rankingBars,
+      versions: versionPie, environments: environmentBars})[view]();
+    const rendered = graphic.querySelector('svg');
+    scrollHint.hidden = !rendered || rendered.width.baseVal.value <= graphic.clientWidth;
   }
 
   buttons.forEach(button => button.addEventListener('click', () => render(button.dataset.analysisView)));

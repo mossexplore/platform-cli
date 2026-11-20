@@ -31,9 +31,12 @@
 .analysis-rank-label { fill: var(--text-2); font-size: 13px; font-family: var(--font-mono); }
 .analysis-rank-value { fill: var(--text-1); font-size: 13px; font-weight: 600; font-family: var(--font); }
 .analysis-pie-total { fill: var(--text-1); font-size: 30px; font-weight: 600; font-family: var(--font); }
+.analysis-pie-leader { fill: none; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; opacity: .8; }
+.analysis-pie-label { fill: var(--text-1); font-size: 12px; font-family: var(--font-mono); }
 .analysis-mark { transition: opacity .15s; }
 a:hover .analysis-mark, a:focus .analysis-mark { opacity: .72; }
 .analytics-plot-legend { display: flex; justify-content: center; flex-wrap: wrap; gap: 10px 20px; padding: 12px 0 0; border-top: 1px solid var(--fill); font-size: 12px; color: var(--text-2); }
+.analytics-plot-legend[hidden] { display: none; }
 .analytics-plot-legend span { display: inline-flex; align-items: center; gap: 6px; max-width: 260px; overflow-wrap: anywhere; }
 .analysis-swatch { display: inline-block; width: 9px; height: 9px; border-radius: 2px; flex: none; }
 .analysis-swatch-0 { background: #0052d9; } .analysis-swatch-1 { background: #00a870; }

@@ -100,8 +100,11 @@ def command_series(db, filters, grain, names):
 
 
 def top_rows(db, filters, field, limit=10):
-    rows = db.execute(select(field, func.count().label('total')).where(*filters).group_by(field)
-                      .order_by(func.count().desc(), field).limit(limit)).all()
+    query = select(field, func.count().label('total')).where(*filters).group_by(field).order_by(
+        func.count().desc(), field)
+    if limit is not None:
+        query = query.limit(limit)
+    rows = db.execute(query).all()
     return [(name, count_value(count)) for name, count in rows]
 
 
@@ -176,6 +179,12 @@ def analytics(request: Request, grain: str = Query('day', max_length=8),
             chart_distribution.append({'label': '其他命令', 'value': other, 'href': ''})
         chart_ranking = [{'label': name or 'unknown', 'value': count,
             'href': log_link(params, start, stop, command_exact=name)} for name, count in command_ranking[:10]]
+        chart_versions = [{'label': name or '未知版本', 'value': count,
+            'href': log_link(params, start, stop, cli_version=name) if name else ''}
+            for name, count in top_rows(db, filters, CallLog.cli_version, limit=None)]
+        chart_environments = [{'label': name or '未知环境', 'value': count,
+            'href': log_link(params, start, stop, environment=name) if name else ''}
+            for name, count in top_rows(db, filters, CallLog.environment, limit=None)]
         actors = top_rows(db, filters, CallLog.actor, actors_top)
         actor_names = dict(db.execute(select(User.username, User.display_name).where(
             User.username.in_([name for name, _ in actors]))).all()) if actors else {}
@@ -190,7 +199,9 @@ def analytics(request: Request, grain: str = Query('day', max_length=8),
             'rejection_rate': f'{rejected / total * 100:.1f}' if total else '0.0',
             'users': users, 'points': points,
             'chart': {'points': chart_points, 'commands': [name or 'unknown' for name in chart_commands],
-                      'distribution': chart_distribution, 'ranking': chart_ranking, 'grain': GRAINS[grain]},
+                      'distribution': chart_distribution, 'ranking': chart_ranking,
+                      'versions': chart_versions, 'environments': chart_environments,
+                      'grain': GRAINS[grain]},
             'commands': commands, 'actors': actors, 'actor_names': actor_names,
             'commands_top': commands_top, 'actors_top': actors_top, 'top_options': TOP_OPTIONS,
             'log_link': lambda **extra: log_link(params, start, stop, **extra),

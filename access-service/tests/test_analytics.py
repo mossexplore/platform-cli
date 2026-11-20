@@ -8,10 +8,11 @@ from app.models import CallLog
 from test_service import system, login
 
 
-def record(db, *, actor, command, timestamp, allowed=True, reason='ALLOWED', environment='prod', business_id='selected'):
+def record(db, *, actor, command, timestamp, allowed=True, reason='ALLOWED', environment='prod',
+           business_id='selected', cli_version='1.0.0'):
     db.add(CallLog(actor=actor, command=command, environment=environment,
         business_id=business_id, source_ip='127.0.0.1', allowed=allowed,
-        reason=reason, created_at=datetime.fromisoformat(timestamp)))
+        reason=reason, created_at=datetime.fromisoformat(timestamp), cli_version=cli_version))
 
 
 def test_dashboard_requires_admin_and_aggregates_beijing_days(system):
@@ -36,7 +37,8 @@ def test_dashboard_requires_admin_and_aggregates_beijing_days(system):
     assert 'id="analytics-advanced-filters" class="analytics-filter-advanced" hidden' in response.text
     assert 'data-toggle-analytics-filters' in response.text
     assert '数据分析' in response.text
-    assert all(name in response.text for name in ('命令分布', '调用趋势', '调用次数分布', '调用次数排行'))
+    assert all(name in response.text for name in (
+        '命令分布', '调用趋势', '调用次数分布', '调用次数排行', '版本分布', '调用环境情况'))
     assert response.text.count('<tr><td>09-10</td>') == 1
     assert '"label": "09-10"' in response.text
 
@@ -131,9 +133,58 @@ def test_dashboard_renders_decimal_aggregates_from_mysql(system, monkeypatch):
     assert chart['points'][0]['allowed'] == 0
     assert chart['points'][1]['denied'] == 0
     assert chart['points'][1]['allowed'] == 1
-    assert all(isinstance(item['value'], int) for item in chart['ranking'])
-    assert all(isinstance(item['value'], int) for item in chart['distribution'])
+    assert all(type(item['value']) is int for item in chart['ranking'])
+    assert all(type(item['value']) is int for item in chart['distribution'])
+    assert all(type(item['value']) is int for item in chart['versions'])
+    assert all(type(item['value']) is int for item in chart['environments'])
+    assert chart['versions'] == [{'label': '1.0.0', 'value': 2, 'href': chart['versions'][0]['href']}]
+    assert chart['environments'] == [{'label': 'prod', 'value': 2, 'href': chart['environments'][0]['href']}]
     assert '<strong class="analytics-danger">1<small>次</small></strong>' in response.text
+
+
+def test_dashboard_versions_and_environments_full_distribution_and_drilldown(system):
+    app, client, _ = system
+    with app.state.sessions() as db:
+        entries = [
+            ('1.0.9.6', 'prod'), ('1.0.9.6', 'prod'), ('1.0.9.6', 'staging'),
+            ('1.0.9.5', 'prod'), ('1.0.9.5', 'test'),
+            ('1.0.9.4', 'test'),
+            ('1.0.9.3', 'dev'),
+            ('1.0.9.2', 'dev'),
+            ('1.0.9.1', 'staging'),
+            ('1.0.9.0', 'uat'),
+            ('', ''),
+        ]
+        for cli_version, env in entries:
+            record(db, actor='alice', command='ml train list', timestamp='2026-09-10T02:00:00',
+                   environment=env, cli_version=cli_version)
+        db.commit()
+    login(client)
+    params = {'grain': 'day', 'begin': '2026-09-10T00:00:00', 'end': '2026-09-10T23:59:59'}
+    response = client.get('/cli-permission/admin/analytics', params=params)
+    assert response.status_code == 200
+    chart = json.loads(unescape(re.search(r"data-analysis-chart='([^']+)'", response.text)[1]))
+    assert [(item['label'], item['value']) for item in chart['versions']] == [
+        ('1.0.9.6', 3), ('1.0.9.5', 2), ('未知版本', 1), ('1.0.9.0', 1),
+        ('1.0.9.1', 1), ('1.0.9.2', 1), ('1.0.9.3', 1), ('1.0.9.4', 1)]
+    assert all(item['label'] != '其他版本' for item in chart['versions'])
+    assert next(item['href'] for item in chart['versions'] if item['label'] == '未知版本') == ''
+    version_href = next(item['href'] for item in chart['versions'] if item['label'] == '1.0.9.6')
+    assert parse_qs(urlsplit(version_href).query)['cli_version'] == ['1.0.9.6']
+    assert '3 条' in client.get(version_href).text
+
+    assert [(item['label'], item['value']) for item in chart['environments']] == [
+        ('prod', 3), ('dev', 2), ('staging', 2), ('test', 2), ('未知环境', 1), ('uat', 1)]
+    assert next(item['href'] for item in chart['environments'] if item['label'] == '未知环境') == ''
+    env_href = next(item['href'] for item in chart['environments'] if item['label'] == 'staging')
+    assert parse_qs(urlsplit(env_href).query)['environment'] == ['staging']
+    assert '2 条' in client.get(env_href).text
+
+    filtered = client.get('/cli-permission/admin/analytics', params=dict(params, environment='prod'))
+    filtered_chart = json.loads(unescape(re.search(r"data-analysis-chart='([^']+)'", filtered.text)[1]))
+    assert [(item['label'], item['value']) for item in filtered_chart['versions']] == [
+        ('1.0.9.6', 2), ('1.0.9.5', 1)]
+    assert [(item['label'], item['value']) for item in filtered_chart['environments']] == [('prod', 3)]
 
 
 def test_dashboard_rejects_bad_ranges_and_escapes_command(system):
