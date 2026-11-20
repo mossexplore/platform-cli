@@ -4,7 +4,7 @@ from html import unescape
 import json
 import re
 from urllib.parse import parse_qs, urlsplit
-from app.models import CallLog
+from app.models import CallLog, Environment
 from test_service import system, login
 
 
@@ -106,8 +106,8 @@ def test_dashboard_renders_decimal_aggregates_from_mysql(system, monkeypatch):
             self.has_sum = has_sum
 
         def one(self):
-            total, denied, users = self.result.one()
-            return Decimal(total), Decimal(denied), Decimal(users)
+            row = self.result.one()
+            return tuple(Decimal(value) for value in row)
 
         def all(self):
             rows = self.result.all()
@@ -140,6 +140,13 @@ def test_dashboard_renders_decimal_aggregates_from_mysql(system, monkeypatch):
     assert chart['versions'] == [{'label': '1.0.0', 'value': 2, 'href': chart['versions'][0]['href']}]
     assert chart['environments'] == [{'label': 'prod', 'value': 2, 'href': chart['environments'][0]['href']}]
     assert '<strong class="analytics-danger">1<small>次</small></strong>' in response.text
+    for view in ('distribution', 'ranking', 'versions'):
+        api = client.get('/cli-permission/admin/analytics/chart', params={
+            'view': view, 'top': '10', 'begin': '2026-09-10T00:00:00', 'end': '2026-09-11T23:59:59'})
+        assert api.status_code == 200
+        payload = api.json()
+        assert type(payload['total']) is int and payload['total'] == 2
+        assert all(type(item['value']) is int for item in payload['items'])
 
 
 def test_dashboard_versions_and_environments_full_distribution_and_drilldown(system):
@@ -185,6 +192,85 @@ def test_dashboard_versions_and_environments_full_distribution_and_drilldown(sys
     assert [(item['label'], item['value']) for item in filtered_chart['versions']] == [
         ('1.0.9.6', 2), ('1.0.9.5', 1)]
     assert [(item['label'], item['value']) for item in filtered_chart['environments']] == [('prod', 3)]
+
+
+def test_dashboard_chart_controls_top_and_environment_filtering(system):
+    app, client, _ = system
+    with app.state.sessions() as db:
+        db.add(Environment(name='staging', display_name='预发环境', platform_origin='https://staging.example.com'))
+        db.add(Environment(name='idle-env', display_name='空闲环境', platform_origin='https://idle.example.com'))
+        for index in range(12):
+            for _ in range(12 - index):
+                record(db, actor='alice', command=f'cmd-{index:02}', timestamp='2026-09-10T02:00:00',
+                       environment='prod', cli_version='1.0.9.6')
+        for index in range(3):
+            record(db, actor='bob', command=f'stage-cmd-{index:02}', timestamp='2026-09-10T02:00:00',
+                   environment='staging', cli_version='1.0.9.5')
+        record(db, actor='bob', command='stage-cmd-00', timestamp='2026-09-10T02:00:00',
+               environment='staging', cli_version='1.0.9.4')
+        record(db, actor='carol', command='legacy-cmd', timestamp='2026-09-10T02:00:00',
+               environment='legacy', cli_version='1.0.8.0')
+        db.commit()
+
+    base = {'grain': 'day', 'begin': '2026-09-10T00:00:00', 'end': '2026-09-10T23:59:59'}
+    assert client.get('/cli-permission/admin/analytics/chart', params=dict(base, view='distribution')).status_code == 401
+
+    login(client)
+    page = client.get('/cli-permission/admin/analytics', params=base)
+    assert page.status_code == 200
+    assert all(token in page.text for token in (
+        'data-analysis-controls', 'data-analysis-top', 'data-analysis-env',
+        'TOP10', 'TOP20', 'TOP30', 'TOP50', '全部'))
+    chart = json.loads(unescape(re.search(r"data-analysis-chart='([^']+)'", page.text)[1]))
+    assert chart['environment_options'] == ['idle-env', 'legacy', 'prod', 'staging']
+    assert chart['locked_environment'] == ''
+    assert len(chart['distribution']) == 11 and chart['distribution'][-1]['label'] == '其他命令'
+    assert sum(item['value'] for item in chart['distribution']) == 83
+    assert len(chart['ranking']) == 10
+
+    assert client.get('/cli-permission/admin/analytics/chart', params=dict(base, view='bad')).status_code == 400
+    assert client.get('/cli-permission/admin/analytics/chart', params=dict(base, view='ranking', top='15')).status_code == 400
+
+    dist_all = client.get('/cli-permission/admin/analytics/chart',
+                          params=dict(base, view='distribution', top='all')).json()
+    assert dist_all['total'] == 83 and len(dist_all['items']) == 16
+    assert all(item['label'] != '其他命令' for item in dist_all['items'])
+
+    dist_stage = client.get('/cli-permission/admin/analytics/chart',
+                            params=dict(base, view='distribution', top='10', chart_env='staging')).json()
+    assert dist_stage['total'] == 4
+    assert [(item['label'], item['value']) for item in dist_stage['items']] == [
+        ('stage-cmd-00', 2), ('stage-cmd-01', 1), ('stage-cmd-02', 1)]
+    stage_cmd_href = dist_stage['items'][0]['href']
+    assert parse_qs(urlsplit(stage_cmd_href).query)['environment'] == ['staging']
+    assert parse_qs(urlsplit(stage_cmd_href).query)['command_exact'] == ['stage-cmd-00']
+    assert '2 条' in client.get(stage_cmd_href).text
+
+    rank_all = client.get('/cli-permission/admin/analytics/chart',
+                          params=dict(base, view='ranking', top='all', chart_env='prod')).json()
+    assert len(rank_all['items']) == 12 and rank_all['total'] == 78
+    assert parse_qs(urlsplit(rank_all['items'][0]['href']).query)['environment'] == ['prod']
+
+    ver_stage = client.get('/cli-permission/admin/analytics/chart',
+                           params=dict(base, view='versions', chart_env='staging')).json()
+    assert ver_stage['total'] == 4
+    assert [(item['label'], item['value']) for item in ver_stage['items']] == [
+        ('1.0.9.5', 3), ('1.0.9.4', 1)]
+    ver_href = ver_stage['items'][0]['href']
+    assert parse_qs(urlsplit(ver_href).query)['environment'] == ['staging']
+    assert parse_qs(urlsplit(ver_href).query)['cli_version'] == ['1.0.9.5']
+    assert '3 条' in client.get(ver_href).text
+
+    empty_env = client.get('/cli-permission/admin/analytics/chart',
+                           params=dict(base, view='versions', chart_env='idle-env')).json()
+    assert empty_env['total'] == 0 and empty_env['items'] == []
+
+    locked_page = client.get('/cli-permission/admin/analytics', params=dict(base, environment='prod'))
+    assert '已由顶部筛选限定环境' in locked_page.text
+    locked_api = client.get('/cli-permission/admin/analytics/chart',
+                            params=dict(base, view='versions', environment='prod', chart_env='staging')).json()
+    assert locked_api['chart_env'] == 'prod'
+    assert [(item['label'], item['value']) for item in locked_api['items']] == [('1.0.9.6', 78)]
 
 
 def test_dashboard_rejects_bad_ranges_and_escapes_command(system):

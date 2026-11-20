@@ -7,12 +7,14 @@ from fastapi.responses import RedirectResponse
 from sqlalchemy import case, func, select, text
 
 from .admin_auth import admin_session
-from .models import CallLog, User, now
+from .models import CallLog, Environment, User, now
 from .security import BEIJING, display_time, expiry
 
 router = APIRouter()
 GRAINS = {'hour': '小时', 'day': '天', 'week': '周'}
 TOP_OPTIONS = (10, 20, 30, 50)
+CHART_VIEWS = ('distribution', 'ranking', 'versions')
+CHART_TOP_OPTIONS = {'10': 10, '20': 20, '30': 30, '50': 50, 'all': None}
 
 
 def count_value(value):
@@ -118,6 +120,83 @@ def log_link(params, start, stop, **extra):
     return '/cli-permission/admin/calls?' + urlencode(query)
 
 
+def build_filters(params, start, stop):
+    filters = [CallLog.created_at >= start, CallLog.created_at < stop]
+    for key in ('environment', 'business_id', 'cli_version'):
+        if params[key]:
+            filters.append(getattr(CallLog, key) == params[key])
+    if params['username']:
+        filters.append(CallLog.actor.contains(params['username'], autoescape=True))
+    return filters
+
+
+def build_distribution(db, filters, params, start, stop, limit=10, total=None, rows=None):
+    if rows is None:
+        rows = top_rows(db, filters, CallLog.command, limit=limit)
+    if total is None:
+        total = count_value(db.execute(select(func.count()).select_from(CallLog).where(*filters)).one()[0])
+    items = [{'label': name or 'unknown', 'value': count,
+        'href': log_link(params, start, stop, command_exact=name)} for name, count in rows]
+    if limit is not None:
+        other = total - sum(item['value'] for item in items)
+        if other > 0:
+            items.append({'label': '其他命令', 'value': other, 'href': ''})
+    return total, items
+
+
+def build_ranking(db, filters, params, start, stop, limit=10, rows=None):
+    if rows is None:
+        rows = top_rows(db, filters, CallLog.command, limit=limit)
+    return [{'label': name or 'unknown', 'value': count,
+        'href': log_link(params, start, stop, command_exact=name)} for name, count in rows]
+
+
+def build_versions(db, filters, params, start, stop):
+    return [{'label': name or '未知版本', 'value': count,
+        'href': log_link(params, start, stop, cli_version=name) if name else ''}
+        for name, count in top_rows(db, filters, CallLog.cli_version, limit=None)]
+
+
+def environment_options(db, environment_rows, locked_environment=''):
+    configured = db.scalars(select(Environment.name)).all()
+    names = {name for name in configured if name} | {name for name, _ in environment_rows if name}
+    if locked_environment:
+        names.add(locked_environment)
+    return sorted(names)
+
+
+@router.get('/admin/analytics/chart')
+def analytics_chart(request: Request, view: str = Query(..., max_length=24),
+                    top: str = Query('10', max_length=8),
+                    chart_env: str = Query('', max_length=64),
+                    grain: str = Query('day', max_length=8),
+                    begin: str = Query('', max_length=32), end: str = Query('', max_length=32),
+                    username: str = Query('', max_length=128), environment: str = Query('', max_length=64),
+                    business_id: str = Query('', max_length=256),
+                    cli_version: str = Query('', max_length=64)):
+    with request.app.state.sessions() as db:
+        admin_session(request, db)
+        if view not in CHART_VIEWS:
+            raise HTTPException(400, '图表视图无效')
+        if top not in CHART_TOP_OPTIONS:
+            raise HTTPException(400, 'TOP 数量仅支持 10、20、30、50 或全部')
+        start, stop = bounds(begin, end, grain)
+        effective_env = environment or chart_env
+        params = dict(username=username, environment=effective_env,
+                      business_id=business_id, cli_version=cli_version)
+        filters = build_filters(params, start, stop)
+        limit = CHART_TOP_OPTIONS[top]
+        if view == 'distribution':
+            total, items = build_distribution(db, filters, params, start, stop, limit=limit)
+        elif view == 'ranking':
+            items = build_ranking(db, filters, params, start, stop, limit=limit)
+            total = sum(item['value'] for item in items)
+        else:
+            items = build_versions(db, filters, params, start, stop)
+            total = sum(item['value'] for item in items)
+        return {'view': view, 'top': top, 'chart_env': effective_env, 'total': int(total), 'items': items}
+
+
 @router.get('/admin/analytics')
 def analytics(request: Request, grain: str = Query('day', max_length=8),
               begin: str = Query('', max_length=32), end: str = Query('', max_length=32),
@@ -137,12 +216,7 @@ def analytics(request: Request, grain: str = Query('day', max_length=8),
         start, stop = bounds(begin, end, grain)
         params = dict(username=username, environment=environment,
                       business_id=business_id, cli_version=cli_version)
-        filters = [CallLog.created_at >= start, CallLog.created_at < stop]
-        for key in ('environment', 'business_id', 'cli_version'):
-            if params[key]:
-                filters.append(getattr(CallLog, key) == params[key])
-        if username:
-            filters.append(CallLog.actor.contains(username, autoescape=True))
+        filters = build_filters(params, start, stop)
         fragment = request.headers.get('X-Fragment')
         if fragment in ('ranking-commands', 'ranking-actors'):
             kind = fragment.removeprefix('ranking-')
@@ -172,27 +246,29 @@ def analytics(request: Request, grain: str = Query('day', max_length=8),
                 'commands': [values.get(name, 0) for name in chart_commands],
                 'other': point['total'] - sum(values.values()),
                 'href': log_link(params, point['start'], point['stop'])})
-        chart_distribution = [{'label': name or 'unknown', 'value': count,
-            'href': log_link(params, start, stop, command_exact=name)} for name, count in commands[:5]]
-        other = total - sum(item['value'] for item in chart_distribution)
-        if other:
-            chart_distribution.append({'label': '其他命令', 'value': other, 'href': ''})
-        chart_ranking = [{'label': name or 'unknown', 'value': count,
-            'href': log_link(params, start, stop, command_exact=name)} for name, count in command_ranking[:10]]
-        chart_versions = [{'label': name or '未知版本', 'value': count,
-            'href': log_link(params, start, stop, cli_version=name) if name else ''}
-            for name, count in top_rows(db, filters, CallLog.cli_version, limit=None)]
+        _, chart_distribution = build_distribution(db, filters, params, start, stop,
+                                                   limit=10, total=total, rows=command_ranking[:10])
+        chart_ranking = build_ranking(db, filters, params, start, stop, limit=10, rows=command_ranking[:10])
+        chart_versions = build_versions(db, filters, params, start, stop)
+        environment_rows = top_rows(db, filters, CallLog.environment, limit=None)
         chart_environments = [{'label': name or '未知环境', 'value': count,
             'href': log_link(params, start, stop, environment=name) if name else ''}
-            for name, count in top_rows(db, filters, CallLog.environment, limit=None)]
+            for name, count in environment_rows]
+        env_options = environment_options(db, environment_rows, params['environment'])
+        begin_value = display_time(start).replace(' ', 'T')
+        end_value = display_time(stop - timedelta(seconds=1)).replace(' ', 'T')
+        chart_query = {'begin': begin_value, 'end': end_value, 'grain': grain}
+        for key in ('username', 'environment', 'business_id', 'cli_version'):
+            if params[key]:
+                chart_query[key] = params[key]
         actors = top_rows(db, filters, CallLog.actor, actors_top)
         actor_names = dict(db.execute(select(User.username, User.display_name).where(
             User.username.in_([name for name, _ in actors]))).all()) if actors else {}
         return request.app.state.templates.TemplateResponse(request=request, name='analytics.html', context={
             'admin': admin, 'csrf': session.csrf, 'tab': 'analytics', 'grain': grain,
             'advanced_active': any(params.values()),
-            'begin': display_time(start).replace(' ', 'T'),
-            'end': display_time(stop - timedelta(seconds=1)).replace(' ', 'T'),
+            'begin': begin_value,
+            'end': end_value,
             'start_label': display_time(start),
             'stop_label': display_time(stop - timedelta(seconds=1)), 'params': params,
             'total': total, 'allowed': total - rejected, 'rejected': rejected,
@@ -201,6 +277,8 @@ def analytics(request: Request, grain: str = Query('day', max_length=8),
             'chart': {'points': chart_points, 'commands': [name or 'unknown' for name in chart_commands],
                       'distribution': chart_distribution, 'ranking': chart_ranking,
                       'versions': chart_versions, 'environments': chart_environments,
+                      'environment_options': env_options, 'locked_environment': params['environment'],
+                      'query_url': '/cli-permission/admin/analytics/chart?' + urlencode(chart_query),
                       'grain': GRAINS[grain]},
             'commands': commands, 'actors': actors, 'actor_names': actor_names,
             'commands_top': commands_top, 'actors_top': actors_top, 'top_options': TOP_OPTIONS,

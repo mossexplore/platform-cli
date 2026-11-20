@@ -15,10 +15,16 @@ if (host) {
   const graphic = host.querySelector('.analytics-plot-graphic');
   const legend = host.querySelector('.analytics-plot-legend');
   const scrollHint = host.querySelector('.analytics-scroll-hint');
+  const controlsBar = host.querySelector('[data-analysis-controls]');
+  const topWrap = host.querySelector('[data-analysis-top-wrap]');
+  const envWrap = host.querySelector('[data-analysis-env-wrap]');
+  const topSelect = host.querySelector('[data-analysis-top]');
+  const envSelect = host.querySelector('[data-analysis-env]');
+  const errorBox = host.querySelector('[data-analysis-error]');
   const description = document.querySelector('[data-analysis-description]');
   const buttons = [...document.querySelectorAll('[data-analysis-view]')];
   const colors = ['#0052d9', '#00a870', '#7b61c9', '#ed7b2f', '#df658b', '#a9aeb8'];
-  const versionColors = ['#0052d9', '#00a870', '#7b61c9', '#ed7b2f', '#df658b',
+  const palette = ['#0052d9', '#00a870', '#7b61c9', '#ed7b2f', '#df658b',
     '#029cd4', '#e3a008', '#4f6ef7', '#2ba471', '#d54941', '#8b5cf6', '#6b7280'];
   const ns = 'http://www.w3.org/2000/svg';
   const labels = {
@@ -29,7 +35,25 @@ if (host) {
     versions: '所选时段内各 CLI 版本的调用次数占比',
     environments: '所选时段内各环境的调用次数',
   };
+  const lockedEnv = data.locked_environment || '';
+  const viewControls = {
+    distribution: {top: true, env: true},
+    ranking: {top: true, env: true},
+    versions: {top: false, env: true},
+  };
+  const viewState = {
+    distribution: {top: '10', env: lockedEnv},
+    ranking: {top: '10', env: lockedEnv},
+    versions: {top: 'all', env: lockedEnv},
+  };
+  const cache = new Map([
+    [`distribution|10|${lockedEnv}`, data.distribution || []],
+    [`ranking|10|${lockedEnv}`, data.ranking || []],
+    [`versions|all|${lockedEnv}`, data.versions || []],
+  ]);
   let active = 'commands';
+  let activeController = null;
+  let requestSeq = 0;
 
   function svgNode(tag, attributes = {}, content) {
     const node = document.createElementNS(ns, tag);
@@ -141,28 +165,16 @@ if (host) {
     legend.lastElementChild?.classList.add('analysis-legend-danger');
   }
 
-  function distributionPie() {
-    const width = Math.max(340, graphic.clientWidth);
-    const height = 340;
-    const svg = canvas(width, height);
-    const total = data.distribution.reduce((sum, item) => sum + item.value, 0);
-    const radius = 110;
-    const circumference = 2 * Math.PI * radius;
-    let offset = 0;
-    data.distribution.forEach((item, index) => {
-      const length = item.value / total * circumference;
-      linked(svg, item.href, `${item.label}：${item.value} 次（${(item.value / total * 100).toFixed(1)}%）`, target => {
-        add(target, 'circle', {cx: width / 2, cy: 158, r: radius, fill: 'none',
-          stroke: colors[index], 'stroke-width': 46,
-          'stroke-dasharray': `${Math.max(0, length - 2)} ${circumference}`,
-          'stroke-dashoffset': -offset, transform: `rotate(-90 ${width / 2} 158)`,
-          class: 'analysis-mark'});
-      });
-      offset += length;
-    });
-    add(svg, 'text', {x: width / 2, y: 152, 'text-anchor': 'middle', class: 'analysis-pie-total'}, String(total));
-    add(svg, 'text', {x: width / 2, y: 176, 'text-anchor': 'middle', class: 'analysis-axis-label'}, '次授权检查');
-    legendItems(data.distribution.map(item => `${item.label} ${item.value} 次 · ${(item.value / total * 100).toFixed(1)}%`));
+  function renderEmpty(message) {
+    const box = document.createElement('div');
+    box.className = 'empty analytics-plot-empty';
+    const strong = document.createElement('strong');
+    strong.textContent = message;
+    const hint = document.createElement('p');
+    hint.textContent = '可切换其他环境或调整顶部查询条件。';
+    box.append(strong, hint);
+    graphic.replaceChildren(box);
+    legendItems([]);
   }
 
   function placeSideLabels(entries, minY, maxY, minGap) {
@@ -184,11 +196,10 @@ if (host) {
     return sorted;
   }
 
-  function versionPie() {
-    const items = data.versions || [];
+  function calloutPie(items, {emptyMessage, otherLabel = null}) {
     const total = items.reduce((sum, item) => sum + item.value, 0);
     if (!total) {
-      legendItems([]);
+      renderEmpty(emptyMessage);
       return;
     }
     const radius = 104;
@@ -205,10 +216,10 @@ if (host) {
       const startAngle = accumulated * 2 * Math.PI - Math.PI / 2;
       const sweep = fraction * 2 * Math.PI;
       const midAngle = items.length === 1 ? 0 : startAngle + sweep / 2;
+      const color = otherLabel && item.label === otherLabel ? '#a9aeb8' : palette[index % palette.length];
       const slice = {
         item,
-        index,
-        color: versionColors[index % versionColors.length],
+        color,
         offset: accumulated * circumference,
         length: fraction * circumference,
         pct: (fraction * 100).toFixed(1),
@@ -267,9 +278,9 @@ if (host) {
     legendItems([]);
   }
 
-  function categoryBars(items, xAxisLabel, legendLabel) {
+  function categoryBars(items, xAxisLabel, legendLabel, emptyMessage = '所选条件下暂无调用记录') {
     if (!items.length) {
-      legendItems([]);
+      renderEmpty(emptyMessage);
       return;
     }
     const width = Math.max(560, graphic.clientWidth, items.length * 130 + 70);
@@ -311,12 +322,85 @@ if (host) {
     legendItems([legendLabel]);
   }
 
-  function rankingBars() {
-    categoryBars(data.ranking || [], '命令名称', '按命令汇总的授权检查次数');
+  function cacheKey(view, state) {
+    return `${view}|${state.top}|${state.env}`;
   }
 
-  function environmentBars() {
-    categoryBars(data.environments || [], '环境标识', '按环境汇总的授权检查次数');
+  function emptyTextFor(env) {
+    return env ? `环境 ${env} 在所选范围内暂无调用记录` : '所选范围内暂无调用记录';
+  }
+
+  function drawView(view, items) {
+    if (view === 'commands') commandBars();
+    else if (view === 'trend') trendLines();
+    else if (view === 'environments') categoryBars(data.environments || [], '环境标识', '按环境汇总的授权检查次数');
+    else if (view === 'distribution') {
+      calloutPie(items, {emptyMessage: emptyTextFor(viewState.distribution.env), otherLabel: '其他命令'});
+    } else if (view === 'ranking') {
+      const env = viewState.ranking.env;
+      const legendLabel = env ? `按命令汇总的授权检查次数（环境：${env}）` : '按命令汇总的授权检查次数';
+      categoryBars(items, '命令名称', legendLabel, emptyTextFor(env));
+    } else if (view === 'versions') {
+      calloutPie(items, {emptyMessage: emptyTextFor(viewState.versions.env)});
+    }
+    const rendered = graphic.querySelector('svg');
+    scrollHint.hidden = !rendered || rendered.width.baseVal.value <= graphic.clientWidth;
+  }
+
+  function syncControls(view) {
+    if (!controlsBar) return;
+    const config = viewControls[view];
+    controlsBar.hidden = !config;
+    if (errorBox) {
+      errorBox.textContent = '';
+      errorBox.hidden = true;
+    }
+    if (!config) return;
+    topWrap.hidden = !config.top;
+    envWrap.hidden = !config.env;
+    if (config.top) topSelect.value = viewState[view].top;
+    if (config.env) envSelect.value = viewState[view].env;
+  }
+
+  async function loadAndDraw(view, previousState = null) {
+    const state = viewState[view];
+    const key = cacheKey(view, state);
+    if (cache.has(key)) {
+      drawView(view, cache.get(key));
+      return;
+    }
+    activeController?.abort();
+    const controller = new AbortController();
+    activeController = controller;
+    const ticket = ++requestSeq;
+    const url = new URL(data.query_url, location.href);
+    url.searchParams.set('view', view);
+    url.searchParams.set('top', state.top);
+    url.searchParams.set('chart_env', state.env);
+    host.setAttribute('aria-busy', 'true');
+    try {
+      const response = await fetch(url, {signal: controller.signal});
+      if (ticket !== requestSeq) return;
+      if (response.status === 401) { location.assign('/cli-permission/login'); return; }
+      if (response.redirected) { location.assign(response.url); return; }
+      if (!response.ok) throw new Error('图表加载失败，请重试');
+      const payload = await response.json();
+      if (ticket !== requestSeq) return;
+      cache.set(key, payload.items || []);
+      if (active === view) drawView(view, payload.items || []);
+    } catch (problem) {
+      if (ticket !== requestSeq || problem.name === 'AbortError') return;
+      if (previousState) {
+        viewState[view] = previousState;
+        syncControls(view);
+      }
+      if (errorBox) {
+        errorBox.textContent = problem.message === 'Failed to fetch' ? '连接中断，原图表已保留，请重试' : problem.message;
+        errorBox.hidden = false;
+      }
+    } finally {
+      if (ticket === requestSeq) host.removeAttribute('aria-busy');
+    }
   }
 
   function render(view) {
@@ -328,13 +412,41 @@ if (host) {
     });
     description.textContent = labels[view];
     graphic.setAttribute('aria-label', `${buttons.find(button => button.dataset.analysisView === view).textContent}：${labels[view]}`);
-    ({commands: commandBars, trend: trendLines, distribution: distributionPie, ranking: rankingBars,
-      versions: versionPie, environments: environmentBars})[view]();
-    const rendered = graphic.querySelector('svg');
-    scrollHint.hidden = !rendered || rendered.width.baseVal.value <= graphic.clientWidth;
+    syncControls(view);
+    if (viewControls[view]) {
+      const key = cacheKey(view, viewState[view]);
+      if (cache.has(key)) drawView(view, cache.get(key));
+      else loadAndDraw(view);
+    } else {
+      drawView(view);
+    }
   }
 
+  function onControlChange() {
+    if (!viewControls[active]) return;
+    const previous = {...viewState[active]};
+    viewState[active] = {
+      top: viewControls[active].top ? topSelect.value : viewState[active].top,
+      env: lockedEnv || envSelect.value,
+    };
+    if (errorBox) {
+      errorBox.textContent = '';
+      errorBox.hidden = true;
+    }
+    loadAndDraw(active, previous);
+  }
+
+  topSelect?.addEventListener('change', onControlChange);
+  envSelect?.addEventListener('change', onControlChange);
   buttons.forEach(button => button.addEventListener('click', () => render(button.dataset.analysisView)));
-  new ResizeObserver(() => render(active)).observe(graphic);
+  new ResizeObserver(() => {
+    if (!graphic.clientWidth) return;
+    if (viewControls[active]) {
+      const key = cacheKey(active, viewState[active]);
+      if (cache.has(key)) drawView(active, cache.get(key));
+    } else {
+      drawView(active);
+    }
+  }).observe(graphic);
   render(active);
 }

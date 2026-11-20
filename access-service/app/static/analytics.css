@@ -37,6 +37,15 @@
 a:hover .analysis-mark, a:focus .analysis-mark { opacity: .72; }
 .analytics-plot-legend { display: flex; justify-content: center; flex-wrap: wrap; gap: 10px 20px; padding: 12px 0 0; border-top: 1px solid var(--fill); font-size: 12px; color: var(--text-2); }
 .analytics-plot-legend[hidden] { display: none; }
+.analytics-plot-controls { display: flex; justify-content: center; align-items: center; flex-wrap: wrap; gap: 12px 20px; padding: 12px 0 0; margin-top: 8px; border-top: 1px solid var(--fill); }
+.analytics-plot-controls[hidden] { display: none; }
+.analytics-control { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text-2); }
+.analytics-control[hidden] { display: none; }
+.analytics-control select { width: auto; min-width: 112px; min-height: 30px; padding: 4px 28px 4px 10px; font-size: 13px; }
+.analytics-control-note { font-size: 12px; color: var(--text-3); }
+.analytics-control-error { font-size: 12px; color: var(--danger); }
+.analytics-control-error[hidden] { display: none; }
+.analytics-plot-empty { min-height: 260px; display: flex; flex-direction: column; align-items: center; justify-content: center; }
 .analytics-plot-legend span { display: inline-flex; align-items: center; gap: 6px; max-width: 260px; overflow-wrap: anywhere; }
 .analysis-swatch { display: inline-block; width: 9px; height: 9px; border-radius: 2px; flex: none; }
 .analysis-swatch-0 { background: #0052d9; } .analysis-swatch-1 { background: #00a870; }
