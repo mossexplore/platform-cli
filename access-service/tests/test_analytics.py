@@ -221,6 +221,7 @@ def test_dashboard_chart_controls_top_and_environment_filtering(system):
     assert all(token in page.text for token in (
         'data-analysis-controls', 'data-analysis-top', 'data-analysis-env',
         'TOP10', 'TOP20', 'TOP30', 'TOP50', '全部'))
+    assert page.text.index('data-analysis-controls') < page.text.index('analytics-plot-scroll')
     chart = json.loads(unescape(re.search(r"data-analysis-chart='([^']+)'", page.text)[1]))
     assert chart['environment_options'] == ['idle-env', 'legacy', 'prod', 'staging']
     assert chart['locked_environment'] == ''
