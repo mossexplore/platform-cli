@@ -236,7 +236,7 @@ func TestServiceLogsRemovedAndTreeUpdated(t *testing.T) {
 			t.Fatalf("%s tree still contains removed ml service logs:\n%s", manager, out)
 		}
 
-		// Live Cobra help for Go-diverged service commands.
+		// The help panel lists the registered Go service diagnostics.
 		code, out, stderr = run(t, paths, "service", "host", "--help")
 		if code != 0 || stderr != "" || !strings.Contains(out, "pod-event") || !strings.Contains(out, "log-stdout") || !strings.Contains(out, "log-search") {
 			t.Fatalf("%s service host --help failed: code=%d stderr=%q out=%q", manager, code, stderr, out)

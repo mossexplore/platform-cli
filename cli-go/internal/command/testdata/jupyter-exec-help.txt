@@ -1,0 +1,35 @@
+
+ Usage: ml jupyter exec [OPTIONS] COMMAND...
+
+ 独立 Python Kernel 启动 POSIX
+ 子进程，收集结果后释放 Kernel；不重试。
+
+╭─ Arguments ──────────────────────────────────╮
+│ *    command      COMMAND...  --             │
+│                               后的程序及参 … │
+│                               Shell          │
+│                               [required]     │
+╰──────────────────────────────────────────────╯
+╭─ Options ────────────────────────────────────╮
+│ --cwd                TEXT        远端已有目… │
+│                                  Jupyter     │
+│                                  根目录      │
+│ --timeout            FLOAT       [default:   │
+│                      RANGE       60]         │
+│                      [x>=0.1]                │
+│ --startup-…          FLOAT       [default:   │
+│                      RANGE       60]         │
+│                      [x>=0.1]                │
+│ --max-outp…          INTEGER     stdout/std… │
+│                      RANGE       各自保留的… │
+│                      [1<=x<=104  [default:   │
+│                      85760]      1048576]    │
+│ --kernel             TEXT        远端 Pytho… │
+│                                  Kernel 名称 │
+│ --output     -o      TEXT        [default:   │
+│                                  text]       │
+│ --studio-id          TEXT                    │
+│ --help                           Show this   │
+│                                  message and │
+│                                  exit.       │
+╰──────────────────────────────────────────────╯

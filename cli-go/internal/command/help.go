@@ -1,6 +1,8 @@
 package command
 
 import (
+	_ "embed"
+	"encoding/json"
 	"strings"
 
 	"github.com/mossexplore/platform-cli/cli-go/internal/output"
@@ -8,195 +10,167 @@ import (
 	"github.com/spf13/pflag"
 )
 
+//go:embed python_help.json
+var pythonHelpJSON []byte
+
+type helpPage struct {
+	Path, Usage, Intro string
+	Arguments, Options []output.HelpRow
+	Children           []string
+}
+
+var pythonHelp = loadPythonHelp()
+
+func loadPythonHelp() map[string]helpPage {
+	var pages []helpPage
+	if err := json.Unmarshal(pythonHelpJSON, &pages); err != nil {
+		panic(err)
+	}
+	byPath := make(map[string]helpPage, len(pages))
+	for _, page := range pages {
+		byPath[page.Path] = page
+	}
+	return byPath
+}
+
 func showHelp(cmd *cobra.Command, _ []string) {
-	if err := writeHelp(cmd); err != nil {
+	path := helpPath(cmd)
+	page, exists := pythonHelp[path]
+	children := helpChildren(cmd, page.Children)
+	if !exists {
+		page = liveHelpPage(cmd, len(children) > 0)
+	}
+	if err := output.WriteHelp(cmd.OutOrStdout(), cmd.CommandPath(), page.Usage, page.Intro,
+		page.Arguments, helpOptions(cmd, page.Options), children); err != nil {
 		cmd.PrintErrln(err)
 	}
 }
 
-func writeHelp(cmd *cobra.Command) error {
-	cmd.InitDefaultHelpFlag()
-	cmd.InitDefaultVersionFlag()
-	path := strings.Join(strings.Fields(cmd.CommandPath())[1:], " ")
-	page, ok := serviceHelpPages[path]
-	if !ok {
-		page = helpPages[path]
-	}
-	intro := strings.TrimSpace(cmd.Long)
-	if page.intro != "" {
-		intro = page.intro
-	}
-	if intro == "" {
-		intro = cmd.Short + "。"
-	}
-	if page.note != "" {
-		intro += "\n" + page.note
-	}
+func helpPath(cmd *cobra.Command) string {
+	_, path, _ := strings.Cut(cmd.CommandPath(), " ")
+	return path
+}
+
+func liveHelpPage(cmd *cobra.Command, group bool) helpPage {
 	_, positional, _ := strings.Cut(cmd.Use, " ")
-	usage := cmd.CommandPath()
-	children := helpChildren(cmd)
-	if len(children) > 0 {
-		if cmd.Runnable() {
-			usage += " [子命令]"
-		} else {
-			usage += " <子命令>"
+	page := helpPage{Usage: "[OPTIONS]", Intro: cmd.Short}
+	if group {
+		page.Usage += " COMMAND [ARGS]..."
+	}
+	if positional != "" {
+		page.Usage += " " + positional
+	}
+	for _, syntax := range strings.Fields(positional) {
+		name := strings.ToLower(strings.Trim(syntax, "[]"))
+		row := output.HelpRow{Label: name, Value: syntax, Required: !strings.HasPrefix(syntax, "[")}
+		if row.Required {
+			row.Value = "TEXT"
+			row.Description = []string{"[required]"}
+		}
+		if name == "service_id" {
+			row.Description = append([]string{"服务 ID"}, row.Description...)
+		}
+		page.Arguments = append(page.Arguments, row)
+	}
+	return page
+}
+
+func helpChildren(cmd *cobra.Command, pythonOrder []string) []output.HelpRow {
+	children := cmd.Commands()
+	byName := make(map[string]*cobra.Command, len(children))
+	for _, child := range children {
+		if child.IsAvailableCommand() {
+			byName[child.Name()] = child
 		}
 	}
-	cmd.InheritedFlags() // Merge registered persistent flags into Flags before listing options.
-	options := cmd.Flags()
 	var rows []output.HelpRow
-	var required []string
-	options.VisitAll(func(flag *pflag.Flag) {
-		if flag.Hidden || flag.Name == "help" {
+	appendChild := func(child *cobra.Command) {
+		if child == nil {
 			return
 		}
-		rows = append(rows, helpFlagRow(path, flag))
-		if helpFlagRequired(flag) {
-			required = append(required, helpFlagLabel(path, flag, false))
+		intro := child.Short
+		if page, ok := pythonHelp[helpPath(child)]; ok {
+			intro, _, _ = strings.Cut(page.Intro, "\n\n")
 		}
-	})
-	if flag := options.Lookup("help"); flag != nil && !flag.Hidden {
-		rows = append(rows, helpFlagRow(path, flag))
+		rows = append(rows, output.HelpRow{Label: child.Name(), Description: []string{intro}})
+		delete(byName, child.Name())
 	}
-
-	arguments := positional
-	if page.argumentUsage != "" {
-		arguments = page.argumentUsage
+	for _, name := range pythonOrder {
+		appendChild(byName[name])
 	}
-	suffix := strings.Join(append(required, "[选项]"), " ")
-	switch {
-	case strings.HasPrefix(arguments, "-- "):
-		usage += " " + suffix + " " + arguments
-	case arguments != "":
-		usage += " " + arguments + " " + suffix
-	default:
-		usage += " " + suffix
-	}
-	usageLines := []string{usage}
-	if page.alternateTarget != "" {
-		usageLines = append(usageLines, cmd.CommandPath()+" "+page.alternateTarget+" [选项]")
-	}
-	examples := page.examples
-	if len(examples) == 0 && cmd.Example != "" {
-		examples = strings.Split(cmd.Example, "\n")
-	}
-	if len(examples) == 0 && len(children) > 0 {
-		examples = []string{cmd.CommandPath() + " " + children[0].Label + " --help"}
-	}
-	for _, example := range examples {
-		if strings.Contains(example, exampleID) {
-			intro += "\n示例 ID 为演示值，请换成当前环境中实际查询到的 ID。"
-			break
-		}
-	}
-	var argRows []output.HelpRow
-	for _, row := range helpArguments(cmd, positional) {
-		argRows = append(argRows, output.HelpRow{
-			Label: row[0], Description: row[1], Required: !strings.HasPrefix(row[0], "["),
-		})
-	}
-
-	return output.WriteHelpTable(cmd.OutOrStdout(), usageLines, intro, []output.HelpBlock{
-		{Rows: children},
-		{Title: "示例", PreserveWords: true, Lines: examples},
-		{Title: "位置参数", Rows: argRows},
-		{Title: "选项", Rows: rows},
-	})
-}
-
-func helpChildren(cmd *cobra.Command) []output.HelpRow {
-	var children []output.HelpRow
-	for _, child := range cmd.Commands() {
-		if child.IsAvailableCommand() {
-			children = append(children, output.HelpRow{Label: child.Name(), Description: child.Short})
-		}
-	}
-	return children
-}
-
-func helpFlagRequired(flag *pflag.Flag) bool {
-	return len(flag.Annotations[cobra.BashCompOneRequiredFlag]) > 0
-}
-
-func helpFlagLabel(path string, flag *pflag.Flag, shorthand bool) string {
-	name := "--" + flag.Name
-	if shorthand && flag.Shorthand != "" && flag.ShorthandDeprecated == "" {
-		name = "-" + flag.Shorthand + ", " + name
-	}
-	if value, _ := pflag.UnquoteUsage(flag); value != "" {
-		name += " <" + helpFlagValue(path, flag, value) + ">"
-	}
-	return name
-}
-
-func helpFlagRow(path string, flag *pflag.Flag) output.HelpRow {
-	_, description := pflag.UnquoteUsage(flag)
-	required := helpFlagRequired(flag)
-	switch {
-	case flag.Name == "help":
-		description = "显示帮助"
-	case flag.Name == "version" && path == "":
-		description = "显示 CLI 版本并退出"
-	case required:
-		description += "（必填）"
-	case flag.Name == "output" && flag.DefValue == "":
-		description += "，默认使用当前环境配置"
-	case flag.DefValue != "" && flag.DefValue != "[]" && flag.DefValue != "false" && !strings.Contains(description, "默认"):
-		description += "，默认 " + flag.DefValue
-	}
-	return output.HelpRow{
-		Label: helpFlagLabel(path, flag, true), Description: description, Required: required, Switch: flag.Value.Type() == "bool",
-	}
-}
-
-func helpArguments(cmd *cobra.Command, positional string) [][2]string {
-	var rows [][2]string
-	for _, syntax := range strings.Fields(positional) {
-		if syntax == "--" {
-			continue
-		}
-		name := strings.TrimSuffix(strings.Trim(syntax, "[]"), "...")
-		description := argumentHelp[name]
-		if cmd.Parent() != nil && cmd.Parent().Name() == "env" && name == "NAME" {
-			description = "环境名称"
-		}
-		if cmd.Parent() != nil && cmd.Parent().Name() == "notebook" && name == "SOURCE" {
-			description = "本地 Notebook 路径"
-		}
-		if strings.HasPrefix(syntax, "[") {
-			description += "（可选）"
-		} else {
-			description += "（必填）"
-		}
-		rows = append(rows, [2]string{syntax, description})
+	for _, child := range children {
+		appendChild(byName[child.Name()])
 	}
 	return rows
 }
 
-var argumentHelp = map[string]string{
-	"command":       "要查看帮助的命令路径，可包含多级子命令",
-	"ALGORITHM_ID":  "算法仓 ID",
-	"ARG":           "传给远端程序的参数，可传多个",
-	"DATASET_ID":    "数据集 ID",
-	"ENV_ID":        "Web Studio 实例 ID",
-	"EXPERIMENT_ID": "训练看板实验 ID",
-	"JOB_ID":        "执行记录 ID",
-	"KEY":           "配置项名称",
-	"LOCAL":         "本地文件路径",
-	"LOCAL_FILE":    "待上传的本地文件路径",
-	"MODEL_ID":      "模型 ID",
-	"NAME":          "远程终端名称",
-	"NAMESPACE_ID":  "训练看板项目空间 ID",
-	"PATH":          "相对 Jupyter 根目录的远端路径",
-	"PROGRAM":       "要在远端执行的程序",
-	"PROJECT_ID":    "项目 ID",
-	"REMOTE":        "相对 Jupyter 根目录的远端文件路径",
-	"SERVICE_ID":    "服务 ID",
-	"SET_ID":        "特征集 ID",
-	"SOURCE":        "远端源路径",
-	"SOURCE_ID":     "源算法仓 ID",
-	"TARGET":        "远端目标路径",
-	"TARGET_DIR":    "远端目标目录",
-	"TASK_ID":       "任务 ID",
-	"TEMPLATE_ID":   "模板 ID",
+const helpDescription = "Show this message and exit."
+
+func helpOptions(cmd *cobra.Command, reference []output.HelpRow) []output.HelpRow {
+	cmd.InitDefaultHelpFlag()
+	cmd.InitDefaultVersionFlag()
+	cmd.InheritedFlags()
+	flags := cmd.Flags()
+	flags.SortFlags = false
+
+	var rows []output.HelpRow
+	listed := make(map[string]bool)
+	for _, source := range reference {
+		row := source
+		var labels []string
+		for _, label := range strings.Split(row.Label, ",") {
+			name := strings.TrimPrefix(label, "--")
+			if flag := flags.Lookup(name); flag != nil && !flag.Hidden {
+				labels = append(labels, label)
+				listed[name] = true
+				if isRequiredHelpFlag(flag) && !row.Required {
+					row.Required = true
+					row.Description = append(append([]string(nil), row.Description...), "[required]")
+				}
+			}
+		}
+		if len(labels) > 0 && row.Label != "--help" {
+			row.Label = strings.Join(labels, ",")
+			rows = append(rows, row)
+		}
+	}
+	flags.VisitAll(func(flag *pflag.Flag) {
+		if !flag.Hidden && flag.Name != "help" && !listed[flag.Name] {
+			rows = append(rows, liveHelpOption(flag))
+		}
+	})
+	return append(rows, output.HelpRow{Label: "--help", Description: []string{helpDescription}})
+}
+
+func isRequiredHelpFlag(flag *pflag.Flag) bool {
+	return len(flag.Annotations[cobra.BashCompOneRequiredFlag]) > 0
+}
+
+func liveHelpOption(flag *pflag.Flag) output.HelpRow {
+	placeholder, description := pflag.UnquoteUsage(flag)
+	row := output.HelpRow{
+		Label: "--" + flag.Name, Required: isRequiredHelpFlag(flag),
+		Description: []string{description},
+	}
+	if flag.Shorthand != "" && flag.ShorthandDeprecated == "" {
+		row.Short = "-" + flag.Shorthand
+	}
+	switch flag.Value.Type() {
+	case "bool":
+	case "int", "int64", "uint", "uint64":
+		row.Value = "INTEGER"
+	case "float32", "float64":
+		row.Value = "FLOAT"
+	case "string", "stringSlice", "stringArray":
+		row.Value = "TEXT"
+	default:
+		row.Value = strings.ToUpper(placeholder)
+	}
+	if flag.DefValue != "" && flag.DefValue != "[]" && flag.DefValue != "false" {
+		row.Description = append(row.Description, "[default: "+flag.DefValue+"]")
+	}
+	if row.Required {
+		row.Description = append(row.Description, "[required]")
+	}
+	return row
 }

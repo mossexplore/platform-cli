@@ -71,7 +71,7 @@ func TestAllBusinessListRequests(t *testing.T) {
 			setTestAdminRole(t, paths, false, true)
 			args := strings.Fields(tc.command)
 			code, out, stderr := run(t, paths, append(args, "--help")...)
-			if code != 0 || !strings.Contains(out, "-A, --all-business") {
+			if code != 0 || stderr != "" || !strings.Contains(out, "--all-business") || !strings.Contains(out, " -A ") {
 				t.Fatalf("missing Go option help: %d %s %s", code, out, stderr)
 			}
 			code, out, stderr = run(t, paths, append(args, "-A", "-o", "json")...)

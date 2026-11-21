@@ -1,48 +1,51 @@
 package output
 
 import (
-	"fmt"
 	"io"
+	"math"
 	"os"
+	"regexp"
+	"strconv"
 	"strings"
+	"unicode/utf8"
+
+	"github.com/mattn/go-runewidth"
 )
 
+// Rich treats East Asian ambiguous characters, including panel borders, as one cell.
+var helpCells = runewidth.Condition{StrictEmojiNeutral: true}
+
 type HelpRow struct {
-	Label, Description string
-	Required           bool
-	Switch             bool
-}
-
-type HelpBlock struct {
-	Title         string
-	Lines         []string
-	Rows          []HelpRow
-	PreserveWords bool
-}
-
-func WriteHelpTable(out io.Writer, usage []string, intro string, sections []HelpBlock) error {
-	style := helpStyle{}
-	if file, ok := out.(*os.File); ok {
-		if _, noColor := os.LookupEnv("NO_COLOR"); !noColor {
-			color, restore := enableHelpColor(file)
-			if restore != nil {
-				defer restore()
-			}
-			if color {
-				style = helpStyle{
-					dim: "\x1b[2m", bold: "\x1b[1m", label: "\x1b[1;36m", toggle: "\x1b[1;32m",
-					marker: "\x1b[31m", required: "\x1b[2;31m", yellow: "\x1b[1;33m",
-				}
-			}
-		}
-	}
-	table := renderHelpTable(usage, intro, sections, helpTerminalWidth(out), style)
-	_, err := io.WriteString(out, table)
-	return err
+	Label, Short, Value string
+	Description         []string
+	Required            bool
 }
 
 type helpStyle struct {
-	dim, bold, label, toggle, marker, required, yellow string
+	dim, bold, label, toggle, marker, required, yellow, usage string
+}
+
+func WriteHelp(out io.Writer, path, syntax, intro string, arguments, options, commands []HelpRow) error {
+	style := helpStyle{}
+	if file, ok := out.(*os.File); ok && os.Getenv("NO_COLOR") == "" {
+		color, restore := enableHelpColor(file)
+		if restore != nil {
+			defer restore()
+		}
+		if color {
+			style = helpStyle{
+				dim: "\x1b[2m", bold: "\x1b[1m", label: "\x1b[1;36m", toggle: "\x1b[1;32m",
+				marker: "\x1b[31m", required: "\x1b[2;31m", yellow: "\x1b[1;33m", usage: "\x1b[1;33m",
+			}
+		}
+	}
+	terminal := terminalWidth(out)
+	width := terminal
+	if explicit, err := strconv.Atoi(os.Getenv("TERMINAL_WIDTH")); err == nil && explicit > 0 {
+		width = explicit
+	}
+	_, err := io.WriteString(out, renderHelp(path, syntax, intro, arguments, options, commands, width, terminal, style))
+	return err
 }
 
 func paintHelp(text, color string) string {
@@ -52,169 +55,287 @@ func paintHelp(text, color string) string {
 	return color + text + "\x1b[0m"
 }
 
-func renderHelpTable(usage []string, intro string, sections []HelpBlock, width int, style helpStyle) string {
-	var text strings.Builder
-	width = max(width, 24)
-	contentWidth := width - 4
-	border := func(left, title, right string) {
-		label := ""
-		if title != "" {
-			label = "     " + title + " "
+type helpText struct {
+	strings.Builder
+	width int
+	style helpStyle
+}
+
+func renderHelp(path, syntax, intro string, arguments, options, commands []HelpRow, width, terminal int, style helpStyle) string {
+	h := helpText{width: max(width, 24), style: style}
+	h.line("", 0)
+	for i, line := range wrapHelp(helpUsage(path, syntax, terminal), h.width-2, true) {
+		colored := paintHelp(line, style.bold)
+		if i == 0 {
+			colored = paintHelp("Usage: ", style.usage) + paintHelp(strings.TrimPrefix(line, "Usage: "), style.bold)
 		}
-		line := left + label + strings.Repeat("─", width-2-cells.StringWidth(label)) + right
-		text.WriteString(paintHelp(line, style.dim) + "\n")
+		h.line(" "+colored, helpCells.StringWidth(line)+1)
 	}
-	panel := helpPanel{text: &text, style: style, contentWidth: contentWidth}
-	border("╭", "用途", "╮")
-	for index, line := range usage {
-		const indent = 6
-		prefix := strings.Repeat(" ", indent)
-		if index == 0 {
-			prefix = paintHelp("用法：", style.yellow)
-		}
-		for _, wrapped := range strings.Split(wrapHelpText(line, contentWidth-indent, true), "\n") {
-			panel.line(prefix+paintHelp(wrapped, style.bold), indent+cells.StringWidth(wrapped))
-			prefix = strings.Repeat(" ", indent)
-		}
-	}
+	h.line("", 0)
 	if intro != "" {
-		if len(usage) > 0 {
-			panel.line("", 0)
+		for _, line := range wrapHelp(intro, h.width-2, true) {
+			h.line(" "+line, helpCells.StringWidth(line)+1)
 		}
-		panel.lines(strings.Split(intro, "\n"), false)
+		h.line("", 0)
 	}
-	for _, section := range sections {
-		if len(section.Rows)+len(section.Lines) == 0 {
-			continue
-		}
-		if section.Title == "" {
-			panel.line("", 0)
-		} else {
-			border("├", section.Title, "┤")
-		}
-		block := helpPanel{text: &text, style: style, contentWidth: contentWidth}
-		block.write(section)
-	}
-	border("╰", "", "╯")
-	return text.String()
+	h.panel("Arguments", arguments)
+	h.panel("Options", options)
+	h.panel("Commands", commands)
+	h.WriteByte('\n')
+	return h.String()
 }
 
-type helpPanel struct {
-	text                                  *strings.Builder
-	contentWidth, labelWidth, markerWidth int
-	style                                 helpStyle
+func (h *helpText) line(line string, width int) {
+	h.WriteString(line)
+	h.WriteString(strings.Repeat(" ", max(0, h.width-width)))
+	h.WriteByte('\n')
 }
 
-func (p *helpPanel) write(section HelpBlock) {
-	for _, row := range section.Rows {
-		p.labelWidth = max(p.labelWidth, cells.StringWidth(row.Label))
-		if row.Required {
-			p.markerWidth = 2
-		}
-	}
-	p.lines(section.Lines, section.PreserveWords)
-	for _, row := range section.Rows {
-		p.row(row)
-	}
-}
-
-func (p *helpPanel) lines(lines []string, preserveWords bool) {
-	for _, line := range lines {
-		for _, wrapped := range strings.Split(wrapHelpText(line, p.contentWidth, preserveWords), "\n") {
-			p.line(wrapped, cells.StringWidth(wrapped))
-		}
-	}
-}
-
-func (p *helpPanel) line(content string, width int) {
-	border := paintHelp("│", p.style.dim)
-	fmt.Fprintf(p.text, "%s %s%s %s\n", border, content, strings.Repeat(" ", p.contentWidth-width), border)
-}
-
-func (p *helpPanel) row(row HelpRow) {
-	prefix := strings.Repeat(" ", p.markerWidth)
-	if row.Required {
-		prefix = paintHelp("*", p.style.marker) + " "
-	}
-	labelColor := p.style.label
-	if row.Switch {
-		labelColor = p.style.toggle
-	}
-	const gap = 2
-	keyWidth := p.markerWidth + p.labelWidth + gap
-	descriptionWidth := p.contentWidth - keyWidth
-	if descriptionWidth < 18 {
-		labelLines := strings.Split(wrapHelpText(row.Label, p.contentWidth-p.markerWidth, true), "\n")
-		inValue := false
-		for _, line := range labelLines {
-			p.line(prefix+p.style.paintLabel(line, labelColor, inValue), p.markerWidth+cells.StringWidth(line))
-			inValue = (inValue || strings.Contains(line, "<")) && !strings.Contains(line, ">")
-			prefix = strings.Repeat(" ", p.markerWidth)
-		}
-		for _, line := range strings.Split(wrapHelpDescription(row.Description, p.contentWidth-gap), "\n") {
-			p.line(strings.Repeat(" ", gap)+p.style.paintDescription(line), gap+cells.StringWidth(line))
-		}
+func (h *helpText) panel(title string, rows []HelpRow) {
+	if len(rows) == 0 {
 		return
 	}
-	label := prefix + p.style.paintLabel(row.Label, labelColor, false) + strings.Repeat(" ", keyWidth-p.markerWidth-cells.StringWidth(row.Label))
-	for _, line := range strings.Split(wrapHelpDescription(row.Description, descriptionWidth), "\n") {
-		p.line(label+p.style.paintDescription(line), keyWidth+cells.StringWidth(line))
-		label = strings.Repeat(" ", keyWidth)
+	inner := h.width - 4
+	commands := title == "Commands"
+	columns := make([][]helpCell, 0, len(rows))
+	hasMarker := false
+	for _, row := range rows {
+		hasMarker = hasMarker || row.Required
 	}
+	for _, row := range rows {
+		columns = append(columns, h.cells(row, title, hasMarker))
+	}
+	widths := helpColumnWidths(columns, inner, commands)
+	top := "╭─ " + title + " "
+	h.WriteString(paintHelp(top+strings.Repeat("─", h.width-1-helpCells.StringWidth(top))+"╮", h.style.dim) + "\n")
+	border := paintHelp("│", h.style.dim)
+	for _, row := range columns {
+		wrapped := make([][]string, len(row))
+		height := 1
+		for i, cell := range row {
+			left, right := cellPadding(i, len(row))
+			width := max(1, widths[i]-left-right)
+			wrapped[i] = cell.wrap(width, h.style)
+			height = max(height, len(wrapped[i]))
+		}
+		for line := range height {
+			h.WriteString(border + " ")
+			for i, lines := range wrapped {
+				part := ""
+				if line < len(lines) {
+					part = lines[line]
+				}
+				left, _ := cellPadding(i, len(row))
+				h.WriteString(strings.Repeat(" ", left) + part)
+				h.WriteString(strings.Repeat(" ", max(0, widths[i]-left-helpLineWidth(part))))
+			}
+			h.WriteString(" " + border + "\n")
+		}
+	}
+	h.WriteString(paintHelp("╰"+strings.Repeat("─", h.width-2)+"╯", h.style.dim) + "\n")
 }
 
-func (s helpStyle) paintLabel(line, color string, inValue bool) string {
-	if inValue {
-		return paintHelp(line, s.yellow)
-	}
-	if option, value, found := strings.Cut(line, "<"); found {
-		name := strings.TrimRight(option, " ")
-		return paintHelp(name, color) + option[len(name):] + paintHelp("<"+value, s.yellow)
-	}
-	return paintHelp(line, color)
+type helpCell struct {
+	text, color string
+	fold        bool
+	description []string
 }
 
-func (s helpStyle) paintDescription(line string) string {
-	if body, found := strings.CutSuffix(line, "（必填）"); found {
-		return body + paintHelp("（必填）", s.required)
+func (h *helpText) cells(row HelpRow, title string, marker bool) []helpCell {
+	commands := title == "Commands"
+	label := helpCell{text: row.Label, color: h.style.label}
+	description := helpCell{description: row.Description}
+	if commands {
+		return []helpCell{label, description}
 	}
-	if body, value, found := strings.Cut(line, "默认"); found {
-		return body + paintHelp("默认"+value, s.dim)
+	short := helpCell{text: row.Short, color: h.style.toggle}
+	if title == "Arguments" {
+		label, short = helpCell{}, helpCell{text: row.Label}
 	}
-	return line
+	columns := []helpCell{label, short, {}, {}, {text: row.Value, color: h.style.yellow, fold: true}, description}
+	if marker {
+		star := helpCell{color: h.style.marker}
+		if row.Required {
+			star.text = "*"
+		}
+		columns = append([]helpCell{star}, columns...)
+	}
+	return columns
 }
 
-func wrapHelpText(text string, width int, preserveWords bool) string {
+func cellPadding(index, count int) (left, right int) {
+	if index > 0 {
+		left = 1
+	}
+	if index < count-1 {
+		right = 1
+	}
+	return
+}
+
+func helpColumnWidths(rows [][]helpCell, width int, commands bool) []int {
+	count := len(rows[0])
+	widths := make([]int, count)
+	for _, row := range rows {
+		for i, cell := range row {
+			left, right := cellPadding(i, count)
+			widths[i] = max(widths[i], min(width, helpCells.StringWidth(cell.text)+left+right))
+		}
+	}
+	// Like Typer's Rich tables, the description column fills the available
+	// space. When it reaches the width of its neighbors, they wrap as well.
+	if commands {
+		widths[0] = min(widths[0], width-2)
+		widths[1] = width - widths[0]
+		return widths
+	}
+	widths[count-1] = width
+	total := sumHelpWidths(widths)
+	for total > width {
+		largest, second := 0, 0
+		for _, current := range widths {
+			if current > largest {
+				largest, second = current, largest
+			} else if current < largest {
+				second = max(second, current)
+			}
+		}
+		equal := 0
+		for _, current := range widths {
+			if current == largest {
+				equal++
+			}
+		}
+		excess := total - width
+		for i, current := range widths {
+			if current == largest {
+				reduce := min(current-3, largest-second, int(math.RoundToEven(float64(excess)/float64(equal))))
+				widths[i] -= reduce
+				excess -= reduce
+				equal--
+			}
+		}
+		next := sumHelpWidths(widths)
+		if next == total {
+			break
+		}
+		total = next
+	}
+	return widths
+}
+
+func sumHelpWidths(widths []int) int {
+	total := 0
+	for _, width := range widths {
+		total += width
+	}
+	return total
+}
+
+func (c helpCell) wrap(width int, style helpStyle) []string {
+	if c.description == nil {
+		lines := wrapHelp(c.text, width, c.fold)
+		for i, line := range lines {
+			lines[i] = paintHelp(line, c.color)
+		}
+		return lines
+	}
+
+	var lines []string
+	row := ""
+	rowWidth := 0
+	for _, part := range c.description {
+		color := ""
+		switch {
+		case part == "[required]":
+			color = style.required
+		case strings.HasPrefix(part, "[default: "):
+			color = style.dim
+		case strings.HasPrefix(part, "[env var: "):
+			color = style.yellow
+		}
+		partWidth := helpCells.StringWidth(part)
+		if rowWidth > 0 && rowWidth+1+partWidth <= width {
+			row += " " + paintHelp(part, color)
+			rowWidth += 1 + partWidth
+			continue
+		}
+		if rowWidth > 0 {
+			lines = append(lines, row)
+		}
+		wrapped := wrapHelp(part, width, false)
+		for _, line := range wrapped[:len(wrapped)-1] {
+			lines = append(lines, paintHelp(line, color))
+		}
+		last := wrapped[len(wrapped)-1]
+		row = paintHelp(last, color)
+		rowWidth = helpCells.StringWidth(last)
+		// Rich puts a wrapped description and its annotations in separate rows.
+		if len(wrapped) > 1 {
+			lines = append(lines, row)
+			row, rowWidth = "", 0
+		}
+	}
+	if rowWidth > 0 {
+		lines = append(lines, row)
+	}
+	return lines
+}
+
+var helpWords = regexp.MustCompile(`\s*\S+\s*`)
+var helpEscape = regexp.MustCompile("\\x1b\\[[0-9;]*m")
+
+func helpLineWidth(line string) int {
+	return helpCells.StringWidth(helpEscape.ReplaceAllString(line, ""))
+}
+
+func helpUsage(path, syntax string, terminal int) string {
+	width := max(50, min(terminal, 80)-2)
+	prefix := "Usage: " + path + " "
+	indent := len(prefix)
+	first := prefix
+	if width < indent+20 {
+		indent = len("Usage: ") + 4
+		first = prefix + "\n" + strings.Repeat(" ", indent)
+	}
+	lines := wrapHelp(syntax, width-indent, true)
+	return first + strings.Join(lines, "\n"+strings.Repeat(" ", indent))
+}
+
+func wrapHelp(text string, width int, fold bool) []string {
 	var lines []string
 	for _, paragraph := range strings.Split(text, "\n") {
-		for cells.StringWidth(paragraph) > width {
-			line, _, _ := strings.Cut(cells.Wrap(paragraph, width), "\n")
-			// Keep command arguments together when they fit on the next line.
-			if space := strings.LastIndexByte(line, ' '); space > 0 &&
-				(preserveWords || cells.StringWidth(line[:space]) >= width*2/3) {
-				line = line[:space]
+		current, used := "", 0
+		for _, word := range helpWords.FindAllString(paragraph, -1) {
+			visible := helpCells.StringWidth(strings.TrimRight(word, " \t"))
+			if used+visible > width && current != "" {
+				lines = append(lines, helpFit(current, width, fold))
+				current, used = "", 0
 			}
-			lines = append(lines, line)
-			paragraph = strings.TrimLeft(paragraph[len(line):], " ")
+			if visible > width && fold {
+				pieces := strings.Split(helpCells.Wrap(word, max(2, width)), "\n")
+				lines = append(lines, pieces[:len(pieces)-1]...)
+				word = pieces[len(pieces)-1]
+			}
+			current += word
+			used += helpCells.StringWidth(word)
 		}
-		lines = append(lines, paragraph)
+		lines = append(lines, helpFit(current, width, fold))
 	}
-	return strings.Join(lines, "\n")
+	return lines
 }
 
-func wrapHelpDescription(description string, width int) string {
-	for _, label := range []string{"（必填）", "（可选）"} {
-		if body, ok := strings.CutSuffix(description, label); ok {
-			body = wrapHelpText(body, width, false)
-			lastLine := body[strings.LastIndexByte(body, '\n')+1:]
-			if cells.StringWidth(label) > width {
-				return wrapHelpText(description, width, false)
-			}
-			if cells.StringWidth(lastLine+label) > width {
-				body += "\n"
-			}
-			return body + label
-		}
+func helpFit(text string, width int, fold bool) string {
+	trimmed := strings.TrimRight(text, " \t")
+	if excess := utf8.RuneCountInString(text) - width; excess > 0 {
+		text = text[:len(text)-min(excess, len(text)-len(trimmed))]
 	}
-	return wrapHelpText(description, width, false)
+	if helpCells.StringWidth(text) <= width {
+		return strings.TrimRight(text, " \t")
+	}
+	if fold {
+		return helpCells.Truncate(text, width, "")
+	}
+	head := helpCells.Truncate(text, width-1, "")
+	return head + strings.Repeat(" ", max(0, width-1-helpCells.StringWidth(head))) + "…"
 }

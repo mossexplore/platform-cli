@@ -2,7 +2,7 @@
 
 Go 客户端使用独立版本，由根目录 `versions.toml` 的 `components.cli_go` 管理。运行 `build.cmd` 或 `build-release.ps1` 时，打包脚本会自动同步 Go 版本文件。Windows x64 安装后使用同一套 `ml` 命令和 WiseRec Platform Skill。支持范围用 `ml tree --all` 核对，实际参数用子命令的 `--help` 核对。
 
-Go 的各级 `--help` 随 EXE 分发。已有帮助可沿用只读的 Python CLI 帮助快照。新增或修改的命令在 Go 中维护帮助，需要时在 `internal/command/python_help.go` 中指定由 Cobra 渲染。Python CLI 已废弃，`cli-python/` 下的文件只读，详见 [仓库维护规则](../AGENTS.md)。
+Go 的各级 `--help` 随 EXE 分发，采用 Python CLI 的用法、说明和面板布局，参数及子命令以 Go 的实际支持范围为准。维护时可在安装了历史 CLI 依赖的 Python 环境中运行 `python cli-go/scripts/sync-python-help.py`，从只读的 `cli-python/` 生成帮助文案。详见 [仓库维护规则](../AGENTS.md)。
 
 ## 一键打包
 

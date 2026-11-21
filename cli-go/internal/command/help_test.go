@@ -3,7 +3,7 @@ package command
 import (
 	"bytes"
 	"context"
-	"slices"
+	"os"
 	"strings"
 	"testing"
 
@@ -13,58 +13,41 @@ import (
 )
 
 func TestRegisteredCommandHelp(t *testing.T) {
-	t.Setenv("TERMINAL_WIDTH", "100")
+	t.Setenv("TERMINAL_WIDTH", "160")
 	root := newRoot(Options{Version: "test"})
 	root.InitDefaultHelpCmd()
 	var check func(*cobra.Command)
 	check = func(cmd *cobra.Command) {
 		t.Run(cmd.CommandPath(), func(t *testing.T) {
-			var out, stderr bytes.Buffer
+			var stdout, stderr bytes.Buffer
 			args := strings.Fields(cmd.CommandPath())[1:]
 			code := Run(context.Background(), Options{
-				Args: append(args, "--help"), Version: "test", Stdout: &out, Stderr: &stderr,
+				Args: append(args, "--help"), Version: "test", Stdout: &stdout, Stderr: &stderr,
 				Paths: func() (localstate.Paths, error) {
 					t.Fatal("help tried to read local state")
 					return localstate.Paths{}, nil
 				},
 			})
-			help := out.String()
-			if code != 0 || stderr.Len() != 0 || !strings.Contains(help, cmd.CommandPath()) ||
-				!strings.Contains(help, "-h, --help") {
+			help := stdout.String()
+			if code != 0 || stderr.Len() != 0 || !strings.Contains(help, " Usage: "+cmd.CommandPath()) ||
+				!strings.Contains(help, "╭─ Options ") || !strings.Contains(help, helpDescription) ||
+				strings.Contains(help, "├") || strings.Contains(help, "╭─ 示例") {
 				t.Fatalf("help: exit %d, stderr %q\n%s", code, &stderr, help)
 			}
-			_, arguments, _ := strings.Cut(cmd.Use, " ")
-			expected := []string{"用途", "示例"}
-			if arguments != "" {
-				expected = append(expected, "位置参数")
-			}
-			expected = append(expected, "选项")
-			var sections []string
-			for _, line := range strings.Split(strings.TrimSuffix(help, "\n"), "\n") {
-				switch {
-				case strings.HasPrefix(line, "╭     "), strings.HasPrefix(line, "├     "):
-					title, _, _ := strings.Cut(line[len("╭     "):], " ")
-					sections = append(sections, title)
-				case strings.HasPrefix(line, "│") && strings.HasSuffix(line, "│"):
-				case strings.HasPrefix(line, "╰") && strings.HasSuffix(line, "╯"):
-				default:
-					t.Errorf("content outside the table: %q", line)
-				}
-			}
-			if !slices.Equal(sections, expected) || strings.Count(help, "╰") != 1 {
-				t.Fatalf("help sections %v, want %v:\n%s", sections, expected, help)
-			}
-			for _, row := range helpArguments(cmd, arguments) {
-				if strings.HasPrefix(row[1], "（") || !strings.Contains(help, row[0]) {
-					t.Errorf("missing position argument or description: %v", row)
-				}
-			}
+
+			cmd.InitDefaultHelpFlag()
+			cmd.InitDefaultVersionFlag()
+			cmd.InheritedFlags()
 			cmd.Flags().VisitAll(func(flag *pflag.Flag) {
-				listed := strings.Contains(help, "--"+flag.Name+" ")
-				if !flag.Hidden && (!listed || flag.Usage == "" || flag.Usage == flag.Name) {
-					t.Errorf("flag --%s missing from help or lacks a description", flag.Name)
+				if !flag.Hidden && !strings.Contains(help, "--"+flag.Name) {
+					t.Errorf("flag --%s missing from help", flag.Name)
 				}
 			})
+			for _, child := range cmd.Commands() {
+				if child.IsAvailableCommand() && !strings.Contains(help, "│ "+child.Name()+" ") {
+					t.Errorf("child %q missing from Commands", child.Name())
+				}
+			}
 		})
 		for _, child := range cmd.Commands() {
 			if child.IsAvailableCommand() || child.Name() == "help" {
@@ -75,28 +58,34 @@ func TestRegisteredCommandHelp(t *testing.T) {
 	check(root)
 }
 
-func TestHelpSectionsAndDefaults(t *testing.T) {
+func TestPythonHelpLayout(t *testing.T) {
+	t.Setenv("NO_COLOR", "1")
+	t.Setenv("COLUMNS", "80")
 	for _, tc := range []struct {
-		command, width string
-		want           []string
+		path, width, fixture string
 	}{
-		{"jupyter exec", "100", []string{"[选项] -- PROGRAM [ARG...]", "--startup-timeout <秒数>", "默认 60"}},
-		{"jupyter exec", "34", []string{"├     位置参数 ", "--startup-timeout <秒数>", "默认 60"}},
-		{"algorithm clone", "100", []string{"--name <算法仓名称>", "--version <版本号>", "* --version", "（必填）", "--version 1.0.0"}},
-		{"jupyter files write", "100", []string{"(--from-file <本地文件> | --stdin)", "必须在 --from-file 与 --stdin 中选择一项"}},
-		{"offline experiment list", "100", []string{"--project-name", "按离线实验描述筛选"}},
+		{"train", "80", "train-help.txt"},
+		{"algorithm clone", "80", "algorithm-clone-help.txt"},
+		{"jupyter exec", "48", "jupyter-exec-help.txt"},
 	} {
-		t.Run(tc.command, func(t *testing.T) {
+		t.Run(tc.path, func(t *testing.T) {
 			t.Setenv("TERMINAL_WIDTH", tc.width)
-			code, out, stderr := run(t, localstate.Paths{}, append(strings.Fields(tc.command), "--help")...)
-			if code != 0 || stderr != "" {
-				t.Fatalf("help: %d %s", code, stderr)
+			want, err := os.ReadFile("testdata/" + tc.fixture)
+			if err != nil {
+				t.Fatal(err)
 			}
-			for _, want := range tc.want {
-				if !strings.Contains(out, want) {
-					t.Errorf("missing %q in help:\n%s", want, out)
-				}
+			code, out, stderr := run(t, localstate.Paths{}, append(strings.Fields(tc.path), "--help")...)
+			if code != 0 || stderr != "" || trimHelpPadding(out) != string(want)+"\n" {
+				t.Fatalf("help differs from Python: exit %d, stderr %q\n%s", code, stderr, out)
 			}
 		})
 	}
+}
+
+func trimHelpPadding(help string) string {
+	lines := strings.Split(help, "\n")
+	for i, line := range lines {
+		lines[i] = strings.TrimRight(line, " ")
+	}
+	return strings.Join(lines, "\n")
 }
