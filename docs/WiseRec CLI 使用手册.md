@@ -180,6 +180,8 @@ ml                                              WiseRec 命令行工具
 
 ### 1.3 说明
 
+有效的超级管理员或超级管理员只读账号可看到 `支持 -A`。标记按当前管理台和环境策略展示，角色取自本地登录信息。
+
 默认仅展示当前环境支持的命令。MLOps 支持训练任务、特征任务、保活、用户信息、模型、资源模板、部署模板、数据集、Web Studio、Jupyter 和服务管理。`ml tree --all` 可查看全部命令，不支持的命令在描述末尾显示红色 `[不支持]`。
 
 从上到下按顺序输入命令层级；使用 `--help` 查看具体用法。`ml tree` 中各命令的说明结尾不显示标点符号。
@@ -318,6 +320,8 @@ ml auth ping stop
 | `ml auth ping stop` | 停止当前环境的自动保活 |
 
 ### 4.3 说明
+
+`ml login` 和 `ml auth status` 显示当前账号的权限角色。旧登录信息尚未记录角色时显示“未获取”，首次跨租户查询时可自动补全。
 
 登录前须在 `config.json` 中为当前环境配置非空的 `alias`。提示“正在登录【环境别名】”，交互终端用单行旋转提示展示当前阶段，不显示百分比；非交互输出只显示简短静态提示。登录时隐藏浏览器驱动的 Warning 输出，登录失败等错误仍正常显示。成功后显示环境别名、账号、中文名、部门和当前选中的 `businessId`，缺失信息显示“未获取”。用户信息以表格展示。需要选择业务或申请权限时，按额外提示操作。环境名称不回退显示 `name`，Cookie 和 CSRF Token 仅在显式指定 `--show-secrets` 时显示。
 
@@ -519,7 +523,7 @@ ml user info -o json
 ### 9.1 命令格式
 
 ```text
-ml mtp swanboard project list
+ml mtp swanboard project list [--all-business] [OPTIONS]
 ml mtp swanboard project namespace list PROJECT_ID
 ml mtp swanboard project experiment list PROJECT_ID NAMESPACE_ID
 ml mtp swanboard experiment feature list EXPERIMENT_ID
@@ -540,13 +544,18 @@ ml mtp swanboard experiment inspect EXPERIMENT_ID
 | `experiment metrics` | 可重复使用 `--tag` 指定指标；不传时查询 `loss` 和 `accuracy` |
 | 以上查询命令 | 均可使用 `--output` / `-o` 选择表格或 JSON |
 
+Go CLI 的项目列表支持 `--all-business` / `-A`，默认查询当前业务。跨租户查询需先登录、选定业务，并具有超级管理员或超级管理员只读权限。
+
 ### 9.3 说明
+
+训练看板仅支持 WiseRec。全租户查询返回当前环境中的项目，表格显示所属业务编码。服务端未提供总数时，JSON 的 `count` 表示本页条数。
 
 建议按“项目 → 项目空间 → 实验”的顺序取得所需 ID，再查询特性、环境、指标和配置。`inspect` 汇总实验信息，其中特性只展示第一页；需要更多特性时使用 `feature list` 翻页。各类 ID 不可混用。
 
 ### 9.4 示例
 
 ```bash
+ml mtp swanboard project list -A --page 1
 ml mtp swanboard project list --page 1
 ml mtp swanboard project namespace list PROJECT_ID
 ml mtp swanboard project experiment list PROJECT_ID NAMESPACE_ID
@@ -559,7 +568,7 @@ ml mtp swanboard experiment inspect EXPERIMENT_ID -o json
 ### 10.1 命令格式
 
 ```text
-ml offline experiment list [OPTIONS]
+ml offline experiment list [--all-business] [OPTIONS]
 ml offline experiment trial list PROJECT_ID [OPTIONS]
 ml offline experiment clone PROJECT_ID --name NAME [OPTIONS]
 ```
@@ -573,13 +582,18 @@ ml offline experiment clone PROJECT_ID --name NAME [OPTIONS]
 | `experiment clone` | 必填 `--name`；可选 `--dry-run` 预览、`--yes` / `-y` 跳过确认 |
 | 以上命令 | `--output` / `-o` 选择表格或 JSON |
 
+Go CLI 的离线实验列表支持 `--all-business` / `-A`，默认查询当前业务。跨租户查询需先登录、选定业务，并具有超级管理员或超级管理员只读权限。
+
 ### 10.3 说明
+
+离线实验仅支持 WiseRec。全租户结果按所属业务编码区分，JSON 记录也保留该字段。服务端未提供总数时，JSON 的计数可能仅表示本页条数。
 
 `list` 查询当前业务的离线实验，`trial list` 查询某个实验下的 trial。克隆会创建新实验，不复制 trial；默认先预览并询问确认。仅想核对创建内容时使用 `--dry-run`。
 
 ### 10.4 示例
 
 ```bash
+ml offline experiment list -A --name EXPERIMENT_NAME -o json
 ml offline experiment list --name 训练 --page 1
 ml offline experiment trial list PROJECT_ID --type batch
 ml offline experiment clone PROJECT_ID --name 训练副本 --dry-run
@@ -591,7 +605,7 @@ ml offline experiment clone PROJECT_ID --name 训练副本
 ### 11.1 命令格式
 
 ```text
-ml train list [OPTIONS]
+ml train list [--all-business] [OPTIONS]
 ml train detail TASK_ID [--output table|json]
 ml train instance list TASK_ID [--page PAGE] [--page-size PAGE_SIZE] [-o table|json]
 ml train history list TASK_ID [--page PAGE] [--page-size PAGE_SIZE] [-o table|json]
@@ -622,7 +636,11 @@ ml train config update TASK_ID --customize-config VALUE
 | `clone` | 必填 `TASK_ID`、`--name NAME`；可选 `--customize-config VALUE`、`--yes` / `-y` |
 | `config update` | 必填 `TASK_ID`、`--customize-config VALUE`；参数按字符串原样传递 |
 
+Go CLI 的训练任务列表支持 `--all-business` / `-A`，默认查询当前业务。跨租户查询需先登录、选定业务，并具有超级管理员或超级管理员只读权限。
+
 ### 11.3 说明
+
+WiseRec 和 MLOps 均可跨租户查询训练任务，表格追加业务编码。
 
 环境的 `platform_type` 支持 `wiserec` 和 `mlops`，未配置时默认 `wiserec`。两种环境均支持本章所有训练命令。先登录并选择业务，再执行训练命令。两种环境均按 `auth.auto_ping` 配置自动保活，也可用 `ml auth ping` 管理。
 
@@ -663,6 +681,7 @@ Go 客户端下载日志 ZIP 时优先使用当前终端的 `HTTPS_PROXY`，其�
 ### 11.4 示例
 
 ```bash
+ml train list -A --name TASK_NAME
 ml train list --name demo
 ml train detail TASK_ID
 ml train detail TASK_ID -o json
@@ -691,7 +710,7 @@ ml train config update TASK_ID --customize-config 0096999
 ### 12.1 命令格式
 
 ```text
-ml algorithm list [OPTIONS]
+ml algorithm list [--all-business] [OPTIONS]
 ml algorithm download ALGORITHM_ID [--file PATH]
 ml algorithm clone SOURCE_ID --name NAME --version VERSION [--yes]
 ```
@@ -704,7 +723,11 @@ ml algorithm clone SOURCE_ID --name NAME --version VERSION [--yes]
 | `download` | 必填 `ALGORITHM_ID`；可选 `--file PATH` |
 | `clone` | 必填 `SOURCE_ID`、`--name NAME`、`--version VERSION`；可选 `--yes` / `-y` |
 
+Go CLI 的算法仓列表支持 `--all-business` / `-A`，默认查询当前业务。跨租户查询需先登录、选定业务，并具有超级管理员或超级管理员只读权限。
+
 ### 12.3 说明
+
+算法仓仅支持 WiseRec。全租户列表的表格追加业务编码。
 
 算法仓查询、下载与克隆仅在 WiseRec 环境可用。先登录、选择业务，再从列表获取算法仓 ID。下载保存为 ZIP，同名文件自动编号。`--file` 的父目录须存在。下载地址可能含临时签名，请勿公开分享。
 
@@ -715,6 +738,7 @@ Go 客户端下载算法仓 ZIP 时，代理设置与训练日志下载相同。
 ### 12.4 示例
 
 ```bash
+ml algorithm list -A --name ALGORITHM_NAME
 ml algorithm list --name mnist --page 1
 ml algorithm download ALGORITHM_ID --file ./mnist.zip
 ml algorithm clone SOURCE_ID --name mnist_copy --version VERSION
@@ -725,7 +749,7 @@ ml algorithm clone SOURCE_ID --name mnist_copy --version VERSION
 ### 13.1 命令格式
 
 ```text
-ml service list [OPTIONS]
+ml service list [--all-business] [OPTIONS]
 ml service mock SERVICE_ID [--request-sample-file PATH] [--transmission-tag 0|1] [-o table|json]
 ml service host list SERVICE_ID [--pod-ip IP] [-o table|json]
 ml service host mock SERVICE_ID --pod-ip POD_IP [--request-sample-file PATH] [--transmission-tag 0|1] [-o table|json]
@@ -750,7 +774,11 @@ ml service deployment list SERVICE_ID [-o table|json]
 | `host list` | 必填 `SERVICE_ID`；可选 `--pod-ip IP` 按 Pod IP 筛选，不传则不按 IP 筛选，不能传空值；可选 `--output` / `-o` |
 | `deployment list` | 必填 `SERVICE_ID`；可选 `--output` / `-o` |
 
+Go CLI 的服务列表支持 `--all-business` / `-A`，默认查询当前业务。跨租户查询需先登录、选定业务，并具有超级管理员或超级管理员只读权限。
+
 ### 13.3 说明
+
+WiseRec 和 MLOps 均可按名称跨租户查服务。若多个租户存在同名服务，按表格中的业务编码区分。
 
 WiseRec 和 MLOps 环境均支持本章全部命令，参数及操作方式相同；连接地址和业务上下文取自当前环境。
 
@@ -784,6 +812,7 @@ Go 客户端新增 `ml service host pod-event` 与 `ml service host log-stdout`�
 ### 13.4 示例
 
 ```bash
+ml service list -A --name SERVICE_NAME
 ml service list --name demo --model-name model --model-version MODEL_VERSION
 ml service list --page 2 --page-size 20 -o json
 ml service mock SERVICE_ID
@@ -814,7 +843,7 @@ ml service deployment list SERVICE_ID -o json
 ### 14.1 命令格式
 
 ```text
-ml dataset list [OPTIONS]
+ml dataset list [--all-business] [OPTIONS]
 ml dataset detail DATASET_ID [-o table|json]
 ml dataset files list DATASET_ID [--dir REMOTE_DIR] [-o table|json]
 ml dataset files upload DATASET_ID LOCAL_FILE [--dir REMOTE_DIR] [--timeout SECONDS] [-o table|json]
@@ -829,7 +858,11 @@ ml dataset files upload DATASET_ID LOCAL_FILE [--dir REMOTE_DIR] [--timeout SECO
 | `files list` | 必填 `DATASET_ID`；`--dir` 默认 `/`；可选 `--output` / `-o` |
 | `files upload` | 必填 `DATASET_ID`、`LOCAL_FILE`；`--dir` 默认 `/`；`--timeout` 默认 1800 秒，限制单次网络操作等待时间；可选 `--output` / `-o` |
 
+Go CLI 的数据集列表支持 `--all-business` / `-A`，默认查询当前业务。跨租户查询需先登录、选定业务，并具有超级管理员或超级管理员只读权限。
+
 ### 14.3 说明
+
+WiseRec 和 MLOps 均可跨租户查数据集。结果沿用原有租户列。
 
 先登录并选择业务。`list` 默认显示第一页 10 条，`detail` 查看指定数据集。大小自动换算，时间按北京时间显示；JSON 保留平台返回的其他字段。
 
@@ -840,6 +873,7 @@ ml dataset files upload DATASET_ID LOCAL_FILE [--dir REMOTE_DIR] [--timeout SECO
 ### 14.4 示例
 
 ```bash
+ml dataset list -A --name DATASET_NAME
 ml dataset list --name dog_cat --create-user l00123456
 ml dataset list --bucket-name sfs-turbo-mep-guian2 --page 2 --page-size 20
 ml dataset detail DATASET_ID
@@ -940,7 +974,7 @@ ml jupyter terminal close NAME
 ### 17.1 命令格式
 
 ```text
-ml webstudio list [OPTIONS]
+ml webstudio list [--all-business] [OPTIONS]
 ml webstudio login ENV_ID [--refresh]
 ml webstudio show
 ml webstudio start ENV_ID
@@ -956,7 +990,11 @@ ml webstudio stop ENV_ID
 | `start`、`stop` | 必填实例 ID `ENV_ID` |
 | `show` | 无参数 |
 
+Go CLI 的实例列表支持 `--all-business` / `-A`，默认查询当前业务。跨租户查询需先登录、选定业务，并具有超级管理员或超级管理员只读权限。
+
 ### 17.3 说明
+
+WiseRec 和 MLOps 均支持跨租户查询实例，`-A` 与 `--business-id` 互斥。Go CLI 的 `ml webstudio list -o json` 输出未经脱敏的接口响应，普通查询和全租户查询均适用。响应若包含凭据或访问链接，会原样出现在输出中。
 
 WiseRec 和 MLOps 环境均支持本章命令，实例及连接缓存按环境隔离。
 
@@ -973,6 +1011,7 @@ WiseRec 和 MLOps 环境均支持本章命令，实例及连接缓存按环境�
 ### 17.4 示例
 
 ```bash
+ml webstudio list -A --status online
 ml webstudio list --status online
 ml webstudio start ENV_ID
 ml webstudio login ENV_ID
@@ -1098,7 +1137,7 @@ ml jupyter exec --cwd projects/demo --output json -- sh -c 'pwd && ls -la'
 ### 20.1 命令格式
 
 ```text
-ml model list [--page PAGE] [--page-size SIZE] [--name NAME] [--type TYPE] [--owner OWNER] [--team-id TEAM_ID] [--output table|json]
+ml model list [--all-business] [--page PAGE] [--page-size SIZE] [--name NAME] [--type TYPE] [--owner OWNER] [--team-id TEAM_ID] [--output table|json]
 ml model detail MODEL_ID [--output table|json]
 ml model source MODEL_ID [--train-task] [--output table|json]
 ```
@@ -1117,7 +1156,11 @@ ml model source MODEL_ID [--train-task] [--output table|json]
 | `source` | `--train-task` | 查询关联训练任务，默认不启用 |
 | 三个命令 | `--output table\|json` / `-o` | 默认沿用当前环境输出配置，table 为面向人工的展示，json 为完整接口响应 |
 
+Go CLI 的模型列表支持 `--all-business` / `-A`，默认查询当前业务。跨租户查询需先登录、选定业务，并具有超级管理员或超级管理员只读权限。
+
 ### 20.3 说明
+
+WiseRec 和 MLOps 均可跨租户查模型。结果沿用原有业务编码列。
 
 先选择环境、登录并选择业务。查询使用当前环境的业务编码；四个列表条件可以组合使用，匹配规则由平台决定。每次查询指定的一页，不自动获取全部模型；列表固定查询云侧模型，其他查询条件暂不开放修改。
 
@@ -1134,6 +1177,7 @@ ml model source MODEL_ID [--train-task] [--output table|json]
 ### 20.4 示例
 
 ```bash
+ml model list -A --name MODEL_NAME
 ml model list
 ml model list --page 2 --page-size 20
 ml model list --name MODEL_NAME --type MODEL_TYPE
@@ -1205,7 +1249,7 @@ ml --no-history dataset list
 ### 22.1 命令格式
 
 ```text
-ml resource template list [OPTIONS]
+ml resource template list [--all-business] [OPTIONS]
 ml resource template detail RESOURCE_TEMPLATE_ID [--output table|json]
 ```
 
@@ -1222,7 +1266,11 @@ ml resource template detail RESOURCE_TEMPLATE_ID [--output table|json]
 | `detail` | `RESOURCE_TEMPLATE_ID` | 必填资源模板 ID，从列表第一列获取 |
 | 两个命令 | `--output table\|json` / `-o` | 默认沿用当前环境输出配置 |
 
+Go CLI 的资源模板列表支持 `--all-business` / `-A`，默认查询当前业务。跨租户查询需先登录、选定业务，并具有超级管理员或超级管理员只读权限。
+
 ### 22.3 说明
+
+WiseRec 和 MLOps 均可跨租户查资源模板。结果沿用原有业务编码列。
 
 先选择环境、登录并选择业务。列表条件可组合，匹配规则由平台决定；每次仅查询指定页。其他筛选条件暂不开放。
 
@@ -1237,6 +1285,7 @@ ml resource template detail RESOURCE_TEMPLATE_ID [--output table|json]
 ### 22.4 示例
 
 ```bash
+ml resource template list -A --name TEMPLATE_NAME
 ml resource template list
 ml resource template list --name TEMPLATE_NAME --env TEMPLATE_ENV
 ml resource template list --framework-name FRAMEWORK_NAME --framework-type FRAMEWORK_TYPE
@@ -1252,7 +1301,7 @@ ml resource template detail RESOURCE_TEMPLATE_ID -o json
 ### 23.1 命令格式
 
 ```text
-ml deployment template list [OPTIONS]
+ml deployment template list [--all-business] [OPTIONS]
 ml deployment template detail DEPLOY_TEMPLATE_ID [--output table|json]
 ```
 
@@ -1268,7 +1317,11 @@ ml deployment template detail DEPLOY_TEMPLATE_ID [--output table|json]
 | `detail` | `DEPLOY_TEMPLATE_ID` | 必填部署模板 ID，从列表第一列获取 |
 | 两个命令 | `--output table\|json` / `-o` | 默认沿用当前环境输出配置 |
 
+Go CLI 的部署模板列表支持 `--all-business` / `-A`，默认查询当前业务。跨租户查询需先登录、选定业务，并具有超级管理员或超级管理员只读权限。
+
 ### 23.3 说明
+
+WiseRec 和 MLOps 均可跨租户查部署模板。结果沿用原有业务编码列。
 
 先选择环境、登录并选择业务。列表开放部署模板名称、框架包名称、模板环境和框架类型四个筛选条件，可组合使用，匹配规则由平台决定。每次只查询指定页，其他条件保持平台默认值。
 
@@ -1283,6 +1336,7 @@ ml deployment template detail DEPLOY_TEMPLATE_ID [--output table|json]
 ### 23.4 示例
 
 ```bash
+ml deployment template list -A --name TEMPLATE_NAME
 ml deployment template list
 ml deployment template list --name TEMPLATE_NAME --env TEMPLATE_ENV
 ml deployment template list --framework-name FRAMEWORK_NAME --framework-type FRAMEWORK_TYPE
@@ -1376,7 +1430,7 @@ ml context --json
 ### 命令格式
 
 ```text
-ml feature-task list [--name TEXT] [--category TYPE] [--create-user USER] [--page INTEGER] [--page-size INTEGER] [--output table|json]
+ml feature-task list [--all-business] [--name TEXT] [--category TYPE] [--create-user USER] [--page INTEGER] [--page-size INTEGER] [--output table|json]
 ```
 
 ### 参数与选项
@@ -1390,9 +1444,13 @@ ml feature-task list [--name TEXT] [--category TYPE] [--create-user USER] [--pag
 | `--page-size INTEGER` | `10` | 每页条数，必须为正整数 |
 | `--output`、`-o` | 当前环境配置 | `table` 或 `json` |
 
+Go CLI 的特征任务列表支持 `--all-business` / `-A`，默认查询当前业务。跨租户查询需先登录、选定业务，并具有超级管理员或超级管理员只读权限。
+
 ### 说明
 
-WiseRec 和 MLOps 环境均可查询特征任务。先选择环境、登录并使用 `ml business use` 选择业务。查询使用当前业务，三个筛选条件可组合使用，一次只查询指定的一页。
+WiseRec 和 MLOps 均可跨租户查特征任务，表格追加业务编码。
+
+WiseRec 和 MLOps 环境均可查询特征任务。先选择环境、登录并使用 `ml business use` 选择业务。三个筛选条件可组合使用，一次查询指定的一页。
 
 表格依次展示任务 ID、任务名称、任务类型、业务场景、状态、创建者、修改者、更新时间、大小、描述。任务 ID 完整展示，其他长文本可换行。更新时间按北京时间显示为 `YYYY-MM-DD HH:mm:ss`；大小按 1024 进制换算，零显示 `0B`，非零且不足 1 GiB 显示两位小数的 `M`，其余显示两位小数的 `G`。缺失值显示 `-`，未知任务类型保留原值。列表下方显示页码、每页条数和总条数。
 
@@ -1421,6 +1479,7 @@ JSON 输出包含 `items`、`count`、`pageIndex`、`pageSize`；记录保留原
 ### 示例
 
 ```bash
+ml feature-task list -A --name TASK_NAME
 ml feature-task list
 ml feature-task list --name TASK_NAME --category train_fi
 ml feature-task list --create-user USER --page 2 --page-size 20

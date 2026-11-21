@@ -25,7 +25,7 @@ func newService(options Options, load loadConfig) *cobra.Command {
 	deploy := &cobra.Command{Use: "deployment", Short: "服务部署视图查询"}
 	const prefix = "/ai/backend/mep/services/"
 	fixed := defaultFields("teamId", "inferenceType env selectService selectModelName infraType owner status isAccess noAccessDays isLowLoad lowLoadDays clusterId isCluster dailTestTaskStatus scaleFlag", "tags noticeTime")
-	list := catalogQuery{route: prefix + "queryList", command: "list", summary: "分页查询当前业务的服务", paged: true,
+	list := catalogQuery{route: prefix + "queryList", command: "list", summary: "分页查询当前业务的服务", paged: true, allowAllBusiness: true, appendBusinessColumn: true,
 		nullable: []string{"name", "model-name", "model-version"}, fixed: fixed,
 		assign: map[string]string{"name": "serviceName", "model-name": "modelName", "model-version": "modelVersion"},
 		body: func(body map[string]any, cmd *cobra.Command, _ []string, api *platform.API) (any, error) {
@@ -44,8 +44,8 @@ func newService(options Options, load loadConfig) *cobra.Command {
 					body[key] = value
 				}
 			}
-			body["businessId"], body["clusterBusinessId"] = api.BusinessID(), api.BusinessID()
-			return body, nil
+			body["clusterBusinessId"] = api.BusinessID()
+			return withBusiness(body, cmd, nil, api)
 		}, items: "services", total: "count", totalJSON: "total", empty: "暂无服务记录", value: serviceValue,
 		columns: []recordColumn{{"服务 ID", "serviceId"}, {"服务名称", "serviceName"}, {"服务版本", "serviceVersion"},
 			{"环境", "env"}, {"状态", "status"}, {"服务实例", "instance"}, {"模型名称", "modelName"}, {"归属者", "owner"}},

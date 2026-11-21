@@ -18,13 +18,13 @@ func newAlgorithm(options Options, load loadConfig) *cobra.Command {
 	group := &cobra.Command{Use: "algorithm", Short: "算法仓查询、下载与克隆"}
 	const prefix = "/ai/backend/modelDev/algorithmWarehouse/"
 	fixed := defaultFields("updater creator visualTag algorithmVersion region algorithmPurpose enableFlag teamId", "beginTime endTime", "tagsList noticeTime")
-	list := catalogQuery{route: prefix + "list", command: "list", summary: "分页查询当前业务的算法仓", paged: true, wiseref: true,
+	list := catalogQuery{route: prefix + "list", command: "list", summary: "分页查询当前业务的算法仓", paged: true, wiseref: true, allowAllBusiness: true, appendBusinessColumn: true,
 		strings: []string{"name", "bucket-name"}, fixed: fixed, assign: map[string]string{"name": "algorithmName", "bucket-name": "bucketName"},
 		body: func(body map[string]any, cmd *cobra.Command, _ []string, api *platform.API) (any, error) {
 			if cmd.Flags().Changed("algorithm-name") && !cmd.Flags().Changed("name") {
 				body["algorithmName"], _ = cmd.Flags().GetString("algorithm-name")
 			}
-			body["businessId"] = api.BusinessID()
+			setListBusiness(body, cmd, api.BusinessID())
 			return map[string]any{"data": body, "meta": map[string]string{"uuid": localstate.NewID()}, "version": "1.0"}, nil
 		}, selectData: dataRecord, items: "list", total: "total", totalJSON: "total", empty: "暂无算法仓记录", value: algorithmValue,
 		columns: []recordColumn{{"算法仓 ID", "id"}, {"算法仓名称", "name"}, {"版本", "version"}, {"区域", "algorithmRegion"}, {"修改者", "modifier"},

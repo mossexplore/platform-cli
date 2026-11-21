@@ -1,7 +1,6 @@
 package command
 
 import (
-	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -25,6 +24,13 @@ func newStudio(options Options, load loadConfig) *cobra.Command {
 	envID := list.Flags().String("env-id", "", "实例 ID")
 	id := list.Flags().String("business-id", "", "须与当前业务一致")
 	format := list.Flags().StringP("output", "o", "table", "输出格式为 table 或 json")
+	addAllBusinessFlag(list)
+	list.Args = func(cmd *cobra.Command, args []string) error {
+		if cmd.Flags().Changed(allBusinessFlag) && cmd.Flags().Changed("business-id") {
+			return usageError{errors.New("--all-business 与 --business-id 不能同时使用")}
+		}
+		return positional(0)(cmd, args)
+	}
 	list.RunE = authorized(options, load, func(cmd *cobra.Command, _ []string, api *platform.API, _ string) error {
 		if *page < 1 || *size < 1 {
 			return usageError{errors.New("page 和 page-size 必须为正整数")}
@@ -33,22 +39,12 @@ func newStudio(options Options, load loadConfig) *cobra.Command {
 			return usageError{errors.New("business-id 须与当前选择一致，请先运行 ml business use")}
 		}
 		body := jupyter.StudioListBody(api.BusinessID(), *name, *status, *relator, *envID, *page, *size)
+		setListBusiness(body, cmd, api.BusinessID())
 		payload, err := api.JSON(cmd.Context(), http.MethodPost, jupyter.StudioPrefix+"queryEnvList", nil, body)
 		if err != nil {
 			return err
 		}
-		var decoded any
-		decoder := json.NewDecoder(bytes.NewReader(payload))
-		decoder.UseNumber()
-		if err := decoder.Decode(&decoded); err != nil {
-			return err
-		}
-		redactStudio(decoded)
-		safe, err := json.Marshal(decoded)
-		if err != nil {
-			return err
-		}
-		result, err := platform.Result(safe, "查询 Web Studio", false)
+		result, err := platform.Result(payload, "查询 Web Studio", false)
 		if err != nil {
 			return err
 		}
@@ -63,11 +59,11 @@ func newStudio(options Options, load loadConfig) *cobra.Command {
 			}
 		}
 		if strings.EqualFold(*format, "json") {
-			return output.JSON(cmd.OutOrStdout(), json.RawMessage(safe))
+			return output.JSON(cmd.OutOrStdout(), payload)
 		}
 		cols := []recordColumn{{"envId", "envId"}, {"名称", "labelName"}, {"集群类型", "clusterType"}, {"资源规格", "imageSpecific"},
 			{"状态", "status"}, {"创建者", "operator"}, {"修改者", "modifier"}, {"启动时间", "accessTime"}}
-		err = renderRecordTable(cmd.OutOrStdout(), cols, items, func(item platform.Record, key string) string {
+		err = renderRecordTable(cmd.OutOrStdout(), allBusinessColumns(cols, allBusinessRequested(cmd)), items, func(item platform.Record, key string) string {
 			if key == "accessTime" {
 				return dateText(item[key])
 			}
@@ -126,34 +122,4 @@ func newStudio(options Options, load loadConfig) *cobra.Command {
 		group.AddCommand(cmd)
 	}
 	return group
-}
-
-func redactStudio(value any) {
-	sensitive := func(value string) bool { return strings.Contains(strings.ToLower(value), "token=") }
-	switch converted := value.(type) {
-	case map[string]any:
-		for key, item := range converted {
-			name := strings.ToLower(key)
-			for _, fragment := range []string{"token", "cookie", "password", "secret", "accessurl", "authorization"} {
-				if strings.Contains(name, fragment) {
-					converted[key] = "[REDACTED]"
-					break
-				}
-			}
-			if text, ok := item.(string); ok && sensitive(text) {
-				converted[key] = "[REDACTED]"
-			}
-			if text, ok := converted[key].(string); !ok || text != "[REDACTED]" {
-				redactStudio(item)
-			}
-		}
-	case []any:
-		for index, item := range converted {
-			if text, ok := item.(string); ok && sensitive(text) {
-				converted[index] = "[REDACTED]"
-			} else {
-				redactStudio(item)
-			}
-		}
-	}
 }

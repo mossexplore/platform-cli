@@ -41,6 +41,9 @@ func TestPythonHelpParity(t *testing.T) {
 			if err != nil || len(rest) != 0 || cmd.CommandPath() != path {
 				t.Fatalf("missing command: %v %v", rest, err)
 			}
+			if usesGoHelp(cmd) {
+				return
+			}
 			cmd.InitDefaultHelpFlag()
 			cmd.InitDefaultVersionFlag()
 			var flags []string
@@ -74,7 +77,7 @@ func TestPythonHelpParity(t *testing.T) {
 	}
 	var check func(*cobra.Command)
 	check = func(cmd *cobra.Command) {
-		if !goNativeHelpPaths[cmd.CommandPath()] {
+		if !usesGoHelp(cmd) {
 			if _, ok := pythonOptions[cmd.CommandPath()]; !ok {
 				t.Errorf("public Go command is missing Python help: %s", cmd.CommandPath())
 			}

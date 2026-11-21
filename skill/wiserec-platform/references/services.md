@@ -4,6 +4,7 @@
 
 ```powershell
 ml service list --name SERVICE_NAME -o json
+ml service list -A --name SERVICE_NAME
 ml service host list SERVICE_ID -o json
 ml service host list SERVICE_ID --pod-ip POD_IP -o json
 ml service deployment list SERVICE_ID -o json

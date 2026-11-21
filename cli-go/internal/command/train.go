@@ -21,9 +21,10 @@ func newTrain(options Options, load loadConfig) *cobra.Command {
 	list := trainListCommand("list", "分页查询当前业务下的训练任务", 0, options, load,
 		func(ctx context.Context, api *platform.API, cmd *cobra.Command, _ []string, page, size int) (platform.Page, string, error) {
 			name, _ := cmd.Flags().GetString("name")
-			value, err := api.TrainList(ctx, page, size, name)
+			value, err := api.TrainList(ctx, page, size, name, allBusinessRequested(cmd))
 			return value, "", err
 		}, trainTaskColumns, "暂无训练任务")
+	addAllBusinessFlag(list)
 	list.Flags().String("name", "", "按任务名称模糊查询")
 	instanceList := trainListCommand("list TASK_ID", "分页查询训练任务执行实例", 1, options, load,
 		func(ctx context.Context, api *platform.API, _ *cobra.Command, args []string, page, size int) (platform.Page, string, error) {
@@ -81,7 +82,7 @@ func trainListCommand(use, short string, argsCount int, options Options, load lo
 		if format == "json" {
 			return output.JSON(cmd.OutOrStdout(), result)
 		}
-		return renderTrainPage(cmd.OutOrStdout(), result, heading, cols, empty)
+		return renderTrainPage(cmd.OutOrStdout(), result, heading, allBusinessColumns(cols, allBusinessRequested(cmd)), empty)
 	})
 	return cmd
 }

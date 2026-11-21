@@ -20,7 +20,7 @@ func newFeatureTask(options Options, load loadConfig) *cobra.Command {
 	fixed := defaultFields("taskType scene subScene cronFlag depTask teamId noRunDays updateUser trainEngine trainMode distFramework region scope subDataZoneId",
 		"", "noticeTime jobStatus taskTags tags reverseTaskTags reverseTags")
 	fixed["taskType1"], fixed["private"], fixed["running"] = "ALL", false, false
-	list := catalogQuery{route: taskPrefix + "queryList", command: "list", summary: "分页查询当前业务下的特征任务", paged: true,
+	list := catalogQuery{route: taskPrefix + "queryList", command: "list", summary: "分页查询当前业务下的特征任务", paged: true, allowAllBusiness: true, appendBusinessColumn: true,
 		strings: []string{"name", "category", "create-user"}, defaults: map[string]string{"category": "dpp-all"},
 		fixed: fixed, assign: map[string]string{"name": "taskName", "category": "category", "create-user": "createUser"},
 		body: func(body map[string]any, cmd *cobra.Command, args []string, api *platform.API) (any, error) {

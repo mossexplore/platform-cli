@@ -7,6 +7,7 @@
 
 ```powershell
 ml dataset list --name DATASET_NAME -o json
+ml dataset list -A --name DATASET_NAME
 ml dataset detail DATASET_ID -o json
 ml dataset files list DATASET_ID --dir / -o json
 ml dataset files upload DATASET_ID 'D:\data\sample.csv' --dir / -o json

@@ -11,7 +11,7 @@ ml auth status
 
 - `context` 无需登录、不访问网络，包含运行模式、上下文模式、会话 ID、当前环境、当前业务、CLI 版本和路径、实际配置路径与会话文件路径。使用 `--json`，不加 `-o json`；只查看报告的路径，不读取配置、凭据、会话或业务文件。JSON 键为“运行模式”“上下文模式”“会话 ID”“当前环境”“当前业务”“CLI 版本”“CLI 路径”“配置路径”“会话文件”等；将“当前环境”与 `auth status` 的 `profile` 对照，无需另外运行 `ml --version`、`ml env show`。
 - **多会话自动隔离**：在 DeepSeek Harness（自动注入 `DSH_SHELL=1` 与 `DSH_SESSION_ID`）或设置了 `ML_SESSION_ID` 时，CLI 自动进入会话隔离模式，每个会话独立保存所选环境与租户/团队，互不覆盖全局配置或其他会话，但共享同一环境的登录凭据与业务目录。新会话默认“未绑定环境、未绑定业务”且绝不静默回退全局配置；若 `当前环境` 为 `未绑定`，先按用户要求执行 `ml env use NAME`（未指定时向用户确认，不猜测默认环境），再核对 `ml auth status` 并按需执行 `ml business use --tenant TENANT_ID [--team TEAM_ID]`。严禁在命令中手工覆写 `DSH_SESSION_ID`、`DSH_SHELL` 或 `ML_SESSION_ID`。
-- `auth status` 当前仅输出表格，没有 `-o json` 选项；不续期，显示 `profile`、`username`、`status`、`remaining_minutes`、`expires_at` 和 `businessId`。必须检查 `status=valid`，不能只看退出码；`profile` 应与 `context` 的环境一致。`businessId` 读取当前生效上下文的业务 ID（会话隔离模式读取当前会话绑定，普通终端读取全局 `selected.businessId`），可用于确认业务 ID；不使用其他来源或旧字段代替。
+- `auth status` 当前仅输出表格，没有 `-o json` 选项；不续期，显示 `profile`、`username`、`status`、`remaining_minutes`、`expires_at`、`role` 和 `businessId`。必须检查 `status=valid`，不能只看退出码；`profile` 应与 `context` 的环境一致。`businessId` 读取当前生效上下文的业务 ID（会话隔离模式读取当前会话绑定，普通终端读取全局 `selected.businessId`），可用于确认业务 ID；不使用其他来源或旧字段代替。全租户查询使用超级管理员或超级管理员只读角色，旧凭据的角色可以在首次跨租户查询时补全。
 - `businessId` 缺失、为空或为 `-` 时，先看 `context` 是否为“未绑定”，需要核对当前已选租户/团队名称时运行 `ml business show`。未选业务再进入选择流程，不在每次查询前列出全部业务。
 - 在当前聊天内可复用已确认的 CLI 路径、配置来源和命令语法。会话隔离模式下与其他并行会话互不干扰；普通非隔离终端仍共用本地 CLI 状态，此时其他会话的切换可能改变生效环境或业务。
 - 用户要求切换到另一环境时，运行对应的 `ml env use NAME`，再用上述两条命令更新上下文。与已确认环境相同时不重复切换；未指定环境且当前已绑定时沿用当前环境，不擅自切换。若用户给的是显示名，用 `ml env list -o json` 匹配“环境名”，取唯一匹配行的“环境标识”用于切换。未找到或匹配多行时，请用户确认环境标识。开启自动保活时，目标环境未登录或登录过期会提示运行 `ml login`。

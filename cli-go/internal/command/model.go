@@ -19,7 +19,7 @@ func newModel(options Options, load loadConfig) *cobra.Command {
 	fixed := defaultFields("sfsId selectModel scene subScene", "modelStatus sourceEnv source approvalStrategy", "tags noticeTime")
 	fixed["modelUsage"] = "cloud"
 	list := catalogQuery{
-		route: modelPrefix + "queryList", command: "list", summary: "查询当前业务的模型列表", paged: true,
+		route: modelPrefix + "queryList", command: "list", summary: "查询当前业务的模型列表", paged: true, allowAllBusiness: true,
 		strings: []string{"name", "team-id"}, nullable: []string{"type", "owner"},
 		fixed: fixed, assign: map[string]string{"name": "modelName", "team-id": "teamId", "type": "modelType", "owner": "owner"},
 		body: withBusiness, items: "models", total: "count", preserve: true, optionalCode: true, empty: "暂无模型",

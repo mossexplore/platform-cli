@@ -184,6 +184,7 @@ func newRoot(options Options) *cobra.Command {
 				{Key: "账号", Value: result.Username},
 				{Key: "中文名", Value: loginValue(result.ChineseName)},
 				{Key: "部门", Value: loginValue(result.Department)},
+				{Key: "权限角色", Value: result.AdminRole},
 				{Key: "businessId", Value: loginValue(result.BusinessID)},
 			}
 			if err := fields.Table(cmd.OutOrStdout()); err != nil {

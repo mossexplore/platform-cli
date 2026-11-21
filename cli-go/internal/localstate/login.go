@@ -100,6 +100,26 @@ func (p Paths) SaveLogin(creds Credentials, catalog []Department, browserBusines
 	return sessionBusinessID, nil
 }
 
+func (p Paths) UpdateAdminFlags(expected Credentials, superAdmin, aiSupporter bool) error {
+	unlock, err := p.LockState()
+	if err != nil {
+		return err
+	}
+	defer unlock()
+	var file credentialFile
+	if err := readJSON(p.Credentials(), &file); err != nil {
+		return err
+	}
+	current := file.Profiles[expected.Profile]
+	if current.Profile != expected.Profile || current.Origin != expected.Origin ||
+		current.StateID != expected.StateID || current.Username != expected.Username {
+		return errors.New("登录会话已变更，无法保存管理角色")
+	}
+	current.IsSuperAdmin, current.IsAISupporter = &superAdmin, &aiSupporter
+	file.Profiles[expected.Profile] = current
+	return writeState(p.Credentials(), file)
+}
+
 func selectionFromBrowser(catalog []Department, id string) Selection {
 	if id == "" {
 		return Selection{}

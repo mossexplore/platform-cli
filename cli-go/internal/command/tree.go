@@ -6,6 +6,7 @@ import (
 	"io"
 	"slices"
 	"strings"
+	"time"
 	"unicode"
 
 	"github.com/mossexplore/platform-cli/cli-go/internal/localstate"
@@ -27,9 +28,14 @@ func writeTree(out io.Writer, root *cobra.Command, paths localstate.Paths, cfg l
 		if _, err := fmt.Fprintln(out, "ml  WiseRec 命令行工具"); err != nil {
 			return err
 		}
-		return printBranches(out, "", treeBranches(root, "", "", nil, true))
+		return printBranches(out, "", treeBranches(root, "", "", nil, true, false))
 	}
 	fmt.Fprintf(out, "当前环境：%s · 管理台类型：%s\n", profile.Name, profile.PlatformType)
+	creds, err := paths.LoadCredentials(profile, time.Now())
+	showAllBusiness := err == nil && creds.HasAdminFlags() && creds.CanQueryAllBusiness()
+	if showAllBusiness {
+		fmt.Fprintf(out, "当前账号权限：%s · 标记“支持 -A”的列表命令可使用 --all-business / -A 查全租户\n", creds.AdminRoleLabel())
+	}
 	if !all {
 		fmt.Fprintln(out, "仅展示当前环境支持的命令；查看全部命令：ml tree --all")
 	}
@@ -44,10 +50,10 @@ func writeTree(out io.Writer, root *cobra.Command, paths localstate.Paths, cfg l
 	if _, err := fmt.Fprintln(out, "ml  WiseRec 命令行工具"); err != nil {
 		return err
 	}
-	return printBranches(out, "", treeBranches(root, "", profile.PlatformType, rules, all))
+	return printBranches(out, "", treeBranches(root, "", profile.PlatformType, rules, all, showAllBusiness))
 }
 
-func treeBranches(cmd *cobra.Command, path, platformType string, rules []string, all bool) []branch {
+func treeBranches(cmd *cobra.Command, path, platformType string, rules []string, all, showAllBusiness bool) []branch {
 	var branches []branch
 	commands := cmd.Commands()
 	if path == "" {
@@ -67,7 +73,7 @@ func treeBranches(cmd *cobra.Command, path, platformType string, rules []string,
 		if (blocked || unsupported) && !all {
 			continue
 		}
-		children := treeBranches(child, childPath, platformType, rules, all)
+		children := treeBranches(child, childPath, platformType, rules, all, showAllBusiness)
 		if !child.Runnable() && len(children) == 0 {
 			continue
 		}
@@ -76,6 +82,8 @@ func treeBranches(cmd *cobra.Command, path, platformType string, rules []string,
 			label += "  [不支持]"
 		} else if blocked {
 			label += "  [当前环境禁用]"
+		} else if showAllBusiness && child.Flags().Lookup(allBusinessFlag) != nil {
+			label += "  支持 -A"
 		}
 		branches = append(branches, branch{label: label, children: children})
 	}

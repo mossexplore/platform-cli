@@ -1,6 +1,7 @@
 package edgelogin
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/chromedp/cdproto/network"
@@ -63,5 +64,27 @@ func TestParseBrowserIdentityAndBusiness(t *testing.T) {
 	if err != nil || len(catalog) != 1 || len(catalog[0].Tenants) != 2 ||
 		catalog[0].Tenants[0].ID != "123" || catalog[0].Tenants[0].Teams[0].BusinessID != "value" {
 		t.Fatalf("unexpected catalog: %+v %v", catalog, err)
+	}
+}
+
+func TestParseBrowserAdminFlags(t *testing.T) {
+	flag := func(value bool) *bool { return &value }
+	for _, tc := range []struct {
+		fields           string
+		super, supporter *bool
+	}{
+		{`"isSuperAdmin":true,"isAISupporter":false`, flag(true), flag(false)},
+		{`"isSuperAdmin":false,"isAISupporter":true`, flag(false), flag(true)},
+		{`"isSuperAdmin":true,"isAISupporter":true`, flag(true), flag(true)},
+		{`"isSuperAdmin":false,"isAISupporter":false`, flag(false), flag(false)},
+		{`"isAISupporter":"true"`, nil, nil},
+	} {
+		result := parseUserInfo(fmt.Appendf(nil, `{"result":{"code":0,"username":"alice",%s}}`, tc.fields))
+		match := func(got, want *bool) bool {
+			return got == nil && want == nil || got != nil && want != nil && *got == *want
+		}
+		if result.Username != "alice" || !match(result.IsSuperAdmin, tc.super) || !match(result.IsAISupporter, tc.supporter) {
+			t.Errorf("incorrect role parsing: %s", tc.fields)
+		}
 	}
 }

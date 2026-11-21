@@ -60,9 +60,13 @@ func helpWidth(out io.Writer) int {
 	return 80
 }
 
+func usesGoHelp(cmd *cobra.Command) bool {
+	return goNativeHelpPaths[cmd.CommandPath()] || cmd.Flags().Lookup(allBusinessFlag) != nil
+}
+
 func pythonHelpFunc(fallback func(*cobra.Command, []string)) func(*cobra.Command, []string) {
 	return func(cmd *cobra.Command, args []string) {
-		if goNativeHelpPaths[cmd.CommandPath()] {
+		if usesGoHelp(cmd) {
 			fallback(cmd, args)
 			return
 		}

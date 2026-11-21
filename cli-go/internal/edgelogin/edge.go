@@ -27,6 +27,7 @@ type Summary struct {
 	ChineseName string
 	Department  string
 	BusinessID  string
+	AdminRole   string
 	cookie      string
 	csrfToken   string
 }
@@ -99,6 +100,7 @@ func Run(ctx context.Context, paths localstate.Paths, cfg localstate.Config, pro
 	now := time.Now()
 	creds.AcquiredAt, _ = json.Marshal(now)
 	creds.ChineseName, creds.Department = session.identity.ChineseName, session.identity.Department
+	creds.IsSuperAdmin, creds.IsAISupporter = session.identity.IsSuperAdmin, session.identity.IsAISupporter
 	expires := now.Add(time.Duration(cfg.Auth.TTLSeconds) * time.Second)
 	creds.ExpiresAt, err = json.Marshal(expires)
 	if err != nil {
@@ -113,7 +115,7 @@ func Run(ctx context.Context, paths localstate.Paths, cfg localstate.Config, pro
 	}
 	return Summary{
 		Environment: environment, Username: creds.Username, ChineseName: session.identity.ChineseName,
-		Department: session.identity.Department, BusinessID: id, cookie: creds.Cookie, csrfToken: creds.CSRFToken,
+		Department: session.identity.Department, BusinessID: id, AdminRole: creds.AdminRoleLabel(), cookie: creds.Cookie, csrfToken: creds.CSRFToken,
 	}, nil
 }
 

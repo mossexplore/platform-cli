@@ -48,6 +48,7 @@ func newAuth(options Options, load loadConfig) (*cobra.Command, *cobra.Command) 
 			{Key: "profile", Value: creds.Profile}, {Key: "username", Value: creds.Username},
 			{Key: "cn_name", Value: creds.ChineseName}, {Key: "department", Value: creds.Department},
 			{Key: "businessId", Value: business}, {Key: "status", Value: state},
+			{Key: "role", Value: creds.AdminRoleLabel()},
 			{Key: "remaining_minutes", Value: strconv.Itoa(remaining)},
 			{Key: "acquired_at", Value: acquired.In(beijing).Format("2006-01-02 15:04:05")},
 			{Key: "expires_at", Value: expires.In(beijing).Format("2006-01-02 15:04:05")},

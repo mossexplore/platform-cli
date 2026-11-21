@@ -6,6 +6,8 @@
 
 WiseRec 和 MLOps 均支持 `train` 和 `feature-task` 命令，`algorithm` 仅在 WiseRec 环境可用；用 `ml tree --all` 查看当前环境的支持与禁用标记。
 
+标有 `-A` 的列表可用 `--all-business` 查询当前环境的全部租户。需已登录、已选业务并具备超级管理员或超级管理员只读权限。跨租户选项仅用于列表，查到其他租户的资源后应先核对业务编码。
+
 仅在命令 `--help` 声明支持时传 `-o json` 或 `--output json`（`context` 用 `--json`，特征集配置和 `webstudio show` 固定输出 JSON）。常见不支持 `-o/--output` 的命令：`env show`、`access status`、`auth status`、`auth ping status`、`business list/show`、`service host log-search`、`jupyter doctor`、`jupyter terminal list`、`train start/cancel/delete/clone`、`train config export/update`、`algorithm download/clone`。
 
 “确认”列为“是”表示 CLI 内置确认，可用 `--yes` 跳过提示。非交互调用在用户授权后传 `--yes`。**命令可能产生平台或远端副作用时，即使“确认”列为空，也须在执行前核对目标与用户授权，执行后核验结果。**
@@ -39,7 +41,7 @@ WiseRec 和 MLOps 均支持 `train` 和 `feature-task` 命令，`algorithm` 仅�
 
 | 命令 | 用途 | 确认 | 副作用 |
 | --- | --- | --- | --- |
-| `ml mtp swanboard project list` | 训练看板项目 | | |
+| `ml mtp swanboard project list` | 训练看板项目；列表支持 `-A` | | |
 | `ml mtp swanboard project namespace list PROJECT_ID` | 项目空间 | | |
 | `ml mtp swanboard project experiment list PROJECT_ID NAMESPACE_ID` | 空间下的实验 | | |
 | `ml mtp swanboard experiment feature list EXPERIMENT_ID` | 实验特性 | | |
@@ -47,10 +49,10 @@ WiseRec 和 MLOps 均支持 `train` 和 `feature-task` 命令，`algorithm` 仅�
 | `ml mtp swanboard experiment metrics EXPERIMENT_ID` | 指标统计 | | |
 | `ml mtp swanboard experiment config list EXPERIMENT_ID` | 实验配置 | | |
 | `ml mtp swanboard experiment inspect EXPERIMENT_ID` | 一次查询特性、环境、指标和配置 | | |
-| `ml offline experiment list` | 离线实验 | | |
+| `ml offline experiment list` | 离线实验；列表支持 `-A` | | |
 | `ml offline experiment trial list PROJECT_ID` | 实验下的 trial | | |
 | `ml offline experiment clone PROJECT_ID --name NAME` | 克隆实验，可先 `--dry-run` | 是 | 创建实验 |
-| `ml train list` | 训练任务 | | |
+| `ml train list` | 训练任务；列表支持 `-A` | | |
 | `ml train detail TASK_ID` | 查询训练任务详情，可用 `-o json` 获取完整详情 | | |
 | `ml sample-task list` | 样本任务列表，默认旧任务管理；`--source new` 查询新版，支持分页、名称、创建者、修改者和重复 `--type` 筛选，`--status` 仅旧版可用 | | |
 | `ml sample-task period list TASK_ID` | 新旧任务共用，四列网格展示编号、周期和状态，支持分页、北京时间范围及重复 `--state` | | |
@@ -66,7 +68,7 @@ WiseRec 和 MLOps 均支持 `train` 和 `feature-task` 命令，`algorithm` 仅�
 | `ml train clone TASK_ID --name NAME` | 复制任务 | 是 | 写：创建任务 |
 | `ml train config export TASK_ID [--file PATH]` | 导出 YAML 配置 | | 本地文件 |
 | `ml train config update TASK_ID --customize-config VALUE` | 更新自定义参数 | | 写（无内置确认）：修改任务 |
-| `ml algorithm list` | 算法仓 | | |
+| `ml algorithm list` | 算法仓；列表支持 `-A` | | |
 | `ml algorithm download ALGORITHM_ID [--file PATH]` | 下载算法仓 ZIP，沿用训练日志下载的代理设置 | | 本地文件 |
 | `ml algorithm clone ALGORITHM_ID --name NAME --version VERSION` | 克隆算法仓 | 是 | 创建算法仓 |
 
@@ -76,13 +78,13 @@ WiseRec 和 MLOps 均支持 `train` 和 `feature-task` 命令，`algorithm` 仅�
 
 | 命令 | 用途 | 确认 | 副作用 |
 | --- | --- | --- | --- |
-| `ml model list` | 当前业务的模型 | | |
+| `ml model list` | 当前业务的模型；列表支持 `-A` | | |
 | `ml model detail MODEL_ID` | 模型详情 | | |
 | `ml model source MODEL_ID [--train-task]` | 模型溯源，或关联训练任务 | | |
 | `ml model deploy MODEL_ID --template DEPLOY_TEMPLATE_ID` | 部署为服务，先 `--dry-run` 预览 | 是 | 创建服务 |
-| `ml resource template list` / `detail RESOURCE_TEMPLATE_ID` | 资源模板 | | |
-| `ml deployment template list` / `detail DEPLOY_TEMPLATE_ID` | 部署模板 | | |
-| `ml service list` | 服务 | | |
+| `ml resource template list` / `detail RESOURCE_TEMPLATE_ID` | 资源模板；列表支持 `-A` | | |
+| `ml deployment template list` / `detail DEPLOY_TEMPLATE_ID` | 部署模板；列表支持 `-A` | | |
+| `ml service list` | 服务；列表支持 `-A` | | |
 | `ml service mock SERVICE_ID [--request-sample-file PATH] [--transmission-tag 0\|1]` | 使用文档或 JSON 文件样例测试服务，默认不调用透传接口 | | 写（无内置确认）：调用一次服务 |
 | `ml service host list SERVICE_ID [--pod-ip IP]` | 主机视图，可按 Pod IP 筛选 | | |
 | `ml service host mock SERVICE_ID --pod-ip POD_IP [--request-sample-file PATH] [--transmission-tag 0\|1]` | 先按 Pod IP 查询主机，再使用文档或文件样例测试 | | 写（无内置确认）：调用一次服务 |
@@ -97,10 +99,10 @@ WiseRec 和 MLOps 均支持 `train` 和 `feature-task` 命令，`algorithm` 仅�
 
 | 命令 | 用途 | 确认 | 副作用 |
 | --- | --- | --- | --- |
-| `ml dataset list` / `ml dataset detail DATASET_ID` | 数据集列表 / 详情 | | |
+| `ml dataset list` / `ml dataset detail DATASET_ID` | 数据集列表 / 详情；列表支持 `-A` | | |
 | `ml dataset files list DATASET_ID` | 数据集内部目录 | | |
 | `ml dataset files upload DATASET_ID LOCAL_FILE` | 追加单个文件 | | 写（无内置确认）：上传文件 |
-| `ml feature-task list` | 特征任务列表，支持 `--name`、`--category`、`--create-user`、`--page`、`--page-size` 和 `-o json` | | |
+| `ml feature-task list` | 特征任务列表，支持 `--name`、`--category`、`--create-user`、`--page`、`--page-size` 和 `-o json`；列表支持 `-A` | | |
 | `ml feature-task detail TASK_ID` | 查询特征任务详情，支持 `-o json` | | |
 | `ml feature-task execution list TASK_ID` | 分页查询执行记录，支持 `--include-history` | | |
 | `ml feature-task execution logs search JOB_ID` | 日志搜索，默认原样文本，可选 `-o json` | | |
@@ -127,7 +129,7 @@ WiseRec 和 MLOps 均支持 `train` 和 `feature-task` 命令，`algorithm` 仅�
 
 | 命令 | 用途 | 确认 | 副作用 |
 | --- | --- | --- | --- |
-| `ml webstudio list` | 实例列表 | | |
+| `ml webstudio list` | 实例列表；列表支持 `-A` | | |
 | `ml webstudio show` | 默认实例绑定与缓存，不代表实时状态 | | |
 | `ml webstudio login ENV_ID [--refresh]` | 建立连接并设为默认实例 | | 本地缓存 |
 | `ml webstudio start ENV_ID` | 启动实例 | | 写（无内置确认）：启动实例 |

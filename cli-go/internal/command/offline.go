@@ -42,6 +42,9 @@ func newOfflineList(options Options, load loadConfig, trial bool) *cobra.Command
 	cmd := &cobra.Command{Use: use, Short: short, Args: positional(count), Annotations: map[string]string{"platform": "wiserec"}}
 	page, pageSize := pagination(cmd)
 	outputFlag(cmd)
+	if !trial {
+		addAllBusinessFlag(cmd)
+	}
 	for flag := range params {
 		cmd.Flags().String(flag, "", flag)
 	}
@@ -50,6 +53,11 @@ func newOfflineList(options Options, load loadConfig, trial bool) *cobra.Command
 			return usageError{errors.New("page 和 page-size 必须为正整数")}
 		}
 		query := url.Values{"businessId": {api.BusinessID()}, "pageIndex": {strconv.Itoa(*page)}, "pageSize": {strconv.Itoa(*pageSize)}}
+		allBusiness := allBusinessRequested(cmd)
+		if allBusiness {
+			query.Set("businessId", "ALL")
+		}
+		columns := allBusinessColumns(cols, allBusiness)
 		if trial {
 			query.Set("projectId", args[0])
 		}
@@ -78,7 +86,7 @@ func newOfflineList(options Options, load loadConfig, trial bool) *cobra.Command
 			filtered := make([]platform.Record, 0, len(items))
 			for _, item := range items {
 				record := platform.Record{}
-				for _, column := range cols {
+				for _, column := range columns {
 					value, ok := item[column.key]
 					if !ok {
 						value = json.RawMessage(`""`)
@@ -96,7 +104,7 @@ func newOfflineList(options Options, load loadConfig, trial bool) *cobra.Command
 			}
 			return output.JSON(cmd.OutOrStdout(), map[string]any{"pageIndex": *page, "pageSize": *pageSize, "count": count, "total": total, "items": filtered})
 		}
-		return renderRecordTable(cmd.OutOrStdout(), cols, items, func(row platform.Record, key string) string {
+		return renderRecordTable(cmd.OutOrStdout(), columns, items, func(row platform.Record, key string) string {
 			switch key {
 			case "experimentType":
 				if row.Text(key) == "batch" {

@@ -63,6 +63,11 @@ func authorized(options Options, load loadConfig, run func(*cobra.Command, []str
 			return err
 		}
 		defer api.Close()
+		if allBusinessRequested(cmd) {
+			if err := api.RequireAllBusiness(cmd.Context()); err != nil {
+				return err
+			}
+		}
 		runErr := run(cmd, args, api, format)
 		if profile, username, origin, ok := api.RecordActivity(); ok {
 			switch {

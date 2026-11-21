@@ -41,15 +41,18 @@ func newSwanBoard(options Options, load loadConfig) *cobra.Command {
 		}
 		team, _ := cmd.Flags().GetString("team-id")
 		creator, _ := cmd.Flags().GetString("creator")
-		result, err := swanCall(cmd, api, http.MethodPost, "project/list", nil,
-			map[string]any{"pageNum": page, "pageSize": size, "businessId": api.BusinessID(), "teamId": team, "creator": creator})
+		body := map[string]any{"pageNum": page, "pageSize": size, "teamId": team, "creator": creator}
+		setListBusiness(body, cmd, api.BusinessID())
+		result, err := swanCall(cmd, api, http.MethodPost, "project/list", nil, body)
 		if err != nil {
 			return err
 		}
-		return showSwanPage(cmd.OutOrStdout(), result, format, page, size, []recordColumn{
+		cols := []recordColumn{
 			{"项目id", "projectId"}, {"项目名称", "name"}, {"项目描述", "description"}, {"创建者", "creator"}, {"创建时间", "createTime"},
-		})
+		}
+		return showSwanPage(cmd.OutOrStdout(), result, format, page, size, allBusinessColumns(cols, allBusinessRequested(cmd)))
 	})
+	addAllBusinessFlag(projectList)
 	pagination(projectList)
 	projectList.Flags().String("team-id", "", "团队 ID 模糊查询")
 	projectList.Flags().String("creator", "", "创建者模糊查询")

@@ -94,18 +94,22 @@ func validToken(value string) bool {
 }
 
 type userInfo struct {
-	Username    string
-	ChineseName string
-	Department  string
+	Username      string
+	ChineseName   string
+	Department    string
+	IsSuperAdmin  *bool
+	IsAISupporter *bool
 }
 
 func parseUserInfo(body []byte) userInfo {
 	var response struct {
 		Result struct {
-			Code        *int            `json:"code"`
-			Username    string          `json:"username"`
-			ChineseName json.RawMessage `json:"cnName"`
-			Department  json.RawMessage `json:"department"`
+			Code          *int            `json:"code"`
+			Username      string          `json:"username"`
+			ChineseName   json.RawMessage `json:"cnName"`
+			Department    json.RawMessage `json:"department"`
+			IsSuperAdmin  json.RawMessage `json:"isSuperAdmin"`
+			IsAISupporter json.RawMessage `json:"isAISupporter"`
 		} `json:"result"`
 	}
 	if json.Unmarshal(body, &response) != nil || response.Result.Code == nil || *response.Result.Code != 0 {
@@ -117,5 +121,12 @@ func parseUserInfo(body []byte) userInfo {
 	result := userInfo{Username: response.Result.Username}
 	_ = json.Unmarshal(response.Result.ChineseName, &result.ChineseName)
 	_ = json.Unmarshal(response.Result.Department, &result.Department)
+	var superAdmin, aiSupporter *bool
+	if json.Unmarshal(response.Result.IsSuperAdmin, &superAdmin) == nil {
+		result.IsSuperAdmin = superAdmin
+	}
+	if json.Unmarshal(response.Result.IsAISupporter, &aiSupporter) == nil {
+		result.IsAISupporter = aiSupporter
+	}
 	return result
 }

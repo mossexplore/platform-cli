@@ -79,7 +79,7 @@ func trainPage(source Record, field string, page, size int, allowOmittedEmpty bo
 	return value, nil
 }
 
-func (a *API) TrainList(ctx context.Context, page, size int, name string) (Page, error) {
+func (a *API) TrainList(ctx context.Context, page, size int, name string, allBusiness bool) (Page, error) {
 	mlops := a.PlatformType() == "mlops"
 	if page < 1 || size < 1 || mlops && size > 200 {
 		return Page{}, errors.New("page 或 page-size 超出有效范围")
@@ -87,6 +87,9 @@ func (a *API) TrainList(ctx context.Context, page, size int, name string) (Page,
 	data := map[string]any{
 		"taskName": name, "taskType": nil, "taskType1": "mtp-all", "businessId": a.BusinessID(),
 		"category": "mtp-all", "tags": nil, "pageIndex": page, "pageSize": size,
+	}
+	if allBusiness {
+		data["businessId"] = nil
 	}
 	for _, field := range strings.Fields("cronFlag depTask scene subScene teamId noRunDays createUser updateUser trainEngine trainMode distFramework isDeleted region scope inputName algorithmName algoInputName algorithmVersion taskOwner imagePackageId bucketName inputTaskId taskStr customLabels taskId") {
 		data[field] = ""
@@ -152,7 +155,7 @@ func findTrainRecord(ctx context.Context, id, key string, query func(context.Con
 
 func (a *API) TrainTask(ctx context.Context, taskID string) (Record, error) {
 	return findTrainRecord(ctx, taskID, "taskId", func(ctx context.Context, page int) (Page, error) {
-		return a.TrainList(ctx, page, 10, "")
+		return a.TrainList(ctx, page, 10, "", false)
 	})
 }
 

@@ -30,6 +30,7 @@ ml model source MODEL_ID --train-task -o json
 
 ```powershell
 ml deployment template list --name TEMPLATE_NAME -o json
+ml deployment template list -A --name TEMPLATE_NAME
 ml deployment template detail DEPLOY_TEMPLATE_ID -o json
 ml resource template detail RESOURCE_TEMPLATE_ID -o json
 ```

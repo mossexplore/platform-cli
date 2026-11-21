@@ -21,6 +21,7 @@
 ```powershell
 ml webstudio show
 ml webstudio list --status online -o json
+ml webstudio list -A --status online
 ml webstudio login ENV_ID
 ml jupyter files list -o json
 ```
@@ -101,4 +102,4 @@ ml jupyter notebook run '.\analysis.ipynb' --download '.\results' -o json
 
 ## 凭据
 
-files 和 exec 不输出带 Token 的连接地址；Web Studio 列表会脱敏凭据字段。其他异常诊断、远端文件和程序输出仍可能含秘密，只报告任务需要的内容。认证失败时先处理会话，不在混合输出中猜测 JSON。
+files 和 exec 不输出带 Token 的连接地址；Go CLI 的 Web Studio 列表 JSON 原样输出平台响应，普通查询和全租户查询都可能包含凭据或访问链接。仅向用户返回任务所需的非敏感字段。其他异常诊断、远端文件和程序输出仍可能含秘密，只报告任务需要的内容。认证失败时先处理会话，不在混合输出中猜测 JSON。

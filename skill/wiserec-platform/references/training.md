@@ -42,6 +42,7 @@ ml offline experiment clone PROJECT_ID --name NEW_NAME --yes -o json
 
 ```powershell
 ml train list --name NAME -o json
+ml train list -A --name NAME
 ml train detail TASK_ID -o json
 ml train instance list TASK_ID --page 2 --page-size 20 -o json
 ml train history list TASK_ID --page 2 --page-size 20 -o json

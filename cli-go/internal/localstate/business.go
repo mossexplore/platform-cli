@@ -9,16 +9,18 @@ import (
 )
 
 type Credentials struct {
-	Origin      string          `json:"platform_origin"`
-	StateID     string          `json:"state_id"`
-	Profile     string          `json:"profile"`
-	Username    string          `json:"username"`
-	Cookie      string          `json:"cookie"`
-	CSRFToken   string          `json:"csrftoken"`
-	AcquiredAt  json.RawMessage `json:"acquired_at,omitempty"`
-	ChineseName string          `json:"cn_name,omitempty"`
-	Department  string          `json:"department,omitempty"`
-	ExpiresAt   json.RawMessage `json:"expires_at"`
+	Origin        string          `json:"platform_origin"`
+	StateID       string          `json:"state_id"`
+	Profile       string          `json:"profile"`
+	Username      string          `json:"username"`
+	Cookie        string          `json:"cookie"`
+	CSRFToken     string          `json:"csrftoken"`
+	AcquiredAt    json.RawMessage `json:"acquired_at,omitempty"`
+	ChineseName   string          `json:"cn_name,omitempty"`
+	Department    string          `json:"department,omitempty"`
+	IsSuperAdmin  *bool           `json:"is_super_admin,omitempty"`
+	IsAISupporter *bool           `json:"is_ai_supporter,omitempty"`
+	ExpiresAt     json.RawMessage `json:"expires_at"`
 }
 
 type credentialFile struct {

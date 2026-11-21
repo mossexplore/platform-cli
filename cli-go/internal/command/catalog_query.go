@@ -22,6 +22,8 @@ type catalogQuery struct {
 	summary              string
 	args                 int
 	paged                bool
+	allowAllBusiness     bool
+	appendBusinessColumn bool
 	maxPage              int
 	strings              []string
 	nullable             []string
@@ -50,6 +52,9 @@ func (q catalogQuery) build(options Options, load loadConfig) *cobra.Command {
 		cmd.Annotations = map[string]string{"platform": "wiserec"}
 	}
 	outputFlag(cmd)
+	if q.allowAllBusiness {
+		addAllBusinessFlag(cmd)
+	}
 	if q.paged {
 		pagination(cmd)
 	}
@@ -101,7 +106,7 @@ func (q catalogQuery) build(options Options, load loadConfig) *cobra.Command {
 				return err
 			}
 		}
-		return q.render(cmd.OutOrStdout(), result, payload, format, page, size)
+		return q.render(cmd.OutOrStdout(), result, payload, format, page, size, allBusinessRequested(cmd))
 	})
 	return cmd
 }
@@ -118,7 +123,7 @@ func catalogResult(payload json.RawMessage, label string, optional bool) (platfo
 	return platform.Result(payload, label, false)
 }
 
-func (q catalogQuery) render(out io.Writer, record platform.Record, raw json.RawMessage, format string, page, size int) error {
+func (q catalogQuery) render(out io.Writer, record platform.Record, raw json.RawMessage, format string, page, size int, allBusiness bool) error {
 	value := q.value
 	if value == nil {
 		value = catalogValue
@@ -180,7 +185,7 @@ func (q catalogQuery) render(out io.Writer, record platform.Record, raw json.Raw
 		}
 		return output.JSON(out, result)
 	}
-	if err := renderRecordTable(out, q.columns, items, value); err != nil {
+	if err := renderRecordTable(out, allBusinessColumns(q.columns, allBusiness && q.appendBusinessColumn), items, value); err != nil {
 		return err
 	}
 	if len(items) == 0 && q.empty != "" {
@@ -193,8 +198,8 @@ func (q catalogQuery) render(out io.Writer, record platform.Record, raw json.Raw
 	return nil
 }
 
-func withBusiness(body map[string]any, _ *cobra.Command, _ []string, api *platform.API) (any, error) {
-	body["businessId"] = api.BusinessID()
+func withBusiness(body map[string]any, cmd *cobra.Command, _ []string, api *platform.API) (any, error) {
+	setListBusiness(body, cmd, api.BusinessID())
 	return body, nil
 }
 
