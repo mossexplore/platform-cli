@@ -17,6 +17,7 @@ import (
 )
 
 func TestSessionEnvironmentSwitchReturnsWhilePingLockIsHeld(t *testing.T) {
+	t.Setenv("ML_HISTORY", "0")
 	base, err := localstate.NewPaths(t.TempDir(), []byte(`{
 		"current":"dev",
 		"profiles":[{"name":"dev","api_endpoint":"https://dev.example.test"},{"name":"uat","api_endpoint":"https://uat.example.test"}]
@@ -34,7 +35,7 @@ func TestSessionEnvironmentSwitchReturnsWhilePingLockIsHeld(t *testing.T) {
 	}
 	defer unlock()
 	started := time.Now()
-	code, _, stderr := run(t, paths, "--no-history", "env", "use", "uat")
+	code, _, stderr := run(t, paths, "env", "use", "uat")
 	if code != 0 || !strings.Contains(stderr, "当前环境已切换为: uat") || !strings.Contains(stderr, "保活登记待重试") {
 		t.Fatalf("expected successful switch with a deferred registration, got %d: %s", code, stderr)
 	}

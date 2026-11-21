@@ -225,9 +225,6 @@ func startHistory(cmd *cobra.Command, options Options) *historyInvocation {
 		path == "ml help" || os.Getenv("ML_HISTORY") == "0" {
 		return nil
 	}
-	if noHistory, _ := cmd.Flags().GetBool("no-history"); noHistory {
-		return nil
-	}
 	paths, err := options.Paths()
 	if err != nil {
 		return nil

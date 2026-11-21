@@ -22,7 +22,7 @@
 - **集中式权限治理（`access-service`，可选）**：提供基于 FastAPI + MySQL 的独立权限管理服务，支持人员/环境授权、到期控制、版本准入策略、环境禁用命令清单（如禁止特定子命令组）与调用审计看板。
 - **AI Agent 技能集成（`agent-service`，可选）**：支持 OpenCode 等 AI Agent 调用 `ml` 命令完成平台操作，并提供 `mlops-agent` CLI 与统一管理流程。
 - **权限通知助手（`permission-notifier`，可选）**：面向管理员的桌面通知服务与审批提醒客户端。
-- **本地命令历史**：支持 `ml history` 查看近期命令、`ml history clear` 清理历史，或通过 `ml --no-history COMMAND` 跳过单次记录。
+- **本地命令历史**：支持 `ml history` 查看近期命令、`ml history clear` 清理历史，可设置 `ML_HISTORY=0` 关闭自动记录。
 
 ---
 

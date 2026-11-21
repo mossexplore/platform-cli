@@ -227,7 +227,7 @@ OpenCode 的正式 skill 安装到 `~/.agents/skills/wiserec-platform`，`/ml` �
 
 历史安装若使用过其他自定义 OpenCode 配置目录，需在该目录重新运行安装程序才能清理对应旧副本。
 
-Go 用户可双击 MSI 或通过 `msiexec` 安装。安装器会自动移除旧版 Python 安装器注册的用户 PATH 入口，保留旧版程序、配置和登录数据。交互安装期间用一个进度条显示环境检查、CLI 安装和 Skill 安装等阶段。用重新打包的同版本 MSI 安装时，选择「卸载并安装」会先移除已有安装再安装新包，保留环境配置和登录数据。选择「取消」可保留已有安装。若打开的是同一个 MSI 文件，可在 Windows「已安装的应用」里修复现有安装。若 Skill 安装失败，按弹窗提示手动安装 Skill，仍可继续使用 CLI。成功界面会显示本次安装的 CLI 版本。系统 PATH 或其他程序的冲突需手动处理。安装后重新打开终端和 Agent，直接使用 `ml` 和 `/ml`。Go 使用 EXE 内置的部署配置。`%APPDATA%\ml-go-preview\config.json` 只保存当前环境 `current`。升级后首次使用保留仍可用的环境选择，否则使用包内默认环境。升级和卸载保留该目录中的登录数据。Go 业务命令需要在线权限校验。便携 ZIP 解压后可用 `.\ml.exe` 或绝对路径运行；需要临时用 `ml` 时可在本终端把解压目录加入 PATH。详见 [Go Windows 安装说明](../cli-go/README.md)。
+Go 用户可双击 MSI 或通过 `msiexec` 安装。若 Skill 安装失败，按提示手动安装，仍可继续使用 CLI。安装后重新打开终端和 Agent，即可使用 `ml` 和 `/ml`。Go 使用 EXE 内置的部署配置，当前环境保存在 `%APPDATA%\\ml-go-preview\\config.json`。Go 业务命令需要在线权限校验。便携 ZIP 解压后可用 `.\\ml.exe` 或绝对路径运行，也可以把解压目录加入当前终端的 PATH。详见 [Go Windows 安装说明](../cli-go/README.md)。
 
 Python 客户端需要 Python 运行环境。浏览器登录需要 Microsoft Edge。首次使用依次选择环境、登录、选择业务。
 
@@ -264,7 +264,6 @@ ml tree
 | `--help` | 显示命令帮助；可放在各级命令后 |
 | `--show-completion` | 输出当前 shell 的补全脚本 |
 | `--install-completion` | 为当前用户的 shell 安装补全，重新打开终端后生效 |
-| `--no-history` | 放在命令前，不保存本次调用；环境变量 `ML_HISTORY=0` 可关闭自动记录 |
 | `ml tree` | 显示当前环境支持的命令；`--all` 查看全部命令，无需登录或选择业务 |
 | `--output` / `-o` | 部分查询命令支持 `table` 或 `json`，以对应命令帮助为准 |
 
@@ -459,7 +458,7 @@ ml access status [--diagnose]
 
 先登录并选择业务。授权失败时按提示处理；需要排查连接时使用 `--diagnose`，其中“CA 来源”说明当前使用的证书信任库。分享诊断输出前隐藏账号与内部地址。
 
-遇到版本准入拒绝时，按提示核对版本要求。通过 MSI 安装的 Go 客户端在交互终端遇到版本过低时，可确认下载并安装，并在开始下载时看到 MSI 地址。升级包和训练日志使用相同的代理设置。下载后，客户端按包内版本将临时安装包命名为 `wiserec-cli-VERSION-windows-x64.msi`，再开始安装。安装完成后重新执行原命令。提示无法自动升级时按给出的原因排查，可用 `ml access status --diagnose` 核对权限服务地址。脚本、JSON 输出和便携版可联系管理员获取安装包。
+遇到客户端准入拒绝时，按提示处理。需要核对权限服务地址时，运行 `ml access status --diagnose`。安装包可向管理员获取。
 
 权限管理系统的「调用日志 → 完整命令」显示 Go 客户端按顺序上报的全部参数值，包括 `ml jupyter exec` 的子进程参数和内联脚本。Go 客户端按平台规则给参数加引号，保留参数内容、换行和空参数。权限审计不脱敏或截断；请避免通过命令行传递凭据。本地命令历史仍按原规则脱敏。
 
@@ -1203,7 +1202,6 @@ ml model source MODEL_ID --train-task -o json
 ml history
 ml history list [--limit COUNT] [--search TEXT] [--env ENV_NAME] [--status STATUS] [-o table|json]
 ml history clear [--env ENV_NAME] [--before "YYYY-MM-DD HH:mm:ss"] [--yes]
-ml --no-history COMMAND [ARGS]...
 ```
 
 ### 21.2 参数与选项
@@ -1218,7 +1216,6 @@ ml --no-history COMMAND [ARGS]...
 | `--before` | 删除严格早于指定北京时间的记录，与环境筛选取交集 |
 | `--yes` | 跳过清理确认；非交互执行清理时必须提供 |
 | `--output` / `-o` | list 支持 table 或 json，默认 table |
-| `--no-history` | 全局选项，放在子命令前，仅本次不记录 |
 
 ### 21.3 说明
 
@@ -1230,7 +1227,7 @@ ml --no-history COMMAND [ARGS]...
 
 查看和清理历史无需登录、联网或有效的平台配置内容。帮助、版本、命令树、历史管理自身及内部后台活动不记录。设置 `ML_HISTORY=0` 关闭自动记录，仍可查询已有记录；环境变量的设置方式依使用的终端而定。
 
-历史中的命令保留普通选项和值，例如 `ml train list --page 2 --page-size 20`。记录写入前隐藏敏感参数和带凭据的链接，不读取文件或标准输入内容，不保存输出及平台响应。Jupyter exec 的任意子进程参数整体隐藏，Go 客户端也隐藏 `--customize-config` 的内容。已保存的 `[REDACTED]` 无法补回原参数，含脱敏或截断标记的命令不可直接完整复用。请勿在普通参数中嵌入敏感内容，不希望留存的调用使用 `--no-history`。本功能不会接管终端方向键，也不自动重新执行历史命令。
+历史中的命令保留普通选项和值，例如 `ml train list --page 2 --page-size 20`。记录写入前隐藏敏感参数和带凭据的链接，不读取文件或标准输入内容，不保存输出及平台响应。Jupyter exec 的任意子进程参数整体隐藏，Go 客户端也隐藏 `--customize-config` 的内容。已保存的 `[REDACTED]` 无法补回原参数，含脱敏或截断标记的命令不可直接完整复用。请勿在普通参数中嵌入敏感内容。本功能不会接管终端方向键，也不自动重新执行历史命令。
 
 clear 先匹配记录再确认，确认期间新完成的记录保留。没有匹配项时显示清理 0 条。末尾损坏或无效的记录会被跳过并提示，下次更新时移除损坏行。目录不可写或文件忙时，自动保存只告警，不改变原命令结果；主动查询或清理失败则报错。
 
@@ -1244,7 +1241,7 @@ ml history list --status failed -o json
 ml history clear --before "2026-10-01 00:00:00"
 ml history clear --env ENV_NAME --yes
 ml history clear --yes
-ml --no-history dataset list
+ML_HISTORY=0 ml dataset list
 ```
 
 

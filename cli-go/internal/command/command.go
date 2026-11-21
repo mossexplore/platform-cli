@@ -81,7 +81,6 @@ func newRoot(options Options) *cobra.Command {
 	root.SetHelpFunc(showHelp)
 	addCompletionOptions(root)
 	root.SetVersionTemplate("ml {{.Version}}\n")
-	root.PersistentFlags().Bool("no-history", false, "不保存本次命令历史")
 	root.SetArgs(append([]string{}, options.Args...))
 	root.SetOut(options.Stdout)
 	root.SetErr(options.Stderr)

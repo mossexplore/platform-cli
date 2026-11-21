@@ -191,7 +191,7 @@ function Assert-Installed($Payload) {
             if ((Get-FileHash -LiteralPath $path).Hash -ne $item.Value) { throw "Incorrect agent file: $path" }
         }
     }
-    $context = & ml --no-history context --json | ConvertFrom-Json
+    $context = & ml context --json | ConvertFrom-Json
     if ($LASTEXITCODE -ne 0 -or $context.'配置路径' -ne $goConfig) { throw 'Incorrect Go configuration path' }
 }
 
@@ -299,8 +299,10 @@ $pythonExe = Join-Path $Work 'custom Python/venv/Scripts/ml.exe'
 $otherPath = Join-Path $Work 'unrelated PATH entry'
 $savePath = [Environment]::GetEnvironmentVariable('Path', 'User')
 $saveOpenCode = [Environment]::GetEnvironmentVariable('OPENCODE_CONFIG_DIR', 'User')
+$saveHistory = $env:ML_HISTORY
 $installedMsi = $null
 try {
+    $env:ML_HISTORY = '0'
     New-Item -ItemType Directory -Path $conflict, $otherPath, (Split-Path $pythonExe), (Split-Path $pythonConfig), (Join-Path $openCode 'commands') -Force | Out-Null
     $launcher = Join-Path $conflict 'ml.cmd'
     Set-Content -LiteralPath $launcher -Value '@echo off' -Encoding ascii
@@ -355,16 +357,16 @@ try {
     if (Test-Path (Join-Path $openCode 'commands/ml-lab.md')) { throw 'Legacy shortcut remains' }
 
     Set-Content -LiteralPath $goConfig -Value '{"current":"test","profiles":[],"access_control":{"enable":false}}'
-    $portableContext = & (Join-Path $portable 'ml.exe') --no-history context --json | ConvertFrom-Json
+    $portableContext = & (Join-Path $portable 'ml.exe') context --json | ConvertFrom-Json
     if ($LASTEXITCODE -ne 0 -or $portableContext.'当前环境' -ne 'test' -or $portableContext.'平台地址') {
         throw 'Portable exe did not load the selected embedded environment'
     }
     Assert-Selection 'test'
 
-    & ml --no-history env use dev
+    & ml env use dev
     if ($LASTEXITCODE -ne 0) { throw 'Could not select the default test environment' }
     Assert-Selection 'dev'
-    & ml --no-history env use test
+    & ml env use test
     if ($LASTEXITCODE -ne 0) { throw 'Could not select the other test environment' }
     Assert-Selection 'test'
     $configDigest = (Get-FileHash $goConfig).Hash
@@ -431,6 +433,7 @@ try {
     Invoke-Msi '/x' $baseline 'uninstall-default-opencode' | Out-Null
     $installedMsi = $null
 } finally {
+    $env:ML_HISTORY = $saveHistory
     if ($installedMsi) { Invoke-Msi '/x' $installedMsi 'cleanup' | Out-Null }
     [Environment]::SetEnvironmentVariable('Path', $savePath, 'User')
     [Environment]::SetEnvironmentVariable('OPENCODE_CONFIG_DIR', $saveOpenCode, 'User')

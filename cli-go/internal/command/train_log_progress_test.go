@@ -13,6 +13,7 @@ import (
 )
 
 func TestHistoryLogDownloadReportsStages(t *testing.T) {
+	t.Setenv("ML_HISTORY", "0")
 	storage := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprint(w, "test log")
 	}))
@@ -32,8 +33,8 @@ func TestHistoryLogDownloadReportsStages(t *testing.T) {
 			if err := os.Mkdir(directory, 0700); err != nil {
 				t.Fatal(err)
 			}
-			args := []string{"--no-history", "train", "history", "logs", "download", "task", "job", "--directory", directory, "-o", "json"}
-			audit := "ml --no-history train history logs download task job --directory " + quoteCommandArg(directory) + " -o json"
+			args := []string{"train", "history", "logs", "download", "task", "job", "--directory", directory, "-o", "json"}
+			audit := "ml train history logs download task job --directory " + quoteCommandArg(directory) + " -o json"
 			if tc.name == "plog" {
 				args = append(args, "--type=plog")
 				audit += " --type=plog"

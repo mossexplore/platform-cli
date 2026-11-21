@@ -36,6 +36,29 @@ func TestHistoryRecordsNewArgumentsAndKeepsExistingRows(t *testing.T) {
 	}
 }
 
+func TestNoHistoryOptionRemoved(t *testing.T) {
+	t.Setenv("ML_HISTORY", "0")
+	paths := fixtureConfig(t, t.TempDir(), "https://preview.example.test", "", false, "wiserec", "")
+	for _, args := range [][]string{{"--no-history", "env", "show"}, {"env", "show", "--no-history"}} {
+		code, out, stderr := run(t, paths, args...)
+		if code != 2 || out != "" || !strings.Contains(stderr, "unknown flag: --no-history") {
+			t.Fatalf("obsolete option accepted: %d %s %s", code, out, stderr)
+		}
+	}
+	code, out, stderr := run(t, paths, "env", "show", "--help")
+	if code != 0 || stderr != "" || strings.Contains(out, "--no-history") {
+		t.Fatalf("unexpected help: %d %s %s", code, out, stderr)
+	}
+	code, out, stderr = run(t, paths, "env", "show")
+	if code != 0 || stderr != "" || !strings.Contains(out, "preview") {
+		t.Fatalf("env show failed: %d %s %s", code, out, stderr)
+	}
+	rows, _, err := paths.ReadHistory()
+	if err != nil || len(rows) != 0 {
+		t.Fatalf("history was recorded with ML_HISTORY=0: %v %v", rows, err)
+	}
+}
+
 func TestHistoryPagination(t *testing.T) {
 	rows := make([]localstate.HistoryEntry, 21)
 	for i := range rows {
