@@ -1,9 +1,9 @@
 <Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
-  <Package Name="WiseRec CLI (Go)" Manufacturer="WiseRec" Version="$(var.Version)"
+  <Package Name="WiseRec CLI" Manufacturer="WiseRec" Version="$(var.Version)"
            UpgradeCode="{432C0A6C-7DEF-4B10-B19F-BAEBDD4E5FE9}"
            Scope="perUser" InstallerVersion="500" Codepage="936">
     <MajorUpgrade Schedule="afterInstallInitialize" AllowSameVersionUpgrades="yes"
-                  DowngradeErrorMessage="A newer WiseRec CLI (Go) is already installed." />
+                  DowngradeErrorMessage="A newer WiseRec CLI is already installed." />
     <Upgrade Id="{432C0A6C-7DEF-4B10-B19F-BAEBDD4E5FE9}">
       <UpgradeVersion Minimum="$(var.Version)" Maximum="$(var.Version)"
                       IncludeMinimum="yes" IncludeMaximum="yes" OnlyDetect="yes" Property="WISECLI_SAME_VERSION" />
@@ -225,7 +225,7 @@
       </InstallUISequence>
     </UI>
 
-    <Feature Id="Complete" Title="WiseRec CLI (Go)" Level="1">
+    <Feature Id="Complete" Title="WiseRec CLI" Level="1">
       <ComponentRef Id="CliFiles" />
       <ComponentRef Id="OpenCodeLocation" />
     </Feature>

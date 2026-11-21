@@ -29,7 +29,7 @@ function Get-PackageVersion([string] $Path) {
         $db = $installer.GetType().InvokeMember('OpenDatabase', 'InvokeMethod', $null, $installer, @($Path, 0))
         try {
             if ((Get-MsiProperty $db 'UpgradeCode') -ne $upgradeCode) {
-                throw 'MSI 产品不匹配，预期为 WiseRec CLI（Go）。'
+                throw 'MSI 产品不匹配，预期为 WiseRec CLI。'
             }
             $summary = $db.GetType().InvokeMember('SummaryInformation', 'GetProperty', $null, $db, @(0))
             try {

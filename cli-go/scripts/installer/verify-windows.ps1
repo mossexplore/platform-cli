@@ -242,7 +242,12 @@ $listBoxTable = 'SELECT `Name` FROM `_Tables` WHERE `Name` = ''ListBox'''
 $successVersion = 'SELECT `Text` FROM `Control` WHERE `Dialog_` = ''InstallationComplete'' AND `Control` = ''CliVersion'''
 $progressQuery = 'SELECT `Dialog_` FROM `Control` WHERE `Type` = ''ProgressBar'''
 $completionBitmap = 'SELECT `Control` FROM `Control` WHERE `Dialog_` = ''InstallationComplete'' AND `Type` = ''Bitmap'''
+$productNameQuery = 'SELECT `Value` FROM `Property` WHERE `Property` = ''ProductName'''
 foreach ($package in @($baseline, $replacement, $upgrade)) {
+    $productNames = @(Get-MsiValues $package $productNameQuery)
+    if ($productNames.Count -ne 1 -or $productNames[0] -cne 'WiseRec CLI') {
+        throw "MSI ProductName must be exactly 'WiseRec CLI'. MSI: $package"
+    }
     $progress = @(Get-MsiValues $package $progressQuery)
     $bitmaps = @(Get-MsiValues $package $completionBitmap)
     if ($progress.Count -ne 1 -or $progress[0] -ne 'Installing' -or $bitmaps.Count -ne 0) {

@@ -101,7 +101,7 @@ go mod verify
 
 ## MSI 安装、升级与卸载
 
-1. 双击 MSI，或通过 `msiexec` 安装。安装范围为当前用户，程序位于 `%LOCALAPPDATA%\Programs\WiseRecCLIGo\ml.exe`。
+1. 双击 MSI，或通过 `msiexec` 安装。控制面板和 Windows“已安装的应用”中的名称为 **WiseRec CLI**。安装范围为当前用户，程序位于 `%LOCALAPPDATA%\Programs\WiseRecCLIGo\ml.exe`。
 2. 如果用户 PATH 中已有旧版 WiseRec Python 安装器注册的入口，MSI 会自动移除该条目并继续安装。旧版程序、配置和登录数据会保留。安装失败回滚时会恢复移除的旧入口。
 3. 交互安装期间使用同一个进度条显示检查环境、安装 CLI、配置命令和安装 Skill 等阶段。用重新打包的同版本 MSI 安装时，选择「卸载并安装」后，Windows Installer 会移除已有安装并安装新包，保留环境配置和登录数据。选择「取消」会保留已有安装。再次打开已经安装的同一 MSI 文件时，如需修复，请通过「已安装的应用」操作。CLI 安装成功后显示「安装成功」提示及本次安装的 CLI 版本。点击「确定」关闭窗口，重新打开终端与 Agent，再运行 `where.exe ml`、`ml --version` 和 `ml context --json` 核对入口、版本和配置路径。
 
