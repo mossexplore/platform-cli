@@ -2,9 +2,11 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Release](https://img.shields.io/github/v/release/mossexplore/platform-cli)](https://github.com/mossexplore/platform-cli/releases/latest)
-[![Python](https://img.shields.io/badge/Python-3.9%2B-green.svg)](cli-python/pyproject.toml)
 
 面向 **WiseRec 机器学习/深度学习平台**的命令行工具（`ml`）及配套企业级权限治理套件，用于在终端中完成算法管理、训练任务、分布式训练、数据集管理、在线推理服务部署、资源监控与 Jupyter 远程开发。
+
+> [!IMPORTANT]
+> **Python CLI 已废弃，后续维护集中在 Go CLI。** `cli-python/` 仅保留作历史参考。新用户请参阅 [Go 客户端构建与安装说明](cli-go/README.md)。
 
 > [!NOTE]
 > **平台依赖与运行前提**
@@ -45,33 +47,13 @@ flowchart LR
 
 ### 1. 安装 CLI
 
-#### 方式 A：Windows 安装包（推荐终端用户）
+#### Go 客户端（Windows x64）
 
-前往 [GitHub Releases](https://github.com/mossexplore/platform-cli/releases/latest) 下载对应版本的安装包并解压安装：
+终端用户可用 MSI 注册 `ml` 和 Agent Skill，开发人员可解压便携 ZIP 直接运行 `ml.exe`。参阅 [Go 构建与安装说明](cli-go/README.md)。
 
-- **联网版**：`wiserec-cli-<version>-windows-py3-online.zip`（需 Python 3.9+）
-- **离线版**：`wiserec-cli-<version>-windows-x64-py312-offline.zip`（面向 Windows x64 + Python 3.12 离线环境，不含 Python 本体）
+#### Python 客户端（已废弃）
 
-安装与升级细节请参阅 [Windows 安装说明](cli-python/scripts/windows/INSTALL.md)。
-
-#### 方式 B：通过 `pip` 安装（macOS / Linux / 开发者）
-
-从 [GitHub Releases](https://github.com/mossexplore/platform-cli/releases/latest) 下载 Wheel 安装，或从源码安装：
-
-```bash
-# 从源码可编辑安装（需要 Python >= 3.9）
-git clone https://github.com/mossexplore/platform-cli.git
-cd platform-cli
-pip install -e ./cli-python
-
-# 验证安装
-ml --version
-ml tree
-```
-
-#### 方式 C：Go Windows x64
-
-终端用户可用 MSI 注册 `ml` 和 Agent Skill，开发人员可解压 ZIP 直接运行 `ml.exe`。参阅 [Go 构建与安装说明](cli-go/README.md)。
+Python Wheel 及 Windows 联网、离线安装包见 [历史发布](https://github.com/mossexplore/platform-cli/releases)。已有安装的说明见 [Python CLI 历史安装文档](cli-python/scripts/windows/INSTALL.md)。
 
 ### 2. 登录与环境初始化
 
@@ -102,8 +84,8 @@ ml access status
 
 | 组件 | 目录 | 当前源码版本 | 说明 | 文档入口 |
 | --- | --- | --- | --- | --- |
-| **WiseRec CLI（Python）** | `cli-python/` | `1.0.9.6` | 正式命令行工具（`ml`） | [使用手册](docs/WiseRec%20CLI%20使用手册.md) · [维护说明](docs/CLI使用与维护说明.md) |
-| **WiseRec CLI（Go）** | `cli-go/` | `1.1.0` | Windows x64 便携 ZIP 和每用户 MSI | [构建与安装](cli-go/README.md) |
+| **WiseRec CLI（Go）** | `cli-go/` | `1.1.1` | 当前维护的命令行工具（`ml`），提供 Windows x64 便携 ZIP 和每用户 MSI | [构建与安装](cli-go/README.md) |
+| **WiseRec CLI（Python，已废弃）** | `cli-python/` | `1.0.9.6` | 只读历史实现 | [历史安装文档](cli-python/scripts/windows/INSTALL.md) |
 | **权限管理系统** | `access-service/` | `1.0.9.1` | 授权、版本准入与审计管理台 | [README](access-service/README.md) · [Docker 部署指南](docs/权限管理系统Docker安装部署与调试指南.md) |
 | **Agent 服务** | `agent-service/` | `1.0.9.1` | AI Agent 集成与部署工具 | [README](agent-service/README.md) · [配置示例](agent-service/config.example.json) |
 | **权限通知助手** | `permission-notifier/` | `1.0.9.1` | 权限申请桌面通知客户端 | [README](permission-notifier/README.md) |

@@ -1,5 +1,11 @@
 # AGENTS.md
 
+## Python CLI 已废弃
+
+- `cli-python/` 是只读的历史实现。禁止在该目录新增仓库文件，禁止修改、重命名或删除任何现有受 Git 跟踪的文件，包括源码、测试、配置、版本文件和打包脚本。代码生成、版本同步、格式化与依赖更新同样受此限制。
+- 所有 CLI 新功能、修复、命令和帮助更新均在 `cli-go/` 及相关维护目录实施。现有的 Python CLI 帮助、配置示例和测试可作为只读参考。
+- `versions.toml` 的 `components.cli` 保留历史 Python CLI 版本。Go CLI 的版本使用 `components.cli_go`。
+
 ## CLI 设计强制约束
 
 每次设计或实施 CLI 变更时（包括新增、修改、重命名和删除命令），必须遵守以下约束：
@@ -10,7 +16,7 @@
 4. **首列 ID 展示**：若第一列展示 ID，该列宽度必须固定为 `36`，不得换行、截断或省略 ID；其他长字段优先换行，以便用户完整复制第一列的 ID。
 5. **接口地址来源**：用户给出的请求 URL 若包含 `xxx` 占位符，`xxx` 必须取自 `config.json` 中的 `api_endpoint` 值，不得硬编码为其他地址。
 6. **使用手册同步**：若新增或修改 CLI 命令，必须同步更新 `docs/WiseRec CLI 使用手册.md`，检查并更新命令树及对应命令的用途、使用前提、参数与选项、调用示例和输出说明。
-7. **新增命令版本递增**：若新增 CLI 命令，必须主动将打包版本和 CLI 版本的补丁号同步加 `1`，无需用户另行提醒。例如，`0.3.27` 升级为 `0.3.28`。同步修改 `cli-python/pyproject.toml` 的 `project.version` 和 `cli-python/src/wiserec_cli/__init__.py` 的 `__version__`，确保两者一致，并更新相关版本测试及 README、发布说明中的当前版本信息；`docs/WiseRec CLI 使用手册.md` 不得写入版本信息。一次变更包含多个新增命令时统一递增一次；若本次变更已完成版本递增，不重复递增。打包后必须确认包元数据与 `ml --version` 均为新版本。
+7. **新增命令版本递增**：若新增 Go CLI 命令，将 `versions.toml` 的 `components.cli_go` 补丁号加 `1`，运行版本同步脚本生成 `cli-go/cmd/ml/version.go`，并更新相关版本测试及 README、发布说明。一次变更包含多个新增命令时统一递增一次。打包后确认安装包元数据与 `ml --version` 一致。`docs/WiseRec CLI 使用手册.md` 不得写入版本信息。
 
 8. **命令树说明格式**：`ml tree` 输出中，每个命令及命令分组的说明结尾均不得出现任何标点符号；说明正文中的必要标点保留。末尾括注应改写为完整的补充说明，不能仅删除右括号而留下残缺文本。新增命令或修改说明后，必须检查实际命令树输出，确保所有层级遵守此规则。
 
@@ -18,7 +24,7 @@
 
 ## 产品版本来源
 
-- CLI、权限管理系统、Agent、权限通知助手的版本统一由根目录 `versions.toml` 人工维护，四个组件以后可独立递增。
+- Go CLI、权限管理系统、Agent、权限通知助手的版本由根目录 `versions.toml` 人工维护，各组件独立递增。
 - 修改版本后运行 `python scripts/sync_versions.py`，再运行 `python scripts/sync_versions.py --check`；派生的 `project.version`、`__version__`、`VERSION` 与 `_version.py` 必须一起提交，不分别手改。
 - 各产品运行时读取自身包内版本，不使用其他产品版本替代。Agent 的已验证 CLI 搭配版本单独记录在 `compatibility.agent_cli`。
 - 不因源文件版本更新宣称已正式发布；正式交付继续遵守原发布门禁。具体来源与打包规则见 `docs/版本号管理说明.md`。
@@ -62,10 +68,12 @@ v1.0.3.1 数据看板曾因 MySQL 聚合结果包含 `Decimal`，在模板的 `c
 
 后续所有正式版本必须沿用 v1.0.0、v1.0.3 已验证的统一出包方式：**main 上确定发布提交 → GitHub 正式工作流测试与构建 → Release 草稿 → 下载复核 → 发布正式版 → 验证结果**。不得仅创建 Git 标签、上传本地临时包或只触发工作流后就宣称发布完成。
 
+下文的 Python Wheel、Python 联网和离线 ZIP 及其 Windows 验证脚本仅用于核验历史交付。Go CLI 的 Windows 构建和安装验证以 `.github/workflows/cli-go-windows.yml` 为准，正式交付仍须完成上述流程。
+
 ### 1. 确认范围、版本与授权
 
 - 明确目标版本、上一正式版本、本次新增能力及兼容性变化。以 GitHub 实际 Release、标签及源码为准，不把源码版本等同于已发布版本。
-- `cli-python/pyproject.toml` 的 `project.version`、`cli-python/src/wiserec_cli/__init__.py` 的 `__version__`、发布说明、附件版本和镜像版本必须一致。版本已递增到目标值时不重复递增。
+- 各发布组件须核对 `versions.toml`、对应运行时版本、发布说明及附件版本。Go CLI 核对 `components.cli_go`、`cli-go/cmd/ml/version.go`、Windows MSI 和便携 ZIP。版本已递增到目标值时不重复递增。
 - 用户明确要求“发布正式版本”时，授权包含本流程中的 main 提交与推送、构建、草稿核验及最终发布，无需再次确认同一发布动作；只要求分析、准备、出包或草稿时，不擅自正式发布。
 - GitHub 发布不等于部署生产。没有另行授权，不连接生产库执行迁移、不替换生产容器、不调整业务版本准入策略。
 
@@ -97,7 +105,8 @@ v1.0.3.1 数据看板曾因 MySQL 聚合结果包含 `Decimal`，在模板的 `c
 提交前完成适用的本地测试及差异检查，使用安装了项目依赖的 Python/Node 环境：
 
 ```bash
-python -m pytest cli-python/tests tests -q
+(cd cli-go && go test ./...)
+python -m pytest tests -q
 PYTHONPATH=access-service python -m pytest access-service/tests -q
 node --test access-service/tests/test_time_presets.cjs
 git diff --check
@@ -132,9 +141,10 @@ gh run list --workflow release.yml --limit 5 --json databaseId,headSha,status,co
 
 | 附件 | 必须核对的内容 |
 | --- | --- |
-| `wiserec-cli-<版本>-windows-py3-online.zip` | 联网安装脚本、配置、release.json、CLI Wheel |
-| `wiserec-cli-<版本>-windows-x64-py312-offline.zip` | Python 3.12 x64 离线依赖、安装脚本及同一 CLI Wheel |
-| `wiserec_cli-<版本>-py3-none-any.whl` | 包元数据与 CLI 运行版本一致、新模块包含在包中 |
+| Go CLI Windows x64 MSI 和便携 ZIP | 使用 Go 工作流规定的命名，核对版本、架构、安装与升级验证 |
+| `wiserec-cli-<版本>-windows-py3-online.zip`（历史 Python CLI） | 联网安装脚本、配置、release.json、CLI Wheel |
+| `wiserec-cli-<版本>-windows-x64-py312-offline.zip`（历史 Python CLI） | Python 3.12 x64 离线依赖、安装脚本及同一 CLI Wheel |
+| `wiserec_cli-<版本>-py3-none-any.whl`（历史 Python CLI） | 包元数据、CLI 运行版本及模块内容 |
 | `cli-access-<版本>-linux-amd64.tar.gz` | 可由 docker load 导入，镜像平台、版本和源提交正确 |
 | `CLI-install.md`、`CLI-reference.md` | 当前安装方式和完整命令指导 |
 | `Docker-runbook.md`、适用的 `Docker-upgrade-<版本>.md` | 当前部署及明确的升级、迁移、回滚步骤 |
