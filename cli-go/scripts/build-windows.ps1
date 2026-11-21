@@ -63,7 +63,7 @@ try {
     }
     New-Item -ItemType Directory -Path $outputRoot -Force | Out-Null
     Write-Verbose 'Compiling ml.exe'
-    & go build @buildDetail -trimpath -overlay $overlay -o $output ./cmd/ml
+    & go build @buildDetail -trimpath -overlay $overlay -ldflags '-s -w' -o $output ./cmd/ml
     if ($LASTEXITCODE -ne 0) { throw "Go build failed with exit code $LASTEXITCODE." }
 
     if ($PreflightPath) {
