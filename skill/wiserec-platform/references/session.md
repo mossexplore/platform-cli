@@ -81,6 +81,7 @@ Windows Git Bash 可用 `cygpath -u` 转换 `LOCALAPPDATA` 后拼接安装路径
 | 当前会话尚未绑定环境 | 确认用户目标环境后执行 `ml env use NAME`，再核对认证与业务 |
 | `ml env use` 报“本地状态正在使用”并返回非零退出码 | 在同一个会话运行 `ml context --json`；仍在原环境时稍后重试 |
 | “环境已切换，保活登记待重试” | 切换已成功。核对新环境和业务，成功执行业务请求后会重新尝试登记；用 `ml auth ping status` 检查状态 |
+| “自动保活未能确认启动” | 用 `ml auth ping status` 核对实际进程状态；仅在显示“未运行”且环境已登录、业务已绑定时使用 `ml auth ping start` |
 | 当前会话在环境下尚未选择业务或业务绑定已失效 | 用 `ml business list` 核对候选，按用户选择执行 `ml business use --tenant TENANT_ID [--team TEAM_ID]` |
 | `缺少有效的 DSH_SESSION_ID` 或 `ML_SESSION_ID 无效` | 停止操作并报告实际错误，不尝试绕过或回退全局配置 |
 | 未选业务 | 列候选并按用户选择设置；空结果不等于平台无数据 |

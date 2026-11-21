@@ -132,7 +132,7 @@ func startAutoPing(cmd *cobra.Command, paths localstate.Paths, cfg localstate.Co
 	}
 	message, err := keepalive.Start(cmd.Context(), paths, cfg, version, automatic)
 	if err != nil {
-		fmt.Fprintln(cmd.ErrOrStderr(), "[警告] 自动保活启动失败：", err)
+		fmt.Fprintln(cmd.ErrOrStderr(), "[警告]", err)
 		return
 	}
 	if message != "" {

@@ -3,6 +3,7 @@ package keepalive
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"time"
@@ -53,8 +54,11 @@ func load(paths localstate.Paths) (entryFile, error) {
 	if errors.Is(err, os.ErrNotExist) {
 		return data, nil
 	}
-	if err != nil || json.Unmarshal(raw, &data) != nil || data.Profiles == nil {
-		return entryFile{}, errors.New("无法读取 Go 保活状态")
+	if err != nil {
+		return entryFile{}, fmt.Errorf("无法读取 Go 保活状态：%w", err)
+	}
+	if json.Unmarshal(raw, &data) != nil || data.Profiles == nil {
+		return entryFile{}, errors.New("Go 保活状态文件 ping-go.json 格式无效")
 	}
 	return data, nil
 }

@@ -3,6 +3,7 @@ package keepalive
 import (
 	"context"
 	"errors"
+	"fmt"
 	"os"
 	"os/exec"
 	"time"
@@ -183,23 +184,34 @@ func launchWorker(entry *Entry, profile, version string, now time.Time) error {
 }
 
 func waitForWorker(ctx context.Context, paths localstate.Paths, profile string, interval time.Duration, token string) error {
-	deadline := time.Now().Add(3 * time.Second)
-	for time.Now().Before(deadline) {
-		entry, running, err := View(paths, profile, interval)
-		if err != nil {
+	return confirmWorker(ctx, token, 3*time.Second, func() (Entry, bool, error) {
+		return View(paths, profile, interval)
+	})
+}
+
+func confirmWorker(ctx context.Context, token string, timeout time.Duration, read func() (Entry, bool, error)) error {
+	deadline := time.Now().Add(timeout)
+	for {
+		if err := ctx.Err(); err != nil {
 			return err
 		}
-		if entry.WorkerToken != token {
+		entry, running, err := read()
+		if err == nil && entry.WorkerToken != "" && entry.WorkerToken != token {
 			return errReplaced
 		}
-		if running && (entry.Status == "running" || entry.Status == "waiting") {
+		if err == nil && entry.WorkerToken == token && running && (entry.Status == "running" || entry.Status == "waiting") {
 			return nil
+		}
+		if !time.Now().Before(deadline) {
+			if err != nil {
+				return fmt.Errorf("自动保活未能确认启动：%w", err)
+			}
+			return errors.New("自动保活未能确认启动")
 		}
 		if err := waitForStateChange(ctx); err != nil {
 			return err
 		}
 	}
-	return errors.New("自动保活未能确认启动")
 }
 
 func waitForStateChange(ctx context.Context) error {

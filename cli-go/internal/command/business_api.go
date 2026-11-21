@@ -75,7 +75,7 @@ func authorized(options Options, load loadConfig, run func(*cobra.Command, []str
 				keepalive.Touch(paths, profile, username, origin)
 			case runErr == nil:
 				if err := keepalive.SessionActivity(cmd.Context(), paths, cfg, options.Version, username); err != nil {
-					fmt.Fprintln(cmd.ErrOrStderr(), "[警告] 自动保活启动失败：", err)
+					fmt.Fprintln(cmd.ErrOrStderr(), "[警告]", err)
 				}
 			}
 		}
