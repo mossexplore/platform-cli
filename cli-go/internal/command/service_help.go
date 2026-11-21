@@ -23,12 +23,8 @@ type serviceHelpPage struct {
 	argumentUsage   string
 }
 
-func showServiceHelp(cmd *cobra.Command, args []string) {
-	page, ok := serviceHelpPages[strings.TrimPrefix(cmd.CommandPath(), cmd.Root().Name()+" ")]
-	if !ok {
-		showHelp(cmd, args)
-		return
-	}
+func showServiceHelp(cmd *cobra.Command, _ []string) {
+	page := serviceHelpPages[strings.TrimPrefix(cmd.CommandPath(), cmd.Root().Name()+" ")]
 	if err := writeServiceHelp(cmd, page); err != nil {
 		cmd.PrintErrln(err)
 	}
@@ -63,23 +59,15 @@ func writeServiceHelp(cmd *cobra.Command, page serviceHelpPage) error {
 		}
 	}
 	usage += " [选项]"
-	var text strings.Builder
-	fmt.Fprintf(&text, "%s\n\n用法\n  %s\n", intro, usage)
+	usageLines := []string{usage}
 	if page.alternateTarget != "" {
-		fmt.Fprintf(&text, "  %s %s [选项]\n", cmd.CommandPath(), page.alternateTarget)
+		usageLines = append(usageLines, fmt.Sprintf("%s %s [选项]", cmd.CommandPath(), page.alternateTarget))
 	}
+	sections := []output.HelpBlock{{Title: "用法", PreserveWords: true, Lines: usageLines}}
+	sections = append(sections, serviceChildSections(cmd, page.childGroups)...)
+	sections = append(sections, output.HelpBlock{Title: "示例", PreserveWords: true, Lines: page.examples})
 	if page.note != "" {
-		fmt.Fprintf(&text, "\n%s\n", page.note)
-	}
-
-	sections := serviceChildSections(cmd, page.childGroups)
-	if len(page.examples) > 0 {
-		var examples strings.Builder
-		examples.WriteString("\n示例\n")
-		for _, line := range page.examples {
-			fmt.Fprintf(&examples, "  %s\n", line)
-		}
-		sections = append(sections, output.HelpBlock{Text: examples.String()})
+		sections = append(sections, output.HelpBlock{Title: "说明", Lines: strings.Split(page.note, "\n")})
 	}
 
 	var arguments []output.HelpRow
@@ -117,7 +105,7 @@ func writeServiceHelp(cmd *cobra.Command, page serviceHelpPage) error {
 		output.HelpBlock{Title: "全局选项", Rows: inherited},
 		output.HelpBlock{Title: "帮助", Rows: []output.HelpRow{{Label: "-h, --help", Description: "显示帮助"}}},
 	)
-	return output.WriteHelpList(out, text.String(), sections)
+	return output.WriteHelpTable(out, "用途", intro, sections)
 }
 
 func serviceChildSections(cmd *cobra.Command, groups []serviceHelpGroup) []output.HelpBlock {

@@ -28,7 +28,7 @@ func TestRegisteredCommandHelp(t *testing.T) {
 			})
 			help := out.String()
 			if code != 0 || stderr.Len() != 0 || !strings.Contains(help, cmd.CommandPath()) ||
-				!(strings.Contains(help, "\n选项\n") || strings.Contains(help, "\n帮助\n")) || !strings.Contains(help, "--help") {
+				!(strings.Contains(help, "\n选项\n") || strings.Contains(help, "\n├  帮助 ")) || !strings.Contains(help, "--help") {
 				t.Fatalf("help: exit %d, stderr %q\n%s", code, &stderr, help)
 			}
 			_, arguments, _ := strings.Cut(cmd.Use, " ")
