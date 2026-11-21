@@ -63,8 +63,7 @@ func writeServiceHelp(cmd *cobra.Command, page serviceHelpPage) error {
 	if page.alternateTarget != "" {
 		usageLines = append(usageLines, fmt.Sprintf("%s %s [选项]", cmd.CommandPath(), page.alternateTarget))
 	}
-	sections := []output.HelpBlock{{Title: "用法", PreserveWords: true, Lines: usageLines}}
-	sections = append(sections, serviceChildSections(cmd, page.childGroups)...)
+	sections := serviceChildSections(cmd, page.childGroups)
 	sections = append(sections, output.HelpBlock{Title: "示例", PreserveWords: true, Lines: page.examples})
 	if page.note != "" {
 		sections = append(sections, output.HelpBlock{Title: "说明", Lines: strings.Split(page.note, "\n")})
@@ -103,9 +102,9 @@ func writeServiceHelp(cmd *cobra.Command, page serviceHelpPage) error {
 	sections = append(sections,
 		output.HelpBlock{Title: "选项", Rows: remaining},
 		output.HelpBlock{Title: "全局选项", Rows: inherited},
-		output.HelpBlock{Title: "帮助", Rows: []output.HelpRow{{Label: "-h, --help", Description: "显示帮助"}}},
+		output.HelpBlock{Title: "帮助", Rows: []output.HelpRow{{Label: "-h, --help", Description: "显示帮助", Switch: true}}},
 	)
-	return output.WriteHelpTable(out, "用途", intro, sections)
+	return output.WriteHelpTable(out, usageLines, intro, sections)
 }
 
 func serviceChildSections(cmd *cobra.Command, groups []serviceHelpGroup) []output.HelpBlock {
@@ -164,5 +163,7 @@ func serviceFlagHelp(flag *pflag.Flag) output.HelpRow {
 	case flag.DefValue != "" && flag.DefValue != "[]" && flag.DefValue != "false":
 		description += "，默认 " + flag.DefValue
 	}
-	return output.HelpRow{Label: serviceFlagLabel(flag, true), Description: description, Required: required}
+	return output.HelpRow{
+		Label: serviceFlagLabel(flag, true), Description: description, Required: required, Switch: flag.Value.Type() == "bool",
+	}
 }

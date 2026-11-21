@@ -10,6 +10,7 @@ import (
 type HelpRow struct {
 	Label, Description string
 	Required           bool
+	Switch             bool
 }
 
 type HelpBlock struct {
@@ -19,8 +20,8 @@ type HelpBlock struct {
 	PreserveWords bool
 }
 
-func WriteHelpTable(out io.Writer, title, intro string, sections []HelpBlock) error {
-	marker := "*"
+func WriteHelpTable(out io.Writer, usage []string, intro string, sections []HelpBlock) error {
+	style := helpStyle{}
 	if file, ok := out.(*os.File); ok {
 		if _, noColor := os.LookupEnv("NO_COLOR"); !noColor {
 			color, restore := enableHelpColor(file)
@@ -28,94 +29,145 @@ func WriteHelpTable(out io.Writer, title, intro string, sections []HelpBlock) er
 				defer restore()
 			}
 			if color {
-				marker = "\x1b[31m*\x1b[0m"
+				style = helpStyle{
+					dim: "\x1b[2m", bold: "\x1b[1m", label: "\x1b[1;36m", toggle: "\x1b[1;32m",
+					marker: "\x1b[31m", required: "\x1b[2;31m", yellow: "\x1b[1;33m",
+				}
 			}
 		}
 	}
-	table := renderHelpTable(title, intro, sections, helpTerminalWidth(out), marker)
+	table := renderHelpTable(usage, intro, sections, helpTerminalWidth(out), style)
 	_, err := io.WriteString(out, table)
 	return err
 }
 
-func renderHelpTable(title, intro string, sections []HelpBlock, width int, marker string) string {
-	labelWidth, markerWidth := 0, 0
-	width = max(width, cells.StringWidth(title)+6)
-	for _, section := range sections {
-		width = max(width, cells.StringWidth(section.Title)+6)
-		for _, row := range section.Rows {
-			labelWidth = max(labelWidth, cells.StringWidth(row.Label))
-			if row.Required {
-				markerWidth = 2
-			}
+type helpStyle struct {
+	dim, bold, label, toggle, marker, required, yellow string
+}
+
+func paintHelp(text, color string) string {
+	if color == "" || text == "" {
+		return text
+	}
+	return color + text + "\x1b[0m"
+}
+
+func renderHelpTable(usage []string, intro string, sections []HelpBlock, width int, style helpStyle) string {
+	var text strings.Builder
+	for index, line := range usage {
+		prefix := "       "
+		if index == 0 {
+			prefix = paintHelp(" 用法：", style.yellow)
+		}
+		const usageIndent = 7
+		for _, wrapped := range strings.Split(wrapHelpText(line, max(2, width-usageIndent), true), "\n") {
+			text.WriteString(prefix + paintHelp(wrapped, style.bold) + "\n")
+			prefix = strings.Repeat(" ", usageIndent)
 		}
 	}
-	labelWidth += markerWidth
-	const padding = 4 // Two borders and one space inside each border.
-	width = max(width, labelWidth+padding)
-	table := helpTable{
-		contentWidth: width - padding,
-		labelWidth:   labelWidth,
-		markerWidth:  markerWidth,
-		marker:       marker,
+	if intro != "" {
+		text.WriteByte('\n')
+		for _, line := range strings.Split(wrapHelpText(intro, max(2, width-1), false), "\n") {
+			text.WriteString(" " + line + "\n")
+		}
+		text.WriteByte('\n')
 	}
-	table.header("┌", title, "┐")
-	table.fullRow(intro, false)
 	for _, section := range sections {
 		if len(section.Rows)+len(section.Lines) == 0 {
 			continue
 		}
-		table.header("├", section.Title, "┤")
-		for _, line := range section.Lines {
-			table.fullRow(line, section.PreserveWords)
+		panel := helpPanel{
+			text: &text, style: style,
+			contentWidth: max(width-4, cells.StringWidth(section.Title)+2, 6),
 		}
-		for _, row := range section.Rows {
-			table.row(row)
-		}
+		panel.write(section)
 	}
-	fmt.Fprintf(&table.text, "└%s┘\n", strings.Repeat("─", width-2))
-	return table.text.String()
+	return text.String()
 }
 
-type helpTable struct {
-	text                                  strings.Builder
+type helpPanel struct {
+	text                                  *strings.Builder
 	contentWidth, labelWidth, markerWidth int
-	marker                                string
+	style                                 helpStyle
 }
 
-func (t *helpTable) header(left, title, right string) {
-	fill := t.contentWidth - cells.StringWidth(title) - 1
-	fmt.Fprintf(&t.text, "%s  %s %s%s\n", left, title, strings.Repeat("─", fill), right)
-}
-
-func (t *helpTable) fullRow(line string, preserveWords bool) {
-	for _, wrapped := range strings.Split(wrapHelpText(line, t.contentWidth, preserveWords), "\n") {
-		fmt.Fprintf(&t.text, "│ %s │\n", padHelpText(wrapped, t.contentWidth))
+func (p *helpPanel) write(section HelpBlock) {
+	for _, row := range section.Rows {
+		p.labelWidth = max(p.labelWidth, cells.StringWidth(row.Label))
+		if row.Required {
+			p.markerWidth = 2
+		}
 	}
+	top := "╭─ " + section.Title + " " + strings.Repeat("─", p.contentWidth-cells.StringWidth(section.Title)-1) + "╮"
+	p.text.WriteString(paintHelp(top, p.style.dim) + "\n")
+	for _, line := range section.Lines {
+		for _, wrapped := range strings.Split(wrapHelpText(line, p.contentWidth, section.PreserveWords), "\n") {
+			p.line(wrapped, cells.StringWidth(wrapped))
+		}
+	}
+	for _, row := range section.Rows {
+		p.row(row)
+	}
+	bottom := "╰" + strings.Repeat("─", p.contentWidth+2) + "╯"
+	p.text.WriteString(paintHelp(bottom, p.style.dim) + "\n")
 }
 
-func (t *helpTable) row(row HelpRow) {
-	prefix := strings.Repeat(" ", t.markerWidth)
+func (p *helpPanel) line(content string, width int) {
+	border := paintHelp("│", p.style.dim)
+	fmt.Fprintf(p.text, "%s %s%s %s\n", border, content, strings.Repeat(" ", p.contentWidth-width), border)
+}
+
+func (p *helpPanel) row(row HelpRow) {
+	prefix := strings.Repeat(" ", p.markerWidth)
 	if row.Required {
-		prefix = t.marker + " "
+		prefix = paintHelp("*", p.style.marker) + " "
 	}
-	label := prefix + padHelpText(row.Label, t.labelWidth-t.markerWidth)
-	descriptionWidth := t.contentWidth - t.labelWidth - 3 // Space, divider, space.
+	labelColor := p.style.label
+	if row.Switch {
+		labelColor = p.style.toggle
+	}
+	const gap = 2
+	keyWidth := p.markerWidth + p.labelWidth + gap
+	descriptionWidth := p.contentWidth - keyWidth
 	if descriptionWidth < 18 {
-		fmt.Fprintf(&t.text, "│ %s%s │\n", label, strings.Repeat(" ", t.contentWidth-t.labelWidth))
-		indent := "  "
-		for _, line := range strings.Split(wrapHelpDescription(row.Description, t.contentWidth-len(indent)), "\n") {
-			fmt.Fprintf(&t.text, "│ %s │\n", padHelpText(indent+line, t.contentWidth))
+		labelLines := strings.Split(wrapHelpText(row.Label, p.contentWidth-p.markerWidth, true), "\n")
+		inValue := false
+		for _, line := range labelLines {
+			p.line(prefix+p.style.paintLabel(line, labelColor, inValue), p.markerWidth+cells.StringWidth(line))
+			inValue = inValue || strings.Contains(line, "<")
+			prefix = strings.Repeat(" ", p.markerWidth)
+		}
+		for _, line := range strings.Split(wrapHelpDescription(row.Description, p.contentWidth-gap), "\n") {
+			p.line(strings.Repeat(" ", gap)+p.style.paintDescription(line), gap+cells.StringWidth(line))
 		}
 		return
 	}
+	label := prefix + p.style.paintLabel(row.Label, labelColor, false) + strings.Repeat(" ", keyWidth-p.markerWidth-cells.StringWidth(row.Label))
 	for _, line := range strings.Split(wrapHelpDescription(row.Description, descriptionWidth), "\n") {
-		fmt.Fprintf(&t.text, "│ %s │ %s │\n", label, padHelpText(line, descriptionWidth))
-		label = strings.Repeat(" ", t.labelWidth)
+		p.line(label+p.style.paintDescription(line), keyWidth+cells.StringWidth(line))
+		label = strings.Repeat(" ", keyWidth)
 	}
 }
 
-func padHelpText(text string, width int) string {
-	return text + strings.Repeat(" ", max(0, width-cells.StringWidth(text)))
+func (s helpStyle) paintLabel(line, color string, inValue bool) string {
+	if inValue {
+		return paintHelp(line, s.yellow)
+	}
+	if option, value, found := strings.Cut(line, "<"); found {
+		name := strings.TrimRight(option, " ")
+		return paintHelp(name, color) + option[len(name):] + paintHelp("<"+value, s.yellow)
+	}
+	return paintHelp(line, color)
+}
+
+func (s helpStyle) paintDescription(line string) string {
+	if body, found := strings.CutSuffix(line, "（必填）"); found {
+		return body + paintHelp("（必填）", s.required)
+	}
+	if body, value, found := strings.Cut(line, "默认"); found {
+		return body + paintHelp("默认"+value, s.dim)
+	}
+	return line
 }
 
 func wrapHelpText(text string, width int, preserveWords bool) string {
@@ -141,6 +193,9 @@ func wrapHelpDescription(description string, width int) string {
 		if body, ok := strings.CutSuffix(description, label); ok {
 			body = wrapHelpText(body, width, false)
 			lastLine := body[strings.LastIndexByte(body, '\n')+1:]
+			if cells.StringWidth(label) > width {
+				return wrapHelpText(description, width, false)
+			}
 			if cells.StringWidth(lastLine+label) > width {
 				body += "\n"
 			}
