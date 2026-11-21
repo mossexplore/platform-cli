@@ -25,6 +25,7 @@ func multiEnvFixture(t *testing.T, endpoint, accessURL string) localstate.Paths 
 			{"name":"dev","alias":"开发环境","api_endpoint":%q,"platform_type":"wiserec","output_format":"table"},
 			{"name":"uat","alias":"测试环境","api_endpoint":%q,"platform_type":"mlops","output_format":"table"}
 		],
+		"auth":{"auto_ping":false},
 		"access_control":{"url":%q,"enable":true}
 	}`, endpoint, endpoint, accessURL)
 	paths, err := localstate.NewPaths(dir, []byte(raw))

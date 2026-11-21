@@ -22,7 +22,7 @@ WiseRec 和 MLOps 均支持 `train` 和 `feature-task` 命令，`algorithm` 仅�
 | `ml login` | 打开 Edge 登录，需用户操作；禁止 `--show-secrets` | | 本地凭据 |
 | `ml logout [--all] [--forget-browser]` | 清除当前或全部环境的认证 | | 本地凭据 |
 | `ml auth status` | 本地认证状态 | | |
-| `ml auth ping start` / `stop` / `status` | 终端保活；非 TTY 环境中 start 不生效 | | 本地进程 |
+| `ml auth ping start` / `stop` / `status` | 交互终端与 DeepSeek Harness 保活；查看状态为只读，停止作用于当前环境 | | 本地进程与会话登记 |
 | `ml access status [--diagnose]` | 检查 CLI 访问授权 | | |
 | `ml business list` / `ml business show` | 业务候选 / 当前业务 | | |
 | `ml business use --tenant ID [--team ID] [--department ID]` | 选择业务；必须传 `--tenant` | | 本地配置 |

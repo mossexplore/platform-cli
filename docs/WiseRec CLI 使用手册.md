@@ -18,7 +18,7 @@ ml                                              WiseRec 命令行工具
 ├── auth                                        登录状态
 │   ├── status                                  查看当前登录状态
 │   └── ping                                    管理终端会话自动保活
-│       ├── start                               启动当前终端的保活
+│       ├── start                               为当前终端或 Harness 会话启动自动保活
 │       ├── status                              查看保活状态和最近请求
 │       └── stop                                停止当前环境的保活
 ├── env                                         环境管理
@@ -313,7 +313,7 @@ ml auth ping stop
 | `ml logout --all` | 清除所有环境的登录状态 |
 | `ml logout --forget-browser` | 同时清除浏览器登录会话 |
 | `ml auth status` | 查看当前账号和登录状态，不显示敏感信息 |
-| `ml auth ping start` | 为当前终端启动自动保活 |
+| `ml auth ping start` | 为当前终端或 DeepSeek Harness 会话启动自动保活 |
 | `ml auth ping status` | 查看保活进程和最近请求结果，不发送请求 |
 | `ml auth ping stop` | 停止当前环境的自动保活 |
 
@@ -325,14 +325,24 @@ ml auth ping stop
 
 登录后用 `auth status` 查看账号、剩余空闲时间及当前业务。默认空闲 30 分钟后校验登录，持续使用会延长会话；`--forget-browser` 会清除浏览器登录状态。
 
-交互终端登录并选择业务后默认自动保活，空闲 10 分钟时请求平台。保活启动成功时不显示提示，启动失败等需要处理的信息仍会显示。`ping status` 查看当前环境仍在运行的保活终端数及最近结果；`ping stop` 停止，`ping start` 恢复。关闭最后一个登记终端或退出登录后停止保活，休眠或断网时无法保活。
+Go CLI 默认在交互终端和 DeepSeek Harness 会话中自动保活。先登录当前环境并选定业务，环境空闲满一个保活周期时请求平台，默认间隔为 10 分钟。Harness 通过非交互 Shell 执行命令也可启动保活，保活请求使用该环境下已登记会话选中的业务。
+
+Harness 会话成功登录、切换环境或业务、执行业务请求后会刷新保活登记。登记在三个保活周期后到期，默认 30 分钟。切换环境会撤销本会话在旧环境的登记，其他会话可继续保活。最后一个会话到期且没有登记终端时，环境停止保活。
+
+`ping status` 显示当前环境的保活终端数、会话数及最近请求结果；查看状态不会延长保活登记。`ping stop` 停止当前环境的共享保活，`ping start` 可恢复。休眠或断网时无法保活。
 
 ### 4.4 示例
 
 ```bash
 ml login
+ml business use --tenant TENANT_ID
 ml auth status
 ml auth ping status
+```
+
+```bash
+ml auth ping stop
+ml auth ping start
 ml logout
 ```
 

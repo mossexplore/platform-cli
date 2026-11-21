@@ -22,6 +22,10 @@ var helpSGR = regexp.MustCompile("\x1b\\[[0-9;]*m")
 
 // Go CLI commands that intentionally diverge from cli-python and must render live Cobra help.
 var goNativeHelpPaths = map[string]bool{
+	"ml auth ping":               true,
+	"ml auth ping start":         true,
+	"ml auth ping status":        true,
+	"ml auth ping stop":          true,
 	"ml service":                 true,
 	"ml service host":            true,
 	"ml service host log-search": true,

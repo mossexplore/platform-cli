@@ -15,6 +15,7 @@ ml auth status
 - `businessId` 缺失、为空或为 `-` 时，先看 `context` 是否为“未绑定”，需要核对当前已选租户/团队名称时运行 `ml business show`。未选业务再进入选择流程，不在每次查询前列出全部业务。
 - 在当前聊天内可复用已确认的 CLI 路径、配置来源和命令语法。会话隔离模式下与其他并行会话互不干扰；普通非隔离终端仍共用本地 CLI 状态，此时其他会话的切换可能改变生效环境或业务。
 - 用户要求切换到另一环境时，运行对应的 `ml env use NAME`，再用上述两条命令更新上下文。与已确认环境相同时不重复切换；未指定环境且当前已绑定时沿用当前环境，不擅自切换。若用户给的是显示名，用 `ml env list -o json` 匹配“环境名”，取唯一匹配行的“环境标识”用于切换。未找到或匹配多行时，请用户确认环境标识。开启自动保活时，目标环境未登录或登录过期会提示运行 `ml login`。
+- **Harness 自动保活**：Go CLI 支持通过 Harness 的非交互 Shell 保活，前提是当前环境已登录且已选业务。成功登录、切换环境或业务、执行业务请求后刷新登记，登记默认 30 分钟到期。用 `ml auth ping status` 查看当前环境的终端数、会话数和上次平台确认时间。手动恢复用 `ml auth ping start`，停止用 `ml auth ping stop`，停止会影响当前环境下的其他会话。
 - `ml env list` 默认输出表格。加 `-o json` 返回环境数组，无可展示环境时返回 `[]`。两种格式都隐藏已确认未授权的环境，保留授权状态未知的环境。列表可显示「已授权」「登录使用中」「登录已过期」或「授权状态未知」。管理台类型显示为「搜推广工程平台」或「WiseMLOps平台」。
 - 核对当前平台标准用户配置路径：Windows 为 `%APPDATA%\ml-go-preview\config.json`，macOS 为 `~/Library/Application Support/ml-go-preview/config.json`，Linux 为 `${XDG_CONFIG_HOME:-~/.config}/ml-go-preview/config.json`。首次加载内置配置时会初始化环境选择。若 `context` 报错或路径不符，停止后续操作并告知用户。
 

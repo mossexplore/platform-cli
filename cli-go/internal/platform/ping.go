@@ -16,12 +16,8 @@ import (
 
 var ErrSessionExpired = errors.New("平台会话已失效")
 
-func (s Session) Probe(ctx context.Context, creds localstate.Credentials, requestID string) error {
+func (s Session) Probe(ctx context.Context, creds localstate.Credentials, business, requestID string, commit func(cookie, csrf string) error) error {
 	profile := s.Config.Profile()
-	business, err := s.Paths.SelectedBusiness(creds)
-	if err != nil {
-		return err
-	}
 	client := businessTransport(s.Config)
 	defer client.CloseIdleConnections()
 	body, _ := json.Marshal(map[string]string{"businessId": business})
@@ -88,7 +84,7 @@ func (s Session) Probe(ctx context.Context, creds localstate.Credentials, reques
 			csrf = item.Value
 		}
 	}
-	return s.Paths.ExtendCredentials(profile, creds, business, strings.Join(values, "; "), csrf, time.Duration(s.Config.Auth.TTLSeconds)*time.Second)
+	return commit(strings.Join(values, "; "), csrf)
 }
 
 func (a *API) RecordActivity() (string, string, string, bool) {

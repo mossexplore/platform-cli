@@ -155,6 +155,31 @@ func (file businessFile) entry(creds Credentials, allowLegacy bool) (BusinessEnt
 }
 
 func (p Paths) SelectedBusiness(creds Credentials) (string, error) {
+	return p.selectedBusiness(creds, nil)
+}
+
+type KeepaliveTarget struct {
+	BusinessID       string
+	SessionUpdatedAt time.Time
+}
+
+func (p Paths) KeepaliveTarget(creds Credentials) (KeepaliveTarget, error) {
+	if !p.IsSessionIsolated() {
+		id, err := p.SelectedBusiness(creds)
+		return KeepaliveTarget{BusinessID: id}, err
+	}
+	state, _, err := p.LoadSessionState()
+	if err != nil {
+		return KeepaliveTarget{}, err
+	}
+	if state.Current != creds.Profile {
+		return KeepaliveTarget{}, ErrSessionEnvUnbound
+	}
+	id, err := p.selectedBusiness(creds, &state)
+	return KeepaliveTarget{BusinessID: id, SessionUpdatedAt: state.UpdatedAt}, err
+}
+
+func (p Paths) selectedBusiness(creds Credentials, state *SessionState) (string, error) {
 	if err := p.ValidateSession(); err != nil {
 		return "", err
 	}
@@ -177,9 +202,12 @@ func (p Paths) SelectedBusiness(creds Credentials) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	state, _, err := p.LoadSessionState()
-	if err != nil {
-		return "", err
+	if state == nil {
+		loaded, _, err := p.LoadSessionState()
+		if err != nil {
+			return "", err
+		}
+		state = &loaded
 	}
 	sel, ok := state.Selections[creds.Profile]
 	if !ok || sel.BusinessID == "" {
@@ -231,11 +259,26 @@ func readJSON(path string, target any) error {
 }
 
 func (p Paths) ExtendCredentials(profile Profile, current Credentials, businessID, cookie, token string, ttl time.Duration) error {
+	return p.extendCredentials(profile, current, KeepaliveTarget{BusinessID: businessID}, cookie, token, ttl, false)
+}
+
+func (p Paths) ExtendKeepaliveCredentials(profile Profile, current Credentials, target KeepaliveTarget, cookie, token string, ttl time.Duration) error {
+	return p.extendCredentials(profile, current, target, cookie, token, ttl, true)
+}
+
+func (p Paths) extendCredentials(profile Profile, current Credentials, target KeepaliveTarget, cookie, token string, ttl time.Duration, keepalive bool) error {
 	unlock, err := p.LockState()
 	if err != nil {
 		return err
 	}
 	defer unlock()
+	if keepalive && p.IsSessionIsolated() {
+		unlockSession, err := p.LockSessions()
+		if err != nil {
+			return err
+		}
+		defer unlockSession()
+	}
 	latest, err := p.CredentialsFor(profile)
 	if err != nil {
 		return err
@@ -243,8 +286,12 @@ func (p Paths) ExtendCredentials(profile Profile, current Credentials, businessI
 	if latest.StateID != current.StateID || latest.Username != current.Username || latest.Cookie != current.Cookie || latest.CSRFToken != current.CSRFToken {
 		return errors.New("登录会话已由其他命令更新")
 	}
-	id, err := p.SelectedBusiness(latest)
-	if err != nil || id != businessID {
+	if keepalive {
+		active, err := p.KeepaliveTarget(latest)
+		if err != nil || active != target {
+			return errors.New("保活期间业务上下文已变化")
+		}
+	} else if id, err := p.SelectedBusiness(latest); err != nil || id != target.BusinessID {
 		return errors.New("保活期间业务上下文已变化")
 	}
 	if cookie != "" && validHeader(cookie) {

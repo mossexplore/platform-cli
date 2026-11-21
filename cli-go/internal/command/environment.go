@@ -92,10 +92,8 @@ func newEnv(options Options, load loadConfig) *cobra.Command {
 			return err
 		}
 		prevCurrent := ""
-		if !paths.IsSessionIsolated() {
-			if prevCfg, err := paths.LoadOrInitializeConfig(); err == nil {
-				prevCurrent = prevCfg.Current
-			}
+		if prevCfg, err := paths.LoadOrInitializeConfig(); err == nil {
+			prevCurrent = prevCfg.Current
 		}
 		profile, err := paths.UseEnvironment(args[0])
 		if err != nil {
@@ -105,7 +103,7 @@ func newEnv(options Options, load loadConfig) *cobra.Command {
 		if err != nil {
 			return err
 		}
-		if !paths.IsSessionIsolated() && prevCurrent != "" && prevCurrent != profile.Name && fromTerminal(cmd) {
+		if prevCurrent != "" && prevCurrent != profile.Name && (paths.IsSessionIsolated() || fromTerminal(cmd)) {
 			_ = keepalive.Detach(paths, prevCurrent)
 		}
 		cfg.Current = profile.Name

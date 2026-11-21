@@ -63,12 +63,18 @@ func authorized(options Options, load loadConfig, run func(*cobra.Command, []str
 			return err
 		}
 		defer api.Close()
-		defer func() {
-			if profile, username, origin, ok := api.RecordActivity(); ok {
+		runErr := run(cmd, args, api, format)
+		if profile, username, origin, ok := api.RecordActivity(); ok {
+			switch {
+			case paths.Session.Mode != localstate.SessionModeDSH:
 				keepalive.Touch(paths, profile, username, origin)
+			case runErr == nil:
+				if err := keepalive.SessionActivity(cmd.Context(), paths, cfg, options.Version, username); err != nil {
+					fmt.Fprintln(cmd.ErrOrStderr(), "[警告] 自动保活启动失败：", err)
+				}
 			}
-		}()
-		return run(cmd, args, api, format)
+		}
+		return runErr
 	}
 }
 

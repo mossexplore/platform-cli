@@ -10,9 +10,16 @@ import (
 	"github.com/mossexplore/platform-cli/cli-go/internal/localstate"
 )
 
+type ownerRef struct {
+	PID      int                    `json:"pid,omitempty"`
+	Identity string                 `json:"identity,omitempty"`
+	Mode     localstate.SessionMode `json:"session_mode,omitempty"`
+	ID       string                 `json:"session_id,omitempty"`
+}
+
 type owner struct {
-	PID      int    `json:"pid"`
-	Identity string `json:"identity"`
+	ownerRef
+	Seen time.Time `json:"last_seen,omitzero"`
 }
 
 type Entry struct {
@@ -23,6 +30,8 @@ type Entry struct {
 	WorkerIdentity string    `json:"worker_identity"`
 	WorkerToken    string    `json:"worker_token"`
 	Version        string    `json:"worker_version"`
+	Protocol       int       `json:"worker_protocol,omitempty"`
+	LastOwner      ownerRef  `json:"last_confirmed_owner,omitzero"`
 	Status         string    `json:"status"`
 	ManualStop     bool      `json:"manual_stop"`
 	LastActivity   time.Time `json:"last_activity"`
@@ -73,22 +82,22 @@ func update(paths localstate.Paths, change func(map[string]Entry) error) error {
 func alive(entry Entry) bool {
 	return entry.WorkerIdentity != "" && identity(entry.WorkerPID) == entry.WorkerIdentity
 }
-func validOwners(entry Entry) []owner {
+func validOwners(entry Entry, now time.Time, interval time.Duration) []owner {
 	items := []owner{}
 	for _, candidate := range entry.Owner {
-		if candidate.Identity != "" && identity(candidate.PID) == candidate.Identity {
+		if candidate.live(now, interval) {
 			items = append(items, candidate)
 		}
 	}
 	return items
 }
-func View(paths localstate.Paths, profile string) (Entry, bool, error) {
+func View(paths localstate.Paths, profile string, interval time.Duration) (Entry, bool, error) {
 	data, err := load(paths)
 	if err != nil {
 		return Entry{}, false, err
 	}
 	entry := data.Profiles[profile]
-	entry.Owner = validOwners(entry)
+	entry.Owner = validOwners(entry, time.Now(), interval)
 	return entry, alive(entry), nil
 }
 func Stop(paths localstate.Paths, profile string, all bool) error {
@@ -110,9 +119,18 @@ func Detach(paths localstate.Paths, profile string) error {
 		if !exists {
 			return nil
 		}
+		if paths.IsSessionIsolated() {
+			state, _, err := paths.LoadSessionState()
+			if err != nil {
+				return err
+			}
+			if state.Current == profile {
+				return nil
+			}
+		}
 		owners := []owner{}
-		for _, item := range validOwners(entry) {
-			if item.PID != pid {
+		for _, item := range entry.Owner {
+			if !item.belongsTo(paths.Session, pid) {
 				owners = append(owners, item)
 			}
 		}
