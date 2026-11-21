@@ -42,8 +42,8 @@ func TestRegisteredCommandHelp(t *testing.T) {
 			var sections []string
 			for _, line := range strings.Split(strings.TrimSuffix(help, "\n"), "\n") {
 				switch {
-				case strings.HasPrefix(line, "╭  "), strings.HasPrefix(line, "├  "):
-					title, _, _ := strings.Cut(strings.TrimSpace(line[len("╭"):]), " ")
+				case strings.HasPrefix(line, "╭     "), strings.HasPrefix(line, "├     "):
+					title, _, _ := strings.Cut(line[len("╭     "):], " ")
 					sections = append(sections, title)
 				case strings.HasPrefix(line, "│") && strings.HasSuffix(line, "│"):
 				case strings.HasPrefix(line, "╰") && strings.HasSuffix(line, "╯"):
@@ -81,7 +81,7 @@ func TestHelpSectionsAndDefaults(t *testing.T) {
 		want           []string
 	}{
 		{"jupyter exec", "100", []string{"[选项] -- PROGRAM [ARG...]", "--startup-timeout <秒数>", "默认 60"}},
-		{"jupyter exec", "34", []string{"├  位置参数 ", "--startup-timeout <秒数>", "默认 60"}},
+		{"jupyter exec", "34", []string{"├     位置参数 ", "--startup-timeout <秒数>", "默认 60"}},
 		{"algorithm clone", "100", []string{"--name <算法仓名称>", "--version <版本号>", "* --version", "（必填）", "--version 1.0.0"}},
 		{"jupyter files write", "100", []string{"(--from-file <本地文件> | --stdin)", "必须在 --from-file 与 --stdin 中选择一项"}},
 		{"offline experiment list", "100", []string{"--project-name", "按离线实验描述筛选"}},

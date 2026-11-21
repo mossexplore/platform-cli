@@ -59,7 +59,7 @@ func renderHelpTable(usage []string, intro string, sections []HelpBlock, width i
 	border := func(left, title, right string) {
 		label := ""
 		if title != "" {
-			label = "  " + title + " "
+			label = "     " + title + " "
 		}
 		line := left + label + strings.Repeat("─", width-2-cells.StringWidth(label)) + right
 		text.WriteString(paintHelp(line, style.dim) + "\n")

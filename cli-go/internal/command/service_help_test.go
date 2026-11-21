@@ -29,9 +29,9 @@ func TestServiceHelpLayout(t *testing.T) {
 	} {
 		t.Run(tc.path, func(t *testing.T) {
 			code, out, stderr := run(t, localstate.Paths{}, append(strings.Fields(tc.path), "--help")...)
-			if code != 0 || stderr != "" || !strings.HasPrefix(out, "╭  用途 ") ||
+			if code != 0 || stderr != "" || !strings.HasPrefix(out, "╭     用途 ") ||
 				!strings.Contains(out, "\n│ 用法：ml "+tc.path) ||
-				!strings.Contains(out, "\n├  示例 ") || strings.Contains(out, "\x1b") {
+				!strings.Contains(out, "\n├     示例 ") || strings.Contains(out, "\x1b") {
 				t.Fatalf("unexpected help: %d %s\n%s", code, stderr, out)
 			}
 			rest := out
