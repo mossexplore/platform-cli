@@ -26,7 +26,6 @@ func TestAllBusinessListRequests(t *testing.T) {
 		{"algorithm list", "wiserec", "/ai/backend/modelDev/algorithmWarehouse/list", `"data":{"total":1,"list":[` + row + `]}`, true},
 		{"deployment template list", "mlops", "/ai/backend/mep/scm/deploytemplate/queryList", `"count":1,"deployTemplates":[` + row + `]`, false},
 		{"resource template list", "mlops", "/ai/backend/mep/resourcetemp/queryList", `"count":1,"resourceTemplateInfoList":[` + row + `]`, false},
-		{"feature-task list", "mlops", "/ai/backend/mtp/traintask/queryList", `"count":1,"taskInfos":[` + row + `]`, false},
 		{"webstudio list", "mlops", "/ai/backend/webstudio/dataExplorer/queryEnvList", `"count":1,"envs":[` + row + `]`, false},
 		{"mtp swanboard project list", "wiserec", "/ai/backend/mtp/swanboard/project/list", `"count":1,"data":[` + row + `]`, false},
 		{"offline experiment list", "wiserec", "/ai/backend/experiment/project/list", `"total":1,"data":[` + row + `]`, false},
@@ -127,7 +126,7 @@ func TestAllBusinessLegacyCredentials(t *testing.T) {
 }
 
 func TestAllBusinessTreeVisibility(t *testing.T) {
-	for manager, want := range map[string]int{"wiserec": 11, "mlops": 8} {
+	for manager, want := range map[string]int{"wiserec": 10, "mlops": 7} {
 		paths := fixtureConfig(t, t.TempDir(), "https://preview.example.test", "", false, manager, "")
 		saveState(t, paths, "https://preview.example.test")
 		for _, enable := range []bool{false, true} {
@@ -143,6 +142,43 @@ func TestAllBusinessTreeVisibility(t *testing.T) {
 				t.Fatalf("%s (admin %t): %d %s %s", manager, enable, code, out, stderr)
 			}
 		}
+	}
+}
+
+func TestFeatureTaskListUsesSelectedBusiness(t *testing.T) {
+	var requests atomic.Int32
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		requests.Add(1)
+		assertBusinessHeader(t, r)
+		switch r.URL.Path {
+		case "/cli-permission/api/v1/access/check":
+			assertAccess(t, w, r, "ml feature-task list")
+		case "/ai/backend/mtp/traintask/queryList":
+			if body := readRequest(t, r); body["businessId"] != "business-real" {
+				t.Errorf("feature task query did not use the selected business: %v", body)
+			}
+			fmt.Fprint(w, `{"result":{"code":0,"count":0,"taskInfos":[]}}`)
+		default:
+			t.Errorf("unexpected route %s", r.URL.Path)
+		}
+	}))
+	defer server.Close()
+	paths := fixtureConfig(t, t.TempDir(), server.URL, server.URL, false, "mlops", "")
+	saveState(t, paths, server.URL)
+	setTestAdminRole(t, paths, true, false)
+	for _, flag := range []string{"-A", "--all-business"} {
+		code, out, stderr := run(t, paths, "feature-task", "list", flag)
+		if code != 2 || out != "" || !strings.Contains(stderr, flag) {
+			t.Fatalf("unsupported flag %s: %d %s %s", flag, code, out, stderr)
+		}
+	}
+	code, out, stderr := run(t, paths, "feature-task", "list", "--help")
+	if code != 0 || stderr != "" || strings.Contains(out, "--all-business") || requests.Load() != 0 {
+		t.Fatalf("feature-task help or rejected flags: %d %s %s (%d requests)", code, out, stderr, requests.Load())
+	}
+	code, out, stderr = run(t, paths, "feature-task", "list", "-o", "json")
+	if code != 0 || stderr != "" || !strings.Contains(out, `"items": []`) || requests.Load() != 2 {
+		t.Fatalf("selected business query: %d %s %s (%d requests)", code, out, stderr, requests.Load())
 	}
 }
 

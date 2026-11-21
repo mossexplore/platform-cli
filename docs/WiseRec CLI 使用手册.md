@@ -1430,7 +1430,7 @@ ml context --json
 ### 命令格式
 
 ```text
-ml feature-task list [--all-business] [--name TEXT] [--category TYPE] [--create-user USER] [--page INTEGER] [--page-size INTEGER] [--output table|json]
+ml feature-task list [--name TEXT] [--category TYPE] [--create-user USER] [--page INTEGER] [--page-size INTEGER] [--output table|json]
 ```
 
 ### 参数与选项
@@ -1444,13 +1444,9 @@ ml feature-task list [--all-business] [--name TEXT] [--category TYPE] [--create-
 | `--page-size INTEGER` | `10` | 每页条数，必须为正整数 |
 | `--output`、`-o` | 当前环境配置 | `table` 或 `json` |
 
-Go CLI 的特征任务列表支持 `--all-business` / `-A`，默认查询当前业务。跨租户查询需先登录、选定业务，并具有超级管理员或超级管理员只读权限。
-
 ### 说明
 
-WiseRec 和 MLOps 均可跨租户查特征任务，表格追加业务编码。
-
-WiseRec 和 MLOps 环境均可查询特征任务。先选择环境、登录并使用 `ml business use` 选择业务。三个筛选条件可组合使用，一次查询指定的一页。
+WiseRec 和 MLOps 环境均可查询特征任务。先选择环境、登录并使用 `ml business use` 选择业务，列表只查询当前业务。三个筛选条件可组合使用，一次查询指定的一页。
 
 表格依次展示任务 ID、任务名称、任务类型、业务场景、状态、创建者、修改者、更新时间、大小、描述。任务 ID 完整展示，其他长文本可换行。更新时间按北京时间显示为 `YYYY-MM-DD HH:mm:ss`；大小按 1024 进制换算，零显示 `0B`，非零且不足 1 GiB 显示两位小数的 `M`，其余显示两位小数的 `G`。缺失值显示 `-`，未知任务类型保留原值。列表下方显示页码、每页条数和总条数。
 
@@ -1479,7 +1475,6 @@ JSON 输出包含 `items`、`count`、`pageIndex`、`pageSize`；记录保留原
 ### 示例
 
 ```bash
-ml feature-task list -A --name TASK_NAME
 ml feature-task list
 ml feature-task list --name TASK_NAME --category train_fi
 ml feature-task list --create-user USER --page 2 --page-size 20

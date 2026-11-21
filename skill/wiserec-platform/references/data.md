@@ -20,7 +20,7 @@ ml dataset files upload DATASET_ID 'D:\data\sample.csv' --dir / -o json
 
 ## 特征任务与执行日志
 
-WiseRec 和 MLOps 均支持特征任务列表、详情、执行记录及日志搜索。
+WiseRec 和 MLOps 均支持特征任务列表、详情、执行记录及日志搜索。列表查询使用当前选中的业务。
 
 ```powershell
 ml feature-task list --name NAME --create-user USER --page 1 --page-size 10 -o json

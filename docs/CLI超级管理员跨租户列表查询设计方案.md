@@ -8,7 +8,7 @@
 - **核心目标**：
   1. 在 `cli-go` 中采集、持久化并按需补全 `/ai/user/info` 返回的 `isSuperAdmin` 与 `isAISupporter` 权限标识。
   2. 严格保持现有 `business.json`、`selected.businessId`、多会话隔离（`SessionState`）、`StateID` 一致性校验及 HTTP 请求头 `businessid` / `ai-businessId` 契约不变，对写操作、在线权限校验和会话保活零冲击。
-  3. 以命令级显式开关 `--all-business` / `-A` 覆盖全部 11 个目标列表查询命令，并在 `ml tree`（按权限按需展示）与 `--help`（统一保留并注明权限前提）中清晰体现。
+  3. 以命令级显式开关 `--all-business` / `-A` 覆盖全部 10 个目标列表查询命令，并在 `ml tree`（按权限按需展示）与 `--help`（统一保留并注明权限前提）中清晰体现。
 
 ---
 
@@ -29,13 +29,13 @@
 | 代码仓库范围 | 仅修改 `cli-go`，不修改 `cli-python` |
 | 交互方式与选项命名 | 命令级显式开关：`--all-business` / `-A`（不引入会话级“全部租户”上下文切换） |
 | HTTP 请求头协议 | 开启 `--all-business` 时，HTTP 请求头 `businessid`（及 `ai-businessId`）**仍然保持当前选中的 `selected.businessId`** |
-| POST 列表请求体协议 | 除 `ml service list` 外，其余 9 个 POST 列表接口开启 `-A` 时均直接将请求体中的 `businessId` 置为 `null`（Go `nil`），无其他特殊字段或枚举值；`ml service list` 的 `clusterBusinessId` **保持当前租户 `selected.businessId`，不允许置为 `null`** |
+| POST 列表请求体协议 | 除 `ml service list` 外，其余 8 个 POST 列表接口开启 `-A` 时均直接将请求体中的 `businessId` 置为 `null`（Go `nil`），无其他特殊字段或枚举值；`ml service list` 的 `clusterBusinessId` **保持当前租户 `selected.businessId`，不允许置为 `null`** |
 | GET 列表查询协议 | `ml offline experiment list` 开启 `--all-business` 时，Query 参数传 **`businessId=ALL`** |
-| 首批覆盖范围 | 纳入全部 11 个顶层资源列表查询命令；明确排除 `ml featureset wide list`、`ml featureset model list`、`ml sample-task list` 及非顶层/无 `businessId` 列表 |
-| 跨租户表格列展示 | 原本不含租户列的 7 个列表命令在开启 `-A` 时，动态追加列 **`("业务编码", "businessId")`**（显示名称统一为“业务编码”） |
+| 首批覆盖范围 | 纳入全部 10 个顶层资源列表查询命令；明确排除 `ml featureset wide list`、`ml featureset model list`、`ml sample-task list`、`ml feature-task list` 及非顶层/无 `businessId` 列表 |
+| 跨租户表格列展示 | 原本不含租户列的 6 个列表命令在开启 `-A` 时，动态追加列 **`("业务编码", "businessId")`**（显示名称统一为“业务编码”） |
 | Web Studio JSON 输出 | 本次一并移除 `ml webstudio list` 的 `redactStudio` 脱敏逻辑，**普通查询与 `-A` 查询**在 `-o json` 下均直接输出服务端原始响应 JSON |
 | `ml tree` 展示策略 | 按当前环境本地登录凭据权限**按需展示**：仅超级管理员/超级管理员只读可见顶部提示与 `支持 -A` 标记，普通用户与未登录用户完全无感知 |
-| `--help` 展示策略 | 11 个命令的 `--help` 统一保留 `--all-business / -A` 选项展示，并在帮助说明中明确标注权限前提 |
+| `--help` 展示策略 | 10 个命令的 `--help` 统一保留 `--all-business / -A` 选项展示，并在帮助说明中明确标注权限前提 |
 
 ---
 
@@ -62,7 +62,7 @@ platform.Session.Authorize() -> *platform.API
         └─ 若凭据缺标志先调 /ai/user/info 补全并原子落盘；再校验 CanQueryAllBusiness()
         │
         ▼
-catalogQuery（7 个列表命令统一复用）+ 4 个独立列表命令
+catalogQuery（6 个列表命令统一复用）+ 4 个独立列表命令
   ├─ POST 接口：校验通过后自行传 nil（JSON null）
   ├─ GET 离线实验接口：校验通过后自行传 "ALL"（string，直接用于 query.Set）
   └─ 表格在 -A 模式下动态补充“业务编码”列
@@ -72,7 +72,7 @@ catalogQuery（7 个列表命令统一复用）+ 4 个独立列表命令
 
 1. **与现有契约冲突**：`cli-go` 的 `platform.API`、`requireAccess` 权限审计、`keepalive` 保活、`checkTarget()` 目标变更检测、`jupyter`/`webstudio` 上下文以及所有写操作均强依赖有效的单一 `selected.businessId`。
 2. **防止误操作**：会话级状态容易忘切回；单次 `--all-business` / `-A` 保证默认操作始终处于当前租户安全边界内。
-3. **白名单精确控制**：只对验证支持跨租户的 11 个只读列表命令注册 `-A` 标志，不支持的命令在 Cobra 参数解析层即拒绝。
+3. **白名单精确控制**：只对验证支持跨租户的 10 个只读列表命令注册 `-A` 标志，不支持的命令在 Cobra 参数解析层即拒绝。
 
 ---
 
@@ -223,7 +223,7 @@ func (a *API) RequireAllBusiness(ctx context.Context) error {
 
 ### 4.4 全量列表命令覆盖清单与实现方式
 
-所有 11 个纳入命令统一注册 Cobra 标志：
+所有 10 个纳入命令统一注册 Cobra 标志：
 
 ```go
 cmd.Flags().BoolP("all-business", "A", false, "在全部租户中查询（需超级管理员或超级管理员只读权限）")
@@ -231,16 +231,16 @@ cmd.Flags().BoolP("all-business", "A", false, "在全部租户中查询（需超
 
 *(已全仓检索 `cli-go/internal/`，短选项 `-A` 无任何冲突。)*
 
-#### 4.4.1 `catalogQuery` 统一支持（覆盖 7 个命令）
+#### 4.4.1 `catalogQuery` 统一支持（覆盖 6 个命令）
 
 在 `cli-go/internal/command/catalog_query.go` 中：
 - `catalogQuery` 结构体新增：
   - `allowAllBusiness bool`：开启后在 `build()` 中自动注册 `--all-business` / `-A` 标志；
   - `appendBusinessColumn bool`：当该命令默认表格列不含 `businessId` 且本次执行传入 `-A` 时，在 `render()` 中动态追加 `recordColumn{title: "业务编码", key: "businessId"}`。
 - `withBusiness` 辅助函数升级为读取 `allBusiness, _ := cmd.Flags().GetBool("all-business")`：开启时调用 `api.RequireAllBusiness(cmd.Context())` 校验权限并将 `body["businessId"] = nil`，否则赋值为 `api.BusinessID()`。
-- 仅 `catalogQuery` 一处改造即可干净覆盖 7 个列表命令中的大部分逻辑。
+- 仅 `catalogQuery` 一处改造即可干净覆盖 6 个列表命令中的大部分逻辑。
 
-#### 4.4.2 纳入范围明细（共 11 个顶层列表查询命令）
+#### 4.4.2 纳入范围明细（共 10 个顶层列表查询命令）
 
 | # | CLI 命令 | 实现文件 | 接口与方法 | 开启 `-A` 时请求参数 | 特殊约束 / 适配点 | 表格“业务编码 / 租户”列 |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -251,10 +251,9 @@ cmd.Flags().BoolP("all-business", "A", false, "在全部租户中查询（需超
 | 5 | `ml algorithm list` | `command/algorithm.go` (`catalogQuery`) | `POST /ai/backend/modelDev/algorithmWarehouse/list` | `body.data.businessId = null` | 自定义 `body` 中开启 `-A` 时调 `api.RequireAllBusiness` 后设 `body["businessId"] = nil` | `-A` 时动态追加 `("业务编码", "businessId")` |
 | 6 | `ml deployment template list` | `command/templates.go` (`catalogQuery`) | `POST /ai/backend/mep/scm/deploytemplate/queryList` | `body.businessId = null` | 直接复用 `withBusiness` | 已有（`业务编码`） |
 | 7 | `ml resource template list` | `command/templates.go` (`catalogQuery`) | `POST /ai/backend/mep/resourcetemp/queryList` | `body.businessId = null` | 直接复用 `withBusiness` | 已有（`业务编码`） |
-| 8 | `ml feature-task list` | `command/feature_task.go` (`catalogQuery`) | `POST /ai/backend/mtp/traintask/queryList` | `body.businessId = null` | 复用 `withBusiness` | `-A` 时动态追加 `("业务编码", "businessId")` |
-| 9 | `ml webstudio list` | `command/studio.go`<br>`jupyter/studio.go` | `POST /ai/backend/webstudio/dataExplorer/queryEnvList` | `body.businessId = null` | 1. **互斥校验**：同时传入 `--all-business` 与 `--business-id` 时返回 `usageError`；<br>2. `jupyter.StudioListBody` 的 `businessID` 参数类型由 `string` 改为 `any` 以支持序列化 `null`；<br>3. 移除 `redactStudio` 脱敏逻辑，普通查询与 `-A` 查询均直接输出服务端原始响应 | `-A` 时动态追加 `("业务编码", "businessId")` |
-| 10 | `ml mtp swanboard project list` | `command/swanboard.go` | `POST /ai/backend/mtp/swanboard/project/list` | `body.businessId = null` | 仅挂载在 `projectList`；开启 `-A` 时调 `api.RequireAllBusiness` 后设 `businessId = nil` | `-A` 时动态追加 `("业务编码", "businessId")` |
-| 11 | `ml offline experiment list` | `command/offline.go` | `GET /ai/backend/experiment/project/list` | **Query `businessId=ALL`** | 仅 `trial == false` 时注册 `-A`；开启 `-A` 时调 `api.RequireAllBusiness` 后设 `query.Set("businessId", "ALL")` | `-A` 时动态追加 `("业务编码", "businessId")` |
+| 8 | `ml webstudio list` | `command/studio.go`<br>`jupyter/studio.go` | `POST /ai/backend/webstudio/dataExplorer/queryEnvList` | `body.businessId = null` | 1. **互斥校验**：同时传入 `--all-business` 与 `--business-id` 时返回 `usageError`；<br>2. `jupyter.StudioListBody` 的 `businessID` 参数类型由 `string` 改为 `any` 以支持序列化 `null`；<br>3. 移除 `redactStudio` 脱敏逻辑，普通查询与 `-A` 查询均直接输出服务端原始响应 | `-A` 时动态追加 `("业务编码", "businessId")` |
+| 9 | `ml mtp swanboard project list` | `command/swanboard.go` | `POST /ai/backend/mtp/swanboard/project/list` | `body.businessId = null` | 仅挂载在 `projectList`；开启 `-A` 时调 `api.RequireAllBusiness` 后设 `businessId = nil` | `-A` 时动态追加 `("业务编码", "businessId")` |
+| 10 | `ml offline experiment list` | `command/offline.go` | `GET /ai/backend/experiment/project/list` | **Query `businessId=ALL`** | 仅 `trial == false` 时注册 `-A`；开启 `-A` 时调 `api.RequireAllBusiness` 后设 `query.Set("businessId", "ALL")` | `-A` 时动态追加 `("业务编码", "businessId")` |
 
 #### 4.4.3 明确排除的列表命令
 
@@ -262,6 +261,7 @@ cmd.Flags().BoolP("all-business", "A", false, "在全部租户中查询（需超
    - `ml featureset wide list`
    - `ml featureset model list`
    - `ml sample-task list`
+   - `ml feature-task list`，仅查询当前业务
 2. **请求体本身不含 `businessId` 字段（仅靠请求头 `businessid` 隔离）**：
    - `ml quality feature list`
    - `ml quality wide-featureset list`
@@ -282,13 +282,13 @@ cmd.Flags().BoolP("all-business", "A", false, "在全部租户中查询（需超
 ### 4.5 表格展示与 `ml tree` / `--help` 设计
 
 #### 4.5.1 表格与 JSON 输出规范
-1. **默认单租户模式兼容性**：不传 `-A` 时，所有 11 个命令的表格列顺序和列标题与当前完全一致；JSON 输出方面，除 **`ml webstudio list -o json` 本次主动移除 `redactStudio` 脱敏、改为直接输出服务端原始 JSON** 外，其余 10 个命令与当前完全一致。
-2. **跨租户模式动态补充“业务编码”列**：对原本不含 `businessId` 列的 7 个命令（`service`、`train`、`algorithm`、`feature-task`、`webstudio`、`mtp swanboard project`、`offline experiment`），开启 `-A` 且输出格式为 `table` 时，动态追加 `("业务编码", "businessId")` 列（空值展示 `-`）。
+1. **默认单租户模式兼容性**：不传 `-A` 时，所有 10 个命令的表格列顺序和列标题与当前完全一致；JSON 输出方面，除 **`ml webstudio list -o json` 本次主动移除 `redactStudio` 脱敏、改为直接输出服务端原始 JSON** 外，其余 9 个命令与当前完全一致。
+2. **跨租户模式动态补充“业务编码”列**：对原本不含 `businessId` 列的 6 个命令（`service`、`train`、`algorithm`、`webstudio`、`mtp swanboard project`、`offline experiment`），开启 `-A` 且输出格式为 `table` 时，动态追加 `("业务编码", "businessId")` 列（空值展示 `-`）。
 3. **首列 ID 规范**：继续沿用 `cli-go` 现有首列 36 字符固定宽度、不换行、不截断规范。
 4. **JSON 输出细则**：
    - **`ml webstudio list -o json`**：本次移除 `redactStudio` 脱敏逻辑并清理无用函数，**普通查询与 `-A` 查询**均直接输出服务端原始响应 JSON（不再将字段值替换为 `[REDACTED]`）。**输出前仍必须按现有规则校验响应**：先通过 `platform.Result` 检查业务结果码（`code == 0`），并校验 `result.envs`（有效记录数组）与 `result.count`（非负整数），全部校验通过后再输出未经脱敏的 JSON；接口报错或结构异常时 CLI 仍退出失败，确保调用脚本可继续依赖退出码判断查询是否成功。注意：移除脱敏属于有意行为调整，会影响依赖原脱敏输出的脚本，且响应中若含凭据/链接类字段将原样输出，须在使用手册与发布说明中明确提示。
    - **`ml offline experiment list -o json`**：不带 `-A` 时字段集合与现有实现完全一致；开启 `-A` 时在过滤字段集合中补充保留 `businessId` 字段。
-   - 其余 9 个列表命令的 JSON 输出与现有实现保持一致。
+   - 其余 8 个列表命令的 JSON 输出与现有实现保持一致。
 
 #### 4.5.2 `ml tree` 与 `--help` 展示设计
 
@@ -302,8 +302,8 @@ cmd.Flags().BoolP("all-business", "A", false, "在全部租户中查询（需超
        `当前账号权限：<角色名> · 标记“支持 -A”的列表命令可使用 --all-business / -A 查全租户`
      - 在 `treeBranches()` 中，对拥有 `child.Flags().Lookup("all-business") != nil` 的叶子命令（自动从 Cobra 标志识别，避免维护重复白名单），且未被标记为 `[不支持]` 或 `[当前环境禁用]` 时，在行尾追加 `  支持 -A`（结尾无标点，严格符合命令树格式规范）。
      - **按管理台区分预期（前提：当前环境未通过本地或服务端策略禁用相关命令）**：
-       - **WiseRec 管理台**：未禁用时，全部 **11 个**列表命令均展示 `支持 -A`。
-       - **MLOps 管理台**：未禁用时，仅当前平台支持的 **8 个**列表命令展示 `支持 -A`（`service list`、`model list`、`dataset list`、`train list`、`deployment template list`、`resource template list`、`feature-task list`、`webstudio list`）；仅 WiseRec 支持的 3 个命令（`algorithm list`、`mtp swanboard project list`、`offline experiment list`）在 `ml tree` 中自动隐藏，在 `ml tree --all` 中仅显示 `[不支持]`、不叠加 `支持 -A`。
+       - **WiseRec 管理台**：未禁用时，全部 **10 个**列表命令均展示 `支持 -A`。
+       - **MLOps 管理台**：未禁用时，仅当前平台支持的 **7 个**列表命令展示 `支持 -A`（`service list`、`model list`、`dataset list`、`train list`、`deployment template list`、`resource template list`、`webstudio list`）；仅 WiseRec 支持的 3 个命令（`algorithm list`、`mtp swanboard project list`、`offline experiment list`）在 `ml tree` 中自动隐藏，在 `ml tree --all` 中仅显示 `[不支持]`、不叠加 `支持 -A`。
        - 若上述任意命令被当前环境策略禁用，则该命令在 `ml tree` 中隐藏、在 `ml tree --all` 中仅显示 `[当前环境禁用]` 且不叠加 `支持 -A`，实际展示 `支持 -A` 的数量相应减少。
    - 效果示意（超级管理员视角）：
      ```text
@@ -318,7 +318,7 @@ cmd.Flags().BoolP("all-business", "A", false, "在全部租户中查询（需超
      │       └── list  分页查询宽表特征集
      ```
 2. **`--help` 展示策略**：
-   - 11 个命令的 `--help` 统一保留 `--all-business` / `-A` 选项展示，并写明帮助文案：`在全部租户中查询（需超级管理员或超级管理员只读权限）`，保持 CLI 帮助、使用手册与 Skill 一致。
+   - 10 个命令的 `--help` 统一保留 `--all-business` / `-A` 选项展示，并写明帮助文案：`在全部租户中查询（需超级管理员或超级管理员只读权限）`，保持 CLI 帮助、使用手册与 Skill 一致。
 
 ---
 
@@ -355,17 +355,17 @@ cmd.Flags().BoolP("all-business", "A", false, "在全部租户中查询（需超
 2. **`platform.API.RequireAllBusiness` 与懒补全单测**（`internal/platform`）：
    - 普通用户前置阻断返回 error 且不发业务列表请求；超管/超管只读校验通过返回 `nil`。
    - 旧凭据缺失标志时自动调 `/ai/user/info` 补全并落盘，随后按真实权限放行或阻断。
-3. **11 个列表命令端到端单测**（`internal/command`）：
+3. **10 个列表命令端到端单测**（`internal/command`）：
    - 逐一验证 `-A` 下 HTTP Header `businessid` 与 `ai-businessId` 保持 `selected.businessId`。
    - 验证 POST 类命令请求体 `businessId` 为 JSON `null`；重点验证 `service list` 的 `clusterBusinessId` 保持 `selected.businessId`、`train list` 在 `wiserec` 与 `mlops` 双管理台分支均正确。
    - 验证 `ml offline experiment list -A` 的 Query 参数 `businessId=ALL`。
    - 验证 `ml webstudio list -A --business-id xxx` 返回互斥参数错误。
    - 验证 `ml webstudio list -o json`（含普通查询与 `-A` 查询）在业务结果码、`envs` 与 `count` 校验通过后直接输出服务端原始字段（不再替换为 `[REDACTED]`），并在业务报错或响应结构异常时仍返回失败退出码。
-   - 验证原本无租户列的 7 个命令在 `-A` 下表格包含“业务编码”列，非 `-A` 下原有列结构不变。
+   - 验证原本无租户列的 6 个命令在 `-A` 下表格包含“业务编码”列，非 `-A` 下原有列结构不变。
 4. **`ml tree` 展示单测**（`internal/command`）：
    - 未登录、普通用户或**凭据已过期**的超管账号执行 `ml tree`：完全离线且不出现 `支持 -A` 与权限提示行。
-   - **WiseRec 管理台**下（无禁用命令前提），有效超管或超管只读凭据执行 `ml tree`：顶部展示权限提示、全部 **11 个**支持命令带 `支持 -A` 标记且结尾无标点；被排除命令（`featureset wide/model list`、`sample-task list`、`quality` 等）不带标记。
-   - **MLOps 管理台**下（无禁用命令前提），有效超管或超管只读凭据执行 `ml tree`：仅 **8 个** MLOps 支持的列表命令带 `支持 -A` 标记；`ml tree --all` 中仅 WiseRec 支持的 3 个命令（`algorithm list`、`mtp swanboard project list`、`offline experiment list`）仅显示 `[不支持]`，不叠加 `支持 -A`。
+   - **WiseRec 管理台**下（无禁用命令前提），有效超管或超管只读凭据执行 `ml tree`：顶部展示权限提示、全部 **10 个**支持命令带 `支持 -A` 标记且结尾无标点；被排除命令（`featureset wide/model list`、`sample-task list`、`feature-task list`、`quality` 等）不带标记。
+   - **MLOps 管理台**下（无禁用命令前提），有效超管或超管只读凭据执行 `ml tree`：仅 **7 个** MLOps 支持的列表命令带 `支持 -A` 标记；`ml tree --all` 中仅 WiseRec 支持的 3 个命令（`algorithm list`、`mtp swanboard project list`、`offline experiment list`）仅显示 `[不支持]`，不叠加 `支持 -A`。
    - 当环境策略禁用其中部分列表命令时，`ml tree` 隐藏被禁用命令且展示 `支持 -A` 的数量相应减少，`ml tree --all` 中被禁用命令仅显示 `[当前环境禁用]`，不叠加 `支持 -A`。
 
 ### 6.3 真实环境接口联调验收
@@ -376,8 +376,8 @@ cmd.Flags().BoolP("all-business", "A", false, "在全部租户中查询（需超
    - 在两套管理台分别准备两个不同租户（租户 A、租户 B）下的同名服务；
    - 使用超管与超管只读账号，选中租户 A 后分别执行 `ml service list --name <同名服务>`（仅见租户 A）与 `ml service list --name <同名服务> -A`；
    - 核对 `-A` 结果同时返回租户 A 与租户 B 的服务记录、“业务编码”列分别准确显示 A/B、且分页总数（`total`）与跨租户真实总数一致（验证 `clusterBusinessId` 保持当前租户 A 时不会被服务端错误过滤回单租户）。
-2. **其余 10 个列表接口真实验收**：
-   - 按各命令支持的管理台范围（WiseRec 覆盖全部 11 个命令、MLOps 覆盖支持的 8 个命令），分别在真实环境执行 `-A` 查询，核对跨租户记录返回、“业务编码”列展示（含 4 个已有列和 7 个动态追加列）以及分页总数；
+2. **其余 9 个列表接口真实验收**：
+   - 按各命令支持的管理台范围（WiseRec 覆盖全部 10 个命令、MLOps 覆盖支持的 7 个命令），分别在真实环境执行 `-A` 查询，核对跨租户记录返回、“业务编码”列展示（含 4 个已有列和 6 个动态追加列）以及分页总数；
    - **分页总数专项验收口径（离线实验与训练看板）**：`ml offline experiment list`（`offline.go`）与 `ml mtp swanboard project list`（`swanboard.go`）在服务端未返回总数时，当前实现会回退使用本页条数填充计数字段。真实验收时须核对接口是否实际返回跨租户总数，并使用较小页大小（如 `--page-size 1` 或 `2`）验证 `--page 1` / `--page 2` 翻页结果，避免把“本页条数”误判为“跨租户总数”；
    - 重点验证 `ml offline experiment list -A`（Query `businessId=ALL`）在 WiseRec 下的真实返回与 `-o json` 中的 `businessId` 字段；
    - 验证 `ml webstudio list -o json`（含普通查询与 `-A` 查询）先校验响应码及结构再直接返回服务端原始 JSON（无 `[REDACTED]` 脱敏替换）。
@@ -387,7 +387,7 @@ cmd.Flags().BoolP("all-business", "A", false, "在全部租户中查询（需超
    - 发布说明与测试记录中须如实区分“已完成本地单测”与“已完成真实管理台联调验收”，未完成真实联调的接口不得宣称已全量验证。
 
 ### 6.4 文档与 Skill 同步
-1. 更新 `docs/WiseRec CLI 使用手册.md`：在对应 11 个列表命令章节的“参数与选项”“说明”“示例”中补充 `--all-business` / `-A` 说明与使用前提（不写入版本信息）。
+1. 更新 `docs/WiseRec CLI 使用手册.md`：在对应 10 个列表命令章节的“参数与选项”“说明”“示例”中补充 `--all-business` / `-A` 说明与使用前提（不写入版本信息）。
 2. 检查并更新 `skill/` 下相关指引及 `scripts/skill_index/commands.md.in`，执行：
    ```bash
    python scripts/sync_skill_index.py
