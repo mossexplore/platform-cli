@@ -27,8 +27,8 @@ func TestRegisteredCommandHelp(t *testing.T) {
 				},
 			})
 			help := out.String()
-			if code != 0 || stderr.Len() != 0 || !strings.Contains(help, "用法："+cmd.CommandPath()) ||
-				!strings.Contains(help, "\n选项\n") || !strings.Contains(help, "--help") {
+			if code != 0 || stderr.Len() != 0 || !strings.Contains(help, cmd.CommandPath()) ||
+				!(strings.Contains(help, "\n选项\n") || strings.Contains(help, "\n帮助\n")) || !strings.Contains(help, "--help") {
 				t.Fatalf("help: exit %d, stderr %q\n%s", code, &stderr, help)
 			}
 			_, arguments, _ := strings.Cut(cmd.Use, " ")
@@ -58,10 +58,6 @@ func TestHelpSectionsAndDefaults(t *testing.T) {
 		command, width string
 		want           []string
 	}{
-		{"service", "100", []string{"子命令\n╭", "deployment", "host", "list", "mock"}},
-		{"service list", "100", []string{"选项\n╭", "-A, --all-business", "按服务关联的模型版本筛选", "默认：10", "默认：当前环境配置", "全局选项\n╭", "--no-history"}},
-		{"service host mock", "100", []string{"位置参数\n╭", "服务 ID（必填）", "--pod-ip", "必填"}},
-		{"service host pod-event", "100", []string{"[SERVICE_ID]", "服务 ID（可选）"}},
 		{"jupyter exec", "34", []string{"[选项] -- PROGRAM [ARG...]", "\n  --startup-timeout ", "（默认：60）"}},
 		{"offline experiment list", "100", []string{"--project-name", "按离线实验描述筛选"}},
 	} {

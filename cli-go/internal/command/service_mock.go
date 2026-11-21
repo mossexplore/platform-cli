@@ -65,7 +65,7 @@ func newServiceMock(options Options, load loadConfig, host bool) *cobra.Command 
 	}
 	cmd := &cobra.Command{Use: "mock SERVICE_ID", Short: short, Args: positional(1)}
 	tag := cmd.Flags().Int("transmission-tag", 0, "0 为直接调用，1 为透传")
-	file := cmd.Flags().String("request-sample-file", "", "UTF-8 样例报文文件")
+	file := cmd.Flags().String("request-sample-file", "", "本地 UTF-8 JSON 样例报文文件")
 	ip := ""
 	if host {
 		cmd.Flags().StringVar(&ip, "pod-ip", "", "用于匹配目标主机的 Pod IP")

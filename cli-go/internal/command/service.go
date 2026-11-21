@@ -21,6 +21,7 @@ func newService(options Options, load loadConfig) *cobra.Command {
 			return cmd.Help()
 		},
 	}
+	group.SetHelpFunc(showServiceHelp)
 	host := &cobra.Command{Use: "host", Short: "服务主机查询、测试与诊断"}
 	deploy := &cobra.Command{Use: "deployment", Short: "服务部署视图查询"}
 	const prefix = "/ai/backend/mep/services/"
@@ -50,7 +51,8 @@ func newService(options Options, load loadConfig) *cobra.Command {
 		columns: []recordColumn{{"服务 ID", "serviceId"}, {"服务名称", "serviceName"}, {"服务版本", "serviceVersion"},
 			{"环境", "env"}, {"状态", "status"}, {"服务实例", "instance"}, {"模型名称", "modelName"}, {"归属者", "owner"}},
 	}.build(options, load)
-	list.Flags().String("service-name", "", "服务名称条件")
+	list.Flags().String("service-name", "", "--name 的别名，二者同传以 --name 为准")
+	list.Flags().Lookup(allBusinessFlag).Usage = "查询当前环境的全部租户\n需超级管理员或超级管理员只读权限"
 	hostList := catalogQuery{route: prefix + "rtcContainer/queryServiceHostList", command: "list SERVICE_ID", summary: "查询指定服务的主机视图", args: 1,
 		strings: []string{"pod-ip"}, assign: map[string]string{"pod-ip": "hostIp"},
 		fixed: map[string]any{"status": "", "clusterName": "", "preheatStatus": "ALL", "quotaType": nil, "pageIndex": 1, "pageSize": 10},

@@ -21,7 +21,7 @@ const defaultPodLogContainer = "appcontainer"
 func newServiceHostPodEvent(options Options, load loadConfig) *cobra.Command {
 	cmd := &cobra.Command{Use: "pod-event [SERVICE_ID]", Short: "查询指定主机的 Pod 事件", Args: optionalPositional(1)}
 	pod := cmd.Flags().String("pod", "", "Pod 名称")
-	cluster := cmd.Flags().String("cluster-name", "", "集群名称")
+	cluster := cmd.Flags().String("cluster-name", "", "集群名称，须与 --pod 一起传入")
 	noInput := cmd.Flags().Bool("no-input", false, "禁止交互选择")
 	outputFlag(cmd)
 	cmd.RunE = authorized(options, load, func(cmd *cobra.Command, args []string, api *platform.API, format string) error {
@@ -92,7 +92,7 @@ func newServiceHostLogStdout(options Options, load loadConfig) *cobra.Command {
 		Annotations: map[string]string{"text_output": "true"},
 	}
 	pod := cmd.Flags().String("pod", "", "Pod 名称")
-	container := cmd.Flags().StringP("container", "c", defaultPodLogContainer, "容器类型名称，默认 appcontainer")
+	container := cmd.Flags().StringP("container", "c", defaultPodLogContainer, "容器名称，例如 appcontainer 或 filebeat")
 	noInput := cmd.Flags().Bool("no-input", false, "禁止交互选择")
 	cmd.Flags().StringP("output", "o", "text", "输出格式为 text 或 json")
 	cmd.RunE = authorized(options, load, func(cmd *cobra.Command, args []string, api *platform.API, format string) error {

@@ -778,6 +778,8 @@ Go CLI 的服务列表支持 `--all-business` / `-A`，默认查询当前业务�
 
 ### 13.3 说明
 
+Go CLI 的服务命令可用 `ml service --help` 按任务查看入口，或在具体命令后加 `--help` 查看示例与分组选项。参数旁的 `*` 和「必填」标识必须提供的项目。
+
 WiseRec 和 MLOps 均可按名称跨租户查服务。若多个租户存在同名服务，按表格中的业务编码区分。
 
 WiseRec 和 MLOps 环境均支持本章全部命令，参数及操作方式相同；连接地址和业务上下文取自当前环境。
@@ -812,6 +814,8 @@ Go 客户端新增 `ml service host pod-event` 与 `ml service host log-stdout`�
 ### 13.4 示例
 
 ```bash
+ml service --help
+ml service host mock --help
 ml service list -A --name SERVICE_NAME
 ml service list --name demo --model-name model --model-version MODEL_VERSION
 ml service list --page 2 --page-size 20 -o json

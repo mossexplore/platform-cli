@@ -25,17 +25,17 @@ var serviceLogTypes = map[string][]string{
 
 func newServiceLogs(options Options, load loadConfig) *cobra.Command {
 	cmd := &cobra.Command{Use: "log-search SERVICE_ID", Short: "检索指定主机的业务日志文件", Args: positional(1)}
-	pod := cmd.Flags().String("pod", "", "Pod 名称")
-	cluster := cmd.Flags().String("cluster-name", "", "集群名称")
-	logType := cmd.Flags().String("type", "", "日志类别")
+	pod := cmd.Flags().String("pod", "", "Pod 名称，须与 --cluster-name 一起传入")
+	cluster := cmd.Flags().String("cluster-name", "", "集群名称，须与 --pod 一起传入")
+	logType := cmd.Flags().String("type", "", "日志类别，例如 interface，具体取值取决于主机类型")
 	file := cmd.Flags().String("file", "", "日志文件名称")
 	keywords := cmd.Flags().StringArrayP("keyword", "k", nil, "关键词，可重复")
-	lines := cmd.Flags().IntP("lines", "n", 200, "查询行数")
+	lines := cmd.Flags().IntP("lines", "n", 200, "查询行数，须为正整数")
 	list := cmd.Flags().Bool("list", false, "仅显示日志文件列表")
 	noInput := cmd.Flags().Bool("no-input", false, "禁止交互选择")
-	order := cmd.Flags().String("search-order", "tail", "检索顺序")
-	scope := cmd.Flags().String("grep-scope", "C", "关键词范围")
-	contextLines := cmd.Flags().Int("grep-line", 0, "关键词上下文行数")
+	order := cmd.Flags().String("search-order", "tail", "日志正文的检索顺序")
+	scope := cmd.Flags().String("grep-scope", "C", "关键词范围，A 为后面，B 为前面，C 为前后")
+	contextLines := cmd.Flags().Int("grep-line", 0, "关键词上下文行数，须为非负整数")
 	cmd.RunE = authorized(options, load, func(cmd *cobra.Command, args []string, api *platform.API, _ string) error {
 		if cmd.Flags().Changed("pod") != cmd.Flags().Changed("cluster-name") || *lines < 1 || *contextLines < 0 ||
 			strings.TrimSpace(*order) == "" || strings.TrimSpace(*scope) == "" {
