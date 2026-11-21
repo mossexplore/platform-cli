@@ -22,7 +22,7 @@ func newTemplateGroup(options Options, load loadConfig, deployment bool) *cobra.
 	if deployment {
 		name, heading = "deployment", "部署管理"
 		query = catalogQuery{route: deployTemplatePrefix + "queryList", command: "list", summary: "查询部署模板列表", allowAllBusiness: true,
-			paged: true, nullable: []string{"name", "env", "framework-type"}, strings: []string{"framework-name"},
+			nameHelp: "按部署模板名称筛选", paged: true, nullable: []string{"name", "env", "framework-type"}, strings: []string{"framework-name"},
 			assign: map[string]string{"name": "deployTemplateName", "env": "env", "framework-type": "frameworkType", "framework-name": "frameworkPkgName"},
 			fixed:  defaultFields("frameworkPkgId", "inferenceType gatewayName isSystem deployTemplateType componentName componentVersion", ""),
 			body:   withBusiness, preserve: true, items: "deployTemplates", total: "count", empty: "暂无部署模板", value: templateValue,
@@ -33,7 +33,7 @@ func newTemplateGroup(options Options, load loadConfig, deployment bool) *cobra.
 		detail = newDeploymentDetail(options, load)
 	} else {
 		query = catalogQuery{route: resourcePrefix + "queryList", command: "list", summary: "查询资源模板列表", allowAllBusiness: true,
-			paged: true, nullable: []string{"env", "framework-type"}, strings: []string{"name", "framework-name", "resource-type", "template-type"},
+			nameHelp: "按资源模板名称筛选", paged: true, nullable: []string{"env", "framework-type"}, strings: []string{"name", "framework-name", "resource-type", "template-type"},
 			defaults: map[string]string{"resource-type": "docker", "template-type": "docker"},
 			assign: map[string]string{"env": "env", "framework-type": "frameworkType", "name": "dockerResourceTemplateName",
 				"framework-name": "frameworkPkgName", "resource-type": "resourceType", "template-type": "templateType"},

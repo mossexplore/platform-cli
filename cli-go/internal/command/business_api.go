@@ -107,7 +107,7 @@ func outputFlag(cmd *cobra.Command) {
 }
 
 func pagination(cmd *cobra.Command) (page, size *int) {
-	return cmd.Flags().Int("page", 1, "页码"), cmd.Flags().Int("page-size", 10, "每页记录数")
+	return cmd.Flags().Int("page", 1, "查询页码，从 1 开始"), cmd.Flags().Int("page-size", 10, "每页条数，必须为正整数")
 }
 
 func approve(cmd *cobra.Command, prompt string) (bool, error) {

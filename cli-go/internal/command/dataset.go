@@ -23,7 +23,7 @@ func newDataset(options Options, load loadConfig) *cobra.Command {
 	fixed["private"], fixed["sharing"] = false, false
 	list := catalogQuery{
 		route: prefix + "queryList", command: "list", summary: "分页查询当前业务下的数据集", paged: true, allowAllBusiness: true,
-		strings: []string{"name", "create-user", "update-user"}, nullable: []string{"bucket-name"},
+		nameHelp: "按数据集名称筛选，也可使用 --dataset-name", strings: []string{"name", "create-user", "update-user"}, nullable: []string{"bucket-name"},
 		fixed: fixed, assign: map[string]string{"name": "dataSetName", "create-user": "createUser", "update-user": "updateUser", "bucket-name": "bucketName"},
 		body: func(body map[string]any, cmd *cobra.Command, args []string, api *platform.API) (any, error) {
 			if !cmd.Flags().Changed("name") && cmd.Flags().Changed("dataset-name") {

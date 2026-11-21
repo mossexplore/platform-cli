@@ -25,6 +25,7 @@ type catalogQuery struct {
 	allowAllBusiness     bool
 	appendBusinessColumn bool
 	maxPage              int
+	nameHelp             string
 	strings              []string
 	nullable             []string
 	defaults             map[string]string
@@ -57,9 +58,16 @@ func (q catalogQuery) build(options Options, load loadConfig) *cobra.Command {
 	}
 	if q.paged {
 		pagination(cmd)
+		if q.maxPage > 0 {
+			cmd.Flags().Lookup("page-size").Usage += fmt.Sprintf("，最多 %d 条", q.maxPage)
+		}
 	}
 	for _, flag := range append(append([]string{}, q.strings...), q.nullable...) {
-		cmd.Flags().String(flag, q.defaults[flag], flag)
+		description := catalogFilterHelp[flag]
+		if flag == "name" && q.nameHelp != "" {
+			description = q.nameHelp
+		}
+		cmd.Flags().String(flag, q.defaults[flag], description)
 	}
 	cmd.RunE = authorized(options, load, func(cmd *cobra.Command, args []string, api *platform.API, format string) error {
 		page, size := 1, 10
@@ -109,6 +117,30 @@ func (q catalogQuery) build(options Options, load loadConfig) *cobra.Command {
 		return q.render(cmd.OutOrStdout(), result, payload, format, page, size, allBusinessRequested(cmd))
 	})
 	return cmd
+}
+
+var catalogFilterHelp = map[string]string{
+	"name":               "按名称筛选",
+	"bucket-name":        "按存储桶名称筛选",
+	"category":           "按特征任务类型筛选",
+	"create-user":        "按创建者账号筛选",
+	"definition-id":      "装配样本定义 ID",
+	"env":                "按模板环境筛选",
+	"feature-value-type": "按特征值类型筛选，接受类型代码或中文名称",
+	"framework-name":     "按推理框架组件包名称筛选",
+	"framework-type":     "按推理框架类型筛选",
+	"indicator-type":     "按指标类型筛选，接受类型代码或中文名称",
+	"model-name":         "按服务关联的模型名称筛选",
+	"model-version":      "按服务关联的模型版本筛选",
+	"owner":              "按模型归属者账号筛选",
+	"pod-ip":             "按 Pod IP 筛选主机，无需端口",
+	"resource-type":      "按资源类型筛选",
+	"set-id":             "宽表特征集 ID",
+	"table-name":         "按特征表名筛选",
+	"team-id":            "按团队 ID 筛选",
+	"template-type":      "按模板类型筛选",
+	"type":               "按模型类型筛选",
+	"update-user":        "按修改者账号筛选",
 }
 
 func catalogResult(payload json.RawMessage, label string, optional bool) (platform.Record, error) {

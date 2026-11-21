@@ -78,7 +78,7 @@ func newRoot(options Options) *cobra.Command {
 		DisableSuggestions: true,
 	}
 	root.CompletionOptions.DisableDefaultCmd = true
-	root.SetHelpFunc(pythonHelpFunc(root.HelpFunc()))
+	root.SetHelpFunc(showHelp)
 	addCompletionOptions(root)
 	root.SetVersionTemplate("ml {{.Version}}\n")
 	root.PersistentFlags().Bool("no-history", false, "不保存本次命令历史")

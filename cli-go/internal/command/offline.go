@@ -29,13 +29,26 @@ func newOffline(options Options, load loadConfig) *cobra.Command {
 
 func newOfflineList(options Options, load loadConfig, trial bool) *cobra.Command {
 	use, short, count, route := "list", "分页查询离线实验", 0, offlinePrefix+"/project/list"
-	params := map[string]string{"name": "projectName", "project-name": "projectName", "description": "description",
-		"create-user": "createUser", "update-user": "updateUser", "team-id": "teamId"}
+	type filter struct{ field, description string }
+	params := map[string]filter{
+		"name":         {"projectName", "按离线实验名称筛选，也可使用 --project-name"},
+		"project-name": {"projectName", "按离线实验名称筛选，与 --name 同时使用时优先采用 --name"},
+		"description":  {"description", "按离线实验描述筛选"},
+		"create-user":  {"createUser", "按创建者账号筛选"},
+		"update-user":  {"updateUser", "按修改者账号筛选"},
+		"team-id":      {"teamId", "按团队 ID 筛选"},
+	}
 	cols := []recordColumn{{"projectId", "projectId"}, {"实验名称", "projectName"}, {"描述", "description"}, {"创建者", "createUser"},
 		{"修改者", "updateUser"}, {"创建时间", "createTime"}, {"更新时间", "updateTime"}, {"运行配置模板", "configName"}}
 	if trial {
 		use, short, count, route = "list PROJECT_ID", "分页查询某个离线实验下的 trial", 1, offlinePrefix
-		params = map[string]string{"name": "experimentNameRef", "type": "experimentType", "creator": "creator", "updater": "updater", "ai-module": "aimodule"}
+		params = map[string]filter{
+			"name":      {"experimentNameRef", "按 trial 名称筛选"},
+			"type":      {"experimentType", "按 trial 类型筛选，例如 batch 或 stream"},
+			"creator":   {"creator", "按创建者账号筛选"},
+			"updater":   {"updater", "按修改者账号筛选"},
+			"ai-module": {"aimodule", "按 AI 模块筛选"},
+		}
 		cols = []recordColumn{{"trial名称", "experimentName"}, {"类型", "experimentType"}, {"创建者", "creator"}, {"修改者", "updater"},
 			{"创建时间", "createTime"}, {"更新时间", "updateTime"}, {"调度状态", "cronIntervalStartFlag"}, {"描述", "description"}}
 	}
@@ -45,8 +58,8 @@ func newOfflineList(options Options, load loadConfig, trial bool) *cobra.Command
 	if !trial {
 		addAllBusinessFlag(cmd)
 	}
-	for flag := range params {
-		cmd.Flags().String(flag, "", flag)
+	for flag, filter := range params {
+		cmd.Flags().String(flag, "", filter.description)
 	}
 	cmd.RunE = authorized(options, load, func(cmd *cobra.Command, args []string, api *platform.API, format string) error {
 		if *page < 1 || *pageSize < 1 {
@@ -61,13 +74,13 @@ func newOfflineList(options Options, load loadConfig, trial bool) *cobra.Command
 		if trial {
 			query.Set("projectId", args[0])
 		}
-		for flag, key := range params {
+		for flag, filter := range params {
 			if flag == "project-name" && cmd.Flags().Changed("name") {
 				continue
 			}
 			if cmd.Flags().Changed(flag) {
 				value, _ := cmd.Flags().GetString(flag)
-				query.Set(key, value)
+				query.Set(filter.field, value)
 			}
 		}
 		raw, err := api.JSON(cmd.Context(), http.MethodGet, route, query, nil)
