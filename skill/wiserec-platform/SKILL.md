@@ -24,7 +24,7 @@ metadata:
 
 - **首次建立上下文**：先运行 `ml context --json` 核对配置路径为当前平台标准用户路径（Windows 上为 `%APPDATA%\ml-go-preview\config.json`）。在 DeepSeek Harness 中，CLI 会自动按宿主注入的 `DSH_SESSION_ID` 隔离各会话的环境与业务，新会话默认“未绑定”且不会回退全局配置；若 `当前环境` 为 `未绑定`，先按用户指定执行 `ml env use NAME`（未指定时向用户确认，可用 `ml env list -o json` 查看候选），再运行 `ml auth status` 检查 `status=valid`、`profile` 与当前环境一致且 `businessId` 有效；若 `当前业务` 未绑定，执行 `ml business use --tenant TENANT_ID [--team TEAM_ID]`。路径不符或配置缺失时停止。详细字段、Windows shell 调用及故障处理见 [session.md](references/session.md)。
 - **上下文复用与切换**：在 DeepSeek Harness 多会话隔离模式下，各会话独立维护当前环境与业务选择，互不覆盖，同时共享同一环境的登录态与业务目录；非隔离终端仍共用本地 CLI 状态。未指定租户或团队且当前会话已绑定业务时，沿用已绑定选择；用户指定业务时，先用 `ml business show` 核对。切换环境用 `ml env use NAME` 后重新核对上下文与业务选择；长任务前查 `auth status` 剩余有效期。
-- **保活状态**：Harness 可通过非交互 Shell 自动保活。“环境已切换，保活登记待重试”表示切换已成功。用 `ml auth ping status` 查看保活状态和最近平台确认时间，故障处理见 [session.md](references/session.md)。
+- **保活状态**：Harness 可通过非交互 Shell 自动保活。`ml auth status` 在剩余有效时长后显示保活状态和可用的预计时间。`ml auth ping status` 查看最近平台确认时间。“环境已切换，保活登记待重试”表示切换已成功，故障处理见 [session.md](references/session.md)。
 
 ## 调用与结果准则
 

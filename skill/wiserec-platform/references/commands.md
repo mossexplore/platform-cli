@@ -23,7 +23,7 @@ WiseRec 和 MLOps 均支持 `train` 和 `feature-task` 命令，`algorithm` 仅�
 | `ml env use NAME` | 切换当前环境；保活登记待重试时切换已成功 | | 本地配置或会话状态 |
 | `ml login` | 打开 Edge 登录，需用户操作；禁止 `--show-secrets` | | 本地凭据 |
 | `ml logout [--all] [--forget-browser]` | 清除当前或全部环境的认证 | | 本地凭据 |
-| `ml auth status` | 本地认证状态 | | |
+| `ml auth status` | 本地认证状态、剩余有效时长和保活提示 | | |
 | `ml auth ping start` / `stop` / `status` | 交互终端与 DeepSeek Harness 保活；查看状态为只读，停止作用于当前环境 | | 本地进程与会话登记 |
 | `ml access status [--diagnose]` | 检查 CLI 访问授权 | | |
 | `ml business list` / `ml business show` | 业务候选 / 当前业务 | | |

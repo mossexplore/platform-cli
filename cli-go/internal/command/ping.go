@@ -81,9 +81,8 @@ func newPing(options Options, load loadConfig) *cobra.Command {
 			state, pid = entry.Status, strconv.Itoa(entry.WorkerPID)
 			if state == "waiting" {
 				state = "等待有效业务上下文"
-			} else if state == "running" {
-				next = pingTime(entry.LastActivity.Add(interval))
 			}
+			next = pingTime(nextPingTime(entry, interval))
 		}
 		fields := output.Fields{{Key: "环境", Value: profile.Name}, {Key: "自动保活", Value: enabled},
 			{Key: "状态", Value: state}, {Key: "进程 ID", Value: pid}, {Key: "保活终端数", Value: strconv.Itoa(keepalive.TerminalCount(entry))},
@@ -118,6 +117,13 @@ func pingTime(value time.Time) string {
 		return "-"
 	}
 	return value.In(beijing).Format("2006-01-02 15:04:05")
+}
+
+func nextPingTime(entry keepalive.Entry, interval time.Duration) time.Time {
+	if entry.Status != "running" || entry.LastActivity.IsZero() {
+		return time.Time{}
+	}
+	return entry.LastActivity.Add(interval)
 }
 
 func startAutoPing(cmd *cobra.Command, paths localstate.Paths, cfg localstate.Config, version string, automatic bool) {

@@ -13,7 +13,7 @@ import (
 
 func newAuth(options Options, load loadConfig) (*cobra.Command, *cobra.Command) {
 	auth := &cobra.Command{Use: "auth", Short: "查看认证状态"}
-	status := &cobra.Command{Use: "status", Short: "显示当前环境的认证有效期，不显示敏感值", Args: positional(0)}
+	status := &cobra.Command{Use: "status", Short: "查看当前环境的认证有效期和保活状态", Args: positional(0)}
 	status.RunE = func(cmd *cobra.Command, _ []string) error {
 		paths, cfg, err := load()
 		if err != nil {
@@ -39,17 +39,29 @@ func newAuth(options Options, load loadConfig) (*cobra.Command, *cobra.Command) 
 		if err != nil {
 			business = "-"
 		}
-		remaining := max(0, int(math.Ceil(time.Until(expires).Minutes())))
+		now := time.Now()
+		remaining := max(0, int(math.Ceil(expires.Sub(now).Minutes())))
 		state := "valid"
 		if remaining == 0 {
 			state = "expired"
+		}
+		remainingText := strconv.Itoa(remaining)
+		if cfg.PingEnabled() {
+			interval := time.Duration(cfg.Auth.PingMinutes) * time.Minute
+			entry, running, err := keepalive.View(paths, profile.Name, interval)
+			note := "自动保活状态暂不可用"
+			if err == nil {
+				running = running && len(entry.Owner) > 0 && entry.Endpoint == profile.Origin() && entry.Username == creds.Username
+				note = authKeepaliveNote(entry, running, interval, now)
+			}
+			remainingText += " 分钟（" + note + "）"
 		}
 		fields := output.Fields{
 			{Key: "profile", Value: creds.Profile}, {Key: "username", Value: creds.Username},
 			{Key: "cn_name", Value: creds.ChineseName}, {Key: "department", Value: creds.Department},
 			{Key: "businessId", Value: business}, {Key: "status", Value: state},
 			{Key: "role", Value: creds.AdminRoleLabel()},
-			{Key: "remaining_minutes", Value: strconv.Itoa(remaining)},
+			{Key: "remaining_minutes", Value: remainingText},
 			{Key: "acquired_at", Value: acquired.In(beijing).Format("2006-01-02 15:04:05")},
 			{Key: "expires_at", Value: expires.In(beijing).Format("2006-01-02 15:04:05")},
 			{Key: "timezone", Value: "Asia/Shanghai"},
@@ -89,4 +101,31 @@ func newAuth(options Options, load loadConfig) (*cobra.Command, *cobra.Command) 
 		return nil
 	}
 	return auth, logout
+}
+
+func authKeepaliveNote(entry keepalive.Entry, running bool, interval time.Duration, now time.Time) string {
+	if !running || entry.ManualStop {
+		return "自动保活已开启，当前未运行"
+	}
+	switch entry.Status {
+	case "retrying":
+		return "自动保活重试中"
+	case "waiting":
+		return "自动保活等待有效业务上下文"
+	case "starting":
+		return "自动保活正在启动"
+	case "requesting":
+		return "自动保活请求中"
+	case "running":
+		next := nextPingTime(entry, interval)
+		if next.After(now) {
+			return "自动保活运行中，下次预计保活时间：\n" + pingTime(next)
+		}
+		if !next.IsZero() {
+			return "自动保活运行中，等待发起请求"
+		}
+		return "自动保活运行中，暂无预计时间"
+	default:
+		return "自动保活已开启，当前未运行"
+	}
 }
