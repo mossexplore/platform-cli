@@ -74,8 +74,9 @@ func TestPythonHelpLayout(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
+			fixture := strings.ReplaceAll(string(want), "\r\n", "\n")
 			code, out, stderr := run(t, localstate.Paths{}, append(strings.Fields(tc.path), "--help")...)
-			if code != 0 || stderr != "" || trimHelpPadding(out) != string(want)+"\n" {
+			if code != 0 || stderr != "" || trimHelpPadding(out) != fixture+"\n" {
 				t.Fatalf("help differs from Python: exit %d, stderr %q\n%s", code, stderr, out)
 			}
 		})
