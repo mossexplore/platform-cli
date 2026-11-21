@@ -35,8 +35,12 @@ func TestHostUsesExplicitSessionAndSharesTerminalThrottle(t *testing.T) {
 	f := newKeepaliveFixture(t, server.URL, "global-tenant")
 	f.bind(t, hostPaths(f, "dsh-b"), "tenant-b")
 
-	mustTick(t, f, "host-a", "unknown-session", "tick", "unknown_session")
-	mustTick(t, f, "host-a", "dsh-b", "tick", "confirmed")
+	if result := mustTick(t, f, "host-a", "unknown-session", "tick", "unknown_session"); result.Environment != "" {
+		t.Fatalf("unknown session returned an environment: %+v", result)
+	}
+	if result := mustTick(t, f, "host-a", "dsh-b", "tick", "confirmed"); result.Environment != "dev" || result.RequestID == "" {
+		t.Fatalf("confirmed result missing the resolved environment or request ID: %+v", result)
+	}
 	if business := <-businesses; business != "tenant-b" {
 		t.Fatalf("wanted selected Harness tenant, got %q", business)
 	}

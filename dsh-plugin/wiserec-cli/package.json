@@ -1,6 +1,6 @@
 {
   "name": "dsh-wiserec-cli",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "WiseRec CLI keepalive scheduler for DeepSeek Harness",
   "license": "MIT",
   "type": "module",
@@ -8,6 +8,7 @@
   "exports": "./index.js",
   "files": [
     "index.js",
+    "logging.js",
     "runner.js",
     "cordis.patch.yml",
     "README.md",

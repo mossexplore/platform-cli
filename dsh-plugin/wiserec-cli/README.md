@@ -35,6 +35,14 @@ python scripts/build_dsh_plugin.py --output dsh-plugin/wiserec-cli/dist --new-ou
 
 Windows CI 验证 ZIP 校验值、CLI 调度协议以及稳定目录的暂存流程。
 
+## 保活日志
+
+Windows 上，日志位于 `%LOCALAPPDATA%\WiseRec\dsh-plugins\wiserec-cli\logs\keepalive-<宿主PID>.jsonl`。每行记录一个事件，时间为北京时间，表示写入宿主日志的时间。文件达到 256 KiB 时轮转，同一宿主保留当前段和上一段。
+
+`scheduler_started` 表示调度器已启动，`keepalive_confirmed` 表示平台确认续期。请求可用 `request_id` 与 `ml auth ping status` 对照。`keepalive_unconfirmed` 表示本次未获确认，`session_expired` 表示 CLI 判定平台会话已失效，`cli_timeout` 表示调用超时。`session_id` 来自 DSH，`env` 来自本次 CLI 响应。CLI 在返回环境或请求 ID 前中断时，对应字段省略。
+
+正常跳过不写日志。相同会话、环境和原因的重复警告五分钟内合并，成功确认逐次记录。日志只保留时间、级别、事件、已知会话和环境标识、请求 ID 和固定错误分类。
+
 ## 停止、恢复和卸载
 
 从会话执行 `ml auth ping stop` 停止当前环境的保活，包含终端 worker。插件重新报到后，`ml auth ping start` 恢复该环境的插件调度。宿主退出、会话关闭、休眠或登录失效会中断保活，具体状态以 `ml auth ping status` 为准。

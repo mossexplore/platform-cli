@@ -25,6 +25,7 @@ type HostRequest struct {
 type TickResult struct {
 	Protocol    string `json:"protocol"`
 	State       string `json:"state"`
+	Environment string `json:"env,omitempty"`
 	RequestID   string `json:"request_id,omitempty"`
 	NextAttempt string `json:"next_attempt,omitempty"`
 }
@@ -104,7 +105,11 @@ func HostBudgetMS(paths localstate.Paths) int64 {
 }
 
 func Tick(ctx context.Context, base localstate.Paths, request HostRequest, version string) (result TickResult, err error) {
-	defer func() { result.Protocol = HostProtocol }()
+	var environment string
+	defer func() {
+		result.Protocol = HostProtocol
+		result.Environment = environment
+	}()
 	if !request.valid() || base.Session.EffectiveMode() != localstate.SessionModeGlobal {
 		return TickResult{State: "invalid_request"}, nil
 	}
@@ -150,6 +155,7 @@ func Tick(ctx context.Context, base localstate.Paths, request HostRequest, versi
 	if err != nil {
 		return TickResult{State: "unbound"}, nil
 	}
+	environment = profile.Name
 	if !hostAllowed(cfg, profile) {
 		return TickResult{State: "disabled"}, nil
 	}

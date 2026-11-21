@@ -1,8 +1,12 @@
 import assert from 'node:assert/strict'
 import { EventEmitter } from 'node:events'
+import { mkdtemp, readFile, rm } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import { setImmediate } from 'node:timers/promises'
 import test from 'node:test'
 import { startScheduler } from '../index.js'
+import { createKeepaliveLog } from '../logging.js'
 import { hostEnvironment } from '../runner.js'
 
 function host(agents = []) {
@@ -102,4 +106,97 @@ test('removes inherited Windows case variants of shell context variables', () =>
   assert.deepEqual(hostEnvironment({
     dsh_shell: '1', DSH_SESSION_ID: 'old', ml_Session_Id: 'old', TEMP: 'kept',
   }), { TEMP: 'kept' })
+})
+
+test('logs actual results, suppresses repeated warnings, and never guesses a timeout target', async () => {
+  const a = agent('session-a')
+  const b = agent('session-b')
+  const { ctx, emit } = host()
+  const records = []
+  let now = 0
+  let result = { state: 'retrying', env: 'dev', requestID: 'a14b83d1-2f0a-481b-9e19-0a44ee8cf001' }
+  const stop = startScheduler(ctx, { ...config, idleWindowMinutes: 120 }, async (action) => {
+    if (action === 'release') return { state: 'released' }
+    if (result instanceof Error) throw result
+    return result
+  }, () => now, (event, details) => records.push({ event, ...details }))
+  async function activity(session, advance = 0) {
+    now += advance
+    emit('agent/status', session, 'running')
+    await setImmediate()
+  }
+  try {
+    await activity(a)
+    await activity(a, 60_000)
+    await activity(b)
+    emit('agent/disposed', a)
+    await setImmediate()
+    result = new Error('timeout')
+    await activity(b, 60_000)
+    result = { state: 'expired', env: 'dev' }
+    await activity(b, 60_000)
+    result = { state: 'confirmed', env: 'uat', requestID: 'f85e2c07-2f0a-481b-9e19-0a44ee8cf002' }
+    await activity(b, 60_000)
+
+    assert.deepEqual(records.map(({ event }) => event), [
+      'scheduler_started', 'keepalive_unconfirmed', 'keepalive_unconfirmed', 'cli_timeout', 'keepalive_confirmed',
+    ])
+    assert.equal(records[1].sessionID, 'session-a')
+    assert.equal(records[2].sessionID, 'session-b')
+    assert.equal(records[3].sessionID, 'session-b')
+    assert.equal(records[3].env, undefined)
+    assert.equal(records[3].requestID, undefined)
+    assert.equal(records[4].env, 'uat')
+    assert.equal(records[4].requestID, result.requestID)
+  } finally {
+    await stop()
+  }
+})
+
+function loggingContext(timestamp) {
+  const exporters = new Set()
+  function logger(name) {
+    const dispatch = (type) => (...args) => {
+      for (const exporter of exporters) exporter.export({ name, type, ts: timestamp, args })
+    }
+    return { info: dispatch('info'), warn: dispatch('warn') }
+  }
+  logger.exporter = (exporter) => {
+    exporters.add(exporter)
+    return () => exporters.delete(exporter)
+  }
+  return { logger, exporters }
+}
+
+test('persists only allowlisted Cordis events with Beijing timestamps and rotates by PID', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'wiserec-keepalive-'))
+  const ctx = loggingContext(Date.parse('2026-11-22T18:00:00Z'))
+  const log = createKeepaliveLog(ctx, { directory, limit: 280 })
+  const logPath = join(directory, `keepalive-${process.pid}.jsonl`)
+  try {
+    log.record('scheduler_started')
+    ctx.logger('unrelated').info('WiseRec keepalive: %o', { event: 'scheduler_started' })
+    log.record('keepalive_confirmed', {
+      sessionID: 'session-123', env: 'dev', requestID: 'a14b83d1-2f0a-481b-9e19-0a44ee8cf001',
+      cookie: 'sensitive-value',
+    })
+    log.record('cli_timeout', { sessionID: 'session-123' })
+    await log.close()
+    assert.equal(ctx.exporters.size, 0)
+
+    const previous = await readFile(join(directory, `keepalive-${process.pid}.previous.jsonl`), 'utf8')
+    const current = await readFile(logPath, 'utf8')
+    const lines = (previous + current).trim().split('\n').map(JSON.parse)
+    assert.deepEqual(lines, [
+      { time: '2026-11-23 02:00:00', level: 'info', event: 'scheduler_started' },
+      {
+        time: '2026-11-23 02:00:00', level: 'info', event: 'keepalive_confirmed',
+        session_id: 'session-123', env: 'dev', request_id: 'a14b83d1-2f0a-481b-9e19-0a44ee8cf001',
+      },
+      { time: '2026-11-23 02:00:00', level: 'warn', event: 'cli_timeout', session_id: 'session-123' },
+    ])
+  } finally {
+    await log.close()
+    await rm(directory, { recursive: true, force: true })
+  }
 })

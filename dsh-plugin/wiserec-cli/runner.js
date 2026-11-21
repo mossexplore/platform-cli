@@ -10,13 +10,13 @@ export function hostEnvironment(environment) {
   return Object.fromEntries(Object.entries(environment).filter(([key]) => !sessionVariables.has(key.toUpperCase())))
 }
 
-function execute(binary, args, { timeout, signal, input }) {
+function execute(binary, args, { timeout, signal, input, acceptErrorResponse = false }) {
   return new Promise((resolve, reject) => {
     const child = execFile(binary, args, {
       timeout, signal, windowsHide: true, encoding: 'utf8', maxBuffer: 16 * 1024,
       env: hostEnvironment(process.env),
     }, (error, stdout) => {
-      if (error) {
+      if (error && !(acceptErrorResponse && Number.isInteger(error.code) && stdout && !signal?.aborted)) {
         const reason = signal?.aborted ? 'cancelled' : error.killed ? 'timeout' : 'invocation_failed'
         reject(new Error(reason))
       } else {
@@ -30,8 +30,7 @@ function execute(binary, args, { timeout, signal, input }) {
 
 export async function findCLI(configured, environment = process.env, platform = process.platform) {
   if (configured) {
-    await access(configured)
-    return configured
+    return checkExecutable(configured)
   }
   if (platform !== 'win32') throw new Error('missing_cli')
   const systemRoot = environment.SystemRoot
@@ -52,11 +51,28 @@ export async function findCLI(configured, environment = process.env, platform = 
   }
   const local = environment.LOCALAPPDATA
   if (local && isAbsolute(local)) {
-    const candidate = join(local, 'Programs', 'WiseRecCLIGo', 'ml.exe')
-    await access(candidate)
-    return candidate
+    return checkExecutable(join(local, 'Programs', 'WiseRecCLIGo', 'ml.exe'))
   }
   throw new Error('missing_cli')
+}
+
+async function checkExecutable(path) {
+  try {
+    await access(path)
+    return path
+  } catch (error) {
+    throw new Error(error.code === 'ENOENT' || error.code === 'ENOTDIR' ? 'missing_cli' : 'cli_access_failed')
+  }
+}
+
+function parseResponse(stdout) {
+  try {
+    const result = JSON.parse(stdout)
+    if (result && typeof result === 'object' && !Array.isArray(result)) return result
+  } catch {
+    // The child may return malformed output or no compatible protocol.
+  }
+  throw new Error('invalid_response')
 }
 
 export function createRunner(config) {
@@ -65,7 +81,7 @@ export function createRunner(config) {
     if (!connection) {
       const binary = await findCLI(config.mlPath)
       const stdout = await execute(binary, ['auth', 'ping', 'tick', '--capabilities'], { timeout: 6000, signal })
-      const capability = JSON.parse(stdout)
+      const capability = parseResponse(stdout)
       if (capability.protocol !== protocol || !Number.isSafeInteger(capability.budget_ms) ||
           capability.budget_ms < 1000 || capability.budget_ms > 240_000) {
         throw new Error('incompatible_cli')
@@ -78,13 +94,14 @@ export function createRunner(config) {
     }
     try {
       const stdout = await execute(connection.binary, ['auth', 'ping', 'tick', '--json'], {
-        timeout: connection.timeout, signal,
+        timeout: connection.timeout, signal, acceptErrorResponse: true,
         input: JSON.stringify({ protocol, action, host_id: hostID, session_id: sessionID }),
       })
-      const result = JSON.parse(stdout)
+      const result = parseResponse(stdout)
       if (result.protocol !== protocol || typeof result.state !== 'string') throw new Error('invalid_response')
       return {
         state: result.state,
+        env: result.env,
         requestID: typeof result.request_id === 'string' && requestIdPattern.test(result.request_id) ? result.request_id : '',
       }
     } catch (error) {

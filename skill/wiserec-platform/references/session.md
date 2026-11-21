@@ -16,7 +16,7 @@ ml auth status
 - `businessId` 缺失、为空或为 `-` 时，先看 `context` 是否为“未绑定”，需要核对当前已选租户/团队名称时运行 `ml business show`。未选业务再进入选择流程，不在每次查询前列出全部业务。
 - 在当前聊天内可复用已确认的 CLI 路径、配置来源和命令语法。会话隔离模式下与其他并行会话互不干扰；普通非隔离终端仍共用本地 CLI 状态，此时其他会话的切换可能改变生效环境或业务。
 - 用户要求切换到另一环境时，运行对应的 `ml env use NAME`，再用上述两条命令更新上下文。与已确认环境相同时不重复切换；未指定环境且当前已绑定时沿用当前环境，不擅自切换。若用户给的是显示名，用 `ml env list -o json` 匹配“环境名”，取唯一匹配行的“环境标识”用于切换。未找到或匹配多行时，请用户确认环境标识。开启自动保活时，目标环境未登录或登录过期会提示运行 `ml login`。
-- **Harness 自动保活**：安装并启用宿主保活插件后，插件只调度当前会话绑定的环境，前提是已登录并选定业务。`ml auth ping status` 显示插件报到时间及最近平台确认结果。会话关闭或插件卸载后停止 Harness 自动保活。使用 `ml auth ping stop` 停止当前环境的终端和插件保活；插件登记后用 `ml auth ping start` 恢复。Agent 不调用插件接口 `tick --json`。
+- **Harness 自动保活**：安装并启用宿主保活插件后，插件只调度当前会话绑定的环境，前提是已登录并选定业务。`ml auth ping status` 显示插件报到时间及最近平台确认结果。会话关闭或插件卸载后停止 Harness 自动保活。使用 `ml auth ping stop` 停止当前环境的终端和插件保活；插件登记后用 `ml auth ping start` 恢复。如需对照单次确认，插件日志与状态输出使用相同的请求 ID。Agent 不调用插件接口 `tick --json`。
 - `ml env list` 默认输出表格，在支持彩色输出的终端中，表头以加粗青色显示，带星号的当前环境整行以加粗绿色显示。加 `-o json` 返回环境数组，无可展示环境时返回 `[]`。两种格式都隐藏已确认未授权的环境，保留授权状态未知的环境。列表可显示「已授权」「登录使用中」「登录已过期」或「授权状态未知」。管理台类型显示为「搜推广工程平台」或「WiseMLOps平台」。
 - 核对当前平台标准用户配置路径：Windows 为 `%APPDATA%\ml-go-preview\config.json`，macOS 为 `~/Library/Application Support/ml-go-preview/config.json`，Linux 为 `${XDG_CONFIG_HOME:-~/.config}/ml-go-preview/config.json`。首次加载内置配置时会初始化环境选择。若 `context` 报错或路径不符，停止后续操作并告知用户。
 

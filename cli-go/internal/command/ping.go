@@ -182,7 +182,10 @@ func newPingTick(options Options) *cobra.Command {
 		}
 		result, err := keepalive.Tick(cmd.Context(), paths, request, options.Version)
 		if err != nil {
-			if writeErr := encoder.Encode(keepalive.TickResult{Protocol: keepalive.HostProtocol, State: "local_error"}); writeErr != nil {
+			result.State = "local_error"
+			result.RequestID = ""
+			result.NextAttempt = ""
+			if writeErr := encoder.Encode(result); writeErr != nil {
 				return writeErr
 			}
 			return silentExit(1)

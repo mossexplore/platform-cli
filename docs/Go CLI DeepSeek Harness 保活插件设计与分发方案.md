@@ -85,7 +85,8 @@ ml auth ping tick --json
 
 - 优先使用用户配置的 `mlPath` 绝对路径，随后读取 `HKCU\Software\WiseRec\CLIGo` 下的 `Path` 安装目录，最后检查当前 MSI 默认路径 `%LOCALAPPDATA%\Programs\WiseRecCLIGo\ml.exe`。便携安装使用显式路径。
 - 使用绝对路径和固定参数数组调用 `execFile`，不经 Shell，设置 `windowsHide: true`，限制标准输出和标准错误的缓冲区。启动时和路径变更时先做协议探测，旧构建、缺失二进制或协议不兼容时暂停并限频告警。
-- 日志记录插件加载、调度暂停原因、退出或超时、平台确认结果和请求 ID。原始凭据、会话 ID、完整命令环境和原始平台响应不进入插件日志。
+- 通过带名称的 Cordis `ctx.logger` 记录调度启动、平台确认或未确认、登录失效和 CLI 异常。文件导出器只写本插件的指定事件，在 `%LOCALAPPDATA%\WiseRec\dsh-plugins\wiserec-cli\logs\` 按宿主 PID 保存 JSONL。文件按 256 KiB 轮转，正常跳过保持静默。
+- 会话级事件记录宿主提供的 `session_id`，环境 `env` 取自 CLI 实际解析结果，`request_id` 取自实际探活结果。未取得的字段省略。异常只使用固定错误分类，原始凭据、接口响应和子进程输出不进入日志。
 
 ### 4.3 包与依赖
 

@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto'
 import { isAbsolute } from 'node:path'
 import { createRunner } from './runner.js'
+import { createKeepaliveLog, failureReason } from './logging.js'
 
 export const name = 'wiserec-cli-keepalive'
 export const inject = ['agents']
@@ -19,10 +20,17 @@ function configuration(input = {}) {
   return values
 }
 
-const reportable = new Set(['confirmed', 'retrying', 'expired', 'legacy_worker', 'local_error'])
-const reasons = new Set(['cancelled', 'timeout', 'invocation_failed', 'missing_cli', 'incompatible_cli', 'invalid_timeout', 'invalid_response'])
+const outcomes = new Map([
+  ['confirmed', 'keepalive_confirmed'],
+  ['retrying', 'keepalive_unconfirmed'],
+  ['expired', 'session_expired'],
+  ['legacy_worker', 'legacy_worker'],
+  ['invalid_request', 'cli_failed'],
+  ['local_error', 'cli_failed'],
+])
+const warningInterval = 5 * 60_000
 
-export function startScheduler(ctx, config, run = createRunner(config), clock = Date.now) {
+export function startScheduler(ctx, config, run = createRunner(config), clock = Date.now, log = () => {}) {
   const hostID = randomUUID()
   const sessions = new Map()
   const pendingRelease = new Set()
@@ -30,13 +38,16 @@ export function startScheduler(ctx, config, run = createRunner(config), clock = 
   const interval = config.pollSeconds * 1000
   let inFlight
   let closed = false
-  let lastWarning = -Infinity
 
-  function report(error) {
-    if (clock() - lastWarning < 5 * 60_000) return
-    lastWarning = clock()
-    const message = reasons.has(error?.message) ? error.message : 'local_error'
-    ctx.logger?.warn(`WiseRec keepalive: ${message}`)
+  function report(record, event, details) {
+    if (event !== 'keepalive_confirmed') {
+      const key = JSON.stringify([event, details.env, event === 'cli_failed' ? details.reason : undefined])
+      const now = clock()
+      const last = record.warnings.get(key) ?? -Infinity
+      if (now - last < warningInterval) return
+      record.warnings.set(key, now)
+    }
+    log(event, details)
   }
 
   function refresh(agent, status) {
@@ -44,7 +55,7 @@ export function startScheduler(ctx, config, run = createRunner(config), clock = 
     if (!id || typeof id !== 'string') return
     const existing = sessions.get(id)
     if (existing?.agent !== agent && existing) retire(id, existing)
-    const record = sessions.get(id) ?? { agent, lastTick: -Infinity, registered: false }
+    const record = sessions.get(id) ?? { agent, lastTick: -Infinity, registered: false, warnings: new Map() }
     record.activity = clock()
     record.busy = (status ?? agent.status) === 'running'
     sessions.set(id, record)
@@ -98,12 +109,19 @@ export function startScheduler(ctx, config, run = createRunner(config), clock = 
     invocation.done = (async () => {
       try {
         const result = await run(action, hostID, id, controller.signal)
-        if (record && !controller.signal.aborted && result.state !== 'unknown_session') record.registered = true
-        if (reportable.has(result.state)) {
-          ctx.logger?.info(`WiseRec keepalive: ${result.state}${result.requestID ? ` request_id=${result.requestID}` : ''}`)
+        if (!record || controller.signal.aborted) return
+        if (result.state !== 'unknown_session') record.registered = true
+        const event = outcomes.get(result.state)
+        if (event && (result.state !== 'expired' || result.requestID)) {
+          report(record, event, {
+            sessionID: id, env: result.env, requestID: result.requestID, reason: result.state,
+          })
         }
       } catch (error) {
-        if (!controller.signal.aborted) report(error)
+        if (record && !controller.signal.aborted) {
+          const event = error?.message === 'timeout' ? 'cli_timeout' : 'cli_failed'
+          report(record, event, { sessionID: id, reason: failureReason(error?.message) })
+        }
       } finally {
         inFlight = undefined
         if (!closed) queueMicrotask(cycle)
@@ -120,6 +138,7 @@ export function startScheduler(ctx, config, run = createRunner(config), clock = 
   for (const agent of ctx.agents.list()) refresh(agent)
   const timer = setInterval(cycle, interval)
   timer.unref()
+  log('scheduler_started')
   return async () => {
     closed = true
     clearInterval(timer)
@@ -143,13 +162,23 @@ export function startScheduler(ctx, config, run = createRunner(config), clock = 
 export function apply(ctx, rawConfig) {
   const config = configuration(rawConfig)
   if (!config.enabled) return
-  if (process.platform !== 'win32' && !config.mlPath) {
-    ctx.logger?.warn('WiseRec keepalive: configure an absolute mlPath for a local runtime check')
-    return
-  }
-  if (typeof ctx.agents?.list !== 'function') {
-    ctx.logger?.warn('WiseRec keepalive: host activity service is unavailable')
-    return
-  }
-  ctx.effect(() => startScheduler(ctx, config), 'wiserec-cli keepalive')
+  const log = createKeepaliveLog(ctx)
+  ctx.effect(() => {
+    if (process.platform !== 'win32' && !config.mlPath) {
+      log.record('cli_failed', { reason: 'missing_cli' })
+      return log.close
+    }
+    if (typeof ctx.agents?.list !== 'function') {
+      log.record('host_unavailable')
+      return log.close
+    }
+    const stop = startScheduler(ctx, config, createRunner(config), Date.now, log.record)
+    return async () => {
+      try {
+        await stop()
+      } finally {
+        await log.close()
+      }
+    }
+  }, 'wiserec-cli keepalive')
 }

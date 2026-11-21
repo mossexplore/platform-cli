@@ -321,7 +321,7 @@ ml auth ping tick --json
 | `ml auth ping status` | 查看保活进程和最近请求结果，不发送请求 |
 | `ml auth ping stop` | 停止当前环境的终端与插件保活 |
 | `ml auth ping tick --capabilities` | 查看插件协议和调用预算，无需登录 |
-| `ml auth ping tick --json` | 由插件通过标准输入提交宿主会话请求并获得 JSON 结果 |
+| `ml auth ping tick --json` | 由插件通过标准输入提交宿主会话请求，并读取状态、已解析的环境和请求 ID |
 
 ### 4.3 说明
 
