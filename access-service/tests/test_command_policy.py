@@ -1,5 +1,6 @@
 """环境禁止命令的管理、鉴权、审计和显式迁移。"""
 import json
+import re
 import pytest
 from sqlalchemy import select, text
 from app.models import Environment, Audit, CallLog, SchemaVersion
@@ -42,6 +43,37 @@ def test_admin_policy_enforces_without_local_configuration(system):
     assert save(app, client, csrf, []).status_code == 303
     result = check(client, command=COMMAND).json()
     assert result['allowed'] is True and result['command_policy']['revision'] == 2
+
+
+def test_environment_list_opens_the_matching_read_only_command_details(system):
+    app, client, _ = system
+    csrf = login(client)
+    commands = [f'ml test rule-{index:03}' for index in range(500)]
+    assert save(app, client, csrf, commands).status_code == 303
+    with app.state.sessions() as db:
+        prod_id = db.scalar(select(Environment.id).where(Environment.name == 'prod'))
+        staging = Environment(name='staging', display_name='预发', platform_origin='https://staging.example.com')
+        db.add(staging)
+        db.commit()
+        staging_id = staging.id
+
+    page = client.get('/cli-permission/admin?tab=environments')
+    assert page.status_code == 200
+    table = re.search(r'<table class="environment-table">(.*?)</table>', page.text, re.S)[1]
+    assert len(re.findall(r'<th(?:\s[^>]+)?>', table)) == 9
+    assert '<th>禁止命令</th>' not in table
+    assert commands[0] not in table
+    assert '左右滚动表格可查看全部字段和操作' not in page.text
+    for env_id, label in ((prod_id, '生产（prod）'), (staging_id, '预发（staging）')):
+        assert f'data-open="environment-details-{env_id}" aria-haspopup="dialog" aria-label="查看 {label}的禁止命令"' in table
+    prod_detail = re.search(rf'id="environment-details-{prod_id}"(.*?)</dialog>', page.text, re.S)[1]
+    assert '共 500 条' in prod_detail
+    assert re.findall(r'<li><code>(.*?)</code></li>', prod_detail) == commands
+    staging_detail = re.search(rf'id="environment-details-{staging_id}"(.*?)</dialog>', page.text, re.S)[1]
+    assert '此环境暂无禁止命令。' in staging_detail
+    assert 'environment-command-list' not in staging_detail
+    empty_table = client.get('/cli-permission/admin', params={'tab': 'environments', 'q': 'no-match'})
+    assert '<td colspan="9">' in empty_table.text
 
 
 @pytest.mark.parametrize('commands', [['ml env use'], ['ml'], ['ml jupyter files upload --force']])

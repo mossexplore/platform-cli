@@ -1,0 +1,21 @@
+<dialog class="environment-detail" id="environment-details-{{ item.id }}" aria-labelledby="environment-details-title-{{ item.id }}" aria-describedby="environment-details-name-{{ item.id }}">
+  <div class="drawer-heading">
+    <div>
+      <h2 id="environment-details-title-{{ item.id }}">禁止命令</h2>
+      <p id="environment-details-name-{{ item.id }}">{{ item.display_name }}（{{ item.name }}）</p>
+    </div>
+    <button type="button" class="text-button" data-close autofocus>关闭</button>
+  </div>
+  {% if item.forbidden_commands %}
+    <p class="environment-command-count">共 {{ item.forbidden_commands|length }} 条</p>
+    <div class="environment-command-scroll" role="region" aria-label="禁止命令列表" tabindex="0">
+      <ul class="environment-command-list" role="list">
+        {% for rule in item.forbidden_commands|sort(attribute='command') %}
+          <li><code>{{ rule.command }}</code></li>
+        {% endfor %}
+      </ul>
+    </div>
+  {% else %}
+    <p class="environment-command-empty">此环境暂无禁止命令。</p>
+  {% endif %}
+</dialog>

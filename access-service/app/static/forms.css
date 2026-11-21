@@ -199,6 +199,55 @@ pre {
 .admin-account-fields { border: 0; padding: 0; margin: 0; min-width: 0; }
 .credential-result textarea { font-family: var(--font-mono); overflow-wrap: anywhere; }
 
+/* 环境禁止命令详情 */
+.environment-detail {
+  width: 520px;
+  max-width: calc(100% - 32px);
+  max-height: calc(100dvh - 32px);
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-l);
+  color: var(--text-1);
+  background: var(--card-bg);
+  box-shadow: var(--shadow-dialog);
+}
+.environment-detail[open] {
+  display: flex;
+  flex-direction: column;
+}
+.environment-detail::backdrop { background: rgba(13, 25, 51, 0.45); }
+.environment-detail .drawer-heading { align-items: flex-start; }
+.environment-detail .drawer-heading p {
+  margin-top: 4px;
+  color: var(--text-2);
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+.environment-detail .drawer-heading button { flex-shrink: 0; }
+.environment-command-count {
+  margin: 14px 20px 8px;
+  color: var(--text-2);
+  font-size: 13px;
+}
+.environment-command-scroll {
+  min-height: 0;
+  max-height: min(360px, 55dvh);
+  margin: 0 20px 20px;
+  overflow: auto;
+  overscroll-behavior: contain;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+.environment-command-list { list-style: none; padding: 0; margin: 0; }
+.environment-command-list li { padding: 9px 12px; overflow-wrap: anywhere; }
+.environment-command-list li + li { border-top: 1px solid var(--fill); }
+.environment-command-list code { font: 13px var(--font-mono); }
+.environment-command-empty {
+  padding: 24px 20px;
+  color: var(--text-2);
+  text-align: center;
+}
+
 /* 删除确认对话框 */
 .delete-dialog {
   width: 460px;
