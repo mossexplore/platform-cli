@@ -33,7 +33,7 @@ func TestHistoryLogDownloadReportsStages(t *testing.T) {
 				t.Fatal(err)
 			}
 			args := []string{"--no-history", "train", "history", "logs", "download", "task", "job", "--directory", directory, "-o", "json"}
-			audit := "ml --no-history train history logs download task job --directory " + quoteHistoryArg(directory) + " -o json"
+			audit := "ml --no-history train history logs download task job --directory " + quoteCommandArg(directory) + " -o json"
 			if tc.name == "plog" {
 				args = append(args, "--type=plog")
 				audit += " --type=plog"

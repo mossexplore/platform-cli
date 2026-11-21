@@ -37,9 +37,9 @@ func formatHistoryCommand(path string, args []string) (command string, redacted 
 		case assigned && historySecret.MatchString(key):
 			arg, redacted = key+"=[REDACTED]", true
 		}
-		parts = append(parts, quoteHistoryArg(arg))
+		parts = append(parts, quoteCommandArg(arg))
 		if path == "ml jupyter exec" && args[index] == "exec" {
-			parts = append(parts, quoteHistoryArg("[REDACTED EXEC]"))
+			parts = append(parts, quoteCommandArg("[REDACTED EXEC]"))
 			redacted = true
 			break
 		}

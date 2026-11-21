@@ -9,7 +9,8 @@ import (
 	"testing"
 )
 
-func TestAccessAuditRedactsSensitiveValues(t *testing.T) {
+func TestAccessAuditPreservesCompleteConfigArgument(t *testing.T) {
+	config := `--customize-config={"token":"` + strings.Repeat("fixture-value", 6000) + `"}`
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assertBusinessHeader(t, r)
 		if r.URL.Path != "/cli-permission/api/v1/access/check" {
@@ -18,16 +19,16 @@ func TestAccessAuditRedactsSensitiveValues(t *testing.T) {
 			return
 		}
 		body := readRequest(t, r)
-		want := "ml train config update task " + quoteHistoryArg("--customize-config=[REDACTED]")
+		want := "ml train config update task " + quoteCommandArg(config)
 		if body["command"] != "ml train config update" || body["full_command"] != want {
-			t.Errorf("unexpected audit fields: %v", body)
+			t.Errorf("unexpected audit fields: command=%v, complete argument preserved=%t", body["command"], body["full_command"] == want)
 		}
 		fmt.Fprintln(w, `{"allowed":false}`)
 	}))
 	defer server.Close()
 	paths := fixtureConfig(t, t.TempDir(), server.URL, server.URL, false, "mlops", "")
 	saveState(t, paths, server.URL)
-	code, out, stderr := run(t, paths, "train", "config", "update", "task", "--customize-config=fixture-secret")
+	code, out, stderr := run(t, paths, "train", "config", "update", "task", config)
 	if code != 1 || out != "" || !strings.Contains(stderr, "未获授权") {
 		t.Fatalf("unexpected result: %d %s %s", code, out, stderr)
 	}

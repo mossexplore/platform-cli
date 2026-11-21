@@ -1,8 +1,8 @@
 # CLI 权限管理服务
 
-当前源码版本：1.0.9.1，数据库结构为 13，新增环境禁止命令表与策略修订号；升级此源码目标前必须显式迁移。版本由根目录 `versions.toml` 的 `components.access` 维护，使用同步脚本生成 `VERSION` 和 `app/_version.py`，详见 [版本号管理说明](../docs/版本号管理说明.md)。正式附件以对应 Release 发布状态为准。
+当前源码要求数据库结构 14。Go 客户端完整命令审计使用 MySQL `LONGTEXT` 保存参数，升级此源码前须在停写备份后显式迁移。版本由根目录 `versions.toml` 的 `components.access` 维护，使用同步脚本生成 `VERSION` 和 `app/_version.py`，详见 [版本号管理说明](../docs/版本号管理说明.md)。
 
-附件见 [v1.0.9.1 Release](https://github.com/mossexplore/platform-cli/releases/tag/v1.0.9.1)。从结构 12 升级需显式迁移至结构 13，见 [升级指南](../docs/权限管理系统结构12升级至1.0.9.1指南.md)。保留原配置、管理员和外部数据库；独立本地助手单独下载，不进入 CLI 安装包。
+结构 13 升至当前源码请参阅 [结构 13 升至 14 指南](../docs/权限管理系统结构13升级至14指南.md)。结构 13 的正式附件见 [v1.0.9.1 Release](https://github.com/mossexplore/platform-cli/releases/tag/v1.0.9.1)，从结构 12 升级至该版见 [历史升级指南](../docs/权限管理系统结构12升级至1.0.9.1指南.md)。保留原配置、管理员和外部数据库；独立本地助手单独下载，不进入 CLI 安装包。
 
 当前源码支持在环境“禁止命令”中填写父命令：例如 `ml jupyter` 会禁止其下全部现有和未来子命令。按命令层级匹配，不使用通配符，不影响名称相近的其他分组；此匹配扩展不改变数据库结构。
 

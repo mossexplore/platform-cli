@@ -121,15 +121,32 @@ def test_log_write_failure_does_not_allow_access(system):
 
 def test_full_command_is_stored_and_escaped(system):
     app, client, _ = system
-    command = 'ml train start "任务 <script>alert(1)</script>" --config "a b.json"'
-    assert check(client, command='ml train start', full_command=command).json()['allowed']
+    script = 'print("任务😀 <script>alert(1)</script>")\n# ' + '日志😀' * 10000
+    command = f"ml jupyter exec -- python -c '{script}'"
+    assert check(client, command='ml jupyter exec', full_command=command).json()['allowed']
     with app.state.sessions() as db:
         assert db.scalar(select(CallLog)).full_command == command
     login(client)
     html = client.get('/cli-permission/admin/calls').text
     assert '<h3>完整命令</h3>' in html and 'data-copy-call=' in html
     assert '&lt;script&gt;' in html and '<script>alert(1)</script>' not in html
-    assert check(client, full_command='x' * 8193).status_code == 422
+
+
+def test_schema_13_upgrade_preserves_existing_call_logs(system):
+    from sqlalchemy import text
+    from sqlalchemy.dialects import mysql
+
+    app, client, _ = system
+    historical_command = 'ml jupyter exec "[REDACTED EXEC]"'
+    assert check(client, command='ml jupyter exec', full_command=historical_command).json()['allowed']
+    with app.state.engine.begin() as connection:
+        connection.execute(text('UPDATE schema_versions SET version=13'))
+    migrate(app.state.engine, app.state.sessions)
+    migrate(app.state.engine, app.state.sessions)
+    with app.state.sessions() as db:
+        assert db.get(SchemaVersion, SCHEMA_VERSION)
+        assert db.scalar(select(CallLog)).full_command == historical_command
+    assert CallLog.__table__.c.full_command.type.compile(dialect=mysql.dialect()) == 'LONGTEXT CHARACTER SET utf8mb4'
 
 
 def test_v3_migration_preserves_old_logs(system):

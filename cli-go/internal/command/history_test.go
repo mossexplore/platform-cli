@@ -26,7 +26,7 @@ func TestHistoryRecordsNewArgumentsAndKeepsExistingRows(t *testing.T) {
 	if code != 0 || stderr != "" || json.Unmarshal([]byte(out), &rows) != nil || len(rows) != 20 {
 		t.Fatalf("unexpected history: %d %s %s", code, out, stderr)
 	}
-	want := "ml train list --name " + quoteHistoryArg("demo task") + " --page 3"
+	want := "ml train list --name " + quoteCommandArg("demo task") + " --page 3"
 	if rows[0].Command != want || rows[0].Redacted || rows[1].Command != "ml train list [REDACTED]" {
 		t.Fatalf("unexpected command history: %+v", rows[:2])
 	}

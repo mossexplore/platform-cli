@@ -14,6 +14,7 @@ import (
 )
 
 func TestJupyterExecUsesDedicatedKernelAndCleansIt(t *testing.T) {
+	script := "token = 'fixture-value'\nprint(token)"
 	paths := localstate.Paths{Dir: t.TempDir()}
 	t.Setenv("ML_JUPYTER_TOKEN", "fixture-jupyter")
 	var created, deleted, executed atomic.Int32
@@ -21,7 +22,11 @@ func TestJupyterExecUsesDedicatedKernelAndCleansIt(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assertBusinessHeader(t, r)
 		if r.URL.Path == "/cli-permission/api/v1/access/check" {
-			assertAccess(t, w, r, "ml jupyter exec")
+			body := assertAccess(t, w, r, "ml jupyter exec")
+			want := "ml jupyter exec -o json -- python -c " + quoteCommandArg(script) + " " + quoteCommandArg("")
+			if body["full_command"] != want {
+				t.Errorf("unexpected full command: %q", body["full_command"])
+			}
 			return
 		}
 		if r.Header.Get("Authorization") != "token fixture-jupyter" || r.Header.Get("Cookie") != "" || r.Header.Get("csrftoken") != "" {
@@ -95,7 +100,7 @@ func TestJupyterExecUsesDedicatedKernelAndCleansIt(t *testing.T) {
 	defer server.Close()
 	paths = fixtureConfig(t, paths.Dir, server.URL, server.URL, false, "mlops", server.URL+"/jupyter/")
 	saveState(t, paths, server.URL)
-	code, out, stderr := run(t, paths, "jupyter", "exec", "-o", "json", "--", "echo", "测试")
+	code, out, stderr := run(t, paths, "jupyter", "exec", "-o", "json", "--", "python", "-c", script, "")
 	var envelope struct {
 		BusinessID string         `json:"business_id"`
 		Result     map[string]any `json:"result"`

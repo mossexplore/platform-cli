@@ -46,6 +46,6 @@
 {% include 'pagination.html' %}
 </section>
 {% for item in items %}{% include 'call_detail.html' %}{% endfor %}
-<details class="list-help"><summary>日志说明</summary><p>用户名由 CLI 上报；姓名按该用户名匹配人员授权中的当前档案，未找到人员时显示“—”，不代表身份已验证。授权通过不代表业务执行成功；完整命令由新版 CLI 上报，包含参数；已识别的敏感参数会脱敏。历史记录无法补齐，超过 8192 字符会标记截断。</p></details>
+<details class="list-help"><summary>日志说明</summary><p>用户名由 CLI 上报；姓名按该用户名匹配人员授权中的当前档案，未找到人员时显示“—”，不代表身份已验证。授权通过不代表业务执行成功。完整命令按客户端实际提交的内容显示。Go 客户端上报全部参数值，请谨慎分享日志。历史记录以已保存的内容为准。</p></details>
 <script src="/cli-permission/static/call-details.js" defer></script>
 {% endblock %}

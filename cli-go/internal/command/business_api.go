@@ -15,9 +15,14 @@ import (
 
 type loadConfig func() (localstate.Paths, localstate.Config, error)
 
-func accessAuditCommand(cmd *cobra.Command, options Options) string {
-	command, _, _ := formatHistoryCommand(cmd.CommandPath(), options.Args)
-	return command
+func accessAuditCommand(args []string) string {
+	var command strings.Builder
+	command.WriteString("ml")
+	for _, arg := range args {
+		command.WriteByte(' ')
+		command.WriteString(quoteCommandArg(arg))
+	}
+	return command.String()
 }
 
 func authorized(options Options, load loadConfig, run func(*cobra.Command, []string, *platform.API, string) error) func(*cobra.Command, []string) error {
@@ -53,7 +58,7 @@ func authorized(options Options, load loadConfig, run func(*cobra.Command, []str
 		if diagnose, _ := cmd.Flags().GetBool("diagnose"); path == "access status" && diagnose {
 			session.Diagnostic = cmd.ErrOrStderr()
 		}
-		api, err := session.Authorize(cmd.Context(), path, accessAuditCommand(cmd, options))
+		api, err := session.Authorize(cmd.Context(), path, accessAuditCommand(options.Args))
 		if err != nil {
 			return err
 		}

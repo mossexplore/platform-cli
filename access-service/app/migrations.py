@@ -1,11 +1,12 @@
 """显式数据库结构迁移；启动前执行，可重复运行。"""
 from sqlalchemy import inspect, select, text
+from sqlalchemy.dialects.mysql import LONGTEXT
 from .models import Base, CallLog, SchemaVersion, AccessApplication, ApplicationAttempt
 
 from .version_models import VersionPolicy, VersionException
 from .notification_models import NotificationClient, NotificationTask
 
-SCHEMA_VERSION = 13
+SCHEMA_VERSION = 14
 
 
 def migrate(engine, sessions):
@@ -92,6 +93,12 @@ def migrate(engine, sessions):
             with engine.begin() as connection:
                 connection.execute(text('ALTER TABLE environments ADD COLUMN command_policy_revision INTEGER NOT NULL DEFAULT 0'))
         EnvironmentCommandDeny.__table__.create(engine, checkfirst=True)
+    if version < 14 and engine.dialect.name in ('mysql', 'mariadb'):
+        columns = {column['name']: column['type'] for column in inspect(engine).get_columns('cli_call_logs')}
+        if not isinstance(columns['full_command'], LONGTEXT):
+            with engine.begin() as connection:
+                connection.execute(text(
+                    'ALTER TABLE cli_call_logs MODIFY COLUMN full_command LONGTEXT CHARACTER SET utf8mb4 NULL'))
     with sessions() as db:
         if db.get(NotificationClient, 1) is None:
             db.add(NotificationClient(id=1))

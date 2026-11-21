@@ -15,7 +15,7 @@ class Check(BaseModel):
     username: str = Field(strict=True, min_length=1, max_length=128, pattern=r'\S')
     environment: str = Field(min_length=1, max_length=64)
     platform_origin: str = Field(min_length=1, max_length=512)
-    full_command: str = Field(default='', strict=True, max_length=8192)
+    full_command: str = Field(default='', strict=True)
     command: str = Field(default='unknown', min_length=1, max_length=128, pattern=r'^[a-zA-Z0-9 _-]+$')
 
 

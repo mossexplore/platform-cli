@@ -1,5 +1,6 @@
 from datetime import datetime, timezone
 from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Text, UniqueConstraint, create_engine
+from sqlalchemy.dialects.mysql import LONGTEXT
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, sessionmaker, relationship
 
 
@@ -131,7 +132,8 @@ class CallLog(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     actor: Mapped[str] = mapped_column(String(128), index=True)
     command: Mapped[str] = mapped_column(String(128), index=True)
-    full_command: Mapped[str | None] = mapped_column(Text, nullable=True)
+    full_command: Mapped[str | None] = mapped_column(
+        Text().with_variant(LONGTEXT(charset='utf8mb4'), 'mysql', 'mariadb'), nullable=True)
     environment: Mapped[str] = mapped_column(String(64), index=True)
     business_id: Mapped[str] = mapped_column(String(256))
     source_ip: Mapped[str] = mapped_column(String(64))

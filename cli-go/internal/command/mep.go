@@ -37,7 +37,7 @@ func newMEP(options Options, load loadConfig) *cobra.Command {
 				key = args[0]
 			}
 			session := platform.Session{Paths: paths, Config: cfg, CLIVersion: options.Version, Stderr: cmd.ErrOrStderr()}
-			result, err := session.QueryMEP(cmd.Context(), key, accessAuditCommand(cmd, options))
+			result, err := session.QueryMEP(cmd.Context(), key, accessAuditCommand(options.Args))
 			if err != nil {
 				return err
 			}

@@ -28,7 +28,7 @@ func newEnv(options Options, load loadConfig) *cobra.Command {
 			return err
 		}
 		session := platform.Session{Paths: paths, Config: cfg, CLIVersion: options.Version, Stderr: cmd.ErrOrStderr()}
-		statuses, accessErr := session.EnvironmentStatuses(cmd.Context(), accessAuditCommand(cmd, options))
+		statuses, accessErr := session.EnvironmentStatuses(cmd.Context(), accessAuditCommand(options.Args))
 		if accessErr != nil {
 			fmt.Fprintln(cmd.ErrOrStderr(), "[错误]", accessErr)
 		}
