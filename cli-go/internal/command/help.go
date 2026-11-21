@@ -1,7 +1,6 @@
 package command
 
 import (
-	"fmt"
 	"strings"
 
 	"github.com/mossexplore/platform-cli/cli-go/internal/output"
@@ -18,88 +17,136 @@ func showHelp(cmd *cobra.Command, _ []string) {
 func writeHelp(cmd *cobra.Command) error {
 	cmd.InitDefaultHelpFlag()
 	cmd.InitDefaultVersionFlag()
-	out := cmd.OutOrStdout()
-
-	local := helpOptions(cmd.LocalFlags())
-	inherited := helpOptions(cmd.InheritedFlags())
-	usage := cmd.CommandPath()
-	if cmd.HasAvailableSubCommands() {
-		usage += " <子命令>"
+	path := strings.Join(strings.Fields(cmd.CommandPath())[1:], " ")
+	page, ok := serviceHelpPages[path]
+	if !ok {
+		page = helpPages[path]
 	}
-	if len(local)+len(inherited) > 0 {
-		usage += " [选项]"
+	intro := strings.TrimSpace(cmd.Long)
+	if page.intro != "" {
+		intro = page.intro
+	}
+	if intro == "" {
+		intro = cmd.Short + "。"
+	}
+	if page.note != "" {
+		intro += "\n" + page.note
 	}
 	_, positional, _ := strings.Cut(cmd.Use, " ")
-	if positional != "" {
-		usage += " " + positional
-	}
-
-	description := strings.TrimSpace(cmd.Long)
-	if description == "" {
-		description = cmd.Short
-	}
-	if _, err := fmt.Fprintf(out, "用法：%s\n\n%s\n", usage, description); err != nil {
-		return err
-	}
-
-	var children [][2]string
-	for _, child := range cmd.Commands() {
-		if child.IsAvailableCommand() {
-			children = append(children, [2]string{child.Name(), child.Short})
+	usage := cmd.CommandPath()
+	children := helpChildren(cmd)
+	if len(children) > 0 {
+		if cmd.Runnable() {
+			usage += " [子命令]"
+		} else {
+			usage += " <子命令>"
 		}
 	}
-	for _, section := range []struct {
-		title string
-		rows  [][2]string
-	}{
-		{"子命令", children},
-		{"位置参数", helpArguments(cmd, positional)},
-		{"选项", local},
-		{"全局选项", inherited},
-	} {
-		if err := output.HelpSection(out, section.title, section.rows); err != nil {
-			return err
-		}
-	}
-	if cmd.Example != "" {
-		_, err := fmt.Fprintf(out, "\n示例\n%s\n", cmd.Example)
-		return err
-	}
-	return nil
-}
-
-func helpOptions(flags *pflag.FlagSet) [][2]string {
-	var rows [][2]string
-	flags.VisitAll(func(flag *pflag.Flag) {
-		if flag.Hidden {
+	cmd.InheritedFlags() // Merge registered persistent flags into Flags before listing options.
+	options := cmd.Flags()
+	var rows []output.HelpRow
+	var required []string
+	options.VisitAll(func(flag *pflag.Flag) {
+		if flag.Hidden || flag.Name == "help" {
 			return
 		}
-		name := "--" + flag.Name
-		if flag.Shorthand != "" && flag.ShorthandDeprecated == "" {
-			name = "-" + flag.Shorthand + ", " + name
+		rows = append(rows, helpFlagRow(path, flag))
+		if helpFlagRequired(flag) {
+			required = append(required, helpFlagLabel(path, flag, false))
 		}
-		value, description := pflag.UnquoteUsage(flag)
-		if value != "" {
-			name += " " + value
-		}
-		switch flag.Name {
-		case "help":
-			description = "显示帮助并退出"
-		case "version":
-			description = "显示 CLI 版本并退出"
-		default:
-			switch {
-			case len(flag.Annotations[cobra.BashCompOneRequiredFlag]) > 0:
-				description += "（必填）"
-			case flag.Name == "output" && flag.DefValue == "":
-				description += "（默认：当前环境配置）"
-			case flag.DefValue != "" && flag.DefValue != "[]":
-				description += "（默认：" + flag.DefValue + "）"
-			}
-		}
-		rows = append(rows, [2]string{name, description})
 	})
-	return rows
+	if flag := options.Lookup("help"); flag != nil && !flag.Hidden {
+		rows = append(rows, helpFlagRow(path, flag))
+	}
+
+	arguments := positional
+	if page.argumentUsage != "" {
+		arguments = page.argumentUsage
+	}
+	suffix := strings.Join(append(required, "[选项]"), " ")
+	switch {
+	case strings.HasPrefix(arguments, "-- "):
+		usage += " " + suffix + " " + arguments
+	case arguments != "":
+		usage += " " + arguments + " " + suffix
+	default:
+		usage += " " + suffix
+	}
+	usageLines := []string{usage}
+	if page.alternateTarget != "" {
+		usageLines = append(usageLines, cmd.CommandPath()+" "+page.alternateTarget+" [选项]")
+	}
+	examples := page.examples
+	if len(examples) == 0 && cmd.Example != "" {
+		examples = strings.Split(cmd.Example, "\n")
+	}
+	if len(examples) == 0 && len(children) > 0 {
+		examples = []string{cmd.CommandPath() + " " + children[0].Label + " --help"}
+	}
+	for _, example := range examples {
+		if strings.Contains(example, exampleID) {
+			intro += "\n示例 ID 为演示值，请换成当前环境中实际查询到的 ID。"
+			break
+		}
+	}
+	var argRows []output.HelpRow
+	for _, row := range helpArguments(cmd, positional) {
+		argRows = append(argRows, output.HelpRow{
+			Label: row[0], Description: row[1], Required: !strings.HasPrefix(row[0], "["),
+		})
+	}
+
+	return output.WriteHelpTable(cmd.OutOrStdout(), usageLines, intro, []output.HelpBlock{
+		{Rows: children},
+		{Title: "示例", PreserveWords: true, Lines: examples},
+		{Title: "位置参数", Rows: argRows},
+		{Title: "选项", Rows: rows},
+	})
+}
+
+func helpChildren(cmd *cobra.Command) []output.HelpRow {
+	var children []output.HelpRow
+	for _, child := range cmd.Commands() {
+		if child.IsAvailableCommand() {
+			children = append(children, output.HelpRow{Label: child.Name(), Description: child.Short})
+		}
+	}
+	return children
+}
+
+func helpFlagRequired(flag *pflag.Flag) bool {
+	return len(flag.Annotations[cobra.BashCompOneRequiredFlag]) > 0
+}
+
+func helpFlagLabel(path string, flag *pflag.Flag, shorthand bool) string {
+	name := "--" + flag.Name
+	if shorthand && flag.Shorthand != "" && flag.ShorthandDeprecated == "" {
+		name = "-" + flag.Shorthand + ", " + name
+	}
+	if value, _ := pflag.UnquoteUsage(flag); value != "" {
+		name += " <" + helpFlagValue(path, flag, value) + ">"
+	}
+	return name
+}
+
+func helpFlagRow(path string, flag *pflag.Flag) output.HelpRow {
+	_, description := pflag.UnquoteUsage(flag)
+	required := helpFlagRequired(flag)
+	switch {
+	case flag.Name == "help":
+		description = "显示帮助"
+	case flag.Name == "version" && path == "":
+		description = "显示 CLI 版本并退出"
+	case required:
+		description += "（必填）"
+	case flag.Name == "output" && flag.DefValue == "":
+		description += "，默认使用当前环境配置"
+	case flag.DefValue != "" && flag.DefValue != "[]" && flag.DefValue != "false" && !strings.Contains(description, "默认"):
+		description += "，默认 " + flag.DefValue
+	}
+	return output.HelpRow{
+		Label: helpFlagLabel(path, flag, true), Description: description, Required: required, Switch: flag.Value.Type() == "bool",
+	}
 }
 
 func helpArguments(cmd *cobra.Command, positional string) [][2]string {
@@ -127,6 +174,7 @@ func helpArguments(cmd *cobra.Command, positional string) [][2]string {
 }
 
 var argumentHelp = map[string]string{
+	"command":       "要查看帮助的命令路径，可包含多级子命令",
 	"ALGORITHM_ID":  "算法仓 ID",
 	"ARG":           "传给远端程序的参数，可传多个",
 	"DATASET_ID":    "数据集 ID",

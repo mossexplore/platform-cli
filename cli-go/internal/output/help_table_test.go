@@ -20,21 +20,21 @@ func TestHelpTableBordersAndRequiredMarker(t *testing.T) {
 	for _, width := range []int{34, 44, 80, 100} {
 		t.Run(fmt.Sprint(width), func(t *testing.T) {
 			text := renderHelpTable(usage, "使用样例报文测试指定主机。", sections, width, helpStyle{marker: "\x1b[31m"})
-			if !strings.HasPrefix(text, " 用法：ml service") ||
-				!strings.Contains(text, "\n 使用样例报文测试指定主机。\n\n╭─ 示例 ") ||
-				!strings.Contains(text, "╯\n╭─ 目标 ") ||
+			if !strings.HasPrefix(text, "╭  用途 ") ||
+				!strings.Contains(text, "\n│ 用法：ml service") ||
+				!strings.Contains(text, "\n├  示例 ") || !strings.Contains(text, "\n├  目标 ") ||
+				strings.Count(text, "╭") != 1 || strings.Count(text, "╯") != 1 ||
 				!strings.Contains(text, redMarker+" --pod-ip <Pod IP>") || !strings.Contains(text, "（必填）") ||
 				strings.Count(text, redMarker) != 1 || strings.Contains(text, "空分组") {
 				t.Fatalf("unexpected help:\n%s", text)
 			}
 			plain := strings.ReplaceAll(text, redMarker, "*")
-			_, panels, _ := strings.Cut(plain, "\n╭")
-			lines := strings.Split(strings.TrimSuffix("╭"+panels, "\n"), "\n")
+			lines := strings.Split(strings.TrimSuffix(plain, "\n"), "\n")
 			for _, line := range lines {
 				characters := []rune(line)
 				if cells.StringWidth(line) != width || len(characters) == 0 ||
-					!strings.ContainsRune("╭│╰", characters[0]) ||
-					!strings.ContainsRune("╮│╯", characters[len(characters)-1]) {
+					!strings.ContainsRune("╭├│╰", characters[0]) ||
+					!strings.ContainsRune("╮┤│╯", characters[len(characters)-1]) {
 					t.Fatalf("line escaped the table or did not align: %q", line)
 				}
 			}

@@ -2,7 +2,7 @@
 
 ## 定位服务与主机
 
-用 `ml service --help` 按任务找到命令，再用对应子命令的 `--help` 核对顶部的用法以及各区块中的示例、必填项和条件。服务 ID 示例需换成当前业务中实际查询到的 ID。
+用 `ml service --help` 在「用途」区找到子命令，再用对应子命令的 `--help` 核对用法、示例、必填项和条件。服务 ID 示例需换成当前业务中实际查询到的 ID。
 
 ```powershell
 ml service list --name SERVICE_NAME -o json

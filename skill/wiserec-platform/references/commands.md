@@ -2,7 +2,7 @@
 
 # `ml` 命令速查
 
-本表列出全部命令，用于定位命令和判断风险；参数以 `ml <子命令> --help` 为准，该命令离线分区显示位置参数、选项和全局选项。通过本 skill 调用时必须使用当前平台标准用户配置（Windows 上为 `%APPDATA%\ml-go-preview\config.json`）。
+本表列出全部命令，用于定位命令和判断风险；参数以 `ml <子命令> --help` 为准，该命令离线在同一张表中显示用途、示例、位置参数和选项。通过本 skill 调用时必须使用当前平台标准用户配置（Windows 上为 `%APPDATA%\ml-go-preview\config.json`）。
 
 WiseRec 和 MLOps 均支持 `train` 和 `feature-task` 命令，`algorithm` 仅在 WiseRec 环境可用；用 `ml tree --all` 查看当前环境的支持与禁用标记。
 

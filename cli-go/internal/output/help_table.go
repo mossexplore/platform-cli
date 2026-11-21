@@ -54,34 +54,48 @@ func paintHelp(text, color string) string {
 
 func renderHelpTable(usage []string, intro string, sections []HelpBlock, width int, style helpStyle) string {
 	var text strings.Builder
-	for index, line := range usage {
-		prefix := "       "
-		if index == 0 {
-			prefix = paintHelp(" 用法：", style.yellow)
+	width = max(width, 24)
+	contentWidth := width - 4
+	border := func(left, title, right string) {
+		label := ""
+		if title != "" {
+			label = "  " + title + " "
 		}
-		const usageIndent = 7
-		for _, wrapped := range strings.Split(wrapHelpText(line, max(2, width-usageIndent), true), "\n") {
-			text.WriteString(prefix + paintHelp(wrapped, style.bold) + "\n")
-			prefix = strings.Repeat(" ", usageIndent)
+		line := left + label + strings.Repeat("─", width-2-cells.StringWidth(label)) + right
+		text.WriteString(paintHelp(line, style.dim) + "\n")
+	}
+	panel := helpPanel{text: &text, style: style, contentWidth: contentWidth}
+	border("╭", "用途", "╮")
+	for index, line := range usage {
+		const indent = 6
+		prefix := strings.Repeat(" ", indent)
+		if index == 0 {
+			prefix = paintHelp("用法：", style.yellow)
+		}
+		for _, wrapped := range strings.Split(wrapHelpText(line, contentWidth-indent, true), "\n") {
+			panel.line(prefix+paintHelp(wrapped, style.bold), indent+cells.StringWidth(wrapped))
+			prefix = strings.Repeat(" ", indent)
 		}
 	}
 	if intro != "" {
-		text.WriteByte('\n')
-		for _, line := range strings.Split(wrapHelpText(intro, max(2, width-1), false), "\n") {
-			text.WriteString(" " + line + "\n")
+		if len(usage) > 0 {
+			panel.line("", 0)
 		}
-		text.WriteByte('\n')
+		panel.lines(strings.Split(intro, "\n"), false)
 	}
 	for _, section := range sections {
 		if len(section.Rows)+len(section.Lines) == 0 {
 			continue
 		}
-		panel := helpPanel{
-			text: &text, style: style,
-			contentWidth: max(width-4, cells.StringWidth(section.Title)+2, 6),
+		if section.Title == "" {
+			panel.line("", 0)
+		} else {
+			border("├", section.Title, "┤")
 		}
-		panel.write(section)
+		block := helpPanel{text: &text, style: style, contentWidth: contentWidth}
+		block.write(section)
 	}
+	border("╰", "", "╯")
 	return text.String()
 }
 
@@ -98,18 +112,18 @@ func (p *helpPanel) write(section HelpBlock) {
 			p.markerWidth = 2
 		}
 	}
-	top := "╭─ " + section.Title + " " + strings.Repeat("─", p.contentWidth-cells.StringWidth(section.Title)-1) + "╮"
-	p.text.WriteString(paintHelp(top, p.style.dim) + "\n")
-	for _, line := range section.Lines {
-		for _, wrapped := range strings.Split(wrapHelpText(line, p.contentWidth, section.PreserveWords), "\n") {
-			p.line(wrapped, cells.StringWidth(wrapped))
-		}
-	}
+	p.lines(section.Lines, section.PreserveWords)
 	for _, row := range section.Rows {
 		p.row(row)
 	}
-	bottom := "╰" + strings.Repeat("─", p.contentWidth+2) + "╯"
-	p.text.WriteString(paintHelp(bottom, p.style.dim) + "\n")
+}
+
+func (p *helpPanel) lines(lines []string, preserveWords bool) {
+	for _, line := range lines {
+		for _, wrapped := range strings.Split(wrapHelpText(line, p.contentWidth, preserveWords), "\n") {
+			p.line(wrapped, cells.StringWidth(wrapped))
+		}
+	}
 }
 
 func (p *helpPanel) line(content string, width int) {
@@ -134,7 +148,7 @@ func (p *helpPanel) row(row HelpRow) {
 		inValue := false
 		for _, line := range labelLines {
 			p.line(prefix+p.style.paintLabel(line, labelColor, inValue), p.markerWidth+cells.StringWidth(line))
-			inValue = inValue || strings.Contains(line, "<")
+			inValue = (inValue || strings.Contains(line, "<")) && !strings.Contains(line, ">")
 			prefix = strings.Repeat(" ", p.markerWidth)
 		}
 		for _, line := range strings.Split(wrapHelpDescription(row.Description, p.contentWidth-gap), "\n") {

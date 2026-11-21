@@ -21,7 +21,6 @@ func newService(options Options, load loadConfig) *cobra.Command {
 			return cmd.Help()
 		},
 	}
-	group.SetHelpFunc(showServiceHelp)
 	host := &cobra.Command{Use: "host", Short: "服务主机查询、测试与诊断"}
 	deploy := &cobra.Command{Use: "deployment", Short: "服务部署视图查询"}
 	const prefix = "/ai/backend/mep/services/"

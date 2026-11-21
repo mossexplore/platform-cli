@@ -16,8 +16,8 @@ import (
 )
 
 func addCompletionOptions(root *cobra.Command) {
-	install := root.Flags().Bool("install-completion", false, "Install completion for the current shell.")
-	show := root.Flags().Bool("show-completion", false, "Show completion for the current shell, to copy it or customize the installation.")
+	install := root.Flags().Bool("install-completion", false, "为当前用户的 Shell 安装命令补全")
+	show := root.Flags().Bool("show-completion", false, "输出当前 Shell 的补全脚本")
 	root.Args = cobra.NoArgs
 	root.RunE = func(cmd *cobra.Command, _ []string) error {
 		if !*install && !*show {
