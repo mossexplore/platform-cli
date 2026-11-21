@@ -56,9 +56,11 @@ jobs:
       - name: Build and verify the offline plugin ZIP
         shell: pwsh
         run: |
-          python scripts/build_dsh_plugin.py --output dist/dsh --revision $env:GITHUB_SHA
+          cmd.exe /d /c 'dsh-plugin\wiserec-cli\build.cmd < nul'
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          $zip = Get-ChildItem dist/dsh/*.zip
+          $packages = @(Get-ChildItem -LiteralPath dist/dsh -Filter '*.zip' -File -Recurse)
+          if ($packages.Count -ne 1) { throw 'Expected one ZIP from build.cmd' }
+          $zip = $packages[0]
           $unpacked = Join-Path $env:RUNNER_TEMP 'dsh-unpacked'
           Expand-Archive -LiteralPath $zip.FullName -DestinationPath $unpacked
           $lines = Get-Content -LiteralPath (Join-Path $unpacked 'SHA256SUMS')
@@ -71,6 +73,7 @@ jobs:
             throw 'Incomplete checksum manifest'
           }
           $release = Get-Content -Raw -LiteralPath (Join-Path $unpacked 'release.json') | ConvertFrom-Json
+          if ($release.revision -ne $env:GITHUB_SHA) { throw 'ZIP source revision does not match CI checkout' }
           $capability = & "$env:RUNNER_TEMP/ml.exe" auth ping tick --capabilities | ConvertFrom-Json
           if ($capability.protocol -ne $release.cli_protocol -or $capability.cli_version -ne $release.cli_version) {
             throw 'CLI capability does not match the offline plugin manifest'
@@ -91,5 +94,5 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: dsh-wiserec-cli-windows
-          path: dist/dsh/*.zip
+          path: dist/dsh/**/*.zip
           if-no-files-found: error
