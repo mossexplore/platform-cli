@@ -1,6 +1,6 @@
 # CLI 权限管理服务
 
-当前源码要求数据库结构 14。Go 客户端完整命令审计使用 MySQL `LONGTEXT` 保存参数，升级此源码前须在停写备份后显式迁移。版本由根目录 `versions.toml` 的 `components.access` 维护，使用同步脚本生成 `VERSION` 和 `app/_version.py`，详见 [版本号管理说明](../docs/版本号管理说明.md)。
+当前源码版本为 `1.1.1`，要求数据库结构 14。Go 客户端完整命令审计使用 MySQL `LONGTEXT` 保存参数，升级此源码前须在停写备份后显式迁移。版本由根目录 `versions.toml` 的 `components.access` 维护，使用同步脚本生成 `VERSION` 和 `app/_version.py`，详见 [版本号管理说明](../docs/版本号管理说明.md)。
 
 结构 13 升至当前源码请参阅 [结构 13 升至 14 指南](../docs/权限管理系统结构13升级至14指南.md)。结构 13 的正式附件见 [v1.0.9.1 Release](https://github.com/mossexplore/platform-cli/releases/tag/v1.0.9.1)，从结构 12 升级至该版见 [历史升级指南](../docs/权限管理系统结构12升级至1.0.9.1指南.md)。保留原配置、管理员和外部数据库；独立本地助手单独下载，不进入 CLI 安装包。
 
