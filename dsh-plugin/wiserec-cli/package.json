@@ -14,7 +14,7 @@
     "LICENSE"
   ],
   "engines": {
-    "dsh": "0.2.2-rc.2"
+    "dsh": ">=0.2.2-rc.2"
   },
   "dsh": {
     "bundle": {

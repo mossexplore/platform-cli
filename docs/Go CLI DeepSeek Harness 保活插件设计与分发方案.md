@@ -89,7 +89,7 @@ ml auth ping tick --json
 
 ### 4.3 包与依赖
 
-插件源码维护在 `dsh-plugin/wiserec-cli/`，按需拆分入口、宿主活动和子进程调用模块。交付包包含预构建的 ESM、`package.json`、`cordis.patch.yml` 和使用说明。Bundle 在 `dsh.bundle.patch` 声明入口，并在 `engines.dsh` 中约束已验证的宿主版本。补充目标 Desktop 实机确认的 Cordis API 与加载方式。
+插件源码维护在 `dsh-plugin/wiserec-cli/`，按需拆分入口、宿主活动和子进程调用模块。交付包包含预构建的 ESM、`package.json`、`cordis.patch.yml` 和使用说明。Bundle 在 `dsh.bundle.patch` 声明入口，并在 `engines.dsh` 中声明最低宿主版本。目标 Desktop 已验证的版本、Cordis API 和加载方式在验收记录中列明。
 
 优先仅使用 Node.js 内置模块，宿主类型依赖在构建时擦除。若运行时保留 Schemastery 等宿主依赖，应验证目标 Desktop 对本地包的解析和版本兼容；可离线解析的运行时依赖及来源应写入分发说明。构建环境可安装锁定的开发依赖，最终用户安装和加载不依赖全局 Node.js、pnpm 或外网。
 

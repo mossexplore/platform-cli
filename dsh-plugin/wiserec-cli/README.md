@@ -9,7 +9,7 @@
 3. 在目标 Desktop Profile 的“插件 → 添加插件”中选择本地 Bundle，填入脚本输出的本地归档绝对路径。确认插件已启用。若宿主提示重启，请完全退出桌面端及系统托盘后再打开。
 4. 在 DSH 会话中绑定环境、登录并选择业务。执行 `ml auth ping status` 查看最近报到和上次平台确认成功时间。插件调度默认每两分钟检查一次，是否请求平台仍由 CLI 的空闲间隔决定。
 
-当前 Bundle 兼容清单限定为 DSH `0.2.2-rc.2`。Windows Desktop 离线加载与真实平台长时保活需按方案执行实机验收。插件依赖宿主 Node.js 内置模块，无额外 npm 依赖。Web Profile 支持范围以单独验收为准。
+Bundle 的 DSH 安装门槛为 `>=0.2.2-rc.2`。Windows Desktop 离线加载与真实平台长时保活需按宿主版本执行实机验收。插件依赖宿主 Node.js 内置模块，无额外 npm 依赖。Web Profile 支持范围以单独验收为准。
 
 默认会话空闲窗口为 120 分钟。可配置 `pollSeconds`（60–180）、`idleWindowMinutes`、`mlPath`、`enabled`，以及 `timeoutSeconds`（默认按 CLI 调用预算计算）。
 
