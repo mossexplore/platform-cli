@@ -1,0 +1,8 @@
+- insert:
+    - id: wiserec-cli-keepalive
+      name: dsh-wiserec-cli
+      disabled: false
+      config:
+        enabled: true
+        pollSeconds: 120
+        idleWindowMinutes: 120

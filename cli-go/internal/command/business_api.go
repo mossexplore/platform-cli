@@ -69,15 +69,8 @@ func authorized(options Options, load loadConfig, run func(*cobra.Command, []str
 			}
 		}
 		runErr := run(cmd, args, api, format)
-		if profile, username, origin, ok := api.RecordActivity(); ok {
-			switch {
-			case paths.Session.Mode != localstate.SessionModeDSH:
-				keepalive.Touch(paths, profile, username, origin)
-			case runErr == nil:
-				if err := keepalive.SessionActivity(cmd.Context(), paths, cfg, options.Version, username); err != nil {
-					fmt.Fprintln(cmd.ErrOrStderr(), "[警告]", err)
-				}
-			}
+		if profile, username, origin, ok := api.RecordActivity(); ok && cfg.PingEnabled() {
+			keepalive.Touch(paths, profile, username, origin)
 		}
 		return runErr
 	}

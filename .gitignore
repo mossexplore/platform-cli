@@ -2,11 +2,13 @@ __pycache__/
 *.py[cod]
 *.egg-info/
 .pytest_cache/
+.DS_Store
 .workbuddy/
 .venv/
 build/
 dist/
 release/
+/output/
 credentials.json
 .jupyter-local/
 

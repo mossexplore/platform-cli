@@ -13,8 +13,6 @@ import (
 	"github.com/mossexplore/platform-cli/cli-go/internal/localstate"
 )
 
-const testInterval = time.Minute
-
 type keepaliveFixture struct {
 	base    localstate.Paths
 	a       localstate.Paths
@@ -52,18 +50,17 @@ func newKeepaliveFixture(t *testing.T, endpoint, globalTenant string) keepaliveF
 	}}}
 	fixture := keepaliveFixture{
 		base:    base,
-		a:       base.WithSession(localstate.SessionScope{Mode: localstate.SessionModeDSH, ID: "a"}),
-		b:       base.WithSession(localstate.SessionScope{Mode: localstate.SessionModeDSH, ID: "b"}),
+		a:       base.WithSession(localstate.SessionScope{Mode: localstate.SessionModeEnv, ID: "a"}),
+		b:       base.WithSession(localstate.SessionScope{Mode: localstate.SessionModeEnv, ID: "b"}),
 		profile: profile, catalog: catalog,
 		worker: worker{paths: base, name: profile.Name, token: "fixture-worker", version: "1.0.0"},
 	}
 	fixture.saveLogin(t, "fixture=original", globalTenant)
 	fixture.bind(t, fixture.a, "tenant-a")
 	fixture.bind(t, fixture.b, "tenant-b")
-	now := time.Now()
 	if err := update(base, func(entries map[string]Entry) error {
 		entries[profile.Name] = Entry{
-			Owner:    []owner{currentOwner(fixture.a.Session, now), currentOwner(fixture.b.Session, now)},
+			Owner:    []owner{currentOwner(fixture.a.Session), currentOwner(fixture.b.Session)},
 			Endpoint: profile.Origin(), Username: "fixture-user", WorkerToken: fixture.worker.token,
 			WorkerPID: os.Getpid(), WorkerIdentity: identity(os.Getpid()),
 			Version: fixture.worker.version, Protocol: workerProtocol, Status: "running",
@@ -109,7 +106,7 @@ func (f *keepaliveFixture) poll(t *testing.T, wantStop bool) Entry {
 	if stop, err := f.worker.poll(context.Background()); err != nil || stop != wantStop {
 		t.Fatalf("poll stop = %v, err = %v, want stop = %v", stop, err, wantStop)
 	}
-	entry, _, err := View(f.base, f.profile.Name, testInterval)
+	entry, _, err := View(f.base, f.profile.Name)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -138,7 +135,7 @@ func TestWorkerUsesSessionBusinessAndKeepsOtherSessions(t *testing.T) {
 			verify := func(tenant string, successes, sessions int) {
 				t.Helper()
 				entry := f.poll(t, false)
-				if entry.Success != successes || entry.Status != "running" || SessionCount(entry) != sessions {
+				if entry.Success != successes || entry.Status != "running" || len(entry.Owner) != sessions {
 					t.Fatalf("unexpected registry entry: %+v", entry)
 				}
 				select {
@@ -169,14 +166,14 @@ func TestWorkerUsesSessionBusinessAndKeepsOtherSessions(t *testing.T) {
 				t.Fatalf("renewed credential missing: %v", err)
 			}
 			if err := f.worker.update(func(entry *Entry) error {
-				entry.Owner[0].Seen = time.Now().Add(-3 * testInterval)
+				entry.Owner[0].Identity = ""
 				entry.LastActivity = time.Time{}
 				return nil
 			}); err != nil {
 				t.Fatal(err)
 			}
 			entry := f.poll(t, true)
-			if entry.Status != "stopped" || SessionCount(entry) != 0 || len(requests) != 0 {
+			if entry.Status != "stopped" || len(entry.Owner) != 0 || len(requests) != 0 {
 				t.Fatalf("expired session kept the worker active: %+v", entry)
 			}
 		})
@@ -203,7 +200,7 @@ func TestWorkerDiscardsSupersededProbeResponse(t *testing.T) {
 		}, "fixture=original"},
 		{"replace login", func(t *testing.T, f keepaliveFixture) { f.saveLogin(t, "fixture=new-login", "") }, "fixture=new-login"},
 		{"manual stop", func(t *testing.T, f keepaliveFixture) {
-			if err := Stop(f.base, f.profile.Name, false); err != nil {
+			if err := Stop(f.base, f.profile.Name); err != nil {
 				t.Fatal(err)
 			}
 		}, "fixture=original"},
@@ -245,7 +242,7 @@ func TestKeepaliveReleasesLocksBetweenCommitAttempts(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			f := newKeepaliveFixture(t, "https://fixture.example.test", "")
-			entry, _, err := View(f.base, f.profile.Name, testInterval)
+			entry, _, err := View(f.base, f.profile.Name)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -258,13 +255,23 @@ func TestKeepaliveReleasesLocksBetweenCommitAttempts(t *testing.T) {
 				t.Fatal("no probe target")
 			}
 
+			cfg, err := localstate.LoadConfig(f.base)
+			if err != nil {
+				t.Fatal(err)
+			}
+			cfg.Current = f.profile.Name
+			job := probeJob{paths: target.paths, cfg: cfg, creds: creds, target: target.business, owner: target.owner, workerToken: f.worker.token}
+			reservation, err := job.reserve(context.Background())
+			if err != nil || reservation.State != "requesting" {
+				t.Fatalf("failed to reserve probe: %+v, %v", reservation, err)
+			}
 			unlock, err := tt.lock(f)
 			if err != nil {
 				t.Fatal(err)
 			}
 			done := make(chan error, 1)
 			go func() {
-				done <- f.worker.confirmProbe(context.Background(), f.profile, creds, target, "fixture=renewed", "", time.Hour, testInterval)
+				done <- job.confirm(context.Background(), reservation.RequestID, "fixture=renewed", "")
 			}()
 			select {
 			case err := <-done:

@@ -96,7 +96,7 @@ func newBusiness(options Options, load loadConfig) *cobra.Command {
 			return err
 		}
 		startAutoPing(cmd, paths, cfg, options.Version, true)
-		maintainSessionFiles(paths, cfg)
+		maintainSessionFiles(paths)
 		return nil
 	}
 	use.RunE = func(cmd *cobra.Command, _ []string) error {

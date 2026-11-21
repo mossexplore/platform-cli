@@ -53,6 +53,8 @@ flowchart LR
 
 #### Python 客户端（已废弃）
 
+DeepSeek Harness 保活使用[独立 Windows Desktop 插件](dsh-plugin/wiserec-cli/README.md)。插件要求 CLI 构建支持 `dsh-keepalive-v1`，详见 [Go CLI 1.1.1 构建说明](docs/RELEASE_NOTES_1.1.1.md)。
+
 Python Wheel 及 Windows 联网、离线安装包见 [历史发布](https://github.com/mossexplore/platform-cli/releases)。已有安装的说明见 [Python CLI 历史安装文档](cli-python/scripts/windows/INSTALL.md)。
 
 ### 2. 登录与环境初始化

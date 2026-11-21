@@ -14,7 +14,7 @@ func TestPythonCommandContract(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	expected := make(map[string]bool)
+	expected := map[string]bool{"auth ping tick": true} // Go-only Harness plugin protocol.
 	root := newRoot(Options{Version: "test"})
 	for _, line := range strings.Split(strings.TrimSuffix(string(raw), "\n"), "\n") {
 		path, metadata, ok := strings.Cut(strings.TrimSuffix(line, "\r"), "\t")

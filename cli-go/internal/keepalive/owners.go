@@ -3,17 +3,12 @@ package keepalive
 import (
 	"os"
 	"slices"
-	"time"
 
 	"github.com/mossexplore/platform-cli/cli-go/internal/localstate"
 )
 
-func currentOwner(scope localstate.SessionScope, now time.Time) owner {
+func currentOwner(scope localstate.SessionScope) owner {
 	item := owner{ownerRef: ownerRef{ID: scope.ID, Mode: scope.EffectiveMode()}}
-	if scope.Mode == localstate.SessionModeDSH {
-		item.Seen = now
-		return item
-	}
 	if !scope.Isolated() {
 		item.Mode = "" // Legacy terminal owners have no session fields.
 	}
@@ -22,23 +17,20 @@ func currentOwner(scope localstate.SessionScope, now time.Time) owner {
 	return item
 }
 
-func (o owner) live(now time.Time, interval time.Duration) bool {
-	if o.Mode == localstate.SessionModeDSH {
-		return o.ID != "" && !o.Seen.IsZero() && interval > 0 && now.Sub(o.Seen)/interval < 3
-	}
-	return o.Identity != "" && identity(o.PID) == o.Identity
+func (o owner) live() bool {
+	return o.Mode != localstate.SessionModeDSH && o.Identity != "" && identity(o.PID) == o.Identity
 }
 
 func (o owner) belongsTo(scope localstate.SessionScope, pid int) bool {
 	if scope.Isolated() {
-		return o.Mode == scope.Mode && o.ID == scope.ID
+		return o.Mode == scope.Mode && o.ID == scope.ID && o.PID == pid
 	}
 	return o.Mode == "" && o.PID == pid
 }
 
 func (o owner) paths(base localstate.Paths) (localstate.Paths, bool) {
 	switch o.Mode {
-	case localstate.SessionModeDSH, localstate.SessionModeEnv:
+	case localstate.SessionModeEnv:
 		if o.ID == "" {
 			return localstate.Paths{}, false
 		}
@@ -58,18 +50,4 @@ func registerOwner(entry *Entry, item owner) {
 	} else {
 		entry.Owner[index] = item
 	}
-}
-
-func TerminalCount(entry Entry) int {
-	return len(entry.Owner) - SessionCount(entry)
-}
-
-func SessionCount(entry Entry) int {
-	count := 0
-	for _, item := range entry.Owner {
-		if item.Mode == localstate.SessionModeDSH {
-			count++
-		}
-	}
-	return count
 }

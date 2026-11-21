@@ -36,8 +36,8 @@ func TestSessionEnvironmentSwitchReturnsWhilePingLockIsHeld(t *testing.T) {
 	defer unlock()
 	started := time.Now()
 	code, _, stderr := run(t, paths, "env", "use", "uat")
-	if code != 0 || !strings.Contains(stderr, "当前环境已切换为: uat") || !strings.Contains(stderr, "保活登记待重试") {
-		t.Fatalf("expected successful switch with a deferred registration, got %d: %s", code, stderr)
+	if code != 0 || !strings.Contains(stderr, "当前环境已切换为: uat") || strings.Contains(stderr, "保活登记") {
+		t.Fatalf("expected successful switch without a legacy registration, got %d: %s", code, stderr)
 	}
 	if elapsed := time.Since(started); elapsed >= localstate.DefaultLockWait {
 		t.Fatalf("switch waited for the default lock timeout: %v", elapsed)

@@ -112,6 +112,9 @@ func newEnv(options Options, load loadConfig) *cobra.Command {
 					fmt.Fprintf(cmd.ErrOrStderr(), "[提示] 当前会话在环境 %s 下尚未选择业务，请运行 ml business <租户ID>\n", profile.Name)
 				}
 			}
+			if paths.Session.Mode == localstate.SessionModeDSH {
+				return nil
+			}
 			if prevCurrent == profile.Name {
 				prevCurrent = ""
 			}

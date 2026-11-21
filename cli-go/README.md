@@ -150,6 +150,10 @@ ml business show
 
 如需切换业务，执行 `ml business use --tenant TENANT_ID`。Go 业务命令需要启用在线权限校验，并配置可访问的权限服务。需要企业 CA 时，由出包人员在构建配置中设置 `access_control.ca_source` 与 `ca_file`。权限服务收到 Go 的独立版本，请按实际准入规则验证环境。
 
+## DeepSeek Harness 保活
+
+DeepSeek Harness 的自动保活由 [Windows Desktop 宿主插件](../dsh-plugin/wiserec-cli/README.md) 调度，插件独立打包。终端继续使用 CLI worker。用 `ml auth ping tick --capabilities` 确认 CLI 构建具备插件接口，用 `ml auth ping status` 检查插件报到与最近平台确认。
+
 ## 验证范围
 
 在 `cli-go` 下运行 `go test ./...` 和 `go vet ./...`。独立的 [Windows 打包工作流](../.github/workflows/cli-go-windows.yml) 使用示例配置构建测试产物，验证 ZIP 和 MSI 的二进制一致性，以及旧 PATH 自动清理、失败回滚、版本、修复、升级、降级拒绝和卸载。真实平台登录、在线权限和 Jupyter 需在获准环境另行验收。

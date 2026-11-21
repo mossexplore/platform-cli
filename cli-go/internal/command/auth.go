@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/mossexplore/platform-cli/cli-go/internal/keepalive"
+	"github.com/mossexplore/platform-cli/cli-go/internal/localstate"
 	"github.com/mossexplore/platform-cli/cli-go/internal/output"
 	"github.com/spf13/cobra"
 )
@@ -48,9 +49,15 @@ func newAuth(options Options, load loadConfig) (*cobra.Command, *cobra.Command) 
 		remainingText := strconv.Itoa(remaining)
 		if cfg.PingEnabled() {
 			interval := time.Duration(cfg.Auth.PingMinutes) * time.Minute
-			entry, running, err := keepalive.View(paths, profile.Name, interval)
 			note := "自动保活状态暂不可用"
-			if err == nil {
+			if paths.Session.Mode == localstate.SessionModeDSH {
+				if host, err := keepalive.ViewHost(paths, cfg, now); err == nil {
+					note = host.State
+					if !host.Next.IsZero() {
+						note += "，下次可探活时间：\n" + pingTime(host.Next)
+					}
+				}
+			} else if entry, running, err := keepalive.View(paths, profile.Name); err == nil {
 				running = running && len(entry.Owner) > 0 && entry.Endpoint == profile.Origin() && entry.Username == creds.Username
 				note = authKeepaliveNote(entry, running, interval, now)
 			}
@@ -84,7 +91,12 @@ func newAuth(options Options, load loadConfig) (*cobra.Command, *cobra.Command) 
 				return err
 			}
 		}
-		if err := keepalive.Stop(paths, profile.Name, *all); err != nil {
+		if *all {
+			err = keepalive.StopAll(paths, cfg.Profiles)
+		} else {
+			err = keepalive.Stop(paths, profile.Name)
+		}
+		if err != nil {
 			return err
 		}
 		if err := paths.Logout(profile, *all, *forget); err != nil {

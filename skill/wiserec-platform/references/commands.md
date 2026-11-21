@@ -20,11 +20,12 @@ WiseRec 和 MLOps 均支持 `train` 和 `feature-task` 命令，`algorithm` 仅�
 | `ml context [--json]` | 查看运行模式、平台环境与实际配置路径，无需登录 | | |
 | `ml tree [--all]` | 查看当前环境可用命令，无需登录。加 `--all` 显示全部命令及限制标记 | | |
 | `ml env list [-o json]` / `ml env show` | 列出已授权及授权状态未知的环境 / 查看当前环境 | | |
-| `ml env use NAME` | 切换当前环境；保活登记待重试时切换已成功 | | 本地配置或会话状态 |
+| `ml env use NAME` | 切换当前环境；插件在后续调度读取新环境 | | 本地配置或会话状态 |
 | `ml login` | 打开 Edge 登录，需用户操作；禁止 `--show-secrets` | | 本地凭据 |
 | `ml logout [--all] [--forget-browser]` | 清除当前或全部环境的认证 | | 本地凭据 |
 | `ml auth status` | 本地认证状态、剩余有效时长和保活提示 | | |
-| `ml auth ping start` / `stop` / `status` | 交互终端与 DeepSeek Harness 保活；查看状态为只读，停止作用于当前环境 | | 本地进程与会话登记 |
+| `ml auth ping start` / `stop` / `status` | 启动终端保活或恢复已登记的 Harness 插件；停止作用于当前环境，查看状态只读 | | 本地进程与会话登记 |
+| `ml auth ping tick --capabilities` / `ml auth ping tick --json` | 检查插件兼容性或由宿主执行单次探活；Agent 不调用 `--json` | | `--json` 可能续期当前会话 |
 | `ml access status [--diagnose]` | 检查 CLI 访问授权 | | |
 | `ml business list` / `ml business show` | 业务候选 / 当前业务 | | |
 | `ml business TENANT_ID` / `ml business use --tenant ID [--team ID] [--department ID]` | 直接选择租户 / 指定租户、团队或部门 | | 本地配置 |

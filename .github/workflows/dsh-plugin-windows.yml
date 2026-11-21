@@ -1,0 +1,95 @@
+name: DSH Windows plugin
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'dsh-plugin/**'
+      - 'cli-go/**'
+      - 'scripts/build_dsh_plugin.py'
+      - 'scripts/sync_versions.py'
+      - 'versions.toml'
+      - '.github/workflows/dsh-plugin-windows.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'dsh-plugin/**'
+      - 'cli-go/**'
+      - 'scripts/build_dsh_plugin.py'
+      - 'scripts/sync_versions.py'
+      - 'versions.toml'
+      - '.github/workflows/dsh-plugin-windows.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: cli-go/go.mod
+          cache-dependency-path: cli-go/go.sum
+
+      - name: Test the plugin
+        run: node --test dsh-plugin/wiserec-cli/tests/plugin.test.mjs
+      - name: Test Go CLI and build the compatible Windows binary
+        working-directory: cli-go
+        run: |
+          go test ./...
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $overlay = Join-Path $env:RUNNER_TEMP 'dsh-build-overlay.json'
+          $embedded = (Resolve-Path internal/localstate/config.embedded.json).Path
+          $example = (Resolve-Path ../cli-python/config.example.json).Path
+          $replacement = @{}
+          $replacement[$embedded] = $example
+          @{ Replace = $replacement } | ConvertTo-Json -Compress | Set-Content -LiteralPath $overlay -Encoding utf8NoBOM
+          go build -overlay $overlay -o "$env:RUNNER_TEMP/ml.exe" ./cmd/ml
+      - name: Build and verify the offline plugin ZIP
+        shell: pwsh
+        run: |
+          python scripts/build_dsh_plugin.py --output dist/dsh --revision $env:GITHUB_SHA
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $zip = Get-ChildItem dist/dsh/*.zip
+          $unpacked = Join-Path $env:RUNNER_TEMP 'dsh-unpacked'
+          Expand-Archive -LiteralPath $zip.FullName -DestinationPath $unpacked
+          $lines = Get-Content -LiteralPath (Join-Path $unpacked 'SHA256SUMS')
+          foreach ($line in $lines) {
+            $hash, $file = $line -split '  ', 2
+            $actual = (Get-FileHash -Algorithm SHA256 -LiteralPath (Join-Path $unpacked $file)).Hash
+            if ($actual -ne $hash) { throw "Checksum mismatch: $file" }
+          }
+          if ($lines.Count -ne (Get-ChildItem -File $unpacked).Count - 1) {
+            throw 'Incomplete checksum manifest'
+          }
+          $release = Get-Content -Raw -LiteralPath (Join-Path $unpacked 'release.json') | ConvertFrom-Json
+          $capability = & "$env:RUNNER_TEMP/ml.exe" auth ping tick --capabilities | ConvertFrom-Json
+          if ($capability.protocol -ne $release.cli_protocol -or $capability.cli_version -ne $release.cli_version) {
+            throw 'CLI capability does not match the offline plugin manifest'
+          }
+          $stage = Join-Path $unpacked 'stage-wiserec-dsh-plugin.ps1'
+          $store = Join-Path $env:RUNNER_TEMP 'dsh-install'
+          $bundle = & $stage -InstallRoot $store
+          if ((& $stage -InstallRoot $store) -ne $bundle) { throw 'Staging is not idempotent' }
+          $bundleFiles = @(& tar.exe -tf $bundle)
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          foreach ($file in @('package.json', 'index.js', 'runner.js', 'cordis.patch.yml', 'README.md', 'LICENSE')) {
+            if ($bundleFiles -notcontains "package/$file") { throw "Missing bundle file: $file" }
+          }
+          Remove-Item -LiteralPath $unpacked -Recurse
+          if ((Get-FileHash -LiteralPath $bundle -Algorithm SHA256).Hash -ne $release.bundle_sha256) {
+            throw 'Staged bundle was lost after deleting the download directory'
+          }
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dsh-wiserec-cli-windows
+          path: dist/dsh/*.zip
+          if-no-files-found: error

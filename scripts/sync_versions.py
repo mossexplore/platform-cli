@@ -1,5 +1,6 @@
 """Synchronize component versions; --check rejects drift without modifying files."""
 import argparse
+import json
 from pathlib import Path
 import re
 
@@ -13,8 +14,13 @@ def read_versions(root):
     with (root / 'versions.toml').open('rb') as source:
         data = tomllib.load(source)
     versions = data['components']
-    if set(versions) != {'cli', 'cli_go', 'access', 'agent', 'notifier'}:
-        raise ValueError('components 必须包含 cli、cli_go、access、agent、notifier')
+    required = {'cli', 'cli_go', 'access', 'agent', 'notifier'}
+    if not required <= versions.keys() or versions.keys() - required - {'dsh_plugin'}:
+        raise ValueError('components 必须包含 cli、cli_go、access、agent、notifier，可选 dsh_plugin')
+    if 'dsh_plugin' in versions and not re.fullmatch(
+        r'(?:0|[1-9][0-9]*)(?:\.(?:0|[1-9][0-9]*)){2}', str(versions['dsh_plugin'])
+    ):
+        raise ValueError('DSH 插件版本必须是三段数字 SemVer')
     tested = data['compatibility']['agent_cli']
     for value in [*versions.values(), tested]:
         if not isinstance(value, str) or not re.fullmatch(r'\d+\.\d+\.\d+(?:\.\d+)?', value):
@@ -73,6 +79,13 @@ def sync(root, check=False):
     }
     if (root / 'cli-go/go.mod').is_file():
         files[root / 'cli-go/cmd/ml/version.go'] = go_version_source(versions['cli_go'])
+    plugin = root / 'dsh-plugin/wiserec-cli/package.json'
+    if plugin.is_file():
+        if 'dsh_plugin' not in versions:
+            raise ValueError('versions.toml 缺少 dsh_plugin 版本')
+        manifest = json.loads(plugin.read_text(encoding='utf-8'))
+        manifest['version'] = versions['dsh_plugin']
+        files[plugin] = json.dumps(manifest, ensure_ascii=False, indent=2) + '\n'
     # CLI source distributions contain the manifest but deliberately exclude services.
     if (root / 'access-service/VERSION').is_file():
         files[root / 'access-service/VERSION'] = versions['access'] + '\n'

@@ -29,6 +29,11 @@ def go_cli_tree(contract_path=CONTRACT):
             group = child
         params = [click.Option([opt], is_flag=True) for opt in options if opt.startswith("-")]
         group.add_command(click.Command(path[-1], params=params))
+    ping = root.commands["auth"].commands["ping"]
+    ping.add_command(click.Command("tick", params=[
+        click.Option(["--capabilities"], is_flag=True),
+        click.Option(["--json"], is_flag=True),
+    ]))
     # Go also accepts a tenant ID directly on the business command group.
     business = root.commands.get("business")
     if isinstance(business, click.Group):

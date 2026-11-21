@@ -17,10 +17,11 @@ ml                                              WiseRec 命令行工具
 │   └── clear                                   清理历史记录
 ├── auth                                        登录状态
 │   ├── status                                  查看当前环境的认证有效期和保活状态
-│   └── ping                                    管理终端会话自动保活
-│       ├── start                               为当前终端或 Harness 会话启动自动保活
+│   └── ping                                    管理终端与 Harness 自动保活
+│       ├── start                               启动终端保活或恢复 Harness 插件调度
 │       ├── status                              查看保活状态和最近请求
-│       └── stop                                停止当前环境的保活
+│       ├── stop                                停止当前环境的保活
+│       └── tick                                供 Harness 插件执行单次保活检查
 ├── env                                         环境管理
 │   ├── list                                    查看可用环境
 │   ├── show                                    查看当前环境
@@ -302,6 +303,8 @@ ml auth status
 ml auth ping start
 ml auth ping status
 ml auth ping stop
+ml auth ping tick --capabilities
+ml auth ping tick --json
 ```
 
 ### 4.2 参数与选项
@@ -316,7 +319,9 @@ ml auth ping stop
 | `ml auth status` | 查看当前账号、登录剩余有效时长和保活状态 |
 | `ml auth ping start` | 为当前终端或 DeepSeek Harness 会话启动自动保活 |
 | `ml auth ping status` | 查看保活进程和最近请求结果，不发送请求 |
-| `ml auth ping stop` | 停止当前环境的自动保活 |
+| `ml auth ping stop` | 停止当前环境的终端与插件保活 |
+| `ml auth ping tick --capabilities` | 查看插件协议和调用预算，无需登录 |
+| `ml auth ping tick --json` | 由插件通过标准输入提交宿主会话请求并获得 JSON 结果 |
 
 ### 4.3 说明
 
@@ -328,13 +333,13 @@ ml auth ping stop
 
 登录后用 `auth status` 查看账号、剩余有效时长及当前业务。启用自动保活时，时长后括号内显示当前保活状态。有可用的计划时间时，显示北京时间的下次预计保活时间。业务请求可能推迟预计时间，平台确认续期后才会更新登录有效期。默认空闲 30 分钟后校验登录，持续使用会延长会话；`--forget-browser` 会清除浏览器登录状态。
 
-Go CLI 默认在交互终端和 DeepSeek Harness 会话中自动保活。先登录当前环境并选定业务，环境空闲满一个保活周期时请求平台，默认间隔为 10 分钟。Harness 通过非交互 Shell 执行命令也可启动保活，保活请求使用该环境下已登记会话选中的业务。
+在交互终端登录并选定业务后，Go CLI 可启动后台保活。DeepSeek Harness 的自动保活由安装并启用的宿主插件调度。先在当前会话绑定环境、登录并选择业务。插件只检查该会话绑定的环境。环境空闲满一个保活周期才请求平台，默认间隔 10 分钟。宿主退出、会话关闭、休眠或断网时，插件可能停止保活。
 
-Harness 会话成功登录、切换环境或业务、执行业务请求后会刷新保活登记。登记在三个保活周期后到期，默认 30 分钟。切换环境会撤销本会话在旧环境的登记，其他会话可继续保活。最后一个会话到期且没有登记终端时，环境停止保活。
+`ping status` 只读。终端中查看 worker PID，Harness 中查看插件最近报到、上次平台确认成功及下一次可探活时间。报到表示插件已执行检查，平台确认成功才表示保活已续期。
 
-`ping status` 显示当前环境的保活终端数、会话数及最近请求结果；查看状态不会延长保活登记。`ping stop` 停止当前环境的共享保活，`ping start` 可恢复。休眠或断网时无法保活。
+`ping stop` 停止当前环境的共享保活。交互终端用 `ping start` 恢复后台保活。在 Harness 中，先启动插件并等待当前会话登记，再用 `ping start` 恢复调度。插件未登记时请检查宿主是否已安装并启用插件。
 
-如果登录后提示“自动保活未能确认启动”，用 `ml auth ping status` 核对当前进程状态。已显示 `running` 时可继续使用；显示“未运行”时检查是否已选业务，再用 `ml auth ping start` 重试。
+`ping tick --json` 是宿主插件接口，由插件提供真实会话身份。用户排查安装时可直接运行 `ping tick --capabilities`，查看 CLI 是否支持插件调度协议。
 
 ### 4.4 示例
 
@@ -343,6 +348,7 @@ ml login
 ml business use --tenant TENANT_ID
 ml auth status
 ml auth ping status
+ml auth ping tick --capabilities
 ```
 
 ```bash
@@ -390,7 +396,7 @@ ml env use NAME
 
 尚无账号时提示先执行 `ml login`；查询失败、权限校验关闭或服务地址未配置时，在列表上方显示错误信息，环境仍显示，状态为“授权状态未知”。命令退出码为 0，业务命令仍需通过实时鉴权。权限服务需支持完整环境授权状态查询，旧服务会提示更新，不会回退到逐个请求。切换命令使用切换后环境的账号检查有效授权，切换后请核对账号和业务选择。启用自动保活时，若目标环境未登录或本地登录已过期，会提示“当前环境未登录，请执行ml login登录该环境”。在多会话隔离模式下，`ml env use` 仅更新当前会话的环境选择，不影响全局默认环境与其他并行会话。
 
-在 DeepSeek Harness 中，若提示“环境已切换，保活登记待重试”，切换已成功。可用 `ml auth ping status` 查看保活状态。成功执行业务请求时会重新尝试登记，也可以手动运行 `ml auth ping start`。若切换命令以“本地状态正在使用”报错退出，用 `ml context --json` 核对当前环境，仍在原环境时稍后再试。
+在 DeepSeek Harness 中切换环境后，插件在下一次调度读取当前会话的新环境。核对环境、登录和业务选择后，可用 `ml auth ping status` 查看插件状态。若切换因“本地状态正在使用”失败，用 `ml context --json` 核对当前环境后再试。
 
 ### 5.4 示例
 

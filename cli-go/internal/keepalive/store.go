@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"time"
 
 	"github.com/mossexplore/platform-cli/cli-go/internal/localstate"
@@ -20,36 +21,40 @@ type ownerRef struct {
 
 type owner struct {
 	ownerRef
-	Seen time.Time `json:"last_seen,omitzero"`
 }
 
 type Entry struct {
-	Owner          []owner   `json:"owners"`
-	Endpoint       string    `json:"api_endpoint"`
-	Username       string    `json:"username"`
-	WorkerPID      int       `json:"worker_pid"`
-	WorkerIdentity string    `json:"worker_identity"`
-	WorkerToken    string    `json:"worker_token"`
-	Version        string    `json:"worker_version"`
-	Protocol       int       `json:"worker_protocol,omitempty"`
-	LastOwner      ownerRef  `json:"last_confirmed_owner,omitzero"`
-	Status         string    `json:"status"`
-	ManualStop     bool      `json:"manual_stop"`
-	LastActivity   time.Time `json:"last_activity"`
-	LastConfirmed  time.Time `json:"last_confirmed"`
-	LastAttempt    time.Time `json:"last_attempt"`
-	RequestID      string    `json:"last_request_id"`
-	Success        int       `json:"success_count"`
-	Failure        int       `json:"failure_count"`
-	Error          string    `json:"last_error"`
+	InFlight       probeLease    `json:"in_flight,omitzero"`
+	RetryAt        time.Time     `json:"retry_at,omitzero"`
+	RetryDelay     time.Duration `json:"retry_delay,omitempty"`
+	ExpiredState   string        `json:"expired_state,omitempty"`
+	Owner          []owner       `json:"owners"`
+	Endpoint       string        `json:"api_endpoint"`
+	Username       string        `json:"username"`
+	WorkerPID      int           `json:"worker_pid"`
+	WorkerIdentity string        `json:"worker_identity"`
+	WorkerToken    string        `json:"worker_token"`
+	Version        string        `json:"worker_version"`
+	Protocol       int           `json:"worker_protocol,omitempty"`
+	LastOwner      ownerRef      `json:"last_confirmed_owner,omitzero"`
+	Status         string        `json:"status"`
+	ManualStop     bool          `json:"manual_stop"`
+	LastActivity   time.Time     `json:"last_activity"`
+	LastConfirmed  time.Time     `json:"last_confirmed"`
+	LastAttempt    time.Time     `json:"last_attempt"`
+	RequestID      string        `json:"last_request_id"`
+	Success        int           `json:"success_count"`
+	Failure        int           `json:"failure_count"`
+	Error          string        `json:"last_error"`
 }
 
 type entryFile struct {
-	Profiles map[string]Entry `json:"profiles"`
+	Profiles map[string]Entry            `json:"profiles"`
+	Hosts    map[string]hostRegistration `json:"hosts,omitempty"`
 }
 
 func load(paths localstate.Paths) (entryFile, error) {
-	data := entryFile{Profiles: make(map[string]Entry)}
+	data := entryFile{Profiles: make(map[string]Entry), Hosts: make(map[string]hostRegistration)}
 	raw, err := os.ReadFile(filepath.Join(paths.Dir, "ping-go.json"))
 	if errors.Is(err, os.ErrNotExist) {
 		return data, nil
@@ -68,6 +73,10 @@ func update(paths localstate.Paths, change func(map[string]Entry) error) error {
 }
 
 func updateWithin(paths localstate.Paths, wait time.Duration, change func(map[string]Entry) error) error {
+	return updateRegistry(paths, wait, func(data entryFile) error { return change(data.Profiles) })
+}
+
+func updateRegistry(paths localstate.Paths, wait time.Duration, change func(entryFile) error) error {
 	unlock, err := paths.LockPingWithin(wait)
 	if err != nil {
 		return err
@@ -77,7 +86,21 @@ func updateWithin(paths localstate.Paths, wait time.Duration, change func(map[st
 	if err != nil {
 		return err
 	}
-	if err := change(data.Profiles); err != nil {
+	for key, entry := range data.Profiles {
+		entry.Owner = slices.DeleteFunc(entry.Owner, func(candidate owner) bool {
+			return candidate.Mode == localstate.SessionModeDSH
+		})
+		data.Profiles[key] = entry
+	}
+	if data.Hosts == nil {
+		data.Hosts = make(map[string]hostRegistration)
+	}
+	for key, host := range data.Hosts {
+		if time.Since(host.Seen) >= time.Hour {
+			delete(data.Hosts, key)
+		}
+	}
+	if err := change(data); err != nil {
 		return err
 	}
 	result, err := json.Marshal(data)
@@ -90,36 +113,51 @@ func updateWithin(paths localstate.Paths, wait time.Duration, change func(map[st
 func alive(entry Entry) bool {
 	return entry.WorkerIdentity != "" && identity(entry.WorkerPID) == entry.WorkerIdentity
 }
-func validOwners(entry Entry, now time.Time, interval time.Duration) []owner {
+func validOwners(entry Entry) []owner {
 	items := []owner{}
 	for _, candidate := range entry.Owner {
-		if candidate.live(now, interval) {
+		if candidate.live() {
 			items = append(items, candidate)
 		}
 	}
 	return items
 }
-func View(paths localstate.Paths, profile string, interval time.Duration) (Entry, bool, error) {
+func View(paths localstate.Paths, profile string) (Entry, bool, error) {
 	data, err := load(paths)
 	if err != nil {
 		return Entry{}, false, err
 	}
 	entry := data.Profiles[profile]
-	entry.Owner = validOwners(entry, time.Now(), interval)
-	return entry, alive(entry), nil
+	entry.Owner = validOwners(entry)
+	return entry, entry.Protocol == workerProtocol && alive(entry), nil
 }
-func Stop(paths localstate.Paths, profile string, all bool) error {
+func Stop(paths localstate.Paths, name string) error {
 	return update(paths, func(profiles map[string]Entry) error {
-		for key, entry := range profiles {
-			if all || key == profile {
-				entry.Owner = nil
-				entry.Status, entry.ManualStop = "stopping", true
-				profiles[key] = entry
-			}
+		stopProfile(profiles, name)
+		return nil
+	})
+}
+
+func StopAll(paths localstate.Paths, configured []localstate.Profile) error {
+	return update(paths, func(profiles map[string]Entry) error {
+		for name := range profiles {
+			stopProfile(profiles, name)
+		}
+		for _, profile := range configured {
+			stopProfile(profiles, profile.Name)
 		}
 		return nil
 	})
 }
+
+func stopProfile(profiles map[string]Entry, name string) {
+	entry := profiles[name]
+	entry.Owner = nil
+	entry.Status, entry.ManualStop = "stopping", true
+	entry.InFlight.Cancelled = entry.InFlight.ID != ""
+	profiles[name] = entry
+}
+
 func detachOwner(entries map[string]Entry, paths localstate.Paths, profile string) error {
 	entry, exists := entries[profile]
 	if !exists {
@@ -152,7 +190,7 @@ func DetachTerminal(paths localstate.Paths, profile string) error {
 	})
 }
 
-func MaintainSessions(paths localstate.Paths, interval time.Duration) {
+func MaintainSessions(paths localstate.Paths) {
 	file, err := load(paths)
 	if err != nil {
 		return
@@ -160,29 +198,34 @@ func MaintainSessions(paths localstate.Paths, interval time.Duration) {
 	now := time.Now()
 	var active []localstate.SessionScope
 	for _, entry := range file.Profiles {
-		for _, item := range validOwners(entry, now, interval) {
+		for _, item := range validOwners(entry) {
 			if scoped, ok := item.paths(paths); ok && scoped.IsSessionIsolated() {
 				active = append(active, scoped.Session)
 			}
 		}
 	}
+	for _, registration := range file.Hosts {
+		if registration.active(now) {
+			active = append(active, registration.scope())
+		}
+	}
 	paths.MaintainSessions(now, active)
 }
 func Touch(paths localstate.Paths, profile, username, endpoint string) {
-	file, err := load(paths)
-	if err != nil {
-		return
-	}
-	entry, ok := file.Profiles[profile]
-	if !ok || entry.WorkerToken == "" {
-		return
-	}
 	_ = update(paths, func(entries map[string]Entry) error {
-		entry, ok := entries[profile]
-		if ok && entry.Username == username && entry.Endpoint == endpoint {
-			entry.LastActivity = time.Now()
-			entries[profile] = entry
+		entry := entries[profile]
+		if entry.Endpoint != endpoint || entry.Username != username {
+			if alive(entry) {
+				return nil
+			}
+			entry = resetLogin(entry, username, endpoint)
 		}
+		entry.LastActivity = time.Now()
+		entries[profile] = entry
 		return nil
 	})
+}
+
+func resetLogin(entry Entry, username, endpoint string) Entry {
+	return Entry{Endpoint: endpoint, Username: username, ManualStop: entry.ManualStop, InFlight: entry.InFlight}
 }
