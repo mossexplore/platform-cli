@@ -222,7 +222,7 @@ type historyInvocation struct {
 func startHistory(cmd *cobra.Command, options Options) *historyInvocation {
 	path := cmd.CommandPath()
 	if path == "ml" || strings.HasPrefix(path, "ml tree") || strings.HasPrefix(path, "ml history") ||
-		path == "ml help" || os.Getenv("ML_HISTORY") == "0" {
+		path == "ml help" || (path == "ml business" && cmd.Flags().NArg() == 0) || os.Getenv("ML_HISTORY") == "0" {
 		return nil
 	}
 	paths, err := options.Paths()

@@ -27,16 +27,14 @@ type helpStyle struct {
 
 func WriteHelp(out io.Writer, path, syntax, intro string, arguments, options, commands []HelpRow) error {
 	style := helpStyle{}
-	if file, ok := out.(*os.File); ok && os.Getenv("NO_COLOR") == "" {
-		color, restore := enableHelpColor(file)
-		if restore != nil {
-			defer restore()
-		}
-		if color {
-			style = helpStyle{
-				dim: "\x1b[2m", bold: "\x1b[1m", label: "\x1b[1;36m", toggle: "\x1b[1;32m",
-				marker: "\x1b[31m", required: "\x1b[2;31m", yellow: "\x1b[1;33m", usage: "\x1b[1;33m",
-			}
+	color, restore := terminalColor(out)
+	if restore != nil {
+		defer restore()
+	}
+	if color {
+		style = helpStyle{
+			dim: "\x1b[2m", bold: "\x1b[1m", label: boldCyan, toggle: boldGreen,
+			marker: "\x1b[31m", required: "\x1b[2;31m", yellow: "\x1b[1;33m", usage: "\x1b[1;33m",
 		}
 	}
 	terminal := terminalWidth(out)
@@ -46,13 +44,6 @@ func WriteHelp(out io.Writer, path, syntax, intro string, arguments, options, co
 	}
 	_, err := io.WriteString(out, renderHelp(path, syntax, intro, arguments, options, commands, width, terminal, style))
 	return err
-}
-
-func paintHelp(text, color string) string {
-	if color == "" || text == "" {
-		return text
-	}
-	return color + text + "\x1b[0m"
 }
 
 type helpText struct {
@@ -65,9 +56,9 @@ func renderHelp(path, syntax, intro string, arguments, options, commands []HelpR
 	h := helpText{width: max(width, 24), style: style}
 	h.line("", 0)
 	for i, line := range wrapHelp(helpUsage(path, syntax, terminal), h.width-2, true) {
-		colored := paintHelp(line, style.bold)
+		colored := paintANSI(line, style.bold)
 		if i == 0 {
-			colored = paintHelp("Usage: ", style.usage) + paintHelp(strings.TrimPrefix(line, "Usage: "), style.bold)
+			colored = paintANSI("Usage: ", style.usage) + paintANSI(strings.TrimPrefix(line, "Usage: "), style.bold)
 		}
 		h.line(" "+colored, helpCells.StringWidth(line)+1)
 	}
@@ -107,8 +98,8 @@ func (h *helpText) panel(title string, rows []HelpRow) {
 	}
 	widths := helpColumnWidths(columns, inner, commands)
 	top := "╭─ " + title + " "
-	h.WriteString(paintHelp(top+strings.Repeat("─", h.width-1-helpCells.StringWidth(top))+"╮", h.style.dim) + "\n")
-	border := paintHelp("│", h.style.dim)
+	h.WriteString(paintANSI(top+strings.Repeat("─", h.width-1-helpCells.StringWidth(top))+"╮", h.style.dim) + "\n")
+	border := paintANSI("│", h.style.dim)
 	for _, row := range columns {
 		wrapped := make([][]string, len(row))
 		height := 1
@@ -132,7 +123,7 @@ func (h *helpText) panel(title string, rows []HelpRow) {
 			h.WriteString(" " + border + "\n")
 		}
 	}
-	h.WriteString(paintHelp("╰"+strings.Repeat("─", h.width-2)+"╯", h.style.dim) + "\n")
+	h.WriteString(paintANSI("╰"+strings.Repeat("─", h.width-2)+"╯", h.style.dim) + "\n")
 }
 
 type helpCell struct {
@@ -236,7 +227,7 @@ func (c helpCell) wrap(width int, style helpStyle) []string {
 	if c.description == nil {
 		lines := wrapHelp(c.text, width, c.fold)
 		for i, line := range lines {
-			lines[i] = paintHelp(line, c.color)
+			lines[i] = paintANSI(line, c.color)
 		}
 		return lines
 	}
@@ -256,7 +247,7 @@ func (c helpCell) wrap(width int, style helpStyle) []string {
 		}
 		partWidth := helpCells.StringWidth(part)
 		if rowWidth > 0 && rowWidth+1+partWidth <= width {
-			row += " " + paintHelp(part, color)
+			row += " " + paintANSI(part, color)
 			rowWidth += 1 + partWidth
 			continue
 		}
@@ -265,10 +256,10 @@ func (c helpCell) wrap(width int, style helpStyle) []string {
 		}
 		wrapped := wrapHelp(part, width, false)
 		for _, line := range wrapped[:len(wrapped)-1] {
-			lines = append(lines, paintHelp(line, color))
+			lines = append(lines, paintANSI(line, color))
 		}
 		last := wrapped[len(wrapped)-1]
-		row = paintHelp(last, color)
+		row = paintANSI(last, color)
 		rowWidth = helpCells.StringWidth(last)
 		// Rich puts a wrapped description and its annotations in separate rows.
 		if len(wrapped) > 1 {

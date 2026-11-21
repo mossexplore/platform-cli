@@ -89,3 +89,21 @@ func trimHelpPadding(help string) string {
 	}
 	return strings.Join(lines, "\n")
 }
+
+func TestBusinessHelpAdvertisesDirectTenantSelection(t *testing.T) {
+	t.Setenv("TERMINAL_WIDTH", "100")
+	for _, args := range [][]string{{"business"}, {"business", "--help"}} {
+		var stdout, stderr bytes.Buffer
+		code := Run(context.Background(), Options{
+			Args: args, Stdout: &stdout, Stderr: &stderr,
+			Paths: func() (localstate.Paths, error) {
+				t.Fatal("business help tried to read local state")
+				return localstate.Paths{}, nil
+			},
+		})
+		if code != 0 || stderr.Len() != 0 || !strings.Contains(stdout.String(), "[TENANT_ID | COMMAND [ARGS]...]") ||
+			!strings.Contains(stdout.String(), "│ use ") {
+			t.Fatalf("business help: exit %d, stderr %q\n%s", code, &stderr, &stdout)
+		}
+	}
+}

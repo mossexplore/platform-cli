@@ -37,7 +37,7 @@ func showHelp(cmd *cobra.Command, _ []string) {
 	path := helpPath(cmd)
 	page, exists := pythonHelp[path]
 	children := helpChildren(cmd, page.Children)
-	if !exists {
+	if !exists || len(page.Arguments) == 0 && strings.Contains(cmd.Use, " ") {
 		page = liveHelpPage(cmd, len(children) > 0)
 	}
 	if err := output.WriteHelp(cmd.OutOrStdout(), cmd.CommandPath(), page.Usage, page.Intro,
@@ -54,10 +54,12 @@ func helpPath(cmd *cobra.Command) string {
 func liveHelpPage(cmd *cobra.Command, group bool) helpPage {
 	_, positional, _ := strings.Cut(cmd.Use, " ")
 	page := helpPage{Usage: "[OPTIONS]", Intro: cmd.Short}
-	if group {
+	switch {
+	case group && positional != "":
+		page.Usage += " [" + strings.Trim(positional, "[]") + " | COMMAND [ARGS]...]"
+	case group:
 		page.Usage += " COMMAND [ARGS]..."
-	}
-	if positional != "" {
+	case positional != "":
 		page.Usage += " " + positional
 	}
 	for _, syntax := range strings.Fields(positional) {
@@ -67,8 +69,11 @@ func liveHelpPage(cmd *cobra.Command, group bool) helpPage {
 			row.Value = "TEXT"
 			row.Description = []string{"[required]"}
 		}
-		if name == "service_id" {
+		switch name {
+		case "service_id":
 			row.Description = append([]string{"服务 ID"}, row.Description...)
+		case "tenant_id":
+			row.Description = append([]string{"租户 ID"}, row.Description...)
 		}
 		page.Arguments = append(page.Arguments, row)
 	}

@@ -6,7 +6,7 @@ import (
 	"golang.org/x/sys/windows"
 )
 
-func enableHelpColor(file *os.File) (bool, func()) {
+func enableTerminalColor(file *os.File) (bool, func()) {
 	handle := windows.Handle(file.Fd())
 	var mode uint32
 	if windows.GetConsoleMode(handle, &mode) != nil {

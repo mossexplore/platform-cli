@@ -8,6 +8,6 @@ import (
 	"golang.org/x/term"
 )
 
-func enableHelpColor(file *os.File) (bool, func()) {
+func enableTerminalColor(file *os.File) (bool, func()) {
 	return os.Getenv("TERM") != "dumb" && term.IsTerminal(int(file.Fd())), nil
 }

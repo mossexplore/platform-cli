@@ -1,7 +1,6 @@
 package output
 
 import (
-	"fmt"
 	"io"
 	"os"
 	"strconv"
@@ -15,8 +14,27 @@ import (
 var cells = runewidth.NewCondition()
 
 func Table(out io.Writer, headers []string, rows [][]string) error {
-	_, err := io.WriteString(out, tableText(headers, rows, terminalWidth(out)))
+	_, err := io.WriteString(out, tableText(headers, rows, terminalWidth(out), tableStyle{}))
 	return err
+}
+
+// HighlightedTable colors the header and the selected row on a color-capable terminal.
+func HighlightedTable(out io.Writer, headers []string, rows [][]string, selected int) error {
+	color, restore := terminalColor(out)
+	if restore != nil {
+		defer restore()
+	}
+	style := tableStyle{selected: selected}
+	if color {
+		style.header, style.highlight = boldCyan, boldGreen
+	}
+	_, err := io.WriteString(out, tableText(headers, rows, terminalWidth(out), style))
+	return err
+}
+
+type tableStyle struct {
+	header, highlight string
+	selected          int
 }
 
 func terminalWidth(out io.Writer) int {
@@ -32,16 +50,20 @@ func terminalWidth(out io.Writer) int {
 	return limit
 }
 
-func tableText(headers []string, rows [][]string, limit int) string {
+func tableText(headers []string, rows [][]string, limit int, style tableStyle) string {
 	if len(headers) == 0 {
 		return "\n"
 	}
 	table := textTable{widths: tableWidths(headers, rows, limit), keepFirst: idColumn(headers[0]), wrap: cells.Wrap}
 	table.border("┏", "┳", "┓", "━")
-	table.row(headers, "┃")
+	table.row(headers, "┃", style.header)
 	table.border("┡", "╇", "┩", "━")
-	for _, row := range rows {
-		table.row(row, "│")
+	for index, row := range rows {
+		color := ""
+		if index == style.selected {
+			color = style.highlight
+		}
+		table.row(row, "│", color)
 	}
 	table.border("└", "┴", "┘", "─")
 	return table.text.String()
@@ -65,7 +87,7 @@ func (t *textTable) border(start, join, end, line string) {
 	t.text.WriteString(end + "\n")
 }
 
-func (t *textTable) row(row []string, bar string) {
+func (t *textTable) row(row []string, bar, color string) {
 	columns := make([][]string, len(t.widths))
 	height := 1
 	for i, value := range row {
@@ -83,7 +105,9 @@ func (t *textTable) row(row []string, bar string) {
 			if line < len(column) {
 				value = column[line]
 			}
-			_, _ = fmt.Fprintf(&t.text, " %s%s %s", value, strings.Repeat(" ", max(0, t.widths[i]-cells.StringWidth(value))), bar)
+			padding := strings.Repeat(" ", max(0, t.widths[i]-cells.StringWidth(value)))
+			t.text.WriteString(paintANSI(" "+value+padding+" ", color))
+			t.text.WriteString(bar)
 		}
 		t.text.WriteByte('\n')
 	}

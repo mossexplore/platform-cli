@@ -10,14 +10,14 @@ ml auth status
 ```
 
 - `context` 无需登录、不访问网络，包含运行模式、上下文模式、会话 ID、当前环境、当前业务、CLI 版本和路径、实际配置路径与会话文件路径。使用 `--json`，不加 `-o json`；只查看报告的路径，不读取配置、凭据、会话或业务文件。JSON 键为“运行模式”“上下文模式”“会话 ID”“当前环境”“当前业务”“CLI 版本”“CLI 路径”“配置路径”“会话文件”等；将“当前环境”与 `auth status` 的 `profile` 对照，无需另外运行 `ml --version`、`ml env show`。
-- **多会话自动隔离**：在 DeepSeek Harness（自动注入 `DSH_SHELL=1` 与 `DSH_SESSION_ID`）或设置了 `ML_SESSION_ID` 时，CLI 自动进入会话隔离模式，每个会话独立保存所选环境与租户/团队，互不覆盖全局配置或其他会话，但共享同一环境的登录凭据与业务目录。新会话默认“未绑定环境、未绑定业务”且绝不静默回退全局配置；若 `当前环境` 为 `未绑定`，先按用户要求执行 `ml env use NAME`（未指定时向用户确认，不猜测默认环境），再核对 `ml auth status` 并按需执行 `ml business use --tenant TENANT_ID [--team TEAM_ID]`。严禁在命令中手工覆写 `DSH_SESSION_ID`、`DSH_SHELL` 或 `ML_SESSION_ID`。
+- **多会话自动隔离**：在 DeepSeek Harness（自动注入 `DSH_SHELL=1` 与 `DSH_SESSION_ID`）或设置了 `ML_SESSION_ID` 时，CLI 自动进入会话隔离模式，每个会话独立保存所选环境与租户/团队，互不覆盖全局配置或其他会话，但共享同一环境的登录凭据与业务目录。新会话默认“未绑定环境、未绑定业务”且绝不静默回退全局配置；若 `当前环境` 为 `未绑定`，先按用户要求执行 `ml env use NAME`（未指定时向用户确认，不猜测默认环境），再核对 `ml auth status` 并按需执行 `ml business TENANT_ID`，团队选择用 `ml business use --tenant TENANT_ID --team TEAM_ID`。严禁在命令中手工覆写 `DSH_SESSION_ID`、`DSH_SHELL` 或 `ML_SESSION_ID`。
 - `auth status` 当前仅输出表格，没有 `-o json` 选项；不续期，显示 `profile`、`username`、`status`、`remaining_minutes`、`expires_at`、`role` 和 `businessId`。必须检查 `status=valid`，不能只看退出码；`profile` 应与 `context` 的环境一致。`businessId` 读取当前生效上下文的业务 ID（会话隔离模式读取当前会话绑定，普通终端读取全局 `selected.businessId`），可用于确认业务 ID；不使用其他来源或旧字段代替。全租户查询使用超级管理员或超级管理员只读角色，旧凭据的角色可以在首次跨租户查询时补全。
 - `remaining_minutes` 的开头数值是当前登录剩余分钟数。启用保活时，括号内显示运行状态；有可用的计划时间时显示下次预计保活时间（北京时间）。确认平台是否已续期，用 `ml auth ping status` 查看“上次平台确认成功”。
 - `businessId` 缺失、为空或为 `-` 时，先看 `context` 是否为“未绑定”，需要核对当前已选租户/团队名称时运行 `ml business show`。未选业务再进入选择流程，不在每次查询前列出全部业务。
 - 在当前聊天内可复用已确认的 CLI 路径、配置来源和命令语法。会话隔离模式下与其他并行会话互不干扰；普通非隔离终端仍共用本地 CLI 状态，此时其他会话的切换可能改变生效环境或业务。
 - 用户要求切换到另一环境时，运行对应的 `ml env use NAME`，再用上述两条命令更新上下文。与已确认环境相同时不重复切换；未指定环境且当前已绑定时沿用当前环境，不擅自切换。若用户给的是显示名，用 `ml env list -o json` 匹配“环境名”，取唯一匹配行的“环境标识”用于切换。未找到或匹配多行时，请用户确认环境标识。开启自动保活时，目标环境未登录或登录过期会提示运行 `ml login`。
 - **Harness 自动保活**：Go CLI 支持通过 Harness 的非交互 Shell 保活，前提是当前环境已登录且已选业务。成功登录、切换环境或业务、执行业务请求后刷新登记，登记默认 30 分钟到期。用 `ml auth ping status` 查看当前环境的终端数、会话数和上次平台确认时间。手动恢复用 `ml auth ping start`，停止用 `ml auth ping stop`，停止会影响当前环境下的其他会话。
-- `ml env list` 默认输出表格。加 `-o json` 返回环境数组，无可展示环境时返回 `[]`。两种格式都隐藏已确认未授权的环境，保留授权状态未知的环境。列表可显示「已授权」「登录使用中」「登录已过期」或「授权状态未知」。管理台类型显示为「搜推广工程平台」或「WiseMLOps平台」。
+- `ml env list` 默认输出表格，在支持彩色输出的终端中，表头以加粗青色显示，带星号的当前环境整行以加粗绿色显示。加 `-o json` 返回环境数组，无可展示环境时返回 `[]`。两种格式都隐藏已确认未授权的环境，保留授权状态未知的环境。列表可显示「已授权」「登录使用中」「登录已过期」或「授权状态未知」。管理台类型显示为「搜推广工程平台」或「WiseMLOps平台」。
 - 核对当前平台标准用户配置路径：Windows 为 `%APPDATA%\ml-go-preview\config.json`，macOS 为 `~/Library/Application Support/ml-go-preview/config.json`，Linux 为 `${XDG_CONFIG_HOME:-~/.config}/ml-go-preview/config.json`。首次加载内置配置时会初始化环境选择。若 `context` 报错或路径不符，停止后续操作并告知用户。
 
 ## 何时重新检查
@@ -54,7 +54,7 @@ Windows Git Bash 可用 `cygpath -u` 转换 `LOCALAPPDATA` 后拼接安装路径
 ## 登录与业务选择
 
 - **无缓存或已过期**：运行 `ml login`，为执行工具至少预留 10 分钟，工具参数名和单位以其说明为准。命令会打开 Edge，由用户完成 SSO 或验证码，之后复查 `ml auth status`。不能代替用户输入凭据，也不要靠运行业务命令来触发登录。
-- **未选业务**：用 `ml business list` 取得当前环境的候选，按用户明确的选择运行 `ml business use --tenant TENANT_ID [--team TEAM_ID] [--department DEPARTMENT_ID]`，按命令结果更新当前业务；输出不足以确认时，再用 `ml business show` 核对一次。必须传 `--tenant`；不传 ID 会进入交互选择，不符合本 skill 的非交互执行要求。业务 ID 不从其他环境复制。
+- **未选业务**：用 `ml business list` 取得当前环境的候选，按用户明确的选择运行 `ml business TENANT_ID`。需要指定团队或部门时，运行 `ml business use --tenant TENANT_ID [--team TEAM_ID] [--department DEPARTMENT_ID]`。按命令结果更新当前业务，必要时用 `ml business show` 核对。业务 ID 不从其他环境复制。
 - **业务目录缺失或失效**：`ml business refresh` 会打开 Edge 刷新目录，同样预留至少 10 分钟，刷新后重新核对选择。
 - **权限调用日志**：排查授权请求时，在权限管理系统的「完整命令」核对选项、参数和顺序。Go 客户端上报全部参数值，包括敏感值与内联脚本；本地历史仍脱敏。报告日志时只摘录排查所需的内容。
 - **退出登录**：`ml logout` 仅在用户要求或排障需要时运行。
@@ -82,7 +82,7 @@ Windows Git Bash 可用 `cygpath -u` 转换 `LOCALAPPDATA` 后拼接安装路径
 | `ml env use` 报“本地状态正在使用”并返回非零退出码 | 在同一个会话运行 `ml context --json`；仍在原环境时稍后重试 |
 | “环境已切换，保活登记待重试” | 切换已成功。核对新环境和业务，成功执行业务请求后会重新尝试登记；用 `ml auth ping status` 检查状态 |
 | “自动保活未能确认启动” | 用 `ml auth ping status` 核对实际进程状态；仅在显示“未运行”且环境已登录、业务已绑定时使用 `ml auth ping start` |
-| 当前会话在环境下尚未选择业务或业务绑定已失效 | 用 `ml business list` 核对候选，按用户选择执行 `ml business use --tenant TENANT_ID [--team TEAM_ID]` |
+| 当前会话在环境下尚未选择业务或业务绑定已失效 | 用 `ml business list` 核对候选，按用户选择执行 `ml business TENANT_ID` 或 `ml business use --tenant TENANT_ID --team TEAM_ID` |
 | `缺少有效的 DSH_SESSION_ID` 或 `ML_SESSION_ID 无效` | 停止操作并报告实际错误，不尝试绕过或回退全局配置 |
 | 未选业务 | 列候选并按用户选择设置；空结果不等于平台无数据 |
 | `当前环境 selected.businessId 与业务目录不一致，请运行 ml business refresh` | 刷新当前环境的业务目录，再用 `ml business show` 核对所选业务。需要重新选择时请用户确认目标 |

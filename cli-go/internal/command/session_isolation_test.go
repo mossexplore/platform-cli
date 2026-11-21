@@ -123,7 +123,7 @@ func TestDSHSessionCommandMatrixAndFailClosed(t *testing.T) {
 	if code != 0 || stderr != "" || !strings.Contains(out, "当前环境：未绑定（会话模式）") {
 		t.Fatalf("unbound tree --all: code=%d out=%s stderr=%s", code, out, stderr)
 	}
-	for _, blocked := range [][]string{{"env", "show"}, {"auth", "status"}, {"business", "list"}, {"business", "show"}, {"tree"}, {"user", "info"}} {
+	for _, blocked := range [][]string{{"env", "show"}, {"auth", "status"}, {"business", "list"}, {"business", "show"}, {"business", "tenant-a"}, {"tree"}, {"user", "info"}} {
 		code, _, stderr := run(t, sess, blocked...)
 		if code == 0 || !strings.Contains(stderr, "尚未绑定环境") {
 			t.Fatalf("expected unbound env block for %v: code=%d stderr=%s", blocked, code, stderr)
@@ -155,9 +155,13 @@ func TestDSHSessionCommandMatrixAndFailClosed(t *testing.T) {
 	}
 
 	// 4. Bind tenant-a and confirm business list/show & context reflect it without altering global state.
-	code, out, stderr = run(t, sess, "business", "use", "--tenant", "tenant-a")
+	code, out, stderr = run(t, sess, "business", "tenant-a")
 	if code != 0 || !strings.Contains(out, "tenant-a") || !strings.Contains(stderr, "已切换") {
-		t.Fatalf("business use: code=%d out=%s stderr=%s", code, out, stderr)
+		t.Fatalf("business TENANT_ID: code=%d out=%s stderr=%s", code, out, stderr)
+	}
+	code, _, stderr = run(t, sess, "business", "missing")
+	if code == 0 || !strings.Contains(stderr, "业务不可选") {
+		t.Fatalf("unknown tenant should fail: code=%d stderr=%s", code, stderr)
 	}
 	code, out, stderr = run(t, sess, "business", "list")
 	if code != 0 || stderr != "" || !strings.Contains(out, "[tenant-a] *当前") || strings.Contains(out, "[tenant-global] *当前") {
@@ -206,7 +210,7 @@ func TestConcurrentSessionsDoNotCrossTalkOrTriggerTargetChanged(t *testing.T) {
 	if code, _, stderr := run(t, sessA, "env", "use", "dev"); code != 0 {
 		t.Fatalf("sessA env use: %s", stderr)
 	}
-	if code, _, stderr := run(t, sessA, "business", "use", "--tenant", "tenant-a"); code != 0 {
+	if code, _, stderr := run(t, sessA, "business", "tenant-a"); code != 0 {
 		t.Fatalf("sessA business use: %s", stderr)
 	}
 	if code, _, stderr := run(t, sessB, "env", "use", "dev"); code != 0 {

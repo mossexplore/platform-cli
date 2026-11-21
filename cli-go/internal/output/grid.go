@@ -29,7 +29,7 @@ func Grid(out io.Writer, entries []string, columns int) error {
 		if offset > 0 {
 			grid.border("├", "┼", "┤", "─")
 		}
-		grid.row(entries[offset:min(offset+columns, len(entries))], "│")
+		grid.row(entries[offset:min(offset+columns, len(entries))], "│", "")
 	}
 	grid.border("└", "┴", "┘", "─")
 	_, err := io.WriteString(out, grid.text.String())

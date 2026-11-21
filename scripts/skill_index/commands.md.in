@@ -25,7 +25,7 @@ WiseRec 和 MLOps 均支持 `train` 和 `feature-task` 命令，`algorithm` 仅�
 | `ml auth ping start` / `stop` / `status` | 交互终端与 DeepSeek Harness 保活；查看状态为只读，停止作用于当前环境 | {{confirm}} | 本地进程与会话登记 |
 | `ml access status [--diagnose]` | 检查 CLI 访问授权 | {{confirm}} | |
 | `ml business list` / `ml business show` | 业务候选 / 当前业务 | {{confirm}} | |
-| `ml business use --tenant ID [--team ID] [--department ID]` | 选择业务；必须传 `--tenant` | {{confirm}} | 本地配置 |
+| `ml business TENANT_ID` / `ml business use --tenant ID [--team ID] [--department ID]` | 直接选择租户 / 指定租户、团队或部门 | {{confirm}} | 本地配置 |
 | `ml business refresh` | 打开 Edge 刷新业务目录 | {{confirm}} | 本地配置 |
 | `ml user info` | 当前账号 | {{confirm}} | |
 | `ml history list [--limit COUNT] -o json` | 最近 20 条本地调用记录，可用 limit 扩大范围，不证明远端结果；设置 `ML_HISTORY=0` 可关闭自动记录 | {{confirm}} | |

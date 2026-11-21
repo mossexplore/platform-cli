@@ -29,13 +29,20 @@ def go_cli_tree(contract_path=CONTRACT):
             group = child
         params = [click.Option([opt], is_flag=True) for opt in options if opt.startswith("-")]
         group.add_command(click.Command(path[-1], params=params))
+    # Go also accepts a tenant ID directly on the business command group.
+    business = root.commands.get("business")
+    if isinstance(business, click.Group):
+        business.params.append(click.Argument(["tenant_id"]))
     return root
 
 
 def leaves(command, prefix=()):
     if isinstance(command, click.Group):
-        return {path: leaf for name, child in command.commands.items()
-                for path, leaf in leaves(child, prefix + (name,)).items()}
+        paths = {path: leaf for name, child in command.commands.items()
+                 for path, leaf in leaves(child, prefix + (name,)).items()}
+        if any(isinstance(param, click.Argument) for param in command.params):
+            paths[prefix] = command
+        return paths
     return {prefix: command}
 
 
@@ -50,9 +57,12 @@ def resolve_example(root, example, parent):
         name = tokens.pop(0)
         path.append(name)
         command = command.commands[name]
-    # Root --version is an option entry, not a leaf command.
-    if isinstance(command, click.Group) and (path or tokens != ["--version"]):
-        raise ValueError(f"Unknown or incomplete command: {example}")
+    if isinstance(command, click.Group):
+        argument_count = sum(isinstance(param, click.Argument) for param in command.params)
+        version_option = not path and tokens == ["--version"]
+        has_arguments = argument_count > 0 and len(tokens) == argument_count
+        if not version_option and not has_arguments:
+            raise ValueError(f"Unknown or incomplete command: {example}")
     declared = {option for parameter in command.params
                 for option in parameter.opts + parameter.secondary_opts
                 if option.startswith("-")}

@@ -16,7 +16,7 @@ import (
 )
 
 func newBusiness(options Options, load loadConfig) *cobra.Command {
-	group := &cobra.Command{Use: "business", Short: "管理部门、租户和团队"}
+	group := &cobra.Command{Use: "business [TENANT_ID]", Short: "管理部门、租户和团队，可直接指定租户 ID", Args: optionalPositional(1)}
 	list := &cobra.Command{Use: "list", Short: "显示当前环境可见的部门、租户和团队目录", Args: positional(0)}
 	show := &cobra.Command{Use: "show", Short: "显示当前租户或团队上下文", Args: positional(0)}
 	use := &cobra.Command{Use: "use", Short: "交互式或通过 ID 选择租户和团队", Args: positional(0)}
@@ -64,16 +64,16 @@ func newBusiness(options Options, load loadConfig) *cobra.Command {
 		}
 		return printBusiness(cmd, entry)
 	}
-	use.RunE = func(cmd *cobra.Command, _ []string) error {
+	selectBusiness := func(cmd *cobra.Command, tenantID string, direct bool) error {
 		paths, cfg, creds, entry, err := currentBusiness(load, true)
 		if err != nil {
 			return err
 		}
-		department, tenantID, teamID := *dept, *tenant, *team
-		if cmd.Flags().Changed("search") && (cmd.Flags().Changed("tenant") || strings.TrimSpace(*search) == "") {
+		department, teamID := *dept, *team
+		if cmd.Flags().Changed("search") && (direct || strings.TrimSpace(*search) == "") {
 			return usageError{errors.New("--search 须包含关键词且仅用于交互选择")}
 		}
-		if !cmd.Flags().Changed("tenant") {
+		if !direct {
 			if cmd.Flags().Changed("team") || cmd.Flags().Changed("department") {
 				return usageError{errors.New("请同时通过 --tenant 指定租户")}
 			}
@@ -98,6 +98,15 @@ func newBusiness(options Options, load loadConfig) *cobra.Command {
 		startAutoPing(cmd, paths, cfg, options.Version, true)
 		maintainSessionFiles(paths, cfg)
 		return nil
+	}
+	use.RunE = func(cmd *cobra.Command, _ []string) error {
+		return selectBusiness(cmd, *tenant, cmd.Flags().Changed("tenant"))
+	}
+	group.RunE = func(cmd *cobra.Command, args []string) error {
+		if len(args) == 0 {
+			return cmd.Help()
+		}
+		return selectBusiness(cmd, args[0], true)
 	}
 	refresh.RunE = func(cmd *cobra.Command, _ []string) error {
 		paths, cfg, err := load()

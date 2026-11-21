@@ -25,7 +25,7 @@ ml                                              WiseRec 命令行工具
 │   ├── list                                    查看可用环境
 │   ├── show                                    查看当前环境
 │   └── use                                     切换环境
-├── business                                    业务选择
+├── business                                    业务选择，可直接指定租户 ID
 │   ├── list                                    查看可选租户和团队
 │   ├── show                                    查看当前业务选择
 │   ├── use                                     选择租户或团队，可逐级返回或取消
@@ -277,7 +277,7 @@ ml tree
 
 结果正文和表格输出到标准输出流；操作提示、进度、交互输入、警告及错误输出到标准错误流。JSON、文件内容及远端程序输出保留原格式。未知命令或参数错误显示简短错误和对应的 `--help` 用法，不显示异常堆栈。重定向消息到文件时自动关闭颜色，设置 `NO_COLOR` 环境变量也可关闭颜色。警告不单独改变退出码；操作成功返回 `0`，失败返回非零，已有超时及中断退出码保持不变。
 
-提示未登录或未选择业务时，分别执行 `ml login`、`ml business use`。查询不到目标时核对环境、业务和页码；操作超时后先查询远程状态，再决定是否重试。
+提示未登录时执行 `ml login`。未选择业务时，用 `ml business TENANT_ID` 直接切换，或用 `ml business use` 交互选择。查询不到目标时核对环境、业务和页码；操作超时后先查询远程状态，再决定是否重试。
 
 在支持多会话隔离的运行环境中（如 DeepSeek Harness 自动注入 `DSH_SHELL=1` 与 `DSH_SESSION_ID`，或显式设置环境变量 `ML_SESSION_ID`），每个会话独立保存环境与业务选择，不改写全局默认状态，也互不覆盖其他会话；新会话默认未绑定环境与业务，须先运行 `ml env use` 和 `ml business use` 后再执行业务命令。同一环境的登录凭据与业务目录在多会话间共享。可用 `ml context` 或 `ml context --json` 核对当前上下文模式、会话 ID、环境及业务。
 
@@ -382,7 +382,7 @@ ml env use NAME
 
 安装或重装后，本地策略采用安装包中的配置。`ml tree` 隐藏禁用分组及其子命令，`ml tree --all` 在受影响的分组和命令描述末尾显示红色 `[当前环境禁用]`。直接执行会提示“当前环境 ENV 禁止执行 COMMAND”，在登录、保活和业务请求前报错退出；`--help` 仍可查看。
 
-`list` 显示“当前在用环境”“环境标识”“环境名”“管理台类型”“管理台地址”“状态”六列。管理台类型 `wiserec` 显示为“搜推广工程平台”，`mlops` 显示为“WiseMLOps平台”。“环境标识”显示 profile 的 `name`，“环境名”显示 `alias`，未配置别名时显示 `name`。星号表示当前环境，支持彩色输出的终端中该环境整行以加粗绿色文字显示；`show` 显示当前环境，`use` 切换环境。切换仍使用 `name`，例如 `ml env use dev`，不能使用别名。
+`list` 显示“当前在用环境”“环境标识”“环境名”“管理台类型”“管理台地址”“状态”六列。管理台类型 `wiserec` 显示为“搜推广工程平台”，`mlops` 显示为“WiseMLOps平台”。“环境标识”显示 profile 的 `name`，“环境名”显示 `alias`，未配置别名时显示 `name`。星号表示当前环境。在支持彩色输出的终端中，表头以加粗青色显示，当前环境整行以加粗绿色显示。重定向或设置 `NO_COLOR` 后，表格以纯文本显示。`show` 显示当前环境，`use` 切换环境。切换仍使用 `name`，例如 `ml env use dev`，不能使用别名。
 
 `ml env list` 最多发送一次批量请求，查询当前环境保存账号的有效授权。状态为：确认无有效授权的环境不展示；有授权但未登录或未完成业务选择显示“已授权”；该账号登录有效且已选择业务显示“登录使用中”；有授权但该账号的登录凭据过期显示“登录已过期”。其他环境保存的不同账号不会作为当前账号的登录状态。各环境检查使用自身保存的业务 ID，不会切换环境，也不替代业务命令执行前的实时鉴权。
 
@@ -408,6 +408,7 @@ ml auth status
 ### 6.1 命令格式
 
 ```text
+ml business TENANT_ID
 ml business list
 ml business show
 ml business use [OPTIONS]
@@ -418,19 +419,23 @@ ml business refresh
 
 | 选项 | 用途 |
 | --- | --- |
-| `--tenant ID` | 选择租户 |
+| `TENANT_ID` | 直接选择租户的完整 ID，可从 `ml business list` 查询 |
+| `--tenant ID` | 在 `business use` 中指定租户 |
 | `--team ID` | 在指定租户内选择团队，需同时提供 `--tenant` |
 | `--department ID` | 同名租户有歧义时指定部门，需同时提供 `--tenant` |
 | `--search 关键词` | 按部门名称或 ID 的部分内容筛选交互列表，不能与 `--tenant` 同时使用 |
 
 ### 6.3 说明
 
-`business use` 引导选择部门、租户和团队：输入序号选择，`b` 返回，`q` 取消，核对后输入 `y` 保存。`--search` 筛选部门；直接指定 `--tenant` 无需交互确认。取消时保留原选择。使用 `show` 核对选择，`refresh` 刷新目录。在多会话隔离模式下，`business use` 仅更新当前会话在当前环境下的租户或团队选择，不覆盖全局默认选择与其他并行会话。
+登录当前环境后，执行 `ml business TENANT_ID` 可直接切换到租户级业务，无需交互确认。租户 ID 有歧义时，用 `ml business use --tenant TENANT_ID --department DEPARTMENT_ID` 指定部门。选择团队时，使用 `ml business use --tenant TENANT_ID --team TEAM_ID`。
+
+单独运行 `business use` 会引导选择部门、租户和团队。输入序号选择，`b` 返回，`q` 取消，核对后输入 `y` 保存。`--search` 筛选部门；直接指定 `--tenant` 无需交互确认。取消时保留原选择。使用 `show` 核对选择，`refresh` 刷新目录。在多会话隔离模式下，业务切换只更新当前会话在当前环境下的选择。
 
 ### 6.4 示例
 
 ```bash
 ml business list
+ml business TENANT_ID
 ml business use
 ml business use --search 云平台
 ml business use --tenant mep --team team-a

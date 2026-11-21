@@ -1,7 +1,6 @@
 package command
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -33,6 +32,7 @@ func newEnv(options Options, load loadConfig) *cobra.Command {
 			fmt.Fprintln(cmd.ErrOrStderr(), "[错误]", accessErr)
 		}
 		rows := []output.Fields{}
+		currentRow := -1
 		for _, profile := range cfg.Profiles {
 			state := statuses[profile.Name]
 			if state == "未授权" || errors.Is(accessErr, platform.ErrNoAccess) {
@@ -44,6 +44,7 @@ func newEnv(options Options, load loadConfig) *cobra.Command {
 			marker := ""
 			if cfg.Current == profile.Name {
 				marker = "*"
+				currentRow = len(rows)
 			}
 			platformName := "搜推广工程平台"
 			if profile.PlatformType == "mlops" {
@@ -57,7 +58,7 @@ func newEnv(options Options, load loadConfig) *cobra.Command {
 			_, err := fmt.Fprintln(cmd.ErrOrStderr(), "[提示] 暂无已授权环境")
 			return err
 		}
-		return renderFieldsList(cmd, selected, rows)
+		return renderEnvironmentList(cmd, selected, rows, currentRow)
 	}
 	show := &cobra.Command{Use: "show", Short: "显示当前环境", Args: positional(0)}
 	show.RunE = func(cmd *cobra.Command, _ []string) error {
@@ -108,7 +109,7 @@ func newEnv(options Options, load loadConfig) *cobra.Command {
 		if paths.IsSessionIsolated() {
 			if creds, err := paths.CredentialsFor(profile); err == nil {
 				if _, err := paths.SelectedBusiness(creds); err != nil {
-					fmt.Fprintf(cmd.ErrOrStderr(), "[提示] 当前会话在环境 %s 下尚未选择业务，请运行 ml business use --tenant <租户ID>\n", profile.Name)
+					fmt.Fprintf(cmd.ErrOrStderr(), "[提示] 当前会话在环境 %s 下尚未选择业务，请运行 ml business <租户ID>\n", profile.Name)
 				}
 			}
 			if prevCurrent == profile.Name {
@@ -135,15 +136,23 @@ func newEnv(options Options, load loadConfig) *cobra.Command {
 	return env
 }
 
-func renderFieldsList(cmd *cobra.Command, format string, rows []output.Fields) error {
+func renderEnvironmentList(cmd *cobra.Command, format string, rows []output.Fields, currentRow int) error {
 	if format == "json" {
 		return output.JSON(cmd.OutOrStdout(), rows)
 	}
-	raw, err := json.Marshal(rows)
-	if err != nil {
-		return err
+	headers := make([]string, 0, len(rows[0]))
+	for _, field := range rows[0] {
+		headers = append(headers, field.Key)
 	}
-	return output.ResultTable(cmd.OutOrStdout(), raw)
+	values := make([][]string, 0, len(rows))
+	for _, row := range rows {
+		cells := make([]string, 0, len(row))
+		for _, field := range row {
+			cells = append(cells, field.Value)
+		}
+		values = append(values, cells)
+	}
+	return output.HighlightedTable(cmd.OutOrStdout(), headers, values, currentRow)
 }
 
 func labelOrID(label, id string) string {
