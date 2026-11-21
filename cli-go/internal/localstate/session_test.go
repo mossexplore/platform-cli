@@ -293,6 +293,10 @@ func TestSessionTTLCleanup(t *testing.T) {
 	if err := WritePrivate(oldSess.SessionFile(), oldData); err != nil {
 		t.Fatal(err)
 	}
+	expiredAt := now.Add(-8 * 24 * time.Hour)
+	if err := os.Chtimes(oldSess.SessionFile(), expiredAt, expiredAt); err != nil {
+		t.Fatal(err)
+	}
 	if err := WritePrivate(recentSess.SessionFile(), recentData); err != nil {
 		t.Fatal(err)
 	}
@@ -300,6 +304,29 @@ func TestSessionTTLCleanup(t *testing.T) {
 	if _, err := activeSess.UseEnvironment("test"); err != nil {
 		t.Fatal(err)
 	}
+	if _, err := os.Stat(oldSess.SessionFile()); err != nil {
+		t.Fatalf("switch unexpectedly ran cleanup: %v", err)
+	}
+	unlock, err := oldSess.LockSession()
+	if err != nil {
+		t.Fatal(err)
+	}
+	activeSess.MaintainSessions(now, nil)
+	unlock()
+	activeSess.MaintainSessions(now.Add(time.Minute), nil)
+	if _, err := os.Stat(oldSess.SessionFile()); err != nil {
+		t.Fatalf("busy session was removed or cleanup was not throttled: %v", err)
+	}
+	nextSweep := now.Add(2 * SessionCleanupInterval)
+	activeSess.MaintainSessions(nextSweep, []SessionScope{oldSess.Session})
+	if _, err := os.Stat(oldSess.SessionFile()); err != nil {
+		t.Fatalf("registered session was removed: %v", err)
+	}
+	marker := filepath.Join(base.SessionsDir(), ".last-cleanup")
+	if err := os.Chtimes(marker, now, now); err != nil {
+		t.Fatal(err)
+	}
+	activeSess.MaintainSessions(nextSweep, nil)
 	if _, err := os.Stat(oldSess.SessionFile()); !os.IsNotExist(err) {
 		t.Fatalf("expired session file was not cleaned up: %v", err)
 	}
@@ -308,5 +335,26 @@ func TestSessionTTLCleanup(t *testing.T) {
 	}
 	if _, err := os.Stat(activeSess.SessionFile()); err != nil {
 		t.Fatalf("active session file should remain: %v", err)
+	}
+}
+
+func TestSessionLocksAreIndependent(t *testing.T) {
+	base := configTestPaths(t)
+	a := base.WithSession(SessionScope{Mode: SessionModeDSH, ID: "a"})
+	b := base.WithSession(SessionScope{Mode: SessionModeDSH, ID: "b"})
+	unlock, err := a.LockSession()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer unlock()
+	if _, err := a.lockWithin(sessionLockName(a.SessionFile()), 0); !errors.Is(err, ErrLockBusy) {
+		t.Fatalf("same session lock was not exclusive: %v", err)
+	}
+	if _, err := b.UseEnvironment("test"); err != nil {
+		t.Fatalf("session B was blocked by A: %v", err)
+	}
+	state, _, err := b.LoadSessionState()
+	if err != nil || state.Current != "test" {
+		t.Fatalf("session B did not switch: %+v, %v", state, err)
 	}
 }

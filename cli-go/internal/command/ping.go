@@ -107,6 +107,12 @@ func canStartPing(cmd *cobra.Command, paths localstate.Paths) bool {
 	return paths.Session.Mode == localstate.SessionModeDSH || fromTerminal(cmd)
 }
 
+func maintainSessionFiles(paths localstate.Paths, cfg localstate.Config) {
+	if paths.IsSessionIsolated() {
+		keepalive.MaintainSessions(paths, time.Duration(cfg.Auth.PingMinutes)*time.Minute)
+	}
+}
+
 func pingTime(value time.Time) string {
 	if value.IsZero() {
 		return "-"

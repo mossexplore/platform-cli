@@ -187,8 +187,23 @@ func (p Paths) SessionFile() string {
 	return filepath.Join(p.SessionsDir(), fmt.Sprintf("%x.json", sum[:16]))
 }
 
-func (p Paths) LockSessions() (func(), error) {
-	return p.lock("sessions.lock")
+func sessionLockName(stateFile string) string {
+	id := strings.TrimSuffix(filepath.Base(stateFile), ".json")
+	return filepath.Join("sessions", "locks", id+".lock")
+}
+
+func (p Paths) LockSession() (func(), error) {
+	return p.lockSessionWithin(DefaultLockWait)
+}
+
+func (p Paths) lockSessionWithin(wait time.Duration) (func(), error) {
+	if err := p.ValidateSession(); err != nil {
+		return nil, err
+	}
+	if !p.IsSessionIsolated() {
+		return nil, errors.New("当前未启用会话隔离")
+	}
+	return p.lockWithin(sessionLockName(p.SessionFile()), wait)
 }
 
 func (p Paths) LoadSessionState() (SessionState, bool, error) {
@@ -231,11 +246,7 @@ func (p Paths) writeSessionStateLocked(state SessionState, now time.Time) error 
 	state.Source = string(p.Session.Mode)
 	state.SessionID = p.Session.ID
 	state.UpdatedAt = now.UTC()
-	if err := writeState(p.SessionFile(), state); err != nil {
-		return err
-	}
-	p.CleanupExpiredSessions(now, defaultSessionTTL)
-	return nil
+	return writeState(p.SessionFile(), state)
 }
 
 func (p Paths) UpdateSessionState(mutate func(*SessionState) error) error {
@@ -245,7 +256,7 @@ func (p Paths) UpdateSessionState(mutate func(*SessionState) error) error {
 	if !p.IsSessionIsolated() {
 		return nil
 	}
-	unlock, err := p.LockSessions()
+	unlock, err := p.LockSession()
 	if err != nil {
 		return err
 	}
@@ -267,7 +278,7 @@ func (p Paths) setSessionEnvironment(name string) error {
 	if !p.IsSessionIsolated() {
 		return nil
 	}
-	unlock, err := p.LockSessions()
+	unlock, err := p.LockSession()
 	if err != nil {
 		return err
 	}
@@ -279,39 +290,4 @@ func (p Paths) setSessionEnvironment(name string) error {
 	}
 	state.Current = name
 	return p.writeSessionStateLocked(state, time.Now())
-}
-
-func (p Paths) CleanupExpiredSessions(now time.Time, ttl time.Duration) {
-	if ttl <= 0 {
-		return
-	}
-	entries, err := os.ReadDir(p.SessionsDir())
-	if err != nil {
-		return
-	}
-	currentBase := filepath.Base(p.SessionFile())
-	cutoff := now.Add(-ttl)
-	for _, entry := range entries {
-		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".json") || entry.Name() == currentBase {
-			continue
-		}
-		full := filepath.Join(p.SessionsDir(), entry.Name())
-		stamp := time.Time{}
-		if raw, err := os.ReadFile(full); err == nil {
-			var state SessionState
-			if json.Unmarshal(raw, &state) == nil && !state.UpdatedAt.IsZero() {
-				stamp = state.UpdatedAt
-			}
-		}
-		if stamp.IsZero() {
-			info, err := entry.Info()
-			if err != nil {
-				continue
-			}
-			stamp = info.ModTime()
-		}
-		if stamp.Before(cutoff) {
-			_ = os.Remove(full)
-		}
-	}
 }

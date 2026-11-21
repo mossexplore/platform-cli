@@ -195,6 +195,7 @@ func newRoot(options Options) *cobra.Command {
 				}
 			}
 			startAutoPing(cmd, paths, cfg, options.Version, paths.Session.Mode == localstate.SessionModeDSH)
+			maintainSessionFiles(paths, cfg)
 			return nil
 		},
 	}

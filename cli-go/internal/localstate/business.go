@@ -259,26 +259,35 @@ func readJSON(path string, target any) error {
 }
 
 func (p Paths) ExtendCredentials(profile Profile, current Credentials, businessID, cookie, token string, ttl time.Duration) error {
-	return p.extendCredentials(profile, current, KeepaliveTarget{BusinessID: businessID}, cookie, token, ttl, false)
-}
-
-func (p Paths) ExtendKeepaliveCredentials(profile Profile, current Credentials, target KeepaliveTarget, cookie, token string, ttl time.Duration) error {
-	return p.extendCredentials(profile, current, target, cookie, token, ttl, true)
-}
-
-func (p Paths) extendCredentials(profile Profile, current Credentials, target KeepaliveTarget, cookie, token string, ttl time.Duration, keepalive bool) error {
 	unlock, err := p.LockState()
 	if err != nil {
 		return err
 	}
 	defer unlock()
-	if keepalive && p.IsSessionIsolated() {
-		unlockSession, err := p.LockSessions()
+	return p.extendCredentialsLocked(profile, current, KeepaliveTarget{BusinessID: businessID}, cookie, token, ttl, false)
+}
+
+// TryExtendKeepaliveCredentials acquires the locks in state, session, registry
+// order. The worker supplies commit to validate its ownership before writing.
+func (p Paths) TryExtendKeepaliveCredentials(profile Profile, current Credentials, target KeepaliveTarget, cookie, token string, ttl time.Duration, commit func(write func() error) error) error {
+	unlock, err := p.lockStateWithin(0)
+	if err != nil {
+		return err
+	}
+	defer unlock()
+	if p.IsSessionIsolated() {
+		unlockSession, err := p.lockSessionWithin(0)
 		if err != nil {
 			return err
 		}
 		defer unlockSession()
 	}
+	return commit(func() error {
+		return p.extendCredentialsLocked(profile, current, target, cookie, token, ttl, true)
+	})
+}
+
+func (p Paths) extendCredentialsLocked(profile Profile, current Credentials, target KeepaliveTarget, cookie, token string, ttl time.Duration, keepalive bool) error {
 	latest, err := p.CredentialsFor(profile)
 	if err != nil {
 		return err

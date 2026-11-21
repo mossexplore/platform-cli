@@ -5,6 +5,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"time"
 )
 
 func (p Paths) LockLogin() (func(), error) {
@@ -12,10 +13,18 @@ func (p Paths) LockLogin() (func(), error) {
 }
 
 func (p Paths) LockState() (func(), error) {
-	return p.lock("state.lock")
+	return p.lockStateWithin(DefaultLockWait)
+}
+
+func (p Paths) lockStateWithin(wait time.Duration) (func(), error) {
+	return p.lockWithin("state.lock", wait)
 }
 
 func (p Paths) LockPing() (func(), error) { return p.lock("ping-go.lock") }
+
+func (p Paths) LockPingWithin(wait time.Duration) (func(), error) {
+	return p.lockWithin("ping-go.lock", wait)
+}
 
 func (p Paths) SaveLogin(creds Credentials, catalog []Department, browserBusinessID string) (string, error) {
 	if err := p.ValidateSession(); err != nil {

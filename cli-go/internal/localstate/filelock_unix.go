@@ -18,3 +18,5 @@ func lockFile(file *os.File) (bool, error) {
 }
 
 func unlockFile(file *os.File) error { return unix.Flock(int(file.Fd()), unix.LOCK_UN) }
+
+func lockSharingViolation(error) bool { return false }

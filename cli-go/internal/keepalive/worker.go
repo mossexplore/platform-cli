@@ -13,7 +13,7 @@ import (
 
 const (
 	WorkerArg      = "--internal-go-ping-worker"
-	workerProtocol = 1
+	workerProtocol = 2
 	workerPoll     = 5 * time.Second
 )
 
@@ -40,10 +40,17 @@ func RunWorker(ctx context.Context, paths localstate.Paths, name, token, version
 		return err
 	}
 	defer func() { _ = w.update(func(entry *Entry) error { clearWorker(entry); return nil }) }()
+	var nextCleanup time.Time
 	for ctx.Err() == nil {
 		stop, err := w.poll(ctx)
-		if stop || err != nil {
+		if (stop || err != nil) && !errors.Is(err, localstate.ErrLockBusy) {
 			return err
+		}
+		if now := time.Now(); now.After(nextCleanup) {
+			if cfg, err := localstate.LoadConfig(w.paths); err == nil {
+				MaintainSessions(w.paths, time.Duration(cfg.Auth.PingMinutes)*time.Minute)
+			}
+			nextCleanup = now.Add(localstate.SessionCleanupInterval)
 		}
 		select {
 		case <-ctx.Done():
@@ -59,7 +66,11 @@ func clearWorker(entry *Entry) {
 }
 
 func (w *worker) update(change func(*Entry) error) error {
-	return update(w.paths, func(entries map[string]Entry) error {
+	return w.updateWithin(localstate.DefaultLockWait, change)
+}
+
+func (w *worker) updateWithin(wait time.Duration, change func(*Entry) error) error {
+	return updateWithin(w.paths, wait, func(entries map[string]Entry) error {
 		entry := entries[w.name]
 		if w.token == "" || entry.WorkerToken != w.token || entry.WorkerPID != os.Getpid() {
 			return errReplaced
@@ -167,18 +178,25 @@ func selectProbeTarget(paths localstate.Paths, entry Entry, creds localstate.Cre
 	return selected, rank != 0
 }
 
-func (target probeTarget) active(entry Entry, creds localstate.Credentials, interval time.Duration) bool {
+func (target probeTarget) registered(entry Entry, interval time.Duration) bool {
 	if entry.Status == "stopping" {
 		return false
 	}
 	now := time.Now()
 	for _, item := range entry.Owner {
 		if item.ownerRef == target.owner && item.live(now, interval) {
-			business, err := target.paths.KeepaliveTarget(creds)
-			return err == nil && business == target.business
+			return true
 		}
 	}
 	return false
+}
+
+func (target probeTarget) active(entry Entry, creds localstate.Credentials, interval time.Duration) bool {
+	if !target.registered(entry, interval) {
+		return false
+	}
+	business, err := target.paths.KeepaliveTarget(creds)
+	return err == nil && business == target.business
 }
 
 func (w *worker) probe(ctx context.Context, cfg localstate.Config, creds localstate.Credentials, target probeTarget, interval time.Duration) (bool, error) {
@@ -203,20 +221,8 @@ func (w *worker) probe(ctx context.Context, cfg localstate.Config, creds localst
 	}
 	session := platform.Session{Paths: target.paths, Config: cfg, CLIVersion: w.version}
 	err = session.Probe(ctx, creds, target.business.BusinessID, id, func(cookie, csrf string) error {
-		return w.update(func(entry *Entry) error {
-			if !target.active(*entry, creds, interval) {
-				return errTargetChanged
-			}
-			ttl := time.Duration(cfg.Auth.TTLSeconds) * time.Second
-			if err := target.paths.ExtendKeepaliveCredentials(profile, creds, target.business, cookie, csrf, ttl); err != nil {
-				return err
-			}
-			entry.Status = "running"
-			entry.LastConfirmed, entry.LastActivity = time.Now(), time.Now()
-			entry.LastOwner, entry.Error = target.owner, ""
-			entry.Success++
-			return nil
-		})
+		ttl := time.Duration(cfg.Auth.TTLSeconds) * time.Second
+		return w.confirmProbe(ctx, profile, creds, target, cookie, csrf, ttl, interval)
 	})
 	if err == nil {
 		w.retryDelay = 0
@@ -247,6 +253,37 @@ func (w *worker) probe(ctx context.Context, cfg localstate.Config, creds localst
 		return nil
 	})
 	return expired, reportErr
+}
+
+func (w *worker) confirmProbe(ctx context.Context, profile localstate.Profile, creds localstate.Credentials, target probeTarget, cookie, csrf string, ttl, interval time.Duration) error {
+	deadline := time.Now().Add(localstate.DefaultLockWait)
+	for {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+		err := target.paths.TryExtendKeepaliveCredentials(profile, creds, target.business, cookie, csrf, ttl, func(write func() error) error {
+			return w.updateWithin(0, func(entry *Entry) error {
+				if !target.registered(*entry, interval) {
+					return errTargetChanged
+				}
+				if err := write(); err != nil {
+					return err
+				}
+				entry.Status = "running"
+				entry.LastConfirmed, entry.LastActivity = time.Now(), time.Now()
+				entry.LastOwner, entry.Error = target.owner, ""
+				entry.Success++
+				return nil
+			})
+		})
+		if !errors.Is(err, localstate.ErrLockBusy) || !time.Now().Before(deadline) {
+			return err
+		}
+		// Retry the same response with no locks held between attempts.
+		if err := waitForStateChange(ctx); err != nil {
+			return err
+		}
+	}
 }
 
 func (w *worker) sameCredentials(profile localstate.Profile, creds localstate.Credentials) bool {

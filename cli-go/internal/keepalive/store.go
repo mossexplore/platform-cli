@@ -60,7 +60,11 @@ func load(paths localstate.Paths) (entryFile, error) {
 }
 
 func update(paths localstate.Paths, change func(map[string]Entry) error) error {
-	unlock, err := paths.LockPing()
+	return updateWithin(paths, localstate.DefaultLockWait, change)
+}
+
+func updateWithin(paths localstate.Paths, wait time.Duration, change func(map[string]Entry) error) error {
+	unlock, err := paths.LockPingWithin(wait)
 	if err != nil {
 		return err
 	}
@@ -112,32 +116,53 @@ func Stop(paths localstate.Paths, profile string, all bool) error {
 		return nil
 	})
 }
-func Detach(paths localstate.Paths, profile string) error {
-	pid := os.Getppid()
-	return update(paths, func(entries map[string]Entry) error {
-		entry, exists := entries[profile]
-		if !exists {
+func detachOwner(entries map[string]Entry, paths localstate.Paths, profile string) error {
+	entry, exists := entries[profile]
+	if !exists {
+		return nil
+	}
+	if paths.IsSessionIsolated() {
+		state, _, err := paths.LoadSessionState()
+		if err != nil {
+			return err
+		}
+		if state.Current == profile {
 			return nil
 		}
-		if paths.IsSessionIsolated() {
-			state, _, err := paths.LoadSessionState()
-			if err != nil {
-				return err
-			}
-			if state.Current == profile {
-				return nil
-			}
+	}
+	pid := os.Getppid()
+	owners := []owner{}
+	for _, item := range entry.Owner {
+		if !item.belongsTo(paths.Session, pid) {
+			owners = append(owners, item)
 		}
-		owners := []owner{}
-		for _, item := range entry.Owner {
-			if !item.belongsTo(paths.Session, pid) {
-				owners = append(owners, item)
-			}
-		}
-		entry.Owner = owners
-		entries[profile] = entry
-		return nil
+	}
+	entry.Owner = owners
+	entries[profile] = entry
+	return nil
+}
+
+func DetachTerminal(paths localstate.Paths, profile string) error {
+	return update(paths, func(entries map[string]Entry) error {
+		return detachOwner(entries, paths, profile)
 	})
+}
+
+func MaintainSessions(paths localstate.Paths, interval time.Duration) {
+	file, err := load(paths)
+	if err != nil {
+		return
+	}
+	now := time.Now()
+	var active []localstate.SessionScope
+	for _, entry := range file.Profiles {
+		for _, item := range validOwners(entry, now, interval) {
+			if scoped, ok := item.paths(paths); ok && scoped.IsSessionIsolated() {
+				active = append(active, scoped.Session)
+			}
+		}
+	}
+	paths.MaintainSessions(now, active)
 }
 func Touch(paths localstate.Paths, profile, username, endpoint string) {
 	file, err := load(paths)

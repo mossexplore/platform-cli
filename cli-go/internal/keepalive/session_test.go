@@ -154,7 +154,7 @@ func TestWorkerUsesSessionBusinessAndKeepsOtherSessions(t *testing.T) {
 			if _, err := f.a.UseEnvironment("uat"); err != nil {
 				t.Fatal(err)
 			}
-			if err := Detach(f.a, f.profile.Name); err != nil {
+			if _, err := SyncEnvironment(f.a, localstate.Config{}, f.profile.Name, f.worker.version, false); err != nil {
 				t.Fatal(err)
 			}
 			if err := f.worker.update(func(entry *Entry) error {
@@ -229,6 +229,63 @@ func TestWorkerDiscardsSupersededProbeResponse(t *testing.T) {
 			creds, err := f.base.CredentialsFor(f.profile)
 			if err != nil || creds.Cookie != tt.cookie {
 				t.Fatalf("obsolete response replaced the credential: %v", err)
+			}
+		})
+	}
+}
+
+func TestKeepaliveReleasesLocksBetweenCommitAttempts(t *testing.T) {
+	tests := []struct {
+		name string
+		lock func(keepaliveFixture) (func(), error)
+	}{
+		{"state", func(f keepaliveFixture) (func(), error) { return f.base.LockState() }},
+		{"session", func(f keepaliveFixture) (func(), error) { return f.a.LockSession() }},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			f := newKeepaliveFixture(t, "https://fixture.example.test", "")
+			entry, _, err := View(f.base, f.profile.Name, testInterval)
+			if err != nil {
+				t.Fatal(err)
+			}
+			creds, err := f.base.CredentialsFor(f.profile)
+			if err != nil {
+				t.Fatal(err)
+			}
+			target, ok := selectProbeTarget(f.base, entry, creds)
+			if !ok {
+				t.Fatal("no probe target")
+			}
+
+			unlock, err := tt.lock(f)
+			if err != nil {
+				t.Fatal(err)
+			}
+			done := make(chan error, 1)
+			go func() {
+				done <- f.worker.confirmProbe(context.Background(), f.profile, creds, target, "fixture=renewed", "", time.Hour, testInterval)
+			}()
+			select {
+			case err := <-done:
+				unlock()
+				t.Fatalf("probe finished before the %s lock was released: %v", tt.name, err)
+			case <-time.After(125 * time.Millisecond):
+			}
+			unlockPing, pingErr := f.base.LockPingWithin(0)
+			if unlockPing != nil {
+				unlockPing()
+			}
+			unlock()
+			if pingErr != nil {
+				t.Fatalf("probe held the registry while waiting for the %s lock: %v", tt.name, pingErr)
+			}
+			if err := <-done; err != nil {
+				t.Fatal(err)
+			}
+			renewed, err := f.base.CredentialsFor(f.profile)
+			if err != nil || renewed.Cookie != "fixture=renewed" {
+				t.Fatalf("probe failed to renew after the %s lock was released: %v", tt.name, err)
 			}
 		})
 	}

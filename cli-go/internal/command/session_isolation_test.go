@@ -16,6 +16,37 @@ import (
 	"github.com/mossexplore/platform-cli/cli-go/internal/localstate"
 )
 
+func TestSessionEnvironmentSwitchReturnsWhilePingLockIsHeld(t *testing.T) {
+	base, err := localstate.NewPaths(t.TempDir(), []byte(`{
+		"current":"dev",
+		"profiles":[{"name":"dev","api_endpoint":"https://dev.example.test"},{"name":"uat","api_endpoint":"https://uat.example.test"}]
+	}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	paths := base.WithSession(localstate.SessionScope{Mode: localstate.SessionModeDSH, ID: "switch-with-busy-ping"})
+	if _, err := paths.UseEnvironment("dev"); err != nil {
+		t.Fatal(err)
+	}
+	unlock, err := base.LockPing()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer unlock()
+	started := time.Now()
+	code, _, stderr := run(t, paths, "--no-history", "env", "use", "uat")
+	if code != 0 || !strings.Contains(stderr, "当前环境已切换为: uat") || !strings.Contains(stderr, "保活登记待重试") {
+		t.Fatalf("expected successful switch with a deferred registration, got %d: %s", code, stderr)
+	}
+	if elapsed := time.Since(started); elapsed >= localstate.DefaultLockWait {
+		t.Fatalf("switch waited for the default lock timeout: %v", elapsed)
+	}
+	state, _, err := paths.LoadSessionState()
+	if err != nil || state.Current != "uat" {
+		t.Fatalf("target environment was not saved: %+v, %v", state, err)
+	}
+}
+
 func multiEnvFixture(t *testing.T, endpoint, accessURL string) localstate.Paths {
 	t.Helper()
 	dir := t.TempDir()

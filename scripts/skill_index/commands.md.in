@@ -16,7 +16,7 @@ WiseRec 和 MLOps 均支持 `train` 和 `feature-task` 命令，`algorithm` 仅�
 | `ml context [--json]` | 查看运行模式、平台环境与实际配置路径，无需登录 | {{confirm}} | |
 | `ml tree [--all]` | 查看当前环境可用命令，无需登录。加 `--all` 显示全部命令及限制标记 | {{confirm}} | |
 | `ml env list [-o json]` / `ml env show` | 列出已授权及授权状态未知的环境 / 查看当前环境 | {{confirm}} | |
-| `ml env use NAME` | 切换当前环境 | {{confirm}} | 本地配置 |
+| `ml env use NAME` | 切换当前环境；保活登记待重试时切换已成功 | {{confirm}} | 本地配置或会话状态 |
 | `ml login` | 打开 Edge 登录，需用户操作；禁止 `--show-secrets` | {{confirm}} | 本地凭据 |
 | `ml logout [--all] [--forget-browser]` | 清除当前或全部环境的认证 | {{confirm}} | 本地凭据 |
 | `ml auth status` | 本地认证状态 | {{confirm}} | |

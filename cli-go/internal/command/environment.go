@@ -103,9 +103,6 @@ func newEnv(options Options, load loadConfig) *cobra.Command {
 		if err != nil {
 			return err
 		}
-		if prevCurrent != "" && prevCurrent != profile.Name && (paths.IsSessionIsolated() || fromTerminal(cmd)) {
-			_ = keepalive.Detach(paths, prevCurrent)
-		}
 		cfg.Current = profile.Name
 		fmt.Fprintln(cmd.ErrOrStderr(), "[成功] 当前环境已切换为: "+profile.Name)
 		if paths.IsSessionIsolated() {
@@ -114,6 +111,22 @@ func newEnv(options Options, load loadConfig) *cobra.Command {
 					fmt.Fprintf(cmd.ErrOrStderr(), "[提示] 当前会话在环境 %s 下尚未选择业务，请运行 ml business use --tenant <租户ID>\n", profile.Name)
 				}
 			}
+			if prevCurrent == profile.Name {
+				prevCurrent = ""
+			}
+			message, err := keepalive.SyncEnvironment(paths, cfg, prevCurrent, options.Version, cfg.PingEnabled() && canStartPing(cmd, paths))
+			switch {
+			case errors.Is(err, localstate.ErrLockBusy), errors.Is(err, keepalive.ErrRegistrationPending):
+				fmt.Fprintln(cmd.ErrOrStderr(), "[提示] 环境已切换，保活登记待重试：", err)
+			case err != nil:
+				fmt.Fprintln(cmd.ErrOrStderr(), "[警告] 环境已切换，自动保活登记失败：", err)
+			case message != "":
+				fmt.Fprintln(cmd.ErrOrStderr(), message)
+			}
+			return nil
+		}
+		if prevCurrent != "" && prevCurrent != profile.Name && fromTerminal(cmd) {
+			_ = keepalive.DetachTerminal(paths, prevCurrent)
 		}
 		startAutoPing(cmd, paths, cfg, options.Version, true)
 		return nil
