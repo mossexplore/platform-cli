@@ -41,7 +41,7 @@ if (host) {
     ranking: {top: true, env: true},
     versions: {top: false, env: true},
   };
-  const viewState = {
+  const appliedFilters = {
     distribution: {top: '10', env: lockedEnv},
     ranking: {top: '10', env: lockedEnv},
     versions: {top: 'all', env: lockedEnv},
@@ -53,7 +53,6 @@ if (host) {
   ]);
   let active = 'commands';
   let activeController = null;
-  let requestSeq = 0;
 
   function svgNode(tag, attributes = {}, content) {
     const node = document.createElementNS(ns, tag);
@@ -330,18 +329,20 @@ if (host) {
     return env ? `环境 ${env} 在所选范围内暂无调用记录` : '所选范围内暂无调用记录';
   }
 
-  function drawView(view, items) {
+  function drawView(view) {
+    const filters = appliedFilters[view];
+    const items = filters && cache.get(cacheKey(view, filters));
     if (view === 'commands') commandBars();
     else if (view === 'trend') trendLines();
     else if (view === 'environments') categoryBars(data.environments || [], '环境标识', '按环境汇总的授权检查次数');
     else if (view === 'distribution') {
-      calloutPie(items, {emptyMessage: emptyTextFor(viewState.distribution.env), otherLabel: '其他命令'});
+      calloutPie(items, {emptyMessage: emptyTextFor(filters.env), otherLabel: '其他命令'});
     } else if (view === 'ranking') {
-      const env = viewState.ranking.env;
+      const env = filters.env;
       const legendLabel = env ? `按命令汇总的授权检查次数（环境：${env}）` : '按命令汇总的授权检查次数';
       categoryBars(items, '命令名称', legendLabel, emptyTextFor(env));
     } else if (view === 'versions') {
-      calloutPie(items, {emptyMessage: emptyTextFor(viewState.versions.env)});
+      calloutPie(items, {emptyMessage: emptyTextFor(filters.env)});
     }
     const rendered = graphic.querySelector('svg');
     scrollHint.hidden = !rendered || rendered.width.baseVal.value <= graphic.clientWidth;
@@ -358,21 +359,26 @@ if (host) {
     if (!config) return;
     topWrap.hidden = !config.top;
     envWrap.hidden = !config.env;
-    if (config.top) topSelect.value = viewState[view].top;
-    if (config.env) envSelect.value = viewState[view].env;
+    if (config.top) topSelect.value = appliedFilters[view].top;
+    if (config.env) envSelect.value = appliedFilters[view].env;
   }
 
-  async function loadAndDraw(view, previousState = null) {
-    const state = viewState[view];
+  function cancelChartRequest() {
+    activeController?.abort();
+    activeController = null;
+    host.removeAttribute('aria-busy');
+  }
+
+  async function loadAndDraw(view, state) {
+    cancelChartRequest();
     const key = cacheKey(view, state);
     if (cache.has(key)) {
-      drawView(view, cache.get(key));
+      appliedFilters[view] = state;
+      drawView(view);
       return;
     }
-    activeController?.abort();
     const controller = new AbortController();
     activeController = controller;
-    const ticket = ++requestSeq;
     const url = new URL(data.query_url, location.href);
     url.searchParams.set('view', view);
     url.searchParams.set('top', state.top);
@@ -380,30 +386,32 @@ if (host) {
     host.setAttribute('aria-busy', 'true');
     try {
       const response = await fetch(url, {signal: controller.signal});
-      if (ticket !== requestSeq) return;
+      if (controller.signal.aborted) return;
       if (response.status === 401) { location.assign('/cli-permission/login'); return; }
       if (response.redirected) { location.assign(response.url); return; }
       if (!response.ok) throw new Error('图表加载失败，请重试');
       const payload = await response.json();
-      if (ticket !== requestSeq) return;
+      if (controller.signal.aborted) return;
       cache.set(key, payload.items || []);
-      if (active === view) drawView(view, payload.items || []);
+      appliedFilters[view] = state;
+      drawView(view);
     } catch (problem) {
-      if (ticket !== requestSeq || problem.name === 'AbortError') return;
-      if (previousState) {
-        viewState[view] = previousState;
-        syncControls(view);
-      }
+      if (controller.signal.aborted) return;
+      syncControls(view);
       if (errorBox) {
         errorBox.textContent = problem.message === 'Failed to fetch' ? '连接中断，原图表已保留，请重试' : problem.message;
         errorBox.hidden = false;
       }
     } finally {
-      if (ticket === requestSeq) host.removeAttribute('aria-busy');
+      if (activeController === controller) {
+        activeController = null;
+        host.removeAttribute('aria-busy');
+      }
     }
   }
 
   function render(view) {
+    cancelChartRequest();
     active = view;
     buttons.forEach(button => {
       const selected = button.dataset.analysisView === view;
@@ -413,27 +421,20 @@ if (host) {
     description.textContent = labels[view];
     graphic.setAttribute('aria-label', `${buttons.find(button => button.dataset.analysisView === view).textContent}：${labels[view]}`);
     syncControls(view);
-    if (viewControls[view]) {
-      const key = cacheKey(view, viewState[view]);
-      if (cache.has(key)) drawView(view, cache.get(key));
-      else loadAndDraw(view);
-    } else {
-      drawView(view);
-    }
+    drawView(view);
   }
 
   function onControlChange() {
     if (!viewControls[active]) return;
-    const previous = {...viewState[active]};
-    viewState[active] = {
-      top: viewControls[active].top ? topSelect.value : viewState[active].top,
+    const state = {
+      top: viewControls[active].top ? topSelect.value : appliedFilters[active].top,
       env: lockedEnv || envSelect.value,
     };
     if (errorBox) {
       errorBox.textContent = '';
       errorBox.hidden = true;
     }
-    loadAndDraw(active, previous);
+    loadAndDraw(active, state);
   }
 
   topSelect?.addEventListener('change', onControlChange);
@@ -441,12 +442,7 @@ if (host) {
   buttons.forEach(button => button.addEventListener('click', () => render(button.dataset.analysisView)));
   new ResizeObserver(() => {
     if (!graphic.clientWidth) return;
-    if (viewControls[active]) {
-      const key = cacheKey(active, viewState[active]);
-      if (cache.has(key)) drawView(active, cache.get(key));
-    } else {
-      drawView(active);
-    }
+    drawView(active);
   }).observe(graphic);
   render(active);
 }
