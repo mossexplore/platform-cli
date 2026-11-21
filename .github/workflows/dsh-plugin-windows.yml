@@ -58,9 +58,13 @@ jobs:
         run: |
           cmd.exe /d /c 'dsh-plugin\wiserec-cli\build.cmd < nul'
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          $packages = @(Get-ChildItem -LiteralPath dist/dsh -Filter '*.zip' -File -Recurse)
+          $output = (Resolve-Path dsh-plugin/wiserec-cli/dist).Path
+          $packages = @(Get-ChildItem -LiteralPath $output -Filter '*.zip' -File -Recurse)
           if ($packages.Count -ne 1) { throw 'Expected one ZIP from build.cmd' }
           $zip = $packages[0]
+          if ($zip.Directory.Parent.FullName -ne $output -or $zip.Directory.Name -notmatch '^dsh-\d{8}-\d{6}-[0-9a-f]{8}$') {
+            throw 'ZIP directory must be under the build.cmd dist and match dsh-YYYYMMDD-HHmmss-xxxxxxxx'
+          }
           $unpacked = Join-Path $env:RUNNER_TEMP 'dsh-unpacked'
           Expand-Archive -LiteralPath $zip.FullName -DestinationPath $unpacked
           $lines = Get-Content -LiteralPath (Join-Path $unpacked 'SHA256SUMS')
@@ -94,5 +98,5 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: dsh-wiserec-cli-windows
-          path: dist/dsh/**/*.zip
+          path: dsh-plugin/wiserec-cli/dist/**/*.zip
           if-no-files-found: error

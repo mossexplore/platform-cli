@@ -25,12 +25,12 @@
 
 在 Windows 安装 Git 和 Python 3.11 或更新版本后，双击本目录的 `build.cmd`。窗口会显示 Git 提交、版本校验、Bundle 生成、校验清单和 ZIP 打包进度。成功后显示完整产物路径，失败时保留错误信息。按任意键关闭窗口。
 
-每次双击都会在仓库的 `dist\dsh\` 下创建独立目录，文件名为 `dsh-wiserec-cli-<版本>-windows.zip`。脚本自动记录本地 `HEAD` 的完整提交 SHA。
+每次双击都会在 `build.cmd` 同目录的 `dist\` 下创建 `dsh-YYYYMMDD-HHmmss-xxxxxxxx` 子目录。目录名沿用 Go CLI 的日期、时间和 8 位十六进制后缀，增加 `dsh-` 前缀。ZIP 文件名为 `dsh-wiserec-cli-<版本>-windows.zip`。脚本自动记录本地 `HEAD` 的完整提交 SHA。
 
 在仓库根目录也可直接执行以下命令。
 
 ```powershell
-python scripts/build_dsh_plugin.py --output dist/dsh --new-output-directory --verbose
+python scripts/build_dsh_plugin.py --output dsh-plugin/wiserec-cli/dist --new-output-directory --verbose
 ```
 
 Windows CI 验证 ZIP 校验值、CLI 调度协议以及稳定目录的暂存流程。

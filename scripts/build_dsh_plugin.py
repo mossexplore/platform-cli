@@ -1,5 +1,6 @@
 """Build the standalone Windows ZIP and its local-installable DSH bundle."""
 import argparse
+from datetime import datetime
 import gzip
 import hashlib
 import io
@@ -9,6 +10,7 @@ import re
 import subprocess
 import tarfile
 import tempfile
+from uuid import uuid4
 import zipfile
 
 from sync_versions import read_versions, sync
@@ -42,6 +44,17 @@ def source_revision():
         ).strip()
     except (FileNotFoundError, subprocess.CalledProcessError) as error:
         raise ValueError("Git could not read HEAD. Use a Git checkout with Git on PATH.") from error
+
+
+def create_build_directory(output):
+    timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+    while True:
+        directory = output / f"dsh-{timestamp}-{uuid4().hex[:8]}"
+        try:
+            directory.mkdir()
+        except FileExistsError:
+            continue
+        return directory
 
 
 def build(output, revision=None, *, new_output_directory=False, verbose=False):
@@ -94,7 +107,7 @@ def build(output, revision=None, *, new_output_directory=False, verbose=False):
                 entry = zipfile.ZipInfo(name)
                 entry.compress_type = zipfile.ZIP_DEFLATED
                 archive.writestr(entry, data)
-        directory = Path(tempfile.mkdtemp(prefix=f"{stem}-", dir=output)) if new_output_directory else output
+        directory = create_build_directory(output) if new_output_directory else output
         path = directory / zip_name
         candidate.replace(path)
     return path
