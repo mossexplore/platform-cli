@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto'
 import { isAbsolute } from 'node:path'
 import { createRunner } from './runner.js'
 import { createKeepaliveLog, failureReason } from './logging.js'
+import { createSessionStatus } from './session-status.js'
 
 export const name = 'wiserec-cli-keepalive'
 export const inject = ['agents']
@@ -30,9 +31,10 @@ const outcomes = new Map([
 ])
 const warningInterval = 5 * 60_000
 
-export function startScheduler(ctx, config, run = createRunner(config), clock = Date.now, log = () => {}) {
+export function startScheduler(ctx, config, run = createRunner(config), clock = Date.now, log = () => {}, updateStatus = () => {}) {
   const hostID = randomUUID()
   const sessions = new Map()
+  const agentSessions = new WeakMap()
   const pendingRelease = new Set()
   const idleLimit = config.idleWindowMinutes * 60_000
   const interval = config.pollSeconds * 1000
@@ -53,9 +55,17 @@ export function startScheduler(ctx, config, run = createRunner(config), clock = 
   function refresh(agent, status) {
     const id = agent?.session?.header?.id
     if (!id || typeof id !== 'string') return
+    const previousID = agentSessions.get(agent)
+    if (previousID && previousID !== id && sessions.get(previousID)?.agent === agent) {
+      removeSession(previousID)
+    }
+    agentSessions.set(agent, id)
     const existing = sessions.get(id)
-    if (existing?.agent !== agent && existing) retire(id, existing)
+    if (existing && existing.agent !== agent) removeSession(id)
     const record = sessions.get(id) ?? { agent, lastTick: -Infinity, registered: false, warnings: new Map() }
+    if (!sessions.has(id) || record.paused) updateStatus(id, { state: 'unchecked' })
+    if (record.paused) record.lastTick = -Infinity
+    record.paused = false
     record.activity = clock()
     record.busy = (status ?? agent.status) === 'running'
     sessions.set(id, record)
@@ -68,12 +78,18 @@ export function startScheduler(ctx, config, run = createRunner(config), clock = 
     record.registered = false
   }
 
+  function removeSession(id) {
+    retire(id, sessions.get(id))
+    sessions.delete(id)
+    updateStatus(id)
+  }
+
   function dispose(agent) {
-    const id = agent?.session?.header?.id
+    const id = agentSessions.get(agent)
     const record = sessions.get(id)
     if (!record || record.agent !== agent) return
-    retire(id, record)
-    sessions.delete(id)
+    agentSessions.delete(agent)
+    removeSession(id)
     queueMicrotask(cycle)
   }
 
@@ -84,6 +100,8 @@ export function startScheduler(ctx, config, run = createRunner(config), clock = 
     for (const [id, record] of sessions) {
       if (!record.busy && now - record.activity >= idleLimit) {
         if (record.registered) retire(id, record)
+        if (!record.paused) updateStatus(id, { state: 'paused' })
+        record.paused = true
         continue
       }
       if (now - record.lastTick >= interval &&
@@ -111,6 +129,7 @@ export function startScheduler(ctx, config, run = createRunner(config), clock = 
         const result = await run(action, hostID, id, controller.signal)
         if (!record || controller.signal.aborted) return
         if (result.state !== 'unknown_session') record.registered = true
+        updateStatus(id, result)
         const event = outcomes.get(result.state)
         if (event && (result.state !== 'expired' || result.requestID)) {
           report(record, event, {
@@ -120,6 +139,7 @@ export function startScheduler(ctx, config, run = createRunner(config), clock = 
       } catch (error) {
         if (record && !controller.signal.aborted) {
           const event = error?.message === 'timeout' ? 'cli_timeout' : 'cli_failed'
+          updateStatus(id, { state: event })
           report(record, event, { sessionID: id, reason: failureReason(error?.message) })
         }
       } finally {
@@ -143,7 +163,7 @@ export function startScheduler(ctx, config, run = createRunner(config), clock = 
     closed = true
     clearInterval(timer)
     for (const disposeListener of listeners) disposeListener()
-    for (const [id, record] of sessions) retire(id, record)
+    for (const id of sessions.keys()) removeSession(id)
     const active = inFlight
     active?.controller.abort()
     await active?.done
@@ -163,6 +183,8 @@ export function apply(ctx, rawConfig) {
   const config = configuration(rawConfig)
   if (!config.enabled) return
   const log = createKeepaliveLog(ctx)
+  const statuses = createSessionStatus(config.pollSeconds * 1000)
+  ctx.inject(['connection'], routeCtx => statuses.register(routeCtx))
   ctx.effect(() => {
     if (process.platform !== 'win32' && !config.mlPath) {
       log.record('cli_failed', { reason: 'missing_cli' })
@@ -172,7 +194,7 @@ export function apply(ctx, rawConfig) {
       log.record('host_unavailable')
       return log.close
     }
-    const stop = startScheduler(ctx, config, createRunner(config), Date.now, log.record)
+    const stop = startScheduler(ctx, config, createRunner(config), Date.now, log.record, statuses.update)
     return async () => {
       try {
         await stop()

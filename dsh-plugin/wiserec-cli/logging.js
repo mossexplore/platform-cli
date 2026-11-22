@@ -1,10 +1,14 @@
-import { appendFile, mkdir, rename, stat } from 'node:fs/promises'
+import { appendFile, lstat, mkdir, readdir, rename, stat, unlink } from 'node:fs/promises'
 import { isAbsolute, join } from 'node:path'
 
 const loggerName = 'wiserec-cli-keepalive'
 const format = 'WiseRec keepalive: %o'
 const maxSegmentBytes = 256 * 1024
 const maxQueuedRecords = 128
+const cleanupInterval = 24 * 60 * 60 * 1000
+const maxLogAge = 7 * cleanupInterval
+const maxDirectoryBytes = 10 * 1024 * 1024
+const logFilename = /^keepalive-([1-9]\d*)(?:\.previous)?\.jsonl$/
 
 const levels = new Map([
   ['scheduler_started', 'info'],
@@ -55,6 +59,90 @@ function beijingTime(timestamp) {
   return new Date(timestamp + 8 * 60 * 60 * 1000).toISOString().slice(0, 19).replace('T', ' ')
 }
 
+async function ignoreMissing(operation) {
+  try {
+    return await operation()
+  } catch (error) {
+    if (error.code !== 'ENOENT') throw error
+  }
+}
+
+function hostExited(pid) {
+  try {
+    process.kill(pid, 0)
+  } catch (error) {
+    return error.code === 'ESRCH'
+  }
+  return false
+}
+
+export async function cleanupKeepaliveLogs(directory, {
+  now = Date.now(), maxBytes = maxDirectoryBytes, isHostExited = hostExited,
+} = {}) {
+  const root = await ignoreMissing(() => lstat(directory))
+  if (!root) return true
+  if (!root.isDirectory()) return false
+  const names = await ignoreMissing(() => readdir(directory))
+  if (!names) return true
+
+  let ok = true
+  let totalBytes = 0
+  const files = []
+  for (const name of names) {
+    const pid = Number(logFilename.exec(name)?.[1])
+    if (!Number.isInteger(pid) || pid > 0x7fffffff) continue
+    const path = join(directory, name)
+    try {
+      const info = await ignoreMissing(() => lstat(path))
+      if (!info?.isFile()) continue
+      totalBytes += info.size
+      files.push({ path, pid, info })
+    } catch {
+      ok = false
+    }
+  }
+
+  files.sort((a, b) => a.info.mtimeMs - b.info.mtimeMs || a.path.localeCompare(b.path))
+  for (const { path, pid, info } of files) {
+    if (now - info.mtimeMs < maxLogAge && totalBytes <= maxBytes) break
+    if (pid === process.pid) continue
+    try {
+      // Another host may have rotated or removed this file during the scan.
+      const current = await ignoreMissing(() => lstat(path))
+      if (!current?.isFile()) {
+        totalBytes -= info.size
+        continue
+      }
+      totalBytes += current.size - info.size
+      if (current.dev !== info.dev || current.ino !== info.ino || current.ctimeMs !== info.ctimeMs ||
+          current.mtimeMs !== info.mtimeMs || current.size !== info.size || !isHostExited(pid)) continue
+      await ignoreMissing(() => unlink(path))
+      totalBytes -= current.size
+    } catch {
+      ok = false
+    }
+  }
+  return ok
+}
+
+function startLogCleanup(directory, onFailure) {
+  let pending
+  function sweep() {
+    if (pending) return
+    pending = cleanupKeepaliveLogs(directory)
+      .catch(() => false)
+      .then(ok => { if (!ok) onFailure() })
+      .finally(() => { pending = undefined })
+  }
+  sweep()
+  const timer = setInterval(sweep, cleanupInterval)
+  timer.unref()
+  return async () => {
+    clearInterval(timer)
+    await pending
+  }
+}
+
 function logWriter(directory, limit, onFailure) {
   const path = join(directory, `keepalive-${process.pid}.jsonl`)
   const previous = join(directory, `keepalive-${process.pid}.previous.jsonl`)
@@ -99,6 +187,7 @@ export function createKeepaliveLog(ctx, { directory = windowsLogDirectory(), lim
   const logger = typeof service === 'function' ? ctx.logger(loggerName) : undefined
   let writer
   let dispose
+  let stopCleanup
   if (directory && typeof service?.exporter === 'function') {
     writer = logWriter(directory, limit, () => logger?.warn('WiseRec keepalive: log_write_failed'))
     dispose = ctx.logger.exporter({
@@ -115,6 +204,7 @@ export function createKeepaliveLog(ctx, { directory = windowsLogDirectory(), lim
         })
       },
     })
+    stopCleanup = startLogCleanup(directory, () => logger?.warn('WiseRec keepalive: log_cleanup_failed'))
   }
   return {
     record(event, details = {}) {
@@ -122,7 +212,7 @@ export function createKeepaliveLog(ctx, { directory = windowsLogDirectory(), lim
       if (level) logger?.[level](format, logFields(event, details))
     },
     async close() {
-      await dispose?.()
+      await Promise.all([dispose?.(), stopCleanup?.()])
       await writer?.drain()
     },
   }

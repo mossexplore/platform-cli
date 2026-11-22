@@ -12,6 +12,7 @@ import (
 
 const (
 	WorkerArg      = "--internal-go-ping-worker"
+	WorkerStandby  = "standby"
 	workerProtocol = 3
 	workerPoll     = 5 * time.Second
 )

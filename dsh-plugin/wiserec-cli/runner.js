@@ -102,6 +102,9 @@ export function createRunner(config) {
       return {
         state: result.state,
         env: result.env,
+        lastConfirmed: result.last_confirmed_at,
+        retryPending: result.retry_pending === true,
+        contextChanged: result.context_changed === true,
         requestID: typeof result.request_id === 'string' && requestIdPattern.test(result.request_id) ? result.request_id : '',
       }
     } catch (error) {

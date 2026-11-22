@@ -23,11 +23,14 @@ type HostRequest struct {
 }
 
 type TickResult struct {
-	Protocol    string `json:"protocol"`
-	State       string `json:"state"`
-	Environment string `json:"env,omitempty"`
-	RequestID   string `json:"request_id,omitempty"`
-	NextAttempt string `json:"next_attempt,omitempty"`
+	Protocol       string `json:"protocol"`
+	State          string `json:"state"`
+	Environment    string `json:"env,omitempty"`
+	RequestID      string `json:"request_id,omitempty"`
+	NextAttempt    string `json:"next_attempt,omitempty"`
+	LastConfirmed  string `json:"last_confirmed_at,omitempty"`
+	RetryPending   bool   `json:"retry_pending,omitempty"`
+	ContextChanged bool   `json:"context_changed,omitempty"`
 }
 
 type hostRegistration struct {
@@ -159,9 +162,38 @@ func Tick(ctx context.Context, base localstate.Paths, request HostRequest, versi
 	if !hostAllowed(cfg, profile) {
 		return TickResult{State: "disabled"}, nil
 	}
-	creds, err := paths.LoadCredentials(profile, time.Now())
+	creds, err := paths.CredentialsFor(profile)
 	if err != nil {
 		return TickResult{State: "login_unavailable"}, nil
+	}
+	expires, err := creds.Expiry()
+	if err != nil {
+		return TickResult{State: "login_unavailable"}, nil
+	}
+	defer func() {
+		current, ok, sessionErr := paths.LoadSessionState()
+		latest, loginErr := paths.CredentialsFor(profile)
+		if sessionErr != nil || !ok || current.Current != profile.Name || loginErr != nil || latest.StateID != creds.StateID {
+			result.ContextChanged = true
+			return
+		}
+		if latestExpiry, expiryErr := latest.Expiry(); expiryErr != nil ||
+			(result.State == "login_expired" && time.Now().Before(latestExpiry)) {
+			result.ContextChanged = true
+			return
+		}
+		if data, loadErr := load(base); loadErr == nil {
+			entry := data.Profiles[profile.Name]
+			if entry.Endpoint == profile.Origin() && entry.Username == creds.Username {
+				acquired, _ := creds.Acquired()
+				if !entry.LastConfirmed.Before(acquired) {
+					result.LastConfirmed = displayTime(entry.LastConfirmed)
+				}
+			}
+		}
+	}()
+	if !time.Now().Before(expires) {
+		return TickResult{State: "login_expired"}, nil
 	}
 	target, err := paths.KeepaliveTarget(creds)
 	if err != nil {
@@ -180,6 +212,25 @@ func cancelHostRequest(data entryFile, profile, hostKey string) {
 func hostAllowed(cfg localstate.Config, profile localstate.Profile) bool {
 	return cfg.PingEnabled() && !localstate.Denied("auth ping start", profile.Policy.Deny) &&
 		!localstate.Denied("auth ping tick", profile.Policy.Deny)
+}
+
+func hasEligibleHost(data entryFile, paths localstate.Paths, profile localstate.Profile, creds localstate.Credentials, now time.Time) bool {
+	if localstate.Denied("auth ping tick", profile.Policy.Deny) {
+		return false
+	}
+	expires, err := creds.Expiry()
+	if err != nil || !now.Before(expires) {
+		return false
+	}
+	for _, host := range data.Hosts {
+		if host.Profile != profile.Name || !host.active(now) {
+			continue
+		}
+		if _, err := paths.WithSession(host.scope()).KeepaliveTarget(creds); err == nil {
+			return true
+		}
+	}
+	return false
 }
 
 func hostSeen(data entryFile, scope localstate.SessionScope, profile string) time.Time {

@@ -22,8 +22,8 @@ WiseRec 和 MLOps 均支持 `train` 和 `feature-task` 命令，`algorithm` 仅�
 | `ml login` | 打开 Edge 登录，需用户操作；禁止 `--show-secrets` | {{confirm}} | 本地凭据 |
 | `ml logout [--all] [--forget-browser]` | 清除当前或全部环境的认证 | {{confirm}} | 本地凭据 |
 | `ml auth status` | 本地认证状态、剩余有效时长和保活提示 | {{confirm}} | |
-| `ml auth ping start` / `stop` / `status` | 启动终端保活或恢复已登记的 Harness 插件；停止作用于当前环境，查看状态只读 | {{confirm}} | 本地进程与会话登记 |
-| `ml auth ping tick --capabilities` / `ml auth ping tick --json` | 检查插件兼容性或由宿主执行单次探活；结果含已解析的环境与请求 ID，Agent 不调用 `--json` | {{confirm}} | `--json` 可能续期当前会话 |
+| `ml auth ping start` / `stop` / `status` | 启动终端保活或恢复已登记的 Harness 插件；同一环境插件优先，终端待命；停止作用于当前环境，查看状态只读 | {{confirm}} | 本地进程与会话登记 |
+| `ml auth ping tick --capabilities` / `ml auth ping tick --json` | 检查插件兼容性或由宿主执行单次探活；结果含状态及已知的环境、续期时间和请求 ID，Agent 不调用 `--json` | {{confirm}} | `--json` 可能续期当前会话 |
 | `ml access status [--diagnose]` | 检查 CLI 访问授权 | {{confirm}} | |
 | `ml business list` / `ml business show` | 业务候选 / 当前业务 | {{confirm}} | |
 | `ml business TENANT_ID` / `ml business use --tenant ID [--team ID] [--department ID]` | 直接选择租户 / 指定租户、团队或部门 | {{confirm}} | 本地配置 |

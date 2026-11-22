@@ -31,6 +31,27 @@ func TestConfirmWorkerRetriesTemporaryReadFailure(t *testing.T) {
 	}
 }
 
+func TestConfirmWorkerAcceptsStandby(t *testing.T) {
+	err := confirmWorker(context.Background(), "worker", 0, func() (Entry, bool, error) {
+		return Entry{WorkerToken: "worker", Status: WorkerStandby}, true, nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestRegisterReplacesSameVersionWorkerWithoutPriority(t *testing.T) {
+	f := newKeepaliveFixture(t, "https://preview.example.test", "global-tenant")
+	result, err := register(f.a, f.profile, f.worker.version, true)
+	if err != nil || !result.stopping {
+		t.Fatalf("old worker should exit before replacement: %+v, %v", result, err)
+	}
+	entry, running, err := View(f.base, f.profile.Name)
+	if err != nil || !running || entry.Status != "stopping" || entry.ManualStop {
+		t.Fatalf("old worker should stop without disabling keepalive: %+v, %v", entry, err)
+	}
+}
+
 func TestConfirmWorkerReportsUnconfirmedWithLastReadError(t *testing.T) {
 	err := confirmWorker(context.Background(), "worker", 0, func() (Entry, bool, error) {
 		return Entry{}, false, fs.ErrPermission

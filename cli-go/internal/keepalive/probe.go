@@ -111,9 +111,21 @@ func (job probeJob) reserve(ctx context.Context) (TickResult, error) {
 				result.State = "expired"
 				return nil
 			}
+			if job.workerToken != "" {
+				if hasEligibleHost(data, job.paths, profile, job.creds, now) {
+					result.State, entry.Status = WorkerStandby, WorkerStandby
+					data.Profiles[profile.Name] = entry
+					return nil
+				}
+				if entry.Status == WorkerStandby {
+					entry.Status = "running"
+					data.Profiles[profile.Name] = entry
+				}
+			}
 			due := maxTime(entry.LastActivity.Add(time.Duration(job.cfg.Auth.PingMinutes)*time.Minute), entry.RetryAt)
 			if now.Before(due) {
 				result.State, result.NextAttempt = "not_due", displayTime(due)
+				result.RetryPending = now.Before(entry.RetryAt)
 				return nil
 			}
 			result.State, result.RequestID = "requesting", localstate.NewID()

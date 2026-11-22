@@ -25,6 +25,7 @@ func TestAuthKeepaliveNote(t *testing.T) {
 		{"due", keepalive.Entry{Status: "running", LastActivity: now.Add(-interval)}, true,
 			"自动保活运行中，等待发起请求"},
 		{"unknown time", keepalive.Entry{Status: "running"}, true, "自动保活运行中，暂无预计时间"},
+		{"standby", keepalive.Entry{Status: keepalive.WorkerStandby}, true, "DSH 托管，终端待命"},
 		{"retrying", keepalive.Entry{Status: "retrying", LastActivity: now}, true, "自动保活重试中"},
 		{"waiting", keepalive.Entry{Status: "waiting"}, true, "自动保活等待有效业务上下文"},
 		{"requesting", keepalive.Entry{Status: "requesting"}, true, "自动保活请求中"},

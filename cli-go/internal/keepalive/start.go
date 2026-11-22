@@ -6,12 +6,16 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"strings"
 	"time"
 
 	"github.com/mossexplore/platform-cli/cli-go/internal/localstate"
 )
 
 const registrationLockWait = 150 * time.Millisecond
+
+// Replace same-version workers without changing the protocol shared with the host bridge.
+const workerTokenPrefix = "dsh-priority-"
 
 func Start(ctx context.Context, paths localstate.Paths, cfg localstate.Config, version string, automatic bool) (string, error) {
 	if paths.Session.Mode == localstate.SessionModeDSH {
@@ -129,7 +133,8 @@ func registerEntry(entries map[string]Entry, paths localstate.Paths, profile loc
 		return result, nil
 	}
 	running := alive(entry)
-	if running && (!sameLogin || entry.Protocol != workerProtocol || entry.Version != version || entry.Status == "stopping") {
+	if running && (!sameLogin || entry.Protocol != workerProtocol || entry.Version != version ||
+		!strings.HasPrefix(entry.WorkerToken, workerTokenPrefix) || entry.Status == "stopping") {
 		entry.Status = "stopping"
 		entries[profile.Name] = entry
 		result.stopping = true
@@ -156,7 +161,7 @@ func launchWorker(entry *Entry, profile, version string, now time.Time) error {
 	if err != nil {
 		return err
 	}
-	token := localstate.NewID()
+	token := workerTokenPrefix + localstate.NewID()
 	proc := exec.Command(path, WorkerArg, profile, token)
 	proc.Env = workerEnvironment(os.Environ())
 	detachProcess(proc)
@@ -191,7 +196,7 @@ func confirmWorker(ctx context.Context, token string, timeout time.Duration, rea
 		}
 		if err == nil && entry.WorkerToken == token && running {
 			switch entry.Status {
-			case "running", "waiting", "requesting", "retrying":
+			case "running", "waiting", "requesting", "retrying", WorkerStandby:
 				return nil
 			}
 		}

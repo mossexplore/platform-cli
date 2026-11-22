@@ -73,7 +73,7 @@ jobs:
           if ($buildOutput -notcontains "SHA256: $actual") { throw 'Bundle SHA256 does not match build output' }
           $bundleFiles = @(& tar.exe -tf $bundle.FullName)
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          foreach ($file in @('package.json', 'release.json', 'index.js', 'logging.js', 'runner.js', 'cordis.patch.yml', 'README.md', 'LICENSE')) {
+          foreach ($file in @('package.json', 'release.json', 'index.js', 'client.js', 'logging.js', 'runner.js', 'session-status.js', 'cordis.patch.yml', 'README.md', 'LICENSE')) {
             if ($bundleFiles -notcontains "package/$file") { throw "Missing bundle file: $file" }
           }
           $manifestJson = @(& tar.exe -xOf $bundle.FullName package/package.json)

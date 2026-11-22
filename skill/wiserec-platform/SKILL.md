@@ -24,7 +24,7 @@ metadata:
 
 - **首次建立上下文**：先运行 `ml context --json` 核对配置路径为当前平台标准用户路径（Windows 上为 `%APPDATA%\ml-go-preview\config.json`）。在 DeepSeek Harness 中，CLI 会自动按宿主注入的 `DSH_SESSION_ID` 隔离各会话的环境与业务，新会话默认“未绑定”且不会回退全局配置；若 `当前环境` 为 `未绑定`，先按用户指定执行 `ml env use NAME`（未指定时向用户确认，可用 `ml env list -o json` 查看候选），再运行 `ml auth status` 检查 `status=valid`、`profile` 与当前环境一致且 `businessId` 有效；若 `当前业务` 未绑定，按用户选择执行 `ml business TENANT_ID` 或 `ml business use --tenant TENANT_ID --team TEAM_ID`。路径不符或配置缺失时停止。详细字段、Windows shell 调用及故障处理见 [session.md](references/session.md)。
 - **上下文复用与切换**：在 DeepSeek Harness 多会话隔离模式下，各会话独立维护当前环境与业务选择，互不覆盖，同时共享同一环境的登录态与业务目录；非隔离终端仍共用本地 CLI 状态。未指定租户或团队且当前会话已绑定业务时，沿用已绑定选择；用户指定业务时，先用 `ml business show` 核对。切换环境用 `ml env use NAME` 后重新核对上下文与业务选择；长任务前查 `auth status` 剩余有效期。
-- **保活状态**：交互终端使用 CLI 后台保活，DeepSeek Harness 需要安装并启用宿主保活插件。用 `ml auth ping status` 查看插件最近报到和上次平台确认成功时间。Agent 不直接调用插件的 `tick --json` 或构造宿主会话输入。故障处理见 [session.md](references/session.md)。
+- **保活状态**：交互终端使用 CLI 后台保活，DeepSeek Harness 需要安装并启用宿主保活插件。同一环境有符合条件的 Harness 会话时插件优先，终端进程待命并可自动接手。Harness 会话行红色标识表示 WiseRec 登录已过期，黄色表示暂未确认。用 `ml auth ping status` 查看调度状态和上次平台确认成功时间。Agent 不直接调用插件的 `tick --json` 或构造宿主会话输入。故障处理见 [session.md](references/session.md)。
 
 ## 调用与结果准则
 

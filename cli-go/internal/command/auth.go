@@ -120,6 +120,8 @@ func authKeepaliveNote(entry keepalive.Entry, running bool, interval time.Durati
 		return "自动保活已开启，当前未运行"
 	}
 	switch entry.Status {
+	case keepalive.WorkerStandby:
+		return workerStandbyLabel
 	case "retrying":
 		return "自动保活重试中"
 	case "waiting":

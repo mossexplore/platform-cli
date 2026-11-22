@@ -14,6 +14,8 @@ import (
 	"golang.org/x/term"
 )
 
+const workerStandbyLabel = "DSH 托管，终端待命"
+
 func newPing(options Options, load loadConfig) *cobra.Command {
 	group := &cobra.Command{Use: "ping", Short: "管理终端与 Harness 自动保活"}
 	start := &cobra.Command{Use: "start", Short: "启动终端保活或恢复 Harness 插件调度", Args: positional(0)}
@@ -94,7 +96,10 @@ func newPing(options Options, load loadConfig) *cobra.Command {
 		}
 		if running {
 			state, pid = entry.Status, strconv.Itoa(entry.WorkerPID)
-			if state == "waiting" {
+			switch state {
+			case keepalive.WorkerStandby:
+				state = workerStandbyLabel
+			case "waiting":
 				state = "等待有效业务上下文"
 			}
 			next = pingTime(nextPingTime(entry, interval))

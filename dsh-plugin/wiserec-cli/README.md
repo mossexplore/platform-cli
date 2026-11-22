@@ -9,9 +9,17 @@
 3. 在目标 Desktop Profile 的“插件 → 添加插件”中选择本地 Bundle，直接选择该 `.tgz` 文件。确认插件已启用。若宿主提示重启，请完全退出桌面端及系统托盘后再打开。
 4. 在 DSH 会话中绑定环境、登录并选择业务。执行 `ml auth ping status` 查看最近报到和上次平台确认成功时间。插件调度默认每两分钟检查一次，是否请求平台仍由 CLI 的空闲间隔决定。
 
+同一环境同时有符合条件的 DSH 会话和交互终端时，插件优先保活。终端保留后台进程，`ml auth ping status` 显示「DSH 托管，终端待命」和进程 ID。会话关闭或插件报到过期后，符合条件的终端会自动接手。
+
 Bundle 的 DSH 安装门槛为 `>=0.2.2-rc.2`。Windows Desktop 离线加载与真实平台长时保活需按宿主版本执行实机验收。插件依赖宿主 Node.js 内置模块，无额外 npm 依赖。Web Profile 支持范围以单独验收为准。
 
 默认会话空闲窗口为 120 分钟。可配置 `pollSeconds`（60–180）、`idleWindowMinutes`、`mlPath`、`enabled`，以及 `timeoutSeconds`（默认按 CLI 调用预算计算）。
+
+## 会话保活标识
+
+DSH 会话列表的行尾图标显示该会话所绑定的 WiseRec 环境状态。绿点表示保活正常，红点表示登录已过期，黄点表示本次检查待确认，灰点表示待检查、未登录、未选业务或保活已暂停。鼠标移到会话行后可在 DSH 悬浮卡片里查看状态、已解析的环境、最近检查时间及该环境上次续期成功时间。时间使用北京时间。
+
+会话状态随插件轮询刷新，重新登录或切换环境后以该会话的下一次检查为准。行尾标识仅出现在插件已接管检查的会话上。精确区分「本地登录已过期」和「待登录」需要支持该状态的 Go CLI 构建。
 
 若使用便携版且宿主未提供插件配置表，可在该 Profile 的 `cordis.patch.yml` 为插件添加如下配置覆盖。Windows 路径使用单引号。使用中已有此条目时，在原条目中填写 `mlPath`。
 
@@ -38,6 +46,8 @@ Windows CI 验证 `build.cmd` 的产物路径、Bundle 内容和校验值，以�
 ## 保活日志
 
 Windows 上，日志位于 `%LOCALAPPDATA%\WiseRec\dsh-plugins\wiserec-cli\logs\keepalive-<宿主PID>.jsonl`。每行记录一个事件，时间为北京时间，表示写入宿主日志的时间。文件达到 256 KiB 时轮转，同一宿主保留当前段和上一段。
+
+插件启动时及运行期间每 24 小时清理一次。已退出宿主的日志按最后修改时间保留 7 天。插件日志合计超过 10 MiB 时，按最旧优先额外清理已退出宿主的日志。运行中的宿主及存活状态不明的宿主日志受保护，目录可能暂时超过 10 MiB。卸载插件时保留日志。
 
 `scheduler_started` 表示调度器已启动，`keepalive_confirmed` 表示平台确认续期。请求可用 `request_id` 与 `ml auth ping status` 对照。`keepalive_unconfirmed` 表示本次未获确认，`session_expired` 表示 CLI 判定平台会话已失效，`cli_timeout` 表示调用超时。`session_id` 来自 DSH，`env` 来自本次 CLI 响应。CLI 在返回环境或请求 ID 前中断时，对应字段省略。
 
