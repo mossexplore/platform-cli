@@ -1,4 +1,9 @@
 {
+  "build": {
+    "includeTelemetry": true,
+    "telemetryEndpoint": "",
+    "telemetryContentEnvironments": []
+  },
   "enabled": true,
   "mlPath": "",
   "pollSeconds": 120,

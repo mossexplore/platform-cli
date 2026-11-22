@@ -1,6 +1,8 @@
-# WiseRec CLI 保活插件
+# WiseRec CLI 保活与会话遥测插件
 
 插件在 DeepSeek Harness 宿主内定时调用 Go CLI，续期当前会话已经绑定的环境和业务。宿主调用不会发送模型消息。普通交互终端仍使用 Go CLI worker。
+
+完整 Bundle 还会向内网 WiseRec 网关上报会话、模型和工具调用指标。DSH 自动从 Bundle 加载配置，并提供官方会话遥测库。员工只需安装并启用 WiseRec Bundle。完整包默认只上报元数据，只有交付方列出的非生产环境可通过 HTTPS 上报脱敏后的可见文本。
 
 ## Windows Desktop 离线安装
 
@@ -11,13 +13,15 @@
 
 同一环境同时有符合条件的 DSH 会话和交互终端时，插件优先保活。终端保留后台进程，`ml auth ping status` 显示「DSH 托管，终端待命」和进程 ID。会话关闭或插件报到过期后，符合条件的终端会自动接手。
 
-Bundle 的 DSH 安装门槛为 `>=0.2.2-rc.2`。Windows Desktop 离线加载与真实平台长时保活需按宿主版本执行实机验收。插件依赖宿主 Node.js 内置模块，无额外 npm 依赖。Web Profile 支持范围以单独验收为准。
+Bundle 的 DSH 安装门槛为 `>=0.2.2-rc.2`。完整包由宿主提供遥测库，安装无需另外下载 npm 包、设置网关地址或填写凭据。Windows Desktop 离线加载与真实平台长时保活需按宿主版本执行实机验收。Web Profile 支持范围以单独验收为准。
 
 ## 插件配置
 
 包内的 [config.json](config.json) 提供默认值。Windows 上插件首次启用时会生成 `%LOCALAPPDATA%\WiseRec\dsh-plugins\wiserec-cli\config.json`，预填日志参数。升级保留已有文件。修改后完全退出 DSH（含系统托盘）再打开即可生效。
 
 用户文件中填写的字段优先。缺失字段沿用原 Profile 的保活配置或包内默认值。`enabled` 启停本插件，`pollSeconds` 设置检查间隔（60–180 秒），`idleWindowMinutes` 设置会话空闲窗口（默认 120 分钟），`timeoutSeconds` 为 `0` 时按 CLI 调用预算计算。使用便携版时在用户配置文件加上绝对路径，例如 `"mlPath": "C:\\WiseRec\\ml.exe"`。空字符串启用安装目录自动定位。
+
+完整包用户可在本机 `config.json` 中添加 `"telemetry": {"mode": "off"}` 并重启 DSH，停止 WiseRec 上报。使用 `metadata_only` 可在允许采集正文的环境中仅保留元数据。两个设置都独立于保活开关，网关地址和正文环境清单由交付方在构建时确定。
 
 | `logging` 字段 | 默认值 | 用途 |
 | --- | ---: | --- |
@@ -41,6 +45,16 @@ DSH 会话列表的行尾图标显示该会话所绑定的 WiseRec 环境状态�
 
 ## 构建
 
+交付人员在仓库的 [config.json](config.json) 中配置打包范围。
+
+| 字段 | 用途 |
+| --- | --- |
+| `build.includeTelemetry` | 默认为 `true`，打包保活和可观测性。设为 `false` 后只打包保活。 |
+| `build.telemetryEndpoint` | 完整包必填。填写实际网关的完整 URL，包括 `/v1/traces`。网关地址写入 Bundle。 |
+| `build.telemetryContentEnvironments` | 可选。填写获准上报脱敏正文的非生产 CLI 环境名，例如 `["sit"]`。默认空数组，仅上报元数据。填写时网关 URL 须使用 HTTPS。 |
+
+网关使用写入 Token 时，在构建进程中设置 `DSH_TELEMETRY_INGEST_TOKEN`。该 Token 只赋予网关写入权限，分发完整包时应按写入凭据管理。服务器配置见 [Go 遥测网关](../../telemetry-gateway/README.md)。
+
 在 Windows 安装 Git 和 Python 3.11 或更新版本后，双击本目录的 `build.cmd`。窗口会显示 Git 提交、版本校验、包元数据准备和 `.tgz` 打包进度。成功后显示 SHA-256 和产物完整路径，失败时保留错误信息。按任意键关闭窗口。
 
 每次双击都会在 `build.cmd` 同目录的 `dist\` 下创建 `dsh-YYYYMMDD-HHmmss-xxxxxxxx` 子目录，里面只有一个可直接安装的 `dsh-wiserec-cli-<版本>.tgz`。脚本在包内记录本地 `HEAD` 的完整提交 SHA。
@@ -51,7 +65,7 @@ DSH 会话列表的行尾图标显示该会话所绑定的 WiseRec 环境状态�
 python scripts/build_dsh_plugin.py --output dsh-plugin/wiserec-cli/dist --bundle-only --new-output-directory --verbose
 ```
 
-Windows CI 验证 `build.cmd` 的产物路径、Bundle 内容和校验值，以及 CLI 调度协议。
+Windows CI 使用测试地址验证完整包与仅保活包，并验证 `build.cmd` 的产物路径、Bundle 校验值与 CLI 调度协议。
 
 ## 保活日志
 
@@ -73,4 +87,4 @@ Windows 上，日志默认位于 `%LOCALAPPDATA%\WiseRec\dsh-plugins\wiserec-cli
 
 从会话执行 `ml auth ping stop` 停止当前环境的保活，包含终端 worker。插件重新报到后，`ml auth ping start` 恢复该环境的插件调度。宿主退出、会话关闭、休眠或登录失效会中断保活，具体状态以 `ml auth ping status` 为准。
 
-从目标 Profile 的插件管理器移除插件。仍有其他 Profile 使用该本地 Bundle 时继续保留其归档。卸载后 DSH 的登录及业务命令仍可使用，自动保活随插件停止。
+从目标 Profile 的插件管理器移除插件。完整包移除后，DSH 重新应用原来的遥测配置。若需继续保活，可安装用 `build.includeTelemetry: false` 重新构建的 Bundle。仍有其他 Profile 使用该本地 Bundle 时继续保留其归档。

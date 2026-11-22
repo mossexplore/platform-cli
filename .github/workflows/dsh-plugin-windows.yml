@@ -7,6 +7,8 @@ on:
       - 'dsh-plugin/**'
       - 'cli-go/**'
       - 'scripts/build_dsh_plugin.py'
+      - 'tests/test_dsh_plugin_package.py'
+      - 'telemetry-gateway/**'
       - 'scripts/sync_versions.py'
       - 'versions.toml'
       - '.github/workflows/dsh-plugin-windows.yml'
@@ -16,6 +18,8 @@ on:
       - 'dsh-plugin/**'
       - 'cli-go/**'
       - 'scripts/build_dsh_plugin.py'
+      - 'tests/test_dsh_plugin_package.py'
+      - 'telemetry-gateway/**'
       - 'scripts/sync_versions.py'
       - 'versions.toml'
       - '.github/workflows/dsh-plugin-windows.yml'
@@ -40,7 +44,9 @@ jobs:
           cache-dependency-path: cli-go/go.sum
 
       - name: Test the plugin
-        run: node --test dsh-plugin/wiserec-cli/tests/plugin.test.mjs
+        run: node --test dsh-plugin/wiserec-cli/tests/plugin.test.mjs dsh-plugin/wiserec-cli/tests/telemetry.test.mjs
+      - name: Verify both bundle variants and ZIP wrappers
+        run: python -m unittest discover -s tests -p test_dsh_plugin_package.py
       - name: Test Go CLI and build the compatible Windows binary
         working-directory: cli-go
         run: |
@@ -56,8 +62,17 @@ jobs:
       - name: Build and verify the installable DSH bundle
         shell: pwsh
         run: |
-          $buildOutput = @(cmd.exe /d /c 'dsh-plugin\wiserec-cli\build.cmd < nul')
-          $buildStatus = $LASTEXITCODE
+          $configPath = 'dsh-plugin/wiserec-cli/config.json'
+          $original = Get-Content -LiteralPath $configPath -Raw
+          $config = $original | ConvertFrom-Json
+          $config.build.includeTelemetry = $false
+          try {
+            $config | ConvertTo-Json -Depth 10 | Set-Content -LiteralPath $configPath -Encoding utf8NoBOM
+            $buildOutput = @(cmd.exe /d /c 'dsh-plugin\wiserec-cli\build.cmd < nul')
+            $buildStatus = $LASTEXITCODE
+          } finally {
+            Set-Content -LiteralPath $configPath -Value $original -NoNewline -Encoding utf8NoBOM
+          }
           $buildOutput | Write-Host
           if ($buildStatus -ne 0) { exit $buildStatus }
           $output = (Resolve-Path dsh-plugin/wiserec-cli/dist).Path
@@ -82,6 +97,9 @@ jobs:
           $releaseJson = @(& tar.exe -xOf $bundle.FullName package/release.json)
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           $release = ($releaseJson -join "`n") | ConvertFrom-Json
+          if ($release.includeTelemetry -ne $false -or ($bundleFiles -match '^package/telemetry/')) {
+            throw 'Expected the keepalive-only Windows artifact'
+          }
           if ($release.revision -ne $env:GITHUB_SHA) { throw 'Bundle source revision does not match CI checkout' }
           if ($bundle.Name -ne "$($manifest.name)-$($manifest.version).tgz" -or
               $release.version -ne $manifest.version -or $release.dsh_version -ne $manifest.engines.dsh) {
@@ -93,6 +111,29 @@ jobs:
           }
       - uses: actions/upload-artifact@v4
         with:
-          name: dsh-wiserec-cli-windows
+          name: dsh-wiserec-cli-keepalive-windows
           path: dsh-plugin/wiserec-cli/dist/**/*.tgz
           if-no-files-found: error
+
+  gateway-linux:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: telemetry-gateway/go.mod
+          cache: false
+      - name: Test and vet the gateway
+        working-directory: telemetry-gateway
+        run: |
+          go test -race ./...
+          go vet ./...
+      - name: Build and check the Linux amd64 container
+        run: |
+          docker build --platform linux/amd64 -t wiserec-telemetry-gateway:ci telemetry-gateway
+          test "$(docker image inspect --format '{{.Os}}/{{.Architecture}} {{.Config.User}}' wiserec-telemetry-gateway:ci)" = "linux/amd64 nonroot:nonroot"
+          container=$(docker run -d --rm -p 127.0.0.1:8088:8088 \
+            -e LANGFUSE_BASE_URL=http://127.0.0.1:9 \
+            -e LANGFUSE_PUBLIC_KEY=fixture-public -e LANGFUSE_SECRET_KEY=fixture-secret wiserec-telemetry-gateway:ci)
+          trap 'docker stop "$container"' EXIT
+          curl --fail --silent --show-error --retry 5 --retry-connrefused http://127.0.0.1:8088/health

@@ -5,12 +5,14 @@ import gzip
 import hashlib
 import io
 import json
+import os
 from pathlib import Path
 import re
 import subprocess
 import tarfile
 import tempfile
 from uuid import uuid4
+from urllib.parse import urlsplit
 import zipfile
 
 from sync_versions import read_versions, sync
@@ -18,6 +20,10 @@ from sync_versions import read_versions, sync
 
 ROOT = Path(__file__).resolve().parents[1]
 PLUGIN = ROOT / "dsh-plugin/wiserec-cli"
+TELEMETRY_FILES = (
+    "telemetry/index.js", "telemetry/collector.js", "telemetry/context.js",
+    "telemetry/exporter.js", "telemetry/mapper.js", "telemetry/redact.js",
+)
 
 
 def digest(content):
@@ -28,14 +34,73 @@ def json_bytes(value):
     return (json.dumps(value, indent=2) + "\n").encode()
 
 
-def bundle(manifest, metadata=None):
+def plugin_files(manifest, settings, token):
+    if not isinstance(settings, dict):
+        raise ValueError("config.json must contain an object")
+    build_config = settings.get("build", {})
+    if not isinstance(build_config, dict):
+        raise ValueError("build in config.json must be an object")
+    include_telemetry = build_config.get("includeTelemetry", True)
+    if not isinstance(include_telemetry, bool):
+        raise ValueError("build.includeTelemetry must be a boolean")
+
     files = {}
-    for name in ["package.json", *manifest["files"]]:
+    for name in manifest["files"]:
         source = ROOT / name if name == "LICENSE" else PLUGIN / name
         files[name] = source.read_bytes()
-    if metadata is not None:
-        files["release.json"] = json_bytes(metadata)
+    files["config.json"] = json_bytes({key: value for key, value in settings.items() if key != "build"})
+    if include_telemetry:
+        files.update({name: (PLUGIN / name).read_bytes() for name in TELEMETRY_FILES})
+        manifest = {
+            **manifest,
+            "description": "WiseRec CLI keepalive and session telemetry for DeepSeek Harness",
+            "files": [*manifest["files"], *TELEMETRY_FILES],
+            "exports": {**manifest["exports"], "./telemetry": "./telemetry/index.js"},
+        }
+        files["cordis.patch.yml"] += telemetry_patch(build_config, token)
+    files["package.json"] = json_bytes(manifest)
+    return files, include_telemetry
 
+
+def telemetry_patch(settings, token):
+    endpoint = settings.get("telemetryEndpoint")
+    try:
+        if not isinstance(endpoint, str) or any(ord(c) <= 32 or c == "\\" for c in endpoint):
+            raise ValueError
+        parsed = urlsplit(endpoint)
+        if (parsed.scheme not in ("http", "https") or not parsed.hostname or parsed.username is not None
+                or parsed.password is not None or parsed.path != "/v1/traces" or "?" in endpoint or "#" in endpoint
+                or parsed.port == 0):
+            raise ValueError
+    except ValueError:
+        raise ValueError("build.telemetryEndpoint must be an absolute HTTP(S) URL ending in /v1/traces") from None
+    if token and not re.fullmatch(r"[!-~]{1,1024}", token):
+        raise ValueError("DSH_TELEMETRY_INGEST_TOKEN contains invalid characters or exceeds its limit")
+    environments = settings.get("telemetryContentEnvironments", [])
+    if not isinstance(environments, list) or len(environments) > 64 or any(
+        not isinstance(env, str) or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.-]{0,63}", env)
+        for env in environments
+    ):
+        raise ValueError("build.telemetryContentEnvironments must be a list of environment names")
+    if environments and parsed.scheme != "https":
+        raise ValueError("telemetry content collection requires an HTTPS endpoint")
+    return (
+        "\n- id: session-telemetry-otel\n"
+        "  disabled: true\n"
+        "- insert:\n"
+        "    - id: wiserec-cli-telemetry\n"
+        "      name: dsh-wiserec-cli/telemetry\n"
+        "      disabled: false\n"
+        "      config:\n"
+        '        mode: "full"\n'
+        f"        endpoint: {json.dumps(endpoint)}\n"
+        f"        contentEnvironments: {json.dumps(environments)}\n"
+        + (f"        ingestToken: {json.dumps(token)}\n" if token else "")
+    ).encode("utf-8")
+
+
+def bundle(files, metadata):
+    files = {**files, "release.json": json_bytes(metadata)}
     content = io.BytesIO()
     with gzip.GzipFile(fileobj=content, mode="wb", mtime=0) as compressed:
         with tarfile.open(fileobj=compressed, mode="w") as archive:
@@ -97,10 +162,13 @@ def build(output, revision=None, *, bundle_only=False, new_output_directory=Fals
     sync(ROOT, check=True)
     versions, _ = read_versions(ROOT)
     package = json.loads((PLUGIN / "package.json").read_text(encoding="utf-8"))
+    settings = json.loads((PLUGIN / "config.json").read_text(encoding="utf-8-sig"))
+    files, include_telemetry = plugin_files(package, settings, os.getenv("DSH_TELEMETRY_INGEST_TOKEN", ""))
     stem = f"dsh-wiserec-cli-{versions['dsh_plugin']}"
     bundle_name = f"{stem}.tgz"
 
     progress("[3/5] Prepare release metadata")
+    progress(f"      includeTelemetry: {str(include_telemetry).lower()}")
     metadata = {
         "version": versions["dsh_plugin"],
         "cli_version": versions["cli_go"],
@@ -108,14 +176,17 @@ def build(output, revision=None, *, bundle_only=False, new_output_directory=Fals
         "dsh_version": package["engines"]["dsh"],
         "platform": "windows-x64",
         "revision": revision,
+        "includeTelemetry": include_telemetry,
     }
 
     progress(f"[4/5] Build the {bundle_name} plugin bundle")
-    packaged = bundle(package, metadata if bundle_only else None)
+    packaged = bundle(files, metadata)
 
     filename = bundle_name if bundle_only else f"{stem}-windows.zip"
     progress(f"[5/5] Write {filename}")
     output = output.resolve()
+    if not new_output_directory:
+        output /= "complete" if include_telemetry else "keepalive"
     output.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(dir=output) as work:
         candidate = Path(work) / filename
