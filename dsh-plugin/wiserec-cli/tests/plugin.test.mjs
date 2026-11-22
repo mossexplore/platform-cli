@@ -296,6 +296,10 @@ test('persists only allowlisted Cordis events with Beijing timestamps and rotate
         session_id: 'session-123', env: 'dev', request_id: 'a14b83d1-2f0a-481b-9e19-0a44ee8cf001',
       },
       { time: '2026-11-23 02:00:00', level: 'warn', event: 'cli_timeout', session_id: 'session-123' },
+      {
+        time: '2026-11-23 02:00:00', level: 'info', event: 'log_cleanup_completed',
+        trigger: 'startup', expired_deleted: 0, capacity_deleted: 0, deleted_kb: 0,
+      },
     ])
   } finally {
     await log.close()
@@ -330,9 +334,15 @@ test('removes expired segments only for exited hosts, including during concurren
       writeLog(directory, recentLog, 2),
     ])
     const options = { now: retentionTime, isHostExited: pid => pid === exitedPID || pid === process.pid }
-    assert.deepEqual(await Promise.all([
+    const results = await Promise.all([
       cleanupKeepaliveLogs(directory, options), cleanupKeepaliveLogs(directory, options),
-    ]), [true, true])
+    ])
+    assert.equal(results.reduce((sum, result) => sum + result.expiredDeleted, 0), 1)
+    assert.equal(results.reduce((sum, result) => sum + result.deletedBytes, 0), 3)
+    for (const result of results) {
+      assert.equal(result.capacityDeleted, 0)
+      assert.equal(result.reason, undefined)
+    }
     assert.deepEqual((await readdir(directory)).sort(), [...kept, recentLog, subdirectory].sort())
   } finally {
     await rm(directory, { recursive: true, force: true })
@@ -352,11 +362,81 @@ test('enforces a soft directory limit by pruning the oldest exited host logs fir
       writeLog(directory, newestLog, 1),
     ])
     const options = { now: retentionTime, maxBytes: 8, isHostExited: () => true }
-    assert.equal(await cleanupKeepaliveLogs(directory, options), true)
+    assert.deepEqual(await cleanupKeepaliveLogs(directory, options), {
+      expiredDeleted: 0, capacityDeleted: 2, deletedBytes: 6,
+    })
     assert.deepEqual((await readdir(directory)).sort(), [activeLog, newestLog].sort())
-    assert.equal(await cleanupKeepaliveLogs(directory, { ...options, maxBytes: 1 }), true)
+    assert.deepEqual(await cleanupKeepaliveLogs(directory, { ...options, maxBytes: 1 }), {
+      expiredDeleted: 0, capacityDeleted: 1, deletedBytes: 3,
+    })
     assert.deepEqual(await readdir(directory), [activeLog])
   } finally {
+    await rm(directory, { recursive: true, force: true })
+  }
+})
+
+test('retains partial deletion counts and recovers abandoned cleanup claims', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'wiserec-log-partial-'))
+  const removedPID = process.pid + 1
+  const blockedPID = process.pid + 2
+  const priorOwner = process.pid + 3
+  const pending = `keepalive-${removedPID}.previous.jsonl.cleanup-${priorOwner}-aa329a7f-1632-4e40-b325-5b2e25f5506b`
+  const blocked = `keepalive-${blockedPID}.jsonl`
+  try {
+    await writeLog(directory, pending, 9, 1285)
+    await writeLog(directory, blocked, 8)
+    const options = {
+      now: retentionTime,
+      isHostExited(pid) {
+        if (pid === blockedPID) throw new Error('unavailable file deletion check')
+        return true
+      },
+    }
+    assert.deepEqual(await cleanupKeepaliveLogs(directory, options), {
+      expiredDeleted: 1, capacityDeleted: 0, deletedBytes: 1285, reason: 'delete_failed',
+    })
+    assert.deepEqual(await readdir(directory), [blocked])
+  } finally {
+    await rm(directory, { recursive: true, force: true })
+  }
+})
+
+test('writes startup and periodic summaries with rounded KB', { timeout: 3000 }, async t => {
+  const directory = await mkdtemp(join(tmpdir(), 'wiserec-log-summary-'))
+  const removedPID = process.pid + 1
+  await writeLog(directory, `keepalive-${removedPID}.jsonl`, 9, 1285)
+  t.mock.method(Date, 'now', () => retentionTime)
+  t.mock.timers.enable({ apis: ['setInterval'] })
+  t.mock.method(process, 'kill', (pid, signal) => {
+    assert.equal(signal, 0)
+    assert.equal(pid, removedPID)
+    throw Object.assign(new Error('process already exited'), { code: 'ESRCH' })
+  })
+
+  const ctx = loggingContext(retentionTime)
+  const startup = new Promise(resolve => {
+    ctx.logger.exporter({ export(message) { if (message.args[1]?.trigger === 'startup') resolve() } })
+  })
+  const log = createKeepaliveLog(ctx, { directory })
+  try {
+    await startup
+    await setImmediate()
+    t.mock.timers.tick(day)
+    await log.close()
+    const records = (await readFile(join(directory, `keepalive-${process.pid}.jsonl`), 'utf8'))
+      .trim().split('\n').map(JSON.parse)
+    assert.deepEqual(records, [
+      {
+        time: '2026-11-22 20:00:00', level: 'info', event: 'log_cleanup_completed',
+        trigger: 'startup', expired_deleted: 1, capacity_deleted: 0, deleted_kb: 1.25,
+      },
+      {
+        time: '2026-11-22 20:00:00', level: 'info', event: 'log_cleanup_completed',
+        trigger: 'periodic', expired_deleted: 0, capacity_deleted: 0, deleted_kb: 0,
+      },
+    ])
+  } finally {
+    await log.close()
     await rm(directory, { recursive: true, force: true })
   }
 })

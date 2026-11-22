@@ -88,7 +88,8 @@ ml auth ping tick --json
 - 优先使用用户配置的 `mlPath` 绝对路径，随后读取 `HKCU\Software\WiseRec\CLIGo` 下的 `Path` 安装目录，最后检查当前 MSI 默认路径 `%LOCALAPPDATA%\Programs\WiseRecCLIGo\ml.exe`。便携安装使用显式路径。
 - 使用绝对路径和固定参数数组调用 `execFile`，不经 Shell，设置 `windowsHide: true`，限制标准输出和标准错误的缓冲区。启动时和路径变更时先做协议探测，旧构建、缺失二进制或协议不兼容时暂停并限频告警。
 - 通过带名称的 Cordis `ctx.logger` 记录调度启动、平台确认或未确认、登录失效和 CLI 异常。文件导出器只写本插件的指定事件，在 `%LOCALAPPDATA%\WiseRec\dsh-plugins\wiserec-cli\logs\` 按宿主 PID 保存 JSONL。文件按 256 KiB 轮转，正常跳过保持静默。
-- 插件启动后及每 24 小时后台清理一次。仅清理该目录下符合插件命名且可确认宿主已退出的普通日志文件，按最后修改时间保留 7 天。插件日志总量超过 10 MiB 时从最旧的符合条件文件开始清理。保留运行中或无法确认已退出的宿主日志。单次清理故障给出一次固定告警，日志写入和保活调度继续运行。卸载保留日志。
+- 插件启动后及每 24 小时后台清理一次。仅清理该目录下符合插件命名且可确认宿主已退出的普通日志文件，按最后修改时间保留 7 天。插件日志总量超过 10 MiB 时从最旧的符合条件文件开始清理。保留运行中或无法确认已退出的宿主日志。并发清理通过同目录内的原子重命名取得文件清理权，中断或删除失败留下的临时文件纳入后续检查。卸载保留日志。
+- 每轮结束向同一 JSONL 写入一次宿主级 `log_cleanup_completed`（`info`）或 `log_cleanup_failed`（`warn`）。记录 `trigger`（`startup` 或 `periodic`）、`expired_deleted`、`capacity_deleted` 和 `deleted_kb`，后三个字段只统计本轮确实删除的文件。按 1 KB = 1024 字节换算，结果最多两位小数。失败摘要保留已删除量，并记录 `scan_failed` 或 `delete_failed`。另外一个宿主已删除的文件正常跳过。清理记录省略路径、原始错误、会话及请求字段。
 - 会话级事件记录宿主提供的 `session_id`，环境 `env` 取自 CLI 实际解析结果，`request_id` 取自实际探活结果。未取得的字段省略。异常只使用固定错误分类，原始凭据、接口响应和子进程输出不进入日志。
 
 ### 4.3 包与依赖

@@ -49,9 +49,15 @@ Windows 上，日志位于 `%LOCALAPPDATA%\WiseRec\dsh-plugins\wiserec-cli\logs\
 
 插件启动时及运行期间每 24 小时清理一次。已退出宿主的日志按最后修改时间保留 7 天。插件日志合计超过 10 MiB 时，按最旧优先额外清理已退出宿主的日志。运行中的宿主及存活状态不明的宿主日志受保护，目录可能暂时超过 10 MiB。卸载插件时保留日志。
 
+每轮清理在同一日志中写一条摘要，`trigger` 为 `startup`（启动）或 `periodic`（定时）。`expired_deleted` 和 `capacity_deleted` 分别表示本轮按保留期和容量成功删除的文件数。`deleted_kb` 按 1 KB = 1024 字节换算，最多保留两位小数。无文件可删时计数为 0。成功使用 `log_cleanup_completed`，部分或全部失败使用 `log_cleanup_failed`，并记录固定错误分类 `scan_failed` 或 `delete_failed`。
+
+```json
+{"time":"2026-11-22 09:00:00","level":"info","event":"log_cleanup_completed","trigger":"startup","expired_deleted":3,"capacity_deleted":1,"deleted_kb":512}
+```
+
 `scheduler_started` 表示调度器已启动，`keepalive_confirmed` 表示平台确认续期。请求可用 `request_id` 与 `ml auth ping status` 对照。`keepalive_unconfirmed` 表示本次未获确认，`session_expired` 表示 CLI 判定平台会话已失效，`cli_timeout` 表示调用超时。`session_id` 来自 DSH，`env` 来自本次 CLI 响应。CLI 在返回环境或请求 ID 前中断时，对应字段省略。
 
-正常跳过不写日志。相同会话、环境和原因的重复警告五分钟内合并，成功确认逐次记录。日志只保留时间、级别、事件、已知会话和环境标识、请求 ID 和固定错误分类。
+正常跳过探活不写日志。相同会话、环境和原因的重复警告五分钟内合并，成功确认逐次记录。清理摘要按宿主记录，会话与请求字段仅用于保活事件。
 
 ## 停止、恢复和卸载
 
