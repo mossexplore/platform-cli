@@ -1,0 +1,14 @@
+{
+  "enabled": true,
+  "mlPath": "",
+  "pollSeconds": 120,
+  "idleWindowMinutes": 120,
+  "timeoutSeconds": 0,
+  "logging": {
+    "directoryName": "logs",
+    "maxFileKB": 256,
+    "maxTotalKB": 10240,
+    "retentionMinutes": 10080,
+    "cleanupIntervalMinutes": 1440
+  }
+}

@@ -91,6 +91,8 @@ ml auth ping tick --json
 - 插件启动后及每 24 小时后台清理一次。仅清理该目录下符合插件命名且可确认宿主已退出的普通日志文件，按最后修改时间保留 7 天。插件日志总量超过 10 MiB 时从最旧的符合条件文件开始清理。保留运行中或无法确认已退出的宿主日志。并发清理通过同目录内的原子重命名取得文件清理权，中断或删除失败留下的临时文件纳入后续检查。卸载保留日志。
 - 每轮结束向同一 JSONL 写入一次宿主级 `log_cleanup_completed`（`info`）或 `log_cleanup_failed`（`warn`）。记录 `trigger`（`startup` 或 `periodic`）、`expired_deleted`、`capacity_deleted` 和 `deleted_kb`，后三个字段只统计本轮确实删除的文件。按 1 KB = 1024 字节换算，结果最多两位小数。失败摘要保留已删除量，并记录 `scan_failed` 或 `delete_failed`。另外一个宿主已删除的文件正常跳过。清理记录省略路径、原始错误、会话及请求字段。
 - 会话级事件记录宿主提供的 `session_id`，环境 `env` 取自 CLI 实际解析结果，`request_id` 取自实际探活结果。未取得的字段省略。异常只使用固定错误分类，原始凭据、接口响应和子进程输出不进入日志。
+- 随包 `config.json` 集中维护保活和日志默认值。Windows 首次启用时在 `%LOCALAPPDATA%\WiseRec\dsh-plugins\wiserec-cli\config.json` 预填日志参数，保留旧 Profile 的保活设置。显式用户字段优先于旧 Profile，再使用包内默认值。重启宿主读取新设置，升级保留用户文件。
+- `logging` 配置日志子目录、单文件轮转阈值、目录容量上限、日志保留分钟数和清理间隔分钟数。写入与清理使用同一子目录。日志配置无效或文件不可读取时发出字段级 `config_invalid` 告警并暂停自动清理，保活和日志写入继续运行。Windows 快速测试时使用独立的 `logs-test`，保留 2 分钟，每 1 分钟清理一次。
 
 ### 4.3 包与依赖
 

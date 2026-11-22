@@ -12,6 +12,8 @@
   "files": [
     "index.js",
     "client.js",
+    "config.js",
+    "config.json",
     "logging.js",
     "runner.js",
     "session-status.js",

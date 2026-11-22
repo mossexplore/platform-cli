@@ -1,25 +1,11 @@
 import { randomUUID } from 'node:crypto'
-import { isAbsolute } from 'node:path'
+import { loadPluginConfiguration } from './config.js'
 import { createRunner } from './runner.js'
 import { createKeepaliveLog, failureReason } from './logging.js'
 import { createSessionStatus } from './session-status.js'
 
 export const name = 'wiserec-cli-keepalive'
 export const inject = ['agents']
-
-function configuration(input = {}) {
-  const values = {
-    enabled: true, mlPath: '', pollSeconds: 120, idleWindowMinutes: 120, timeoutSeconds: 0, ...input,
-  }
-  if (typeof values.enabled !== 'boolean' || typeof values.mlPath !== 'string' ||
-      (values.mlPath && !isAbsolute(values.mlPath)) ||
-      !Number.isInteger(values.pollSeconds) || values.pollSeconds < 60 || values.pollSeconds > 180 ||
-      !Number.isInteger(values.idleWindowMinutes) || values.idleWindowMinutes < 1 ||
-      !Number.isInteger(values.timeoutSeconds) || values.timeoutSeconds < 0 || values.timeoutSeconds > 300) {
-    throw new Error('invalid WiseRec keepalive configuration')
-  }
-  return values
-}
 
 const outcomes = new Map([
   ['confirmed', 'keepalive_confirmed'],
@@ -180,9 +166,10 @@ export function startScheduler(ctx, config, run = createRunner(config), clock = 
 }
 
 export function apply(ctx, rawConfig) {
-  const config = configuration(rawConfig)
+  const { config, issues, logOptions } = loadPluginConfiguration(rawConfig)
   if (!config.enabled) return
-  const log = createKeepaliveLog(ctx)
+  const log = createKeepaliveLog(ctx, logOptions)
+  for (const issue of issues) log.record('config_invalid', issue)
   const statuses = createSessionStatus(config.pollSeconds * 1000)
   ctx.inject(['connection'], routeCtx => statuses.register(routeCtx))
   ctx.effect(() => {

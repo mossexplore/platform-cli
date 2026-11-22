@@ -6,7 +6,8 @@ import { join } from 'node:path'
 import { setImmediate } from 'node:timers/promises'
 import test from 'node:test'
 import { runInNewContext } from 'node:vm'
-import { startScheduler } from '../index.js'
+import { loadPluginConfiguration } from '../config.js'
+import { apply, startScheduler } from '../index.js'
 import { cleanupKeepaliveLogs, createKeepaliveLog } from '../logging.js'
 import { hostEnvironment } from '../runner.js'
 import { createSessionStatus } from '../session-status.js'
@@ -270,6 +271,103 @@ function loggingContext(timestamp) {
   return { logger, exporters }
 }
 
+test('creates user config and layers it over Profile options without overwriting edits', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'wiserec-user-config-'))
+  const directory = join(root, 'WiseRec')
+  const path = join(directory, 'config.json')
+  const profile = { mlPath: join(root, 'ml.exe'), pollSeconds: 180, timeoutSeconds: 45 }
+  try {
+    const initial = loadPluginConfiguration(profile, { directory })
+    assert.deepEqual(initial.issues, [])
+    assert.deepEqual(initial.config, {
+      enabled: true, ...profile, idleWindowMinutes: 120,
+    })
+    const created = JSON.parse(await readFile(path, 'utf8'))
+    assert.deepEqual(Object.keys(created), ['logging'])
+    assert.deepEqual(initial.logOptions, {
+      directory: join(directory, 'logs'), cleanupEnabled: true, limit: 256 * 1024,
+      maxBytes: 10240 * 1024, maxAgeMs: 7 * 86400_000, cleanupIntervalMs: 86400_000,
+    })
+
+    const user = '\ufeff' + JSON.stringify({
+      pollSeconds: 60, logging: { directoryName: 'logs-test', maxFileKB: 8, retentionMinutes: 2 },
+    })
+    await writeFile(path, user)
+    const resolved = loadPluginConfiguration(profile, { directory })
+    assert.deepEqual(resolved.issues, [])
+    assert.deepEqual(resolved.config, { ...initial.config, pollSeconds: 60 })
+    assert.deepEqual(resolved.logOptions, {
+      ...initial.logOptions, directory: join(directory, 'logs-test'), limit: 8 * 1024, maxAgeMs: 120_000,
+    })
+    assert.equal(await readFile(path, 'utf8'), user)
+  } finally {
+    await rm(root, { recursive: true, force: true })
+  }
+})
+
+test('Windows plugin startup creates config and logs under LOCALAPPDATA', { skip: process.platform !== 'win32' }, async () => {
+  const root = await mkdtemp(join(tmpdir(), 'wiserec-localappdata-'))
+  const previous = process.env.LOCALAPPDATA
+  process.env.LOCALAPPDATA = root
+  const { ctx } = host()
+  const { logger } = loggingContext(Date.parse('2026-11-22T12:00:00Z'))
+  let close
+  try {
+    apply({ ...ctx, logger, inject() {}, effect(activate) { close = activate() } })
+    await close()
+    const directory = join(root, 'WiseRec', 'dsh-plugins', 'wiserec-cli')
+    const config = JSON.parse(await readFile(join(directory, 'config.json'), 'utf8'))
+    assert.equal(config.logging.retentionMinutes, 10080)
+    const records = (await readFile(join(directory, 'logs', `keepalive-${process.pid}.jsonl`), 'utf8'))
+      .trim().split('\n').map(JSON.parse)
+    assert.deepEqual(records.map(record => record.event), ['scheduler_started', 'log_cleanup_completed'])
+  } finally {
+    try {
+      await close?.()
+    } finally {
+      if (previous === undefined) delete process.env.LOCALAPPDATA
+      else process.env.LOCALAPPDATA = previous
+      await rm(root, { recursive: true, force: true })
+    }
+  }
+})
+
+test('logs invalid config but skips automatic cleanup and keeps valid runtime settings', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'wiserec-invalid-config-'))
+  const path = join(directory, 'config.json')
+  const ctx = loggingContext(Date.parse('2026-11-22T12:00:00Z'))
+  try {
+    await writeFile(path, '{invalid')
+    const invalidFile = loadPluginConfiguration({ pollSeconds: 90 }, { directory })
+    assert.deepEqual(invalidFile.issues, [{ reason: 'invalid_json' }])
+    assert.equal(invalidFile.logOptions.cleanupEnabled, false)
+    assert.equal(invalidFile.config.pollSeconds, 90)
+
+    await writeFile(path, JSON.stringify({ pollSeconds: 60, logging: {
+      directoryName: '../other-logs', cleanupIntervalMinutes: 36_000,
+    } }))
+    const { config: resolved, logOptions, issues } = loadPluginConfiguration({}, { directory })
+    assert.equal(resolved.pollSeconds, 60)
+    assert.equal(logOptions.cleanupEnabled, false)
+    assert.equal(logOptions.directory, join(directory, 'logs'))
+    const log = createKeepaliveLog(ctx, logOptions)
+    for (const issue of issues) log.record('config_invalid', issue)
+    log.record('scheduler_started')
+    await log.close()
+    const records = (await readFile(join(logOptions.directory, `keepalive-${process.pid}.jsonl`), 'utf8'))
+      .trim().split('\n').map(JSON.parse)
+    assert.deepEqual(records, [
+      { time: '2026-11-22 20:00:00', level: 'warn', event: 'config_invalid',
+        reason: 'invalid_field', field: 'logging.directoryName' },
+      { time: '2026-11-22 20:00:00', level: 'warn', event: 'config_invalid',
+        reason: 'invalid_field', field: 'logging.cleanupIntervalMinutes' },
+      { time: '2026-11-22 20:00:00', level: 'info', event: 'scheduler_started' },
+    ])
+  } finally {
+    await rm(directory, { recursive: true, force: true })
+  }
+})
+
 test('persists only allowlisted Cordis events with Beijing timestamps and rotates by PID', async () => {
   const directory = await mkdtemp(join(tmpdir(), 'wiserec-keepalive-'))
   const ctx = loggingContext(Date.parse('2026-11-22T18:00:00Z'))
@@ -401,10 +499,24 @@ test('retains partial deletion counts and recovers abandoned cleanup claims', as
   }
 })
 
-test('writes startup and periodic summaries with rounded KB', { timeout: 3000 }, async t => {
-  const directory = await mkdtemp(join(tmpdir(), 'wiserec-log-summary-'))
+test('uses configured retention, capacity and cleanup interval in a test log directory', { timeout: 3000 }, async t => {
+  const root = await mkdtemp(join(tmpdir(), 'wiserec-log-summary-'))
+  await writeFile(join(root, 'config.json'), JSON.stringify({ logging: {
+    directoryName: 'logs-test', maxFileKB: 4, maxTotalKB: 8, retentionMinutes: 2, cleanupIntervalMinutes: 1,
+  } }))
+  const { logOptions, issues } = loadPluginConfiguration({}, { directory: root })
+  assert.deepEqual(issues, [])
+  const directory = logOptions.directory
+  const normalDirectory = join(root, 'logs')
+  await Promise.all([mkdir(directory), mkdir(normalDirectory)])
   const removedPID = process.pid + 1
-  await writeLog(directory, `keepalive-${removedPID}.jsonl`, 9, 1285)
+  const oldName = `keepalive-${removedPID}.jsonl`
+  const testLog = join(directory, oldName)
+  const oldTime = new Date(retentionTime - 3 * 60_000)
+  await writeFile(testLog, Buffer.alloc(1285))
+  await utimes(testLog, oldTime, oldTime)
+  await writeLog(normalDirectory, oldName, 9)
+  await writeLog(directory, `keepalive-${removedPID}.previous.jsonl`, 0, 16 * 1024)
   t.mock.method(Date, 'now', () => retentionTime)
   t.mock.timers.enable({ apis: ['setInterval'] })
   t.mock.method(process, 'kill', (pid, signal) => {
@@ -417,26 +529,27 @@ test('writes startup and periodic summaries with rounded KB', { timeout: 3000 },
   const startup = new Promise(resolve => {
     ctx.logger.exporter({ export(message) { if (message.args[1]?.trigger === 'startup') resolve() } })
   })
-  const log = createKeepaliveLog(ctx, { directory })
+  const log = createKeepaliveLog(ctx, logOptions)
   try {
     await startup
     await setImmediate()
-    t.mock.timers.tick(day)
+    t.mock.timers.tick(60_000)
     await log.close()
     const records = (await readFile(join(directory, `keepalive-${process.pid}.jsonl`), 'utf8'))
       .trim().split('\n').map(JSON.parse)
     assert.deepEqual(records, [
       {
         time: '2026-11-22 20:00:00', level: 'info', event: 'log_cleanup_completed',
-        trigger: 'startup', expired_deleted: 1, capacity_deleted: 0, deleted_kb: 1.25,
+        trigger: 'startup', expired_deleted: 1, capacity_deleted: 1, deleted_kb: 17.25,
       },
       {
         time: '2026-11-22 20:00:00', level: 'info', event: 'log_cleanup_completed',
         trigger: 'periodic', expired_deleted: 0, capacity_deleted: 0, deleted_kb: 0,
       },
     ])
+    assert.deepEqual(await readdir(normalDirectory), [oldName])
   } finally {
     await log.close()
-    await rm(directory, { recursive: true, force: true })
+    await rm(root, { recursive: true, force: true })
   }
 })

@@ -1,14 +1,11 @@
 import { randomUUID } from 'node:crypto'
 import { appendFile, lstat, mkdir, readdir, rename, stat, unlink } from 'node:fs/promises'
-import { isAbsolute, join } from 'node:path'
+import { join } from 'node:path'
+import { configurationFields, defaultLogLimits } from './config.js'
 
 const loggerName = 'wiserec-cli-keepalive'
 const format = 'WiseRec keepalive: %o'
-const maxSegmentBytes = 256 * 1024
 const maxQueuedRecords = 128
-const cleanupInterval = 24 * 60 * 60 * 1000
-const maxLogAge = 7 * cleanupInterval
-const maxDirectoryBytes = 10 * 1024 * 1024
 const logFilename = /^(keepalive-([1-9]\d*)(?:\.previous)?\.jsonl)(?:\.cleanup-([1-9]\d*)-[\da-f]{8}(?:-[\da-f]{4}){3}-[\da-f]{12})?$/
 const activeClaims = new Set()
 
@@ -21,6 +18,7 @@ const levels = new Map([
   ['cli_failed', 'warn'],
   ['legacy_worker', 'warn'],
   ['host_unavailable', 'warn'],
+  ['config_invalid', 'warn'],
   ['log_cleanup_completed', 'info'],
   ['log_cleanup_failed', 'warn'],
 ])
@@ -30,6 +28,7 @@ const failureReasons = new Set([
 ])
 const requestIDFormat = /^[\da-f]{8}(?:-[\da-f]{4}){3}-[\da-f]{12}$/i
 const cleanupReasons = new Set(['scan_failed', 'delete_failed'])
+const configReasons = new Set(['read_failed', 'create_failed', 'invalid_json', 'invalid_field'])
 
 export function failureReason(value) {
   return failureReasons.has(value) ? value : 'unexpected_error'
@@ -55,6 +54,11 @@ function logFields(event, source) {
     if (event === 'log_cleanup_failed' && cleanupReasons.has(source.reason)) fields.reason = source.reason
     return fields
   }
+  if (event === 'config_invalid') {
+    if (configReasons.has(source.reason)) fields.reason = source.reason
+    if (configurationFields.has(source.field)) fields.field = source.field
+    return fields
+  }
   if (safeField(source.sessionID, 256)) fields.sessionID = source.sessionID
   if (safeField(source.env, 256)) fields.env = source.env
   if (typeof source.requestID === 'string' && requestIDFormat.test(source.requestID)) {
@@ -64,13 +68,6 @@ function logFields(event, source) {
     fields.reason = failureReason(source.reason)
   }
   return fields
-}
-
-function windowsLogDirectory() {
-  const root = process.env.LOCALAPPDATA
-  if (process.platform === 'win32' && root && isAbsolute(root)) {
-    return join(root, 'WiseRec', 'dsh-plugins', 'wiserec-cli', 'logs')
-  }
 }
 
 function beijingTime(timestamp) {
@@ -95,7 +92,8 @@ function hostExited(pid) {
 }
 
 export async function cleanupKeepaliveLogs(directory, {
-  now = Date.now(), maxBytes = maxDirectoryBytes, isHostExited = hostExited,
+  now = Date.now(), maxBytes = defaultLogLimits.maxBytes, maxAgeMs = defaultLogLimits.maxAgeMs,
+  isHostExited = hostExited,
 } = {}) {
   const result = { expiredDeleted: 0, capacityDeleted: 0, deletedBytes: 0 }
   let names
@@ -131,7 +129,7 @@ export async function cleanupKeepaliveLogs(directory, {
 
   files.sort((a, b) => a.info.mtimeMs - b.info.mtimeMs || a.path.localeCompare(b.path))
   for (const { path, baseName, pid, owner, info } of files) {
-    const expired = now - info.mtimeMs >= maxLogAge
+    const expired = now - info.mtimeMs >= maxAgeMs
     if (!expired && totalBytes <= maxBytes) break
     if (pid === process.pid) continue
     try {
@@ -171,16 +169,16 @@ export async function cleanupKeepaliveLogs(directory, {
   return result
 }
 
-function startLogCleanup(directory, onResult) {
+function startLogCleanup(directory, { maxBytes, maxAgeMs, cleanupIntervalMs }, onResult) {
   let pending
   function sweep(trigger) {
     if (pending) return
-    pending = cleanupKeepaliveLogs(directory)
+    pending = cleanupKeepaliveLogs(directory, { maxBytes, maxAgeMs })
       .then(result => onResult(trigger, result))
       .finally(() => { pending = undefined })
   }
   sweep('startup')
-  const timer = setInterval(() => sweep('periodic'), cleanupInterval)
+  const timer = setInterval(() => sweep('periodic'), cleanupIntervalMs)
   timer.unref()
   return async () => {
     clearInterval(timer)
@@ -227,7 +225,8 @@ function logWriter(directory, limit, onFailure) {
   return { write, drain: () => tail }
 }
 
-export function createKeepaliveLog(ctx, { directory = windowsLogDirectory(), limit = maxSegmentBytes } = {}) {
+export function createKeepaliveLog(ctx, options = {}) {
+  const { directory, limit, cleanupEnabled = true, ...cleanupOptions } = { ...defaultLogLimits, ...options }
   const service = ctx.logger
   const logger = typeof service === 'function' ? ctx.logger(loggerName) : undefined
   let writer
@@ -248,19 +247,21 @@ export function createKeepaliveLog(ctx, { directory = windowsLogDirectory(), lim
         const source = message.args[1]
         const level = levels.get(source?.event)
         if (!level || message.type !== level) return
-        const { event, sessionID, env, requestID, reason, ...cleanup } = logFields(source.event, source)
+        const { event, sessionID, env, requestID, reason, ...details } = logFields(source.event, source)
         writer.write({
           time: beijingTime(message.ts ?? Date.now()), level, event,
-          session_id: sessionID, env, request_id: requestID, ...cleanup, reason,
+          session_id: sessionID, env, request_id: requestID, ...details, reason,
         })
       },
     })
-    stopCleanup = startLogCleanup(directory, (trigger, result) => {
-      record(result.reason ? 'log_cleanup_failed' : 'log_cleanup_completed', {
-        trigger, expired_deleted: result.expiredDeleted, capacity_deleted: result.capacityDeleted,
-        deleted_kb: Number((result.deletedBytes / 1024).toFixed(2)), reason: result.reason,
+    if (cleanupEnabled) {
+      stopCleanup = startLogCleanup(directory, cleanupOptions, (trigger, result) => {
+        record(result.reason ? 'log_cleanup_failed' : 'log_cleanup_completed', {
+          trigger, expired_deleted: result.expiredDeleted, capacity_deleted: result.capacityDeleted,
+          deleted_kb: Number((result.deletedBytes / 1024).toFixed(2)), reason: result.reason,
+        })
       })
-    })
+    }
   }
   return {
     record,

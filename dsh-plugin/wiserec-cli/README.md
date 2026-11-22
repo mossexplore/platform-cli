@@ -13,21 +13,31 @@
 
 Bundle 的 DSH 安装门槛为 `>=0.2.2-rc.2`。Windows Desktop 离线加载与真实平台长时保活需按宿主版本执行实机验收。插件依赖宿主 Node.js 内置模块，无额外 npm 依赖。Web Profile 支持范围以单独验收为准。
 
-默认会话空闲窗口为 120 分钟。可配置 `pollSeconds`（60–180）、`idleWindowMinutes`、`mlPath`、`enabled`，以及 `timeoutSeconds`（默认按 CLI 调用预算计算）。
+## 插件配置
+
+包内的 [config.json](config.json) 提供默认值。Windows 上插件首次启用时会生成 `%LOCALAPPDATA%\WiseRec\dsh-plugins\wiserec-cli\config.json`，预填日志参数。升级保留已有文件。修改后完全退出 DSH（含系统托盘）再打开即可生效。
+
+用户文件中填写的字段优先。缺失字段沿用原 Profile 的保活配置或包内默认值。`enabled` 启停本插件，`pollSeconds` 设置检查间隔（60–180 秒），`idleWindowMinutes` 设置会话空闲窗口（默认 120 分钟），`timeoutSeconds` 为 `0` 时按 CLI 调用预算计算。使用便携版时在用户配置文件加上绝对路径，例如 `"mlPath": "C:\\WiseRec\\ml.exe"`。空字符串启用安装目录自动定位。
+
+| `logging` 字段 | 默认值 | 用途 |
+| --- | ---: | --- |
+| `directoryName` | `logs` | 插件数据目录下的日志子目录名，使用英文字母、数字、连字符或下划线 |
+| `maxFileKB` | `256` | 单个日志段的轮转阈值 |
+| `maxTotalKB` | `10240` | 日志目录容量软上限 |
+| `retentionMinutes` | `10080` | 根据最后修改时间保留旧日志，默认 7 天 |
+| `cleanupIntervalMinutes` | `1440` | 定时清理间隔，默认 24 小时；启动时额外清理一次 |
+
+容量按 1 KB = 1024 字节换算。容量和时间均填写正整数，定时清理间隔最长为 35791 分钟。配置文件无法读取或日志字段无效时，插件记录 `config_invalid`，暂停自动清理并继续按有效设置保活和写日志。
+
+### 快速验证 Windows 日志清理
+
+在 Windows 用户配置的 `logging` 中将 `directoryName` 改为 `logs-test`，`retentionMinutes` 改为 `2`，`cleanupIntervalMinutes` 改为 `1`，保存并重启 DSH。让该目录先生成一轮测试日志。取一份已退出宿主的测试日志，把文件的最后修改时间调到 3 分钟前。重启后检查清理摘要中的 `trigger: startup`，或在运行期间准备另一份到期的测试日志，等约 1 分钟检查 `trigger: periodic`。查看 `expired_deleted` 和 `deleted_kb`。测试后可将目录及时间参数改回默认值并重启 DSH。
 
 ## 会话保活标识
 
 DSH 会话列表的行尾图标显示该会话所绑定的 WiseRec 环境状态。绿点表示保活正常，红点表示登录已过期，黄点表示本次检查待确认，灰点表示待检查、未登录、未选业务或保活已暂停。鼠标移到会话行后可在 DSH 悬浮卡片里查看状态、已解析的环境、最近检查时间及该环境上次续期成功时间。时间使用北京时间。
 
 会话状态随插件轮询刷新，重新登录或切换环境后以该会话的下一次检查为准。行尾标识仅出现在插件已接管检查的会话上。精确区分「本地登录已过期」和「待登录」需要支持该状态的 Go CLI 构建。
-
-若使用便携版且宿主未提供插件配置表，可在该 Profile 的 `cordis.patch.yml` 为插件添加如下配置覆盖。Windows 路径使用单引号。使用中已有此条目时，在原条目中填写 `mlPath`。
-
-```yaml
-- id: wiserec-cli-keepalive
-  config:
-    mlPath: 'C:\WiseRec\ml.exe'
-```
 
 ## 构建
 
@@ -45,9 +55,9 @@ Windows CI 验证 `build.cmd` 的产物路径、Bundle 内容和校验值，以�
 
 ## 保活日志
 
-Windows 上，日志位于 `%LOCALAPPDATA%\WiseRec\dsh-plugins\wiserec-cli\logs\keepalive-<宿主PID>.jsonl`。每行记录一个事件，时间为北京时间，表示写入宿主日志的时间。文件达到 256 KiB 时轮转，同一宿主保留当前段和上一段。
+Windows 上，日志默认位于 `%LOCALAPPDATA%\WiseRec\dsh-plugins\wiserec-cli\logs\keepalive-<宿主PID>.jsonl`。每行记录一个事件，时间为北京时间，表示写入宿主日志的时间。文件默认达到 256 KB 时轮转，同一宿主保留当前段和上一段。
 
-插件启动时及运行期间每 24 小时清理一次。已退出宿主的日志按最后修改时间保留 7 天。插件日志合计超过 10 MiB 时，按最旧优先额外清理已退出宿主的日志。运行中的宿主及存活状态不明的宿主日志受保护，目录可能暂时超过 10 MiB。卸载插件时保留日志。
+按默认配置，插件启动时及运行期间每 24 小时清理一次。已退出宿主的日志按最后修改时间保留 7 天。插件日志合计超过 10 MiB 时，按最旧优先额外清理已退出宿主的日志。运行中的宿主及存活状态不明的宿主日志受保护，目录可能暂时超过容量上限。卸载插件时保留配置和日志。
 
 每轮清理在同一日志中写一条摘要，`trigger` 为 `startup`（启动）或 `periodic`（定时）。`expired_deleted` 和 `capacity_deleted` 分别表示本轮按保留期和容量成功删除的文件数。`deleted_kb` 按 1 KB = 1024 字节换算，最多保留两位小数。无文件可删时计数为 0。成功使用 `log_cleanup_completed`，部分或全部失败使用 `log_cleanup_failed`，并记录固定错误分类 `scan_failed` 或 `delete_failed`。
 
