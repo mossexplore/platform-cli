@@ -5,8 +5,8 @@
 ## Windows Desktop 离线安装
 
 1. 准备支持 `dsh-keepalive-v1` 的 Go CLI 构建。运行 `ml auth ping tick --capabilities` 检查协议；旧的同版本构建可能没有该命令。默认从 MSI 登记或每用户安装目录定位 `ml.exe`，便携版需要在插件配置中填写绝对 `mlPath`。
-2. 解压独立 ZIP。在解压目录执行 `./stage-wiserec-dsh-plugin.ps1`。脚本校验 Bundle 并将其保存到版本化的稳定目录，输出本地归档路径。
-3. 在目标 Desktop Profile 的“插件 → 添加插件”中选择本地 Bundle，填入脚本输出的本地归档绝对路径。确认插件已启用。若宿主提示重启，请完全退出桌面端及系统托盘后再打开。
+2. 将构建生成的 `dsh-wiserec-cli-<版本>.tgz` 保存在长期保留的目录。
+3. 在目标 Desktop Profile 的“插件 → 添加插件”中选择本地 Bundle，直接选择该 `.tgz` 文件。确认插件已启用。若宿主提示重启，请完全退出桌面端及系统托盘后再打开。
 4. 在 DSH 会话中绑定环境、登录并选择业务。执行 `ml auth ping status` 查看最近报到和上次平台确认成功时间。插件调度默认每两分钟检查一次，是否请求平台仍由 CLI 的空闲间隔决定。
 
 Bundle 的 DSH 安装门槛为 `>=0.2.2-rc.2`。Windows Desktop 离线加载与真实平台长时保活需按宿主版本执行实机验收。插件依赖宿主 Node.js 内置模块，无额外 npm 依赖。Web Profile 支持范围以单独验收为准。
@@ -23,17 +23,17 @@ Bundle 的 DSH 安装门槛为 `>=0.2.2-rc.2`。Windows Desktop 离线加载与�
 
 ## 构建
 
-在 Windows 安装 Git 和 Python 3.11 或更新版本后，双击本目录的 `build.cmd`。窗口会显示 Git 提交、版本校验、Bundle 生成、校验清单和 ZIP 打包进度。成功后显示完整产物路径，失败时保留错误信息。按任意键关闭窗口。
+在 Windows 安装 Git 和 Python 3.11 或更新版本后，双击本目录的 `build.cmd`。窗口会显示 Git 提交、版本校验、包元数据准备和 `.tgz` 打包进度。成功后显示 SHA-256 和产物完整路径，失败时保留错误信息。按任意键关闭窗口。
 
-每次双击都会在 `build.cmd` 同目录的 `dist\` 下创建 `dsh-YYYYMMDD-HHmmss-xxxxxxxx` 子目录。目录名沿用 Go CLI 的日期、时间和 8 位十六进制后缀，增加 `dsh-` 前缀。ZIP 文件名为 `dsh-wiserec-cli-<版本>-windows.zip`。脚本自动记录本地 `HEAD` 的完整提交 SHA。
+每次双击都会在 `build.cmd` 同目录的 `dist\` 下创建 `dsh-YYYYMMDD-HHmmss-xxxxxxxx` 子目录，里面只有一个可直接安装的 `dsh-wiserec-cli-<版本>.tgz`。脚本在包内记录本地 `HEAD` 的完整提交 SHA。
 
 在仓库根目录也可直接执行以下命令。
 
 ```powershell
-python scripts/build_dsh_plugin.py --output dsh-plugin/wiserec-cli/dist --new-output-directory --verbose
+python scripts/build_dsh_plugin.py --output dsh-plugin/wiserec-cli/dist --bundle-only --new-output-directory --verbose
 ```
 
-Windows CI 验证 ZIP 校验值、CLI 调度协议以及稳定目录的暂存流程。
+Windows CI 验证 `build.cmd` 的产物路径、Bundle 内容和校验值，以及 CLI 调度协议。
 
 ## 保活日志
 

@@ -98,8 +98,8 @@ ml auth ping tick --json
 
 - 本次 Go CLI 实施按指定版本 **1.1.1**，`components.cli_go`、`ml --version`、MSI 与便携 ZIP 的版本元数据保持一致。插件兼容性以单次探活协议探测为准，`1.1.1` 的旧构建可能缺少该能力。已正式发布的同版本标签及附件按仓库发布规则保持不可变。
 - 插件使用独立版本 `components.dsh_plugin`，首版规划 `0.1.0`，由 `scripts/sync_versions.py` 同步到插件包元数据，并由 `--check` 校验。当前设计修订不变更版本源文件。
-- 分发包为 `dsh-wiserec-cli-<版本>-windows.zip`，包含可用于本地安装的 Bundle、使用说明及必要的安装或卸载辅助脚本。生成 `release.json` 与 `SHA256SUMS`，记录插件版本、所需 CLI 调度协议、已验证的 CLI 构建和 DSH 版本范围、Windows 架构及源提交。
-- 在 Windows CI 从锁定源码重新构建 ESM，执行插件、CLI 和打包检查后生成 ZIP。校验包内文件清单、哈希和版本一致性，并演练删除临时解压目录后重新加载插件。
+- `build.cmd` 直接生成 `dsh-wiserec-cli-<版本>.tgz`，供 Desktop 插件管理器本地安装。包内 `release.json` 记录插件版本、所需 CLI 调度协议和版本、DSH 版本范围、Windows 架构及源提交。打包窗口输出文件路径和 SHA-256。
+- Windows CI 执行插件、CLI 和打包检查，校验 `.tgz` 的目录、内容、哈希和版本一致性。Desktop 本地加载与保活结果由实机验收确认。
 
 ## 6. Windows 安装、升级和卸载
 

@@ -23,11 +23,11 @@ if not defined wiserec_dsh_python (
     exit /b 1
 )
 
-%wiserec_dsh_python% -u "scripts\build_dsh_plugin.py" --output "%~dp0dist" --new-output-directory --verbose
+%wiserec_dsh_python% -u "scripts\build_dsh_plugin.py" --output "%~dp0dist" --bundle-only --new-output-directory --verbose
 set "wiserec_dsh_exit=%ERRORLEVEL%"
 popd
 if "%wiserec_dsh_exit%"=="0" (
-    echo Build complete. The ZIP path is listed above.
+    echo Build complete. Select the .tgz above in DeepSeek Harness to install the plugin.
 ) else (
     echo Build failed. See the error above.
 )

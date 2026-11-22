@@ -1,4 +1,4 @@
-"""Build the standalone Windows ZIP and its local-installable DSH bundle."""
+"""Build a local-installable DSH bundle, optionally wrapped in the legacy ZIP."""
 import argparse
 from datetime import datetime
 import gzip
@@ -24,13 +24,22 @@ def digest(content):
     return hashlib.sha256(content).hexdigest()
 
 
-def bundle(manifest):
+def json_bytes(value):
+    return (json.dumps(value, indent=2) + "\n").encode()
+
+
+def bundle(manifest, metadata=None):
+    files = {}
+    for name in ["package.json", *manifest["files"]]:
+        source = ROOT / name if name == "LICENSE" else PLUGIN / name
+        files[name] = source.read_bytes()
+    if metadata is not None:
+        files["release.json"] = json_bytes(metadata)
+
     content = io.BytesIO()
     with gzip.GzipFile(fileobj=content, mode="wb", mtime=0) as compressed:
         with tarfile.open(fileobj=compressed, mode="w") as archive:
-            for name in sorted(["package.json", *manifest["files"]]):
-                source = ROOT / name if name == "LICENSE" else PLUGIN / name
-                data = source.read_bytes()
+            for name, data in sorted(files.items()):
                 entry = tarfile.TarInfo(f"package/{name}")
                 entry.size = len(data)
                 archive.addfile(entry, io.BytesIO(data))
@@ -57,7 +66,22 @@ def create_build_directory(output):
         return directory
 
 
-def build(output, revision=None, *, new_output_directory=False, verbose=False):
+def write_legacy_zip(path, bundle_name, packaged, metadata):
+    files = {
+        bundle_name: packaged,
+        "release.json": json_bytes({**metadata, "bundle_sha256": digest(packaged)}),
+        "README.md": (PLUGIN / "README.md").read_bytes(),
+        "stage-wiserec-dsh-plugin.ps1": (PLUGIN / "stage-wiserec-dsh-plugin.ps1").read_bytes(),
+    }
+    files["SHA256SUMS"] = "".join(f"{digest(data)}  {name}\n" for name, data in sorted(files.items())).encode()
+    with zipfile.ZipFile(path, "w", zipfile.ZIP_DEFLATED) as archive:
+        for name, data in sorted(files.items()):
+            entry = zipfile.ZipInfo(name)
+            entry.compress_type = zipfile.ZIP_DEFLATED
+            archive.writestr(entry, data)
+
+
+def build(output, revision=None, *, bundle_only=False, new_output_directory=False, verbose=False):
     def progress(message):
         if verbose:
             print(message, flush=True)
@@ -74,11 +98,9 @@ def build(output, revision=None, *, new_output_directory=False, verbose=False):
     versions, _ = read_versions(ROOT)
     package = json.loads((PLUGIN / "package.json").read_text(encoding="utf-8"))
     stem = f"dsh-wiserec-cli-{versions['dsh_plugin']}"
+    bundle_name = f"{stem}.tgz"
 
-    progress(f"[3/5] Build the {stem} bundle")
-    packaged = bundle(package)
-
-    progress("[4/5] Generate release metadata and SHA256 checksums")
+    progress("[3/5] Prepare release metadata")
     metadata = {
         "version": versions["dsh_plugin"],
         "cli_version": versions["cli_go"],
@@ -86,30 +108,26 @@ def build(output, revision=None, *, new_output_directory=False, verbose=False):
         "dsh_version": package["engines"]["dsh"],
         "platform": "windows-x64",
         "revision": revision,
-        "bundle_sha256": digest(packaged),
     }
-    files = {
-        f"{stem}.tgz": packaged,
-        "release.json": (json.dumps(metadata, indent=2) + "\n").encode(),
-        "README.md": (PLUGIN / "README.md").read_bytes(),
-        "stage-wiserec-dsh-plugin.ps1": (PLUGIN / "stage-wiserec-dsh-plugin.ps1").read_bytes(),
-    }
-    files["SHA256SUMS"] = "".join(f"{digest(data)}  {name}\n" for name, data in sorted(files.items())).encode()
 
-    progress("[5/5] Write the Windows offline ZIP")
+    progress(f"[4/5] Build the {bundle_name} plugin bundle")
+    packaged = bundle(package, metadata if bundle_only else None)
+
+    filename = bundle_name if bundle_only else f"{stem}-windows.zip"
+    progress(f"[5/5] Write {filename}")
     output = output.resolve()
     output.mkdir(parents=True, exist_ok=True)
-    zip_name = f"{stem}-windows.zip"
     with tempfile.TemporaryDirectory(dir=output) as work:
-        candidate = Path(work) / zip_name
-        with zipfile.ZipFile(candidate, "w", zipfile.ZIP_DEFLATED) as archive:
-            for name, data in sorted(files.items()):
-                entry = zipfile.ZipInfo(name)
-                entry.compress_type = zipfile.ZIP_DEFLATED
-                archive.writestr(entry, data)
+        candidate = Path(work) / filename
+        if bundle_only:
+            candidate.write_bytes(packaged)
+        else:
+            write_legacy_zip(candidate, bundle_name, packaged, metadata)
         directory = create_build_directory(output) if new_output_directory else output
-        path = directory / zip_name
+        path = directory / filename
         candidate.replace(path)
+    if bundle_only:
+        progress(f"SHA256: {digest(packaged)}")
     return path
 
 
@@ -117,11 +135,13 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--revision", help="full Git commit SHA, defaults to local HEAD")
-    parser.add_argument("--new-output-directory", action="store_true", help="use a separate directory for each ZIP")
+    parser.add_argument("--bundle-only", action="store_true", help="write the installable .tgz directly")
+    parser.add_argument("--new-output-directory", action="store_true", help="use a separate directory for each build")
     parser.add_argument("--verbose", action="store_true", help="print packaging stages")
     args = parser.parse_args()
     try:
-        path = build(args.output, args.revision, new_output_directory=args.new_output_directory, verbose=args.verbose)
+        path = build(args.output, args.revision, bundle_only=args.bundle_only,
+                     new_output_directory=args.new_output_directory, verbose=args.verbose)
     except (OSError, ValueError) as error:
         parser.exit(1, f"Build error: {error}\n")
     print(path)

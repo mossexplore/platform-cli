@@ -53,50 +53,46 @@ jobs:
           $replacement[$embedded] = $example
           @{ Replace = $replacement } | ConvertTo-Json -Compress | Set-Content -LiteralPath $overlay -Encoding utf8NoBOM
           go build -overlay $overlay -o "$env:RUNNER_TEMP/ml.exe" ./cmd/ml
-      - name: Build and verify the offline plugin ZIP
+      - name: Build and verify the installable DSH bundle
         shell: pwsh
         run: |
-          cmd.exe /d /c 'dsh-plugin\wiserec-cli\build.cmd < nul'
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $buildOutput = @(cmd.exe /d /c 'dsh-plugin\wiserec-cli\build.cmd < nul')
+          $buildStatus = $LASTEXITCODE
+          $buildOutput | Write-Host
+          if ($buildStatus -ne 0) { exit $buildStatus }
           $output = (Resolve-Path dsh-plugin/wiserec-cli/dist).Path
-          $packages = @(Get-ChildItem -LiteralPath $output -Filter '*.zip' -File -Recurse)
-          if ($packages.Count -ne 1) { throw 'Expected one ZIP from build.cmd' }
-          $zip = $packages[0]
-          if ($zip.Directory.Parent.FullName -ne $output -or $zip.Directory.Name -notmatch '^dsh-\d{8}-\d{6}-[0-9a-f]{8}$') {
-            throw 'ZIP directory must be under the build.cmd dist and match dsh-YYYYMMDD-HHmmss-xxxxxxxx'
+          $packages = @(Get-ChildItem -LiteralPath $output -File -Recurse)
+          if ($packages.Count -ne 1 -or $packages[0].Extension -ne '.tgz') {
+            throw 'Expected exactly one .tgz from build.cmd'
           }
-          $unpacked = Join-Path $env:RUNNER_TEMP 'dsh-unpacked'
-          Expand-Archive -LiteralPath $zip.FullName -DestinationPath $unpacked
-          $lines = Get-Content -LiteralPath (Join-Path $unpacked 'SHA256SUMS')
-          foreach ($line in $lines) {
-            $hash, $file = $line -split '  ', 2
-            $actual = (Get-FileHash -Algorithm SHA256 -LiteralPath (Join-Path $unpacked $file)).Hash
-            if ($actual -ne $hash) { throw "Checksum mismatch: $file" }
+          $bundle = $packages[0]
+          if ($bundle.Directory.Parent.FullName -ne $output -or $bundle.Directory.Name -notmatch '^dsh-\d{8}-\d{6}-[0-9a-f]{8}$') {
+            throw 'Package directory must be under the build.cmd dist and match dsh-YYYYMMDD-HHmmss-xxxxxxxx'
           }
-          if ($lines.Count -ne (Get-ChildItem -File $unpacked).Count - 1) {
-            throw 'Incomplete checksum manifest'
-          }
-          $release = Get-Content -Raw -LiteralPath (Join-Path $unpacked 'release.json') | ConvertFrom-Json
-          if ($release.revision -ne $env:GITHUB_SHA) { throw 'ZIP source revision does not match CI checkout' }
-          $capability = & "$env:RUNNER_TEMP/ml.exe" auth ping tick --capabilities | ConvertFrom-Json
-          if ($capability.protocol -ne $release.cli_protocol -or $capability.cli_version -ne $release.cli_version) {
-            throw 'CLI capability does not match the offline plugin manifest'
-          }
-          $stage = Join-Path $unpacked 'stage-wiserec-dsh-plugin.ps1'
-          $store = Join-Path $env:RUNNER_TEMP 'dsh-install'
-          $bundle = & $stage -InstallRoot $store
-          if ((& $stage -InstallRoot $store) -ne $bundle) { throw 'Staging is not idempotent' }
-          $bundleFiles = @(& tar.exe -tf $bundle)
+          $actual = (Get-FileHash -LiteralPath $bundle.FullName -Algorithm SHA256).Hash
+          if ($buildOutput -notcontains "SHA256: $actual") { throw 'Bundle SHA256 does not match build output' }
+          $bundleFiles = @(& tar.exe -tf $bundle.FullName)
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          foreach ($file in @('package.json', 'index.js', 'logging.js', 'runner.js', 'cordis.patch.yml', 'README.md', 'LICENSE')) {
+          foreach ($file in @('package.json', 'release.json', 'index.js', 'logging.js', 'runner.js', 'cordis.patch.yml', 'README.md', 'LICENSE')) {
             if ($bundleFiles -notcontains "package/$file") { throw "Missing bundle file: $file" }
           }
-          Remove-Item -LiteralPath $unpacked -Recurse
-          if ((Get-FileHash -LiteralPath $bundle -Algorithm SHA256).Hash -ne $release.bundle_sha256) {
-            throw 'Staged bundle was lost after deleting the download directory'
+          $manifestJson = @(& tar.exe -xOf $bundle.FullName package/package.json)
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $manifest = ($manifestJson -join "`n") | ConvertFrom-Json
+          $releaseJson = @(& tar.exe -xOf $bundle.FullName package/release.json)
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $release = ($releaseJson -join "`n") | ConvertFrom-Json
+          if ($release.revision -ne $env:GITHUB_SHA) { throw 'Bundle source revision does not match CI checkout' }
+          if ($bundle.Name -ne "$($manifest.name)-$($manifest.version).tgz" -or
+              $release.version -ne $manifest.version -or $release.dsh_version -ne $manifest.engines.dsh) {
+            throw 'Bundle version or DSH compatibility metadata does not match'
+          }
+          $capability = & "$env:RUNNER_TEMP/ml.exe" auth ping tick --capabilities | ConvertFrom-Json
+          if ($capability.protocol -ne $release.cli_protocol -or $capability.cli_version -ne $release.cli_version) {
+            throw 'CLI capability does not match the plugin bundle metadata'
           }
       - uses: actions/upload-artifact@v4
         with:
           name: dsh-wiserec-cli-windows
-          path: dsh-plugin/wiserec-cli/dist/**/*.zip
+          path: dsh-plugin/wiserec-cli/dist/**/*.tgz
           if-no-files-found: error
