@@ -2,9 +2,20 @@
 
 网关接收 WiseRec DSH 完整包的 OTLP HTTP/JSON Trace。它校验来源、限制请求大小和并发，过滤属性并二次脱敏，再用项目密钥写入 Langfuse v4。
 
+## 下载与导入
+
+在 [GitHub Actions 的 DSH Windows plugin 工作流](https://github.com/mossexplore/platform-cli/actions/workflows/dsh-plugin-windows.yml) 中打开 `main` 的成功构建，下载 `wiserec-telemetry-gateway-0.1.0-linux-amd64`。解压外层 ZIP，将其中的 `.tar.gz` 和 `SHA256SUMS` 复制到 Linux x86_64 主机的同一目录。
+
+```sh
+sha256sum -c SHA256SUMS && \
+  docker load -i wiserec-telemetry-gateway-0.1.0-linux-amd64.tar.gz
+```
+
+校验通过后导入。导入完成后使用镜像标签 `wiserec-telemetry-gateway:0.1.0`。构建产物保留 30 天。
+
 ## 构建与部署
 
-从仓库根目录构建 Linux amd64 镜像。
+也可从仓库根目录构建 Linux amd64 镜像。
 
 ```sh
 docker build --platform linux/amd64 -t wiserec-telemetry-gateway:0.1.0 telemetry-gateway

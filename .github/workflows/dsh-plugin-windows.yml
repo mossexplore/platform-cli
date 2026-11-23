@@ -129,11 +129,51 @@ jobs:
           go test -race ./...
           go vet ./...
       - name: Build and check the Linux amd64 container
+        id: gateway_image
+        shell: bash
         run: |
-          docker build --platform linux/amd64 -t wiserec-telemetry-gateway:ci telemetry-gateway
-          test "$(docker image inspect --format '{{.Os}}/{{.Architecture}} {{.Config.User}}' wiserec-telemetry-gateway:ci)" = "linux/amd64 nonroot:nonroot"
+          image=wiserec-telemetry-gateway:ci
+          docker build --platform linux/amd64 --label "org.opencontainers.image.revision=$GITHUB_SHA" \
+            -t "$image" telemetry-gateway
+          test "$(docker image inspect --format '{{.Os}}/{{.Architecture}} {{.Config.User}}' "$image")" = "linux/amd64 nonroot:nonroot"
           container=$(docker run -d --rm -p 127.0.0.1:8088:8088 \
             -e LANGFUSE_BASE_URL=http://127.0.0.1:9 \
-            -e LANGFUSE_PUBLIC_KEY=fixture-public -e LANGFUSE_SECRET_KEY=fixture-secret wiserec-telemetry-gateway:ci)
-          trap 'docker stop "$container"' EXIT
-          curl --fail --silent --show-error --retry 5 --retry-connrefused http://127.0.0.1:8088/health
+            -e LANGFUSE_PUBLIC_KEY=fixture-public -e LANGFUSE_SECRET_KEY=fixture-secret "$image")
+          trap 'docker stop "$container" >/dev/null' EXIT
+          version=$(curl --fail --silent --show-error --retry 5 --retry-connrefused http://127.0.0.1:8088/health \
+            | jq -er 'select(.status == "ok") | .version | strings')
+          [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]
+          image_id=$(docker image inspect --format '{{.Id}}' "$image")
+          printf 'version=%s\nimage_id=%s\n' "$version" "$image_id" >> "$GITHUB_OUTPUT"
+      - name: Export and reload the tested gateway image
+        if: github.ref == 'refs/heads/main'
+        shell: bash
+        env:
+          GATEWAY_VERSION: ${{ steps.gateway_image.outputs.version }}
+          TESTED_IMAGE_ID: ${{ steps.gateway_image.outputs.image_id }}
+          OUTPUT_DIR: ${{ runner.temp }}/offline-telemetry-gateway
+        run: |
+          image="wiserec-telemetry-gateway:$GATEWAY_VERSION"
+          archive="wiserec-telemetry-gateway-$GATEWAY_VERSION-linux-amd64.tar.gz"
+          mkdir -p "$OUTPUT_DIR"
+          cd "$OUTPUT_DIR"
+          docker image tag "$TESTED_IMAGE_ID" "$image"
+          docker image save "$image" | gzip -n > "$archive"
+          sha256sum "$archive" > SHA256SUMS
+          sha256sum -c SHA256SUMS
+          docker image rm "$image" wiserec-telemetry-gateway:ci
+          docker image load -i "$archive"
+          test "$(docker image inspect --format '{{.Id}}' "$image")" = "$TESTED_IMAGE_ID"
+          test "$(docker image inspect --format '{{.Os}}/{{.Architecture}} {{.Config.User}}' "$image")" = "linux/amd64 nonroot:nonroot"
+          test "$(docker image inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$image")" = "$GITHUB_SHA"
+          printf '### Offline telemetry gateway\n\nImage: `%s` (linux/amd64).\n\n`sha256sum -c SHA256SUMS`\n\n`docker load -i %s`\n' \
+            "$image" "$archive" >> "$GITHUB_STEP_SUMMARY"
+      - name: Upload the offline telemetry gateway
+        if: github.ref == 'refs/heads/main'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: wiserec-telemetry-gateway-${{ steps.gateway_image.outputs.version }}-linux-amd64
+          path: ${{ runner.temp }}/offline-telemetry-gateway/
+          compression-level: 0
+          retention-days: 30
+          if-no-files-found: error
