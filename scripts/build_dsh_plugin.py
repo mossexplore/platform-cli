@@ -44,16 +44,13 @@ def plugin_files(manifest, settings, token):
     if not isinstance(include_telemetry, bool):
         raise ValueError("build.includeTelemetry must be a boolean")
 
-    files = {}
-    for name in manifest["files"]:
-        source = ROOT / name if name == "LICENSE" else PLUGIN / name
-        files[name] = source.read_bytes()
+    sources = {"LICENSE": ROOT / "LICENSE", "README.md": PLUGIN / "INSTALL.md"}
+    files = {name: sources.get(name, PLUGIN / name).read_bytes() for name in manifest["files"]}
     files["config.json"] = json_bytes({key: value for key, value in settings.items() if key != "build"})
     if include_telemetry:
         files.update({name: (PLUGIN / name).read_bytes() for name in TELEMETRY_FILES})
         manifest = {
             **manifest,
-            "description": "WiseRec CLI keepalive and session telemetry for DeepSeek Harness",
             "files": [*manifest["files"], *TELEMETRY_FILES],
             "exports": {**manifest["exports"], "./telemetry": "./telemetry/index.js"},
         }
@@ -131,11 +128,11 @@ def create_build_directory(output):
         return directory
 
 
-def write_legacy_zip(path, bundle_name, packaged, metadata):
+def write_legacy_zip(path, bundle_name, packaged, metadata, readme):
     files = {
         bundle_name: packaged,
         "release.json": json_bytes({**metadata, "bundle_sha256": digest(packaged)}),
-        "README.md": (PLUGIN / "README.md").read_bytes(),
+        "README.md": readme,
         "stage-wiserec-dsh-plugin.ps1": (PLUGIN / "stage-wiserec-dsh-plugin.ps1").read_bytes(),
     }
     files["SHA256SUMS"] = "".join(f"{digest(data)}  {name}\n" for name, data in sorted(files.items())).encode()
@@ -193,7 +190,7 @@ def build(output, revision=None, *, bundle_only=False, new_output_directory=Fals
         if bundle_only:
             candidate.write_bytes(packaged)
         else:
-            write_legacy_zip(candidate, bundle_name, packaged, metadata)
+            write_legacy_zip(candidate, bundle_name, packaged, metadata, files["README.md"])
         directory = create_build_directory(output) if new_output_directory else output
         path = directory / filename
         candidate.replace(path)

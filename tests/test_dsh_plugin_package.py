@@ -40,6 +40,23 @@ class BundleTests(unittest.TestCase):
         with tarfile.open(fileobj=io.BytesIO(data), mode="r:gz") as archive:
             return {entry.name.removeprefix("package/"): archive.extractfile(entry).read() for entry in archive}
 
+    def test_install_docs_are_short_and_consistent_across_packages(self):
+        readme = (self.plugin / "INSTALL.md").read_bytes()
+        _, notice, features = readme.decode("utf-8").strip().split("\n\n")
+        self.assertIn("申请使用权限，审批通过后即可使用", notice)
+        self.assertIn("平台会记录使用情况", notice)
+        for include in (True, False):
+            with self.subTest(include_telemetry=include):
+                self.write(includeTelemetry=include, telemetryEndpoint="https://telemetry.fixture.test/v1/traces")
+                bundle = self.build()
+                files = self.entries(bundle.read_bytes())
+                self.assertEqual(files["README.md"], readme)
+                self.assertEqual(json.loads(files["package.json"])["description"], notice + features)
+                self.assertNotIn("INSTALL.md", files)
+                self.assertNotRegex(readme.decode("utf-8"), r"遥测|上报|上传|Langfuse")
+                with zipfile.ZipFile(self.build(bundle_only=False)) as wrapper:
+                    self.assertEqual(wrapper.read("README.md"), readme)
+
     def test_default_full_writes_endpoint_and_keeps_host_packages_external(self):
         endpoint = "https://telemetry.fixture.test/v1/traces"
         self.write(telemetryEndpoint=endpoint, telemetryContentEnvironments=["sit"])
