@@ -283,6 +283,17 @@ foreach ($package in @($baseline, $replacement, $upgrade)) {
     if ($detect -le 0 -or $confirm -le $detect -or $check -le $confirm) {
         throw 'MSI must detect the old installation before prompting and check consent after prompting.'
     }
+    $samePackageApproval = 'SELECT `Argument` FROM `ControlEvent` WHERE `Dialog_` = ''ConfirmSamePackageReinstall'' AND `Control_` = ''Reinstall'' AND `Event` = ''[WISECLI_REPLACE_SAME_VERSION]'' AND `Ordering` = 1'
+    $samePackageCancel = 'SELECT `Argument` FROM `ControlEvent` WHERE `Dialog_` = ''ConfirmSamePackageReinstall'' AND `Control_` = ''Cancel'' AND `Event` = ''EndDialog'''
+    $samePackageConfirm = [int](Get-MsiValues $package ($actionSequence + "'ConfirmSamePackageReinstall'"))
+    $reinstallMode = [int](Get-MsiValues $package ($actionSequence + "'SetSamePackageReinstallMode'"))
+    $reinstall = [int](Get-MsiValues $package ($actionSequence + "'SetSamePackageReinstall'"))
+    $cost = [int](Get-MsiValues $package ($actionSequence + "'CostInitialize'"))
+    if ((Get-MsiValues $package $samePackageApproval) -ne '1' -or
+        (Get-MsiValues $package $samePackageCancel) -ne 'Exit' -or $samePackageConfirm -le 0 -or
+        $reinstallMode -le $samePackageConfirm -or $reinstall -le $reinstallMode -or $reinstall -ge $cost) {
+        throw 'MSI must confirm repeating the same package before setting the reinstall properties.'
+    }
     $versionLabels = @(Get-MsiValues $package $successVersion)
     $packageVersion = Get-MsiValues $package $versionQuery
     if ($versionLabels.Count -ne 1 -or $versionLabels[0] -cne "当前安装版本：$packageVersion") {
@@ -379,6 +390,16 @@ try {
     Invoke-Msi '/fa' $baseline 'repair' | Out-Null
     Assert-Installed $portable
 
+    $approval = 'WISECLI_REPLACE_SAME_VERSION=1'
+    $shortcut = Join-Path $openCode 'commands/ml.md'
+    Set-Content -LiteralPath $installedExe -Value 'stale executable fixture' -Encoding ascii
+    Remove-Item -LiteralPath $shortcut
+    Invoke-Msi '/i' $baseline 'same-package-confirmed' 0 $approval | Out-Null
+    if ((Get-ProductState $baselineCode) -ne 5 -or (Get-FileHash $goConfig).Hash -ne $configDigest) {
+        throw 'Reinstalling the same package must preserve its registration and user configuration.'
+    }
+    Assert-Installed $portable
+
     Invoke-Msi '/i' $replacement 'same-version-unconfirmed' 1603 | Out-Null
     if ((Get-ProductState $baselineCode) -ne 5 -or (Get-ProductState $replacementCode) -ne -1) {
         throw 'Unconfirmed replacement changed the installed product.'
@@ -387,7 +408,6 @@ try {
 
     $sameVersionRollback = Join-Path $Work 'same-version-rollback.msi'
     New-RollbackFixture $replacement $sameVersionRollback
-    $approval = 'WISECLI_REPLACE_SAME_VERSION=1'
     $log = Invoke-Msi '/i' $sameVersionRollback 'same-version-rollback' 1603 $approval
     if (-not (Select-String -LiteralPath $log -SimpleMatch 'CustomAction TestRollbackPath returned actual error code 1') -or
         (Get-ProductState $baselineCode) -ne 5 -or (Get-ProductState $replacementCode) -ne -1) {

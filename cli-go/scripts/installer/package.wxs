@@ -13,6 +13,11 @@
             Message="已安装相同版本。请打开此 MSI 并确认卸载旧安装后再继续。" />
     <Launch Condition="Installed OR NOT WISECLI_SAME_VERSION OR (NOT RollbackDisabled AND NOT DISABLEROLLBACK)"
             Message="Windows Installer 已禁用回滚，无法安全替换相同版本的 WiseRec CLI。" />
+    <!-- The installed ProductCode uses Windows Installer maintenance instead of RemoveExistingProducts. -->
+    <SetProperty Id="REINSTALLMODE" Action="SetSamePackageReinstallMode" Value="amus" After="LaunchConditions"
+                 Condition="Installed AND WISECLI_REPLACE_SAME_VERSION = &quot;1&quot; AND NOT REMOVE AND NOT REINSTALL" />
+    <SetProperty Id="REINSTALL" Action="SetSamePackageReinstall" Value="ALL" After="SetSamePackageReinstallMode"
+                 Condition="Installed AND WISECLI_REPLACE_SAME_VERSION = &quot;1&quot; AND NOT REMOVE AND NOT REINSTALL" />
     <MediaTemplate EmbedCab="yes" />
     <EnsureTable Id="ListBox" />
 
@@ -159,12 +164,16 @@
         <Control Id="Warning" Type="Text" X="12" Y="14" Width="276" Height="46"
                  Text="已安装相同版本的 WiseRec CLI（$(var.Version)）。是否卸载现有安装，再安装此包？环境配置和登录数据会保留。" />
       </Dialog>
-      <Dialog Id="AlreadyInstalled" Width="300" Height="97" Title="WiseRec CLI 安装警告">
-        <Control Id="Ok" Type="PushButton" X="232" Y="67" Width="56" Height="17" Default="yes" Cancel="yes" Text="确定">
+      <Dialog Id="ConfirmSamePackageReinstall" Width="300" Height="101" Title="WiseRec CLI 同版本重装">
+        <Control Id="Cancel" Type="PushButton" X="232" Y="72" Width="56" Height="17" Default="yes" Cancel="yes" Text="取消">
           <Publish Event="EndDialog" Value="Exit" />
         </Control>
-        <Control Id="Warning" Type="Text" X="12" Y="14" Width="276" Height="36"
-                 Text="此安装包已安装。需要修复时，请在 Windows「已安装的应用」中操作。" />
+        <Control Id="Reinstall" Type="PushButton" X="142" Y="72" Width="84" Height="17" Text="重新安装">
+          <Publish Property="WISECLI_REPLACE_SAME_VERSION" Value="1" Order="1" />
+          <Publish Event="EndDialog" Value="Return" Order="2" />
+        </Control>
+        <Control Id="Warning" Type="Text" X="12" Y="14" Width="276" Height="46"
+                 Text="此 WiseRec CLI 安装包（$(var.Version)）已安装。是否覆盖重装？环境配置和登录数据会保留。" />
       </Dialog>
       <Dialog Id="InstallationComplete" Width="300" Height="101" Title="WiseRec CLI">
         <Control Id="Ok" Type="PushButton" X="232" Y="72" Width="56" Height="17" Default="yes" Cancel="yes" Text="确定">
@@ -213,10 +222,10 @@
         </Control>
       </Dialog>
       <InstallUISequence>
+        <Show Dialog="ConfirmSamePackageReinstall" Before="ConfirmSameVersionReplacement"
+              Condition="Installed AND NOT REMOVE AND NOT REINSTALL AND UILevel = 5" />
         <Show Dialog="ConfirmSameVersionReplacement" Before="LaunchConditions"
               Condition="NOT Installed AND WISECLI_SAME_VERSION AND NOT WIX_DOWNGRADE_DETECTED AND UILevel = 5" />
-        <Show Dialog="AlreadyInstalled" Before="Installing"
-              Condition="Installed AND NOT REMOVE AND NOT REINSTALL AND UILevel = 5" />
         <Show Dialog="Installing" Before="ExecuteAction" Condition="NOT REMOVE AND UILevel &gt;= 4" />
         <!-- Reduced UI shows progress during automatic upgrade, without a final confirmation. -->
         <Show Dialog="InstallationComplete" OnExit="success" Condition="(NOT Installed OR REINSTALL) AND NOT REMOVE AND UILevel = 5" />
