@@ -60,8 +60,8 @@ WiseRec 和 MLOps 均支持 `train` 和 `feature-task` 命令，`algorithm` 仅�
 | `ml sample-task execution list TASK_ID` | 新旧样本任务共用执行记录查询，无需 `--source`，支持分页、`--include-history` 和 `-o json` | | |
 | `ml train instance list TASK_ID` | 分页查询执行实例 | | |
 | `ml train history list TASK_ID [--latest-flag true\|all]` | 分页查询执行记录；默认仅查最新实例，`all` 包含历史实例 | | |
-| `ml train history detail TASK_ID JOB_ID [-o json]` | 查询执行记录及分布式角色详情 | | |
-| `ml train history logs download TASK_ID JOB_ID [--type log\|plog] [--directory DIR] [--role-job-id ROLE_JOB_ID]` | 下载执行记录日志，普通日志未就绪时提交归档，分布式训练用角色 ID 非交互下载普通日志和 plog | | 条件性写：平台日志归档及本地文件 |
+| `ml train history detail TASK_ID JOB_ID [-o json]` | 在最新实例的执行记录中查询作业及分布式角色详情 | | |
+| `ml train history logs download TASK_ID JOB_ID [--type log\|plog] [--directory DIR] [--role-job-id ROLE_JOB_ID]` | 在最新实例的执行记录中定位并下载日志，普通日志未就绪时提交归档，分布式训练非交互下载须指定角色 ID | | 条件性写：平台日志归档及本地文件 |
 | `ml train instance logs download TASK_ID JOB_ID [--select SELECTION] [--directory DIR]` | 先请求归档，仅下载归档成功的日志，`--select` 传编号或 `all` | | 写：平台归档及本地 ZIP 文件 |
 | `ml train start TASK_ID` | 立即启动任务 | | 写（无内置确认）：启动作业 |
 | `ml train cancel TASK_ID` | 逐个取消全部执行实例 | 是 | 写：取消作业 |
