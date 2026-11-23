@@ -148,30 +148,38 @@ func currentBusiness(load loadConfig, live bool) (localstate.Paths, localstate.C
 
 func printBusiness(cmd *cobra.Command, entry localstate.BusinessEntry) error {
 	sel := entry.Selected
-	department, tenant, team, dimension := sel.DepartmentID, sel.TenantID, "-", "tenant"
+	department, tenant, team := businessSelectionNames(entry)
+	dimension := "tenant"
 	if sel.TeamID != "" {
-		team, dimension = sel.TeamID, "team"
+		team, dimension = labelOrID(team, sel.TeamID), "team"
+	} else {
+		team = "-"
 	}
+	fields := output.Fields{{Key: "type（选择维度）", Value: dimension}, {Key: "department（部门）", Value: labelOrID(department, sel.DepartmentID)},
+		{Key: "tenant（租户）", Value: labelOrID(tenant, sel.TenantID)}, {Key: "team（团队）", Value: team}, {Key: "businessId", Value: sel.BusinessID}}
+	return fields.Table(cmd.OutOrStdout())
+}
+
+func businessSelectionNames(entry localstate.BusinessEntry) (department, tenant, team string) {
+	sel := entry.Selected
 	for _, dept := range entry.Catalog {
 		if sel.DepartmentID != dept.ID {
 			continue
 		}
-		department = labelOrID(dept.Name, dept.ID)
+		department = dept.Name
 		for _, item := range dept.Tenants {
 			if sel.TenantID != item.ID {
 				continue
 			}
-			tenant = labelOrID(item.Name, item.ID)
+			tenant = item.Name
 			for _, scope := range item.Teams {
 				if sel.TeamID == scope.ID {
-					team = labelOrID(scope.Name, scope.ID)
+					team = scope.Name
 				}
 			}
 		}
 	}
-	fields := output.Fields{{Key: "type（选择维度）", Value: dimension}, {Key: "department（部门）", Value: department},
-		{Key: "tenant（租户）", Value: tenant}, {Key: "team（团队）", Value: team}, {Key: "businessId", Value: sel.BusinessID}}
-	return fields.Table(cmd.OutOrStdout())
+	return department, tenant, team
 }
 
 func selectInteractive(cmd *cobra.Command, catalog []localstate.Department, search string) (localstate.Selection, error) {

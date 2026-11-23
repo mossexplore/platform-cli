@@ -1,12 +1,9 @@
-import { execFile } from 'node:child_process'
 import { createHash } from 'node:crypto'
 import { open } from 'node:fs/promises'
 import { isAbsolute, join } from 'node:path'
-import { promisify } from 'node:util'
-import { findCLI, hostEnvironment } from '../runner.js'
+import { readCLIContext } from '../runner.js'
 import { identifier } from './redact.js'
 
-const execute = promisify(execFile)
 const maxStateBytes = 256 * 1024
 
 export async function readSession(id, root = process.env.APPDATA) {
@@ -38,15 +35,6 @@ export async function readSession(id, root = process.env.APPDATA) {
   } catch {
     return undefined
   }
-}
-
-async function readCLIContext(id, mlPath, signal) {
-  const binary = await findCLI(mlPath)
-  const { stdout } = await execute(binary, ['context', '--json'], {
-    timeout: 2000, signal, windowsHide: true, maxBuffer: 16 * 1024,
-    env: { ...hostEnvironment(process.env), DSH_SHELL: '1', DSH_SESSION_ID: id },
-  })
-  return JSON.parse(stdout)
 }
 
 export function contextResolver(mlPath, { readState = readSession, readCLI = readCLIContext } = {}) {

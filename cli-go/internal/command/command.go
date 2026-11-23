@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/mossexplore/platform-cli/cli-go/internal/edgelogin"
 	"github.com/mossexplore/platform-cli/cli-go/internal/localstate"
@@ -111,6 +112,10 @@ func newRoot(options Options) *cobra.Command {
 			if resolved, err := filepath.EvalSymlinks(executable); err == nil {
 				executable = resolved
 			}
+			session, _, err := paths.LoadSessionState()
+			if err != nil {
+				return err
+			}
 			currentEnv := cfg.Current
 			if currentEnv == "" {
 				currentEnv = "未绑定"
@@ -120,12 +125,15 @@ func newRoot(options Options) *cobra.Command {
 				sessionID = paths.Session.ID
 				sessionFile = paths.SessionFile()
 			}
-			currentBusiness := "未绑定"
-			if profile, err := cfg.RequireProfile(); err == nil {
-				if creds, err := paths.CredentialsFor(profile); err == nil {
-					if id, err := paths.SelectedBusiness(creds); err == nil && id != "" {
-						currentBusiness = id
-					}
+			currentBusiness, currentTenant, loginStatus := contextBusiness(paths, cfg)
+			if paths.IsSessionIsolated() {
+				latest, _, err := paths.LoadSessionState()
+				if err != nil {
+					return err
+				}
+				if (cfg.Current != "" && session.Current != cfg.Current) ||
+					latest.Current != session.Current || !latest.UpdatedAt.Equal(session.UpdatedAt) {
+					return errors.New("读取期间当前会话上下文已变化，请重试")
 				}
 			}
 			result := output.Fields{
@@ -134,6 +142,8 @@ func newRoot(options Options) *cobra.Command {
 				{Key: "会话 ID", Value: sessionID},
 				{Key: "当前环境", Value: currentEnv},
 				{Key: "当前业务", Value: currentBusiness},
+				{Key: "登录状态", Value: loginStatus},
+				{Key: "当前租户", Value: currentTenant},
 				{Key: "CLI 版本", Value: options.Version},
 				{Key: "CLI 路径", Value: executable},
 				{Key: "配置路径", Value: paths.Config()},
@@ -208,6 +218,34 @@ func newRoot(options Options) *cobra.Command {
 	root.AddCommand(newService(options, config), newQuality(options, config), newStudio(options, config), newJupyter(options, config))
 	root.AddCommand(newTemplateGroup(options, config, false), newTemplateGroup(options, config, true), newSwanBoard(options, config), newAlgorithm(options, config), newOffline(options, config), newSample(options, config))
 	return root
+}
+
+func contextBusiness(paths localstate.Paths, cfg localstate.Config) (business, tenant, login string) {
+	business, login = "未绑定", "未登录"
+	profile, err := cfg.RequireProfile()
+	if err != nil {
+		return business, tenant, login
+	}
+	creds, err := paths.CredentialsFor(profile)
+	if err != nil {
+		return business, tenant, login
+	}
+	if expiry, err := creds.Expiry(); err == nil {
+		login = "已过期"
+		if time.Now().Before(expiry) {
+			login = "有效"
+		}
+	}
+	id, err := paths.SelectedBusiness(creds)
+	if err != nil || id == "" {
+		return business, tenant, login
+	}
+	if login == "有效" {
+		if entry, err := paths.BusinessEntry(creds); err == nil && entry.Selected.BusinessID == id {
+			_, tenant, _ = businessSelectionNames(entry)
+		}
+	}
+	return id, tenant, login
 }
 
 func maximumArgs(maximum int) cobra.PositionalArgs {

@@ -10,11 +10,20 @@ export function hostEnvironment(environment) {
   return Object.fromEntries(Object.entries(environment).filter(([key]) => !sessionVariables.has(key.toUpperCase())))
 }
 
-function execute(binary, args, { timeout, signal, input, acceptErrorResponse = false }) {
+function execute(binary, args, { timeout, signal, input, sessionID, acceptErrorResponse = false }) {
+  const env = hostEnvironment(process.env)
+  if (sessionID !== undefined) {
+    for (const key of Object.keys(env)) {
+      if (key.toUpperCase() === 'ML_HISTORY') delete env[key]
+    }
+    env.DSH_SHELL = '1'
+    env.DSH_SESSION_ID = sessionID
+    env.ML_HISTORY = '0'
+  }
   return new Promise((resolve, reject) => {
     const child = execFile(binary, args, {
       timeout, signal, windowsHide: true, encoding: 'utf8', maxBuffer: 16 * 1024,
-      env: hostEnvironment(process.env),
+      env,
     }, (error, stdout) => {
       if (error && !(acceptErrorResponse && Number.isInteger(error.code) && stdout && !signal?.aborted)) {
         const reason = signal?.aborted ? 'cancelled' : error.killed ? 'timeout' : 'invocation_failed'
@@ -73,6 +82,12 @@ function parseResponse(stdout) {
     // The child may return malformed output or no compatible protocol.
   }
   throw new Error('invalid_response')
+}
+
+export async function readCLIContext(sessionID, mlPath, signal) {
+  const binary = await findCLI(mlPath)
+  const stdout = await execute(binary, ['context', '--json'], { timeout: 2000, signal, sessionID })
+  return parseResponse(stdout)
 }
 
 export function createRunner(config) {

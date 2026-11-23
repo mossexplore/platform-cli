@@ -1,8 +1,11 @@
 import { randomUUID } from 'node:crypto'
+import { homedir } from 'node:os'
+import { join } from 'node:path'
 import { loadPluginConfiguration } from './config.js'
 import { createRunner } from './runner.js'
 import { createKeepaliveLog, failureReason } from './logging.js'
 import { createSessionStatus } from './session-status.js'
+import { startSessionTitles } from './session-title.js'
 
 export const name = 'wiserec-cli-keepalive'
 export const inject = ['agents']
@@ -172,6 +175,14 @@ export function apply(ctx, rawConfig) {
   for (const issue of issues) log.record('config_invalid', issue)
   const statuses = createSessionStatus(config.pollSeconds * 1000)
   ctx.inject(['connection'], routeCtx => statuses.register(routeCtx))
+  if ((process.platform === 'win32' || config.mlPath) && typeof ctx.agents?.list === 'function') {
+    const titleDirectory = logOptions.directory
+      ? join(logOptions.directory, '..', '.session-titles')
+      : join(homedir(), '.dsh', 'wiserec-cli', 'session-titles')
+    ctx.inject(['sessionTitle'], titleCtx => {
+      titleCtx.effect(() => startSessionTitles(titleCtx, config, titleDirectory), 'wiserec-cli session titles')
+    })
+  }
   ctx.effect(() => {
     if (process.platform !== 'win32' && !config.mlPath) {
       log.record('cli_failed', { reason: 'missing_cli' })

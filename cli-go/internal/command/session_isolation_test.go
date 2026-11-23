@@ -87,6 +87,72 @@ func saveSharedEnvState(t *testing.T, paths localstate.Paths, profileName, origi
 	}
 }
 
+func TestContextReportsTenantNameForTeamWithoutInheritingAnotherSession(t *testing.T) {
+	origin := "https://preview.example.test"
+	base := multiEnvFixture(t, origin, origin)
+	sess := base.WithSession(localstate.SessionScope{Mode: localstate.SessionModeDSH, ID: "title-session"})
+	other := base.WithSession(localstate.SessionScope{Mode: localstate.SessionModeDSH, ID: "other-title-session"})
+	catalog := []localstate.Department{{ID: "dept", Tenants: []localstate.Tenant{{
+		ID: "tenant", Name: "推荐平台", Teams: []localstate.Team{{
+			ID: "team", Name: "实验团队", Status: "available", BusinessID: "team-business",
+		}},
+	}}}}
+	saveLogin := func(expires time.Time) localstate.Credentials {
+		t.Helper()
+		expiry, err := json.Marshal(expires)
+		if err != nil {
+			t.Fatal(err)
+		}
+		_, err = base.SaveLogin(localstate.Credentials{
+			Origin: origin, Profile: "dev", Username: "alice",
+			Cookie: "fixture=local", CSRFToken: "test-csrf", ExpiresAt: expiry,
+		}, catalog, "")
+		if err != nil {
+			t.Fatal(err)
+		}
+		cfg, err := base.LoadOrInitializeConfig()
+		if err != nil {
+			t.Fatal(err)
+		}
+		creds, err := base.CredentialsFor(cfg.Profile())
+		if err != nil {
+			t.Fatal(err)
+		}
+		return creds
+	}
+	assertContext := func(paths localstate.Paths, login, tenant, business string) {
+		t.Helper()
+		code, out, stderr := run(t, paths, "context", "--json")
+		var fields map[string]string
+		if code != 0 || stderr != "" || json.Unmarshal([]byte(out), &fields) != nil {
+			t.Fatalf("context command failed: code=%d out=%s stderr=%s", code, out, stderr)
+		}
+		if fields["会话 ID"] != paths.Session.ID || fields["登录状态"] != login ||
+			fields["当前租户"] != tenant || fields["当前业务"] != business {
+			t.Fatalf("unexpected context fields: %v", fields)
+		}
+	}
+
+	creds := saveLogin(time.Now().Add(time.Hour))
+	for _, paths := range []localstate.Paths{sess, other} {
+		if _, err := paths.UseEnvironment("dev"); err != nil {
+			t.Fatal(err)
+		}
+	}
+	assertContext(sess, "有效", "", "未绑定")
+	cfg, err := sess.LoadOrInitializeConfig()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := sess.SelectBusiness(cfg.Profile(), creds, "dept", "tenant", "team"); err != nil {
+		t.Fatal(err)
+	}
+	assertContext(sess, "有效", "推荐平台", "team-business")
+	assertContext(other, "有效", "", "未绑定")
+	saveLogin(time.Now().Add(-time.Hour))
+	assertContext(sess, "已过期", "", "team-business")
+}
+
 func TestDSHSessionCommandMatrixAndFailClosed(t *testing.T) {
 	base := multiEnvFixture(t, "https://preview.example.test", "https://permissions.example.test")
 	if _, err := base.LoadOrInitializeConfig(); err != nil {

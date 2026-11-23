@@ -17,6 +17,7 @@
     "logging.js",
     "runner.js",
     "session-status.js",
+    "session-title.js",
     "cordis.patch.yml",
     "README.md",
     "LICENSE"

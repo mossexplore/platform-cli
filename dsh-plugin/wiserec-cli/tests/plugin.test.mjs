@@ -3,7 +3,7 @@ import { EventEmitter } from 'node:events'
 import { mkdir, mkdtemp, readdir, readFile, rm, utimes, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { setImmediate } from 'node:timers/promises'
+import { setImmediate, setTimeout as delay } from 'node:timers/promises'
 import test from 'node:test'
 import { runInNewContext } from 'node:vm'
 import { loadPluginConfiguration } from '../config.js'
@@ -11,6 +11,7 @@ import { apply, startScheduler } from '../index.js'
 import { cleanupKeepaliveLogs, createKeepaliveLog } from '../logging.js'
 import { hostEnvironment } from '../runner.js'
 import { createSessionStatus } from '../session-status.js'
+import { startSessionTitles } from '../session-title.js'
 
 function host(agents = []) {
   const events = new EventEmitter()
@@ -26,6 +27,93 @@ function host(agents = []) {
 
 const config = { idleWindowMinutes: 1, pollSeconds: 60 }
 const agent = (id) => ({ session: { header: { id } }, status: 'idle' })
+
+async function waitForTitle(check) {
+  const deadline = Date.now() + 3000
+  while (!check() && Date.now() < deadline) await delay(10)
+  assert.ok(check(), 'expected session title update')
+}
+
+test('names isolated sessions by tenant and preserves a manual rename across restart', async t => {
+  const directory = await mkdtemp(join(tmpdir(), 'wiserec-titles-'))
+  t.after(() => rm(directory, { recursive: true, force: true }))
+  const a = agent('session-a')
+  const b = agent('session-b')
+  const { ctx, emit } = host([a, b])
+  const snapshots = new Map()
+  const reads = new Map()
+  const contexts = new Map([
+    ['session-a', { '当前环境': 'sit', '当前租户': '', '登录状态': '有效' }],
+    ['session-b', { '当前环境': 'uat', '当前租户': '搜索平台', '登录状态': '有效' }],
+  ])
+  let seq = 0
+  ctx.sessionTitle = {
+    get: session => snapshots.get(session),
+    rename(session, title) {
+      const snapshot = { source: { kind: 'user' }, title, eventSeq: ++seq, updatedAt: seq }
+      snapshots.set(session, snapshot)
+      return snapshot
+    },
+  }
+  const start = () => startSessionTitles(ctx, config, directory, async id => {
+    reads.set(id, (reads.get(id) ?? 0) + 1)
+    return { '会话 ID': id, '当前业务': 'team-business-id', ...contexts.get(id) }
+  })
+  let stop = start()
+  try {
+    await waitForTitle(() => seq === 2)
+    assert.equal(snapshots.get(a.session).title, 'sit环境')
+    assert.equal(snapshots.get(b.session).title, 'uat环境 · 搜索平台')
+    contexts.get('session-a')['当前租户'] = '推荐平台'
+    emit('agent/status', a, 'idle')
+    await waitForTitle(() => seq === 3)
+    assert.equal(snapshots.get(a.session).title, 'sit环境 · 推荐平台')
+    await stop()
+
+    // The same title text can be saved by hand, with a different event sequence.
+    const manual = ctx.sessionTitle.rename(a.session, snapshots.get(a.session).title)
+    contexts.get('session-a')['当前租户'] = '其他租户'
+    contexts.get('session-b')['当前环境'] = 'sit'
+    stop = start()
+    await waitForTitle(() => snapshots.get(b.session).title === 'sit环境 · 搜索平台')
+    assert.equal(snapshots.get(a.session), manual)
+
+    const count = reads.get('session-a')
+    contexts.get('session-b')['登录状态'] = '已过期'
+    contexts.get('session-b')['当前租户'] = '其他租户'
+    emit('agent/status', b, 'idle')
+    emit('agent/status', a, 'idle')
+    await waitForTitle(() => reads.get('session-a') > count)
+    assert.equal(snapshots.get(b.session).title, 'sit环境 · 搜索平台')
+    assert.equal(seq, 5)
+  } finally {
+    await stop()
+  }
+})
+
+test('ignores old CLI output and a context read that completed after session disposal', async t => {
+  const directory = await mkdtemp(join(tmpdir(), 'wiserec-titles-'))
+  t.after(() => rm(directory, { recursive: true, force: true }))
+  const a = agent('session-a')
+  const b = agent('session-b')
+  const { ctx, emit } = host([a, b])
+  const renamed = []
+  ctx.sessionTitle = { get: () => undefined, rename: (...args) => { renamed.push(args) } }
+  let reading
+  const started = new Promise(resolve => { reading = resolve })
+  let finish
+  const reply = new Promise(resolve => { finish = resolve })
+  const stop = startSessionTitles(ctx, config, directory, async id => {
+    if (id === 'session-a') return { '会话 ID': id, '当前环境': 'sit' }
+    reading()
+    return reply
+  })
+  await started
+  emit('agent/disposed', b)
+  finish({ '会话 ID': 'session-b', '当前环境': 'uat', '登录状态': '有效', '当前租户': '' })
+  await stop()
+  assert.deepEqual(renamed, [])
+})
 
 test('uses the host session identity and retires only that registration', async () => {
   const a = agent('session-a')
