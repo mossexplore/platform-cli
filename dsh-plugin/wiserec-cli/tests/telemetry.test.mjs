@@ -193,16 +193,24 @@ test('uses a short cancellable request and keeps later deliveries functional', a
   assert.deepEqual(reports, ['delivery_timeout'])
 })
 
-test('isolates missing host library, occupied backend, and the runtime off switch', async () => {
+test('isolates missing host library, occupied backend, and the runtime off switch', { timeout: 5000 }, async () => {
   for (const state of ['missing', 'occupied', 'off', 'active']) {
     const calls = []
     const messages = []
+    let settle
+    const settled = new Promise(resolve => { settle = resolve })
     const ctx = {
       sessions: { list: () => [] },
       get: () => state === 'occupied' ? {} : undefined,
       effect(fn) { fn() },
-      plugin(Type) { calls.push(new Type(ctx)) },
-      logger: { warn: value => messages.push(value) },
+      plugin(Type) {
+        calls.push(new Type(ctx))
+        settle()
+      },
+      logger: { warn(value) {
+        messages.push(value)
+        settle()
+      } },
     }
     class Backend {}
     class Coordinator {
@@ -216,7 +224,7 @@ test('isolates missing host library, occupied backend, and the runtime off switc
       },
       createPipeline() { return {} },
     })
-    for (let i = 0; i < 20 && !calls.length && !messages.length; i++) await tick()
+    await settled
     if (state === 'missing' || state === 'occupied') {
       assert.equal(calls.length, 0)
       assert.match(messages[0], state === 'missing' ? /host_library_unavailable/ : /host_backend_conflict/)
