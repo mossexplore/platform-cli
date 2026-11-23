@@ -189,10 +189,10 @@ func (a *API) TrainInstances(ctx context.Context, task Record, page, size int, s
 	return a.trainJobPage(ctx, "queryJobInstanceByTaskId", page, size, body)
 }
 
-func (a *API) TrainHistory(ctx context.Context, taskID string, page, size int) (Page, error) {
+func (a *API) TrainHistory(ctx context.Context, taskID string, page, size int, latestFlag string) (Page, error) {
 	body := map[string]any{
 		"taskId": taskID, "pageIndex": page, "pageSize": size,
-		"sortField": "statusTime", "sortOrder": "ascend", "source": "history", "latestFlag": "true", "status": []string{},
+		"sortField": "statusTime", "sortOrder": "ascend", "source": "history", "latestFlag": latestFlag, "status": []string{},
 	}
 	return a.trainJobPage(ctx, "queryScheduleTaskList", page, size, body)
 }
@@ -214,7 +214,7 @@ func (a *API) trainJobPage(ctx context.Context, action string, page, size int, b
 
 func (a *API) TrainHistoryRecord(ctx context.Context, taskID, jobID string) (Record, error) {
 	return findTrainRecord(ctx, jobID, "jobId", func(ctx context.Context, page int) (Page, error) {
-		return a.TrainHistory(ctx, taskID, page, 200)
+		return a.TrainHistory(ctx, taskID, page, 200, "true")
 	})
 }
 

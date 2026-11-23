@@ -66,7 +66,7 @@ ml                                              WiseRec 命令行工具
 │   │   └── logs                                执行实例日志归档与下载
 │   │       └── download                        归档并下载执行实例日志
 │   ├── history                                 执行记录
-│   │   ├── list                                分页查看执行记录及排队和配额等待时长
+│   │   ├── list                                分页查看执行记录并可包含历史实例
 │   │   ├── detail                              查询执行记录详情及分布式角色列表
 │   │   └── logs                                执行日志
 │   │       └── download                        检查归档并下载执行记录日志
@@ -624,7 +624,7 @@ ml offline experiment clone PROJECT_ID --name 训练副本
 ml train list [--all-business] [OPTIONS]
 ml train detail TASK_ID [--output table|json]
 ml train instance list TASK_ID [--page PAGE] [--page-size PAGE_SIZE] [-o table|json]
-ml train history list TASK_ID [--page PAGE] [--page-size PAGE_SIZE] [-o table|json]
+ml train history list TASK_ID [--latest-flag true|all] [--page PAGE] [--page-size PAGE_SIZE] [-o table|json]
 ml train history detail TASK_ID JOB_ID [-o table|json]
 ml train start TASK_ID
 ml train config export TASK_ID [--file PATH]
@@ -643,6 +643,7 @@ ml train config update TASK_ID --customize-config VALUE
 | `list` | `--name`、`--page`、`--page-size`、`--output` / `-o` |
 | `detail` | 必填 `TASK_ID`；可选 `--output` / `-o` |
 | `instance list`、`history list` | 必填 `TASK_ID`；`--page` 默认 1，`--page-size` 默认 10，可设为 1 至 200；可选 `--output` / `-o` |
+| `history list` | `--latest-flag true` 仅查看最新实例（默认），`--latest-flag all` 同时查看历史实例 |
 | `history detail` | 必填 `TASK_ID`、`JOB_ID`；可选 `--output` / `-o` |
 | `start` | 必填 `TASK_ID`；执行后显示作业 ID |
 | `config export` | 必填 `TASK_ID`；可选 `--file PATH` 指定保存位置 |
@@ -703,6 +704,7 @@ ml train detail TASK_ID
 ml train detail TASK_ID -o json
 ml train instance list TASK_ID --page 2 --page-size 20
 ml train history list TASK_ID --page 2 --page-size 20
+ml train history list TASK_ID --latest-flag all -o json
 ml train history detail TASK_ID JOB_ID
 ml train history detail TASK_ID JOB_ID -o json
 ml train start TASK_ID

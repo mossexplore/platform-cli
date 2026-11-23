@@ -57,7 +57,7 @@ WiseRec 和 MLOps 均支持 `train` 和 `feature-task` 命令，`algorithm` 仅�
 | `ml sample-task period list TASK_ID` | 新旧任务共用，四列网格展示编号、周期和状态，支持分页、北京时间范围及重复 `--state` | {{confirm}} | |
 | `ml sample-task execution list TASK_ID` | 新旧样本任务共用执行记录查询，无需 `--source`，支持分页、`--include-history` 和 `-o json` | {{confirm}} | |
 | `ml train instance list TASK_ID` | 分页查询执行实例 | {{confirm}} | |
-| `ml train history list TASK_ID` | 分页查询执行记录 | {{confirm}} | |
+| `ml train history list TASK_ID [--latest-flag true\|all]` | 分页查询执行记录；默认仅查最新实例，`all` 包含历史实例 | {{confirm}} | |
 | `ml train history detail TASK_ID JOB_ID [-o json]` | 查询执行记录及分布式角色详情 | {{confirm}} | |
 | `ml train history logs download TASK_ID JOB_ID [--type log\|plog] [--directory DIR] [--role-job-id ROLE_JOB_ID]` | 下载执行记录日志，普通日志未就绪时提交归档，分布式训练用角色 ID 非交互下载普通日志和 plog | {{confirm}} | 条件性写：平台日志归档及本地文件 |
 | `ml train instance logs download TASK_ID JOB_ID [--select SELECTION] [--directory DIR]` | 请求归档并下载已归档日志，`--select` 传编号或 `all` | {{confirm}} | 写：平台归档及本地 ZIP 文件 |

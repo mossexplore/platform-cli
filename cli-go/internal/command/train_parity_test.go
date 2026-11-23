@@ -70,6 +70,56 @@ func TestTrainListUsesCorrectManagerProtocol(t *testing.T) {
 	}
 }
 
+func TestTrainHistoryListLatestFlag(t *testing.T) {
+	for _, profile := range []string{"wiserec", "mlops"} {
+		t.Run(profile, func(t *testing.T) {
+			for _, tc := range []struct {
+				name, value, want string
+			}{
+				{name: "default", want: "true"},
+				{name: "explicit true", value: "true", want: "true"},
+				{name: "all", value: "all", want: "all"},
+				{name: "invalid", value: "false"},
+			} {
+				t.Run(tc.name, func(t *testing.T) {
+					var requests atomic.Int32
+					server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+						requests.Add(1)
+						assertBusinessHeader(t, r)
+						if strings.HasSuffix(r.URL.Path, "/access/check") {
+							assertAccess(t, w, r, "ml train history list")
+							return
+						}
+						body := readRequest(t, r)
+						if r.Method != http.MethodPost || r.URL.Path != "/ai/backend/mtp/traintask/queryScheduleTaskList" ||
+							body["taskId"] != "fixture-task" || body["latestFlag"] != tc.want {
+							t.Errorf("unexpected history request: %s %s %v", r.Method, r.URL.Path, body)
+						}
+						fmt.Fprintln(w, `{"result":{"code":0,"count":1,"jobs":[{"jobId":"fixture-job"}]}}`)
+					}))
+					defer server.Close()
+					paths := fixtureConfig(t, t.TempDir(), server.URL, server.URL, false, profile, "")
+					saveState(t, paths, server.URL)
+					args := []string{"train", "history", "list", "fixture-task", "-o", "json"}
+					if tc.value != "" {
+						args = append(args, "--latest-flag", tc.value)
+					}
+					code, out, stderr := run(t, paths, args...)
+					if tc.want == "" {
+						if code != 2 || !strings.Contains(stderr, "--latest-flag 仅支持 true 或 all") || requests.Load() != 0 {
+							t.Fatalf("invalid flag result: %d %s %s, %d requests", code, out, stderr, requests.Load())
+						}
+						return
+					}
+					if code != 0 || !strings.Contains(out, "fixture-job") {
+						t.Fatalf("train history list failed: %d %s %s", code, out, stderr)
+					}
+				})
+			}
+		})
+	}
+}
+
 func TestTrainingMutationStopsAfterBusinessChange(t *testing.T) {
 	paths := localstate.Paths{Dir: t.TempDir()}
 	var probes, deletes atomic.Int32

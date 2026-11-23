@@ -5,7 +5,7 @@
 ## 常见操作流：训练任务排障与取日志
 
 1. `ml train list --name NAME -o json` 定位 `taskId`（`detail` 可查数据集、配置及参数引用）。
-2. `ml train instance list TASK_ID -o json` 查当前运行/排队实例；`ml train history list TASK_ID -o json` 查历史执行记录与 `jobId`。
+2. `ml train instance list TASK_ID -o json` 查当前运行/排队实例；`ml train history list TASK_ID -o json` 查最新实例的执行记录与 `jobId`，需要包含历史实例时加 `--latest-flag all`。
 3. 取执行记录日志：先查 `ml train history detail TASK_ID JOB_ID -o json`；若 `jobType=dps-train`（分布式训练），从返回的角色列表取目标 `roleJobId` 后传 `--role-job-id`；普通训练不传此参数。
 4. 运行 `ml train history logs download TASK_ID JOB_ID [--type log|plog] [--role-job-id ROLE_JOB_ID] --directory DIR -o json`；若返回 `not_ready`（触发了手动归档），稍后重跑同一命令。
 5. 取执行实例归档日志：运行 `ml train instance logs download TASK_ID JOB_ID --select SELECTION --directory DIR -o json`（非交互必须传 `--select` 编号或 `all`）。
@@ -46,6 +46,7 @@ ml train list -A --name NAME
 ml train detail TASK_ID -o json
 ml train instance list TASK_ID --page 2 --page-size 20 -o json
 ml train history list TASK_ID --page 2 --page-size 20 -o json
+ml train history list TASK_ID --latest-flag all -o json
 ml train history detail TASK_ID JOB_ID -o json
 ml train history logs download TASK_ID JOB_ID --directory 'D:\logs' -o json
 ml train history logs download TASK_ID JOB_ID --role-job-id ROLE_JOB_ID --directory 'D:\logs' -o json
@@ -58,6 +59,7 @@ ml train instance logs download TASK_ID JOB_ID --select all --directory 'D:\logs
 - WiseRec 和 MLOps 均支持训练任务查询、启动、取消、软删除、克隆、配置管理、执行实例及执行记录查询和日志下载。MLOps 的 `train list --page-size` 最大为 200。
 - `detail` 使用 `train list` 中的任务 ID，结果含基本信息、首个样本的数据集、输出引用及首个样本的配置引用、算法参数及自定义参数。
 - `instance list` 和 `history list` 默认返回第一页 10 条，支持 `--page` 和 `--page-size`（每页 1 至 200 条），按接口返回顺序展示。按日志来源从对应列表取得 `jobId`。执行记录默认下载普通日志，加 `--type plog` 下载 plog。
+- WiseRec 和 MLOps 的 `history list` 均需先登录并选择业务。`--latest-flag` 仅接受 `true` 和 `all`，默认 `true` 仅查询最新实例，`all` 同时查询历史实例。该命令只查询并分页展示记录。
 - `history detail` 自动翻页查找记录。`jobType=dps-train` 时展示角色列表，首列为完整角色作业 ID，JSON 保留角色及额外字段。通过本 Skill 下载分布式普通日志或 plog 时，先从 `history detail -o json` 获取对应的角色作业 ID，再用 `--role-job-id` 指定角色。多个目标角色按用户指定范围逐个调用。普通训练不接受此参数。
 - `history logs download` 下载普通日志前先查询是否存在。日志未就绪，或下载链接接口返回 `failedUploadSwitch=false` 时，按作业提交手动归档。提交成功后立即提示“手动归档中，请稍后再次下载日志！”，返回 `not_ready` 和非零退出码。稍后重试时重新检查日志是否存在。同次命令内同一作业最多归档一次，批量下载继续处理其余选中角色。
 - 所有训练类型下载 plog 前均检查 `sysParam` JSON 字符串中的 `plogUploadSuccess`，其值须为字符串 `"1"`。普通训练检查执行记录自身，分布式训练检查角色。CLI 直接获取 plog 链接并下载。执行记录或所选角色无 plog 时，提示“该记录没有plog日志，停止下载”。分布式 plog 文件命名为 `<roleJobId>_plog.zip`。

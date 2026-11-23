@@ -36,7 +36,7 @@ train detail	shared	--output -o
 train list	shared	--name --page --page-size --output -o
 train instance list	shared	--page --page-size --output -o
 train instance logs download	shared	--select --directory --output -o
-train history list	shared	--page --page-size --output -o
+train history list	shared	--page --page-size --output -o --latest-flag
 train history detail	shared	--output -o
 train history logs download	shared	--type --directory --output -o --role-job-id --wait-timeout
 train config export	shared	--file

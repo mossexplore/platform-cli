@@ -36,11 +36,19 @@ func newTrain(options Options, load loadConfig) *cobra.Command {
 			value, err := api.TrainInstances(ctx, task, page, size, "periodDate")
 			return value, fmt.Sprintf("任务：%s · %s", task.Text("taskName"), args[0]), err
 		}, trainInstanceColumns, "暂无执行实例")
-	historyList := trainListCommand("list TASK_ID", "分页查询训练任务执行记录", 1, options, load,
+	var latestFlag string
+	historyList := trainListCommand("list TASK_ID", "分页查询训练任务执行记录并可包含历史实例", 1, options, load,
 		func(ctx context.Context, api *platform.API, _ *cobra.Command, args []string, page, size int) (platform.Page, string, error) {
-			value, err := api.TrainHistory(ctx, args[0], page, size)
+			value, err := api.TrainHistory(ctx, args[0], page, size, latestFlag)
 			return value, "任务 ID：" + args[0], err
 		}, trainHistoryColumns, "暂无执行记录")
+	historyList.Flags().StringVar(&latestFlag, "latest-flag", "true", "true 仅查看最新实例，all 同时查看历史实例")
+	historyList.Args = func(cmd *cobra.Command, args []string) error {
+		if latestFlag != "true" && latestFlag != "all" {
+			return usageError{errors.New("--latest-flag 仅支持 true 或 all")}
+		}
+		return positional(1)(cmd, args)
+	}
 
 	detail := &cobra.Command{Use: "detail TASK_ID", Short: "查询训练任务详情", Args: positional(1)}
 	detail.RunE = authorized(options, load, func(cmd *cobra.Command, args []string, api *platform.API, format string) error {
