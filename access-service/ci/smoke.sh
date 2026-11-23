@@ -54,7 +54,7 @@ from sqlalchemy import select
 from app.models import Environment, Grant, SchemaVersion, database
 engine, sessions = database(os.environ['DATABASE_URL'])
 with sessions() as db:
-    assert db.scalar(select(SchemaVersion.version)) == 13
+    assert db.scalar(select(SchemaVersion.version)) == 14
     environment = db.scalar(select(Environment))
     assert environment.default_grant is False
     assert environment.command_policy_revision == 0
