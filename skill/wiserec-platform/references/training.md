@@ -70,8 +70,8 @@ ml train instance logs download TASK_ID JOB_ID --select all --directory 'D:\logs
 - `cancel`、`delete`、`clone` 默认询问确认，授权后加 `--yes`。`cancel` 逐个取消全部执行实例，需看逐条结果和退出码，没有实例时退出 1。`clone` 成功后可能返回新任务 ID。
 - `ml train config update TASK_ID --customize-config VALUE` 不询问确认，直接修改任务；值按字符串原样传递，含双引号时注意 [session.md](session.md) 的引号说明，更新后导出配置核对；仅更新非代码业务参数，不通过参数传入改码程序。
 - `config export` 的文件父目录须已存在；历史记录和执行实例的日志下载均使用 `--directory DIR` 指定已有目录，默认当前目录，不接受 `--file`，同名文件自动编号且不覆盖。
-- 使用 `ml train instance logs download TASK_ID JOB_ID --select SELECTION --directory DIR` 非交互下载。按用户指定的表格编号传值，编号以本次归档列表为准。多个编号用英文逗号分隔，PowerShell 中把列表用引号包住。用户明确要求全部时传 `all`。本 skill 不省略 `--select`，不触发终端交互选择。命令先请求归档，提示归档中时稍后重跑同一命令。已有记录时，每条归档在表格中占一行，显示编号、任务名称、`jobId`、`roleJobId`、节点、状态及北京时间的起止时间。
-- `--select '1,2,3'` 按指定顺序下载，编号使用英文逗号。`--select all` 按表格顺序串行下载全部已归档记录，跳过仍在归档的记录。选中后获取 OBS 链接并保存 ZIP，单份失败后继续。回复中只提供保存路径和结果。`-o json` 返回下载摘要，须核对逐条结果与失败数量。
+- 使用 `ml train instance logs download TASK_ID JOB_ID --select SELECTION --directory DIR` 非交互下载。按用户指定的表格编号传值，编号以本次归档列表为准。多个编号用英文逗号分隔，PowerShell 中把列表用引号包住。用户明确要求全部时传 `all`。归档选择表显示编号、任务名称、`jobId`、`roleJobId`、节点名称、状态、失败原因、北京时间的起止时间和是否可以下载。
+- 执行实例日志下载需要先归档。只有“归档成功”的记录可下载。“归档中”时稍后重试，“归档失败”时报告表中的失败原因。`--select '1,2,3'` 按指定顺序下载。`--select all` 按表格顺序串行下载归档成功的记录，跳过归档中或归档失败的记录。选中后获取 OBS 链接并保存 ZIP，单份下载失败后继续。`-o json` 返回下载摘要，须核对逐条结果与失败数量。回复中只提供保存路径和结果。
 
 ## 样本任务
 

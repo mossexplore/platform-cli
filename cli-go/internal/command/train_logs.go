@@ -4,11 +4,13 @@ import (
 	"bufio"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
 
+	"github.com/mossexplore/platform-cli/cli-go/internal/output"
 	"github.com/mossexplore/platform-cli/cli-go/internal/platform"
 	"github.com/spf13/cobra"
 	"golang.org/x/term"
@@ -70,11 +72,10 @@ func runningTrainDownload(cmd *cobra.Command, api *platform.API, taskID, jobID, 
 		return nil
 	}
 	steps.start("select_log", "已获取归档记录，选择待下载日志")
-	for i, row := range items {
-		fmt.Fprintf(cmd.ErrOrStderr(), "%d. %s · jobId %s · roleJobId %s · %s\n", i+1, row.Text("taskName"),
-			row.Text("jobId"), row.Text("roleJobId"), fieldText(row["status"]))
+	if err := renderRunningLogArchives(cmd.ErrOrStderr(), items); err != nil {
+		return steps.failure(err)
 	}
-	downloadable := func(i int) bool { return string(items[i]["status"]) == "1" }
+	downloadable := func(i int) bool { return platform.RunningLogArchiveReady(items[i]) }
 	if selection == "" && !cmd.Flags().Changed("select") {
 		available, _ := selectedLogs("all", len(items), downloadable)
 		if len(available) == 0 {
@@ -120,6 +121,29 @@ func runningTrainDownload(cmd *cobra.Command, api *platform.API, taskID, jobID, 
 		summaries = append(summaries, summary)
 	}
 	return showLogSummaries(cmd, format, summaries, false)
+}
+
+func renderRunningLogArchives(out io.Writer, items []platform.Record) error {
+	headers := []string{"编号", "任务名称", "jobId", "roleJobId", "节点名称", "状态", "失败原因", "开始时间", "结束时间", "是否可以下载"}
+	rows := make([][]string, 0, len(items))
+	for i, item := range items {
+		status, downloadable := "未知状态", "否"
+		switch {
+		case platform.RunningLogArchiveReady(item):
+			status, downloadable = "归档成功", "是"
+		case string(item["status"]) == "0":
+			status = "归档中"
+		case string(item["status"]) == "2":
+			status = "归档失败"
+		}
+		rows = append(rows, []string{
+			strconv.Itoa(i + 1), fieldText(item["taskName"]), fieldText(item["jobId"]), fieldText(item["roleJobId"]),
+			fieldText(item["roleType"]), status, fieldText(item["statusReason"]), dateText(item["createTime"]),
+			dateText(item["updateTime"]), downloadable,
+		})
+	}
+	// Keep both IDs, the status and the timestamps on one line even in narrow terminals.
+	return output.Table(out, headers, rows, 2, 3, 5, 7, 8)
 }
 
 func historyTrainDownload(cmd *cobra.Command, api *platform.API, taskID, jobID, roleID, directory, format string, plog bool) error {

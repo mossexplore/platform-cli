@@ -107,6 +107,8 @@ func TestHistoryLogDownloadReportsStages(t *testing.T) {
 }
 
 func TestInstanceLogDownloadReportsBatchSteps(t *testing.T) {
+	t.Setenv("COLUMNS", "80")
+	const roleID = "00000000-0000-4000-8000-000000000001"
 	storage := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprint(w, "test log")
 	}))
@@ -121,9 +123,11 @@ func TestInstanceLogDownloadReportsBatchSteps(t *testing.T) {
 		case "queryJobInstanceByTaskId":
 			fmt.Fprint(w, `{"result":{"code":0,"count":1,"jobs":[{"taskName":"training","taskId":"task","jobId":"job","businessId":"business-real"}]}}`)
 		case "getRunJobLogArchiveList":
-			fmt.Fprint(w, `{"result":{"code":0,"count":2,"logInfoList":[
+			fmt.Fprintf(w, `{"result":{"code":0,"count":4,"logInfoList":[
 				{"taskName":"training","taskId":"task","jobId":"job","businessId":"business-real","status":1,"roleJobId":"first","archiveId":"bad","createUser":"user"},
-				{"taskName":"training","taskId":"task","jobId":"job","businessId":"business-real","status":1,"roleJobId":"second","archiveId":"ok","createUser":"user"}]}}`)
+				{"taskName":"training","taskId":"task","jobId":"job","businessId":"business-real","status":1,"roleJobId":%q,"archiveId":"ok","createUser":"user","roleType":"worker","createTime":1788850476000,"updateTime":"2026-09-08T07:00:00.123+00:00"},
+				{"taskName":"training","taskId":"task","jobId":"job","businessId":"business-real","status":0,"roleJobId":"third"},
+				{"taskName":"training","taskId":"task","jobId":"job","businessId":"business-real","status":2,"roleJobId":"fourth","statusReason":"写入失败"}]}}`, roleID)
 		case "getRunningJobLogUrl":
 			body := readRequest(t, r)
 			address := "http://invalid.example"
@@ -154,6 +158,33 @@ func TestInstanceLogDownloadReportsBatchSteps(t *testing.T) {
 	expectDownloadSteps(t, stderr, "开始查询执行实例", "请求归档并查询归档日志", "已获取归档记录",
 		"开始处理第 1/2 条日志", "开始获取编号 1 的日志下载地址", "开始校验下载地址",
 		"开始处理第 2/2 条日志", "开始获取编号 2 的日志下载地址", "开始校验下载地址", "开始下载 日志", "日志下载完成")
+
+	var table []string
+	for _, line := range strings.Split(stderr, "\n") {
+		cells := strings.FieldsFunc(line, func(r rune) bool { return r == '┃' || r == '│' })
+		if len(cells) == 10 {
+			for i := range cells {
+				cells[i] = strings.TrimSpace(cells[i])
+			}
+			table = append(table, strings.Join(cells, "|"))
+		}
+	}
+	wantTable := []string{
+		"编号|任务名称|jobId|roleJobId|节点名称|状态|失败原因|开始时间|结束时间|是否可以下载",
+		"1|training|job|first|-|归档成功|-|-|-|是",
+		"2|training|job|" + roleID + "|worker|归档成功|-|2026-09-08 14:54:36|2026-09-08 15:00:00|是",
+		"3|training|job|third|-|归档中|-|-|-|否",
+		"4|training|job|fourth|-|归档失败|写入失败|-|-|否",
+	}
+	if strings.Join(table, "\n") != strings.Join(wantTable, "\n") {
+		t.Fatalf("unexpected archive table:\n%s", stderr)
+	}
+	for _, number := range []string{"3", "4"} {
+		code, _, stderr := run(t, paths, "train", "instance", "logs", "download", "task", "job", "--select", number, "--directory", t.TempDir())
+		if code == 0 || !strings.Contains(stderr, "编号 "+number+" 尚不可下载") {
+			t.Fatalf("unavailable archive %s was not rejected (%d): %s", number, code, stderr)
+		}
+	}
 }
 
 func expectDownloadSteps(t *testing.T, output string, steps ...string) {

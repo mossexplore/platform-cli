@@ -50,8 +50,12 @@ func (a *API) RunningLogArchives(ctx context.Context, taskID, jobID string, star
 	return entries, nil
 }
 
+func RunningLogArchiveReady(item Record) bool {
+	return string(item["status"]) == "1"
+}
+
 func (a *API) RunningLogURL(ctx context.Context, item Record) (string, error) {
-	if string(item["status"]) != "1" {
+	if !RunningLogArchiveReady(item) {
 		return "", errors.New("日志尚未归档成功")
 	}
 	result, err := a.runningLog(ctx, "getRunningJobLogUrl", item,

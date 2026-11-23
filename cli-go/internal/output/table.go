@@ -13,8 +13,10 @@ import (
 
 var cells = runewidth.NewCondition()
 
-func Table(out io.Writer, headers []string, rows [][]string) error {
-	_, err := io.WriteString(out, tableText(headers, rows, terminalWidth(out), tableStyle{}))
+// Table renders a text table, keeping each line in the specified columns intact.
+func Table(out io.Writer, headers []string, rows [][]string, unwrappedColumns ...int) error {
+	style := tableStyle{unwrappedColumns: unwrappedColumns}
+	_, err := io.WriteString(out, tableText(headers, rows, terminalWidth(out), style))
 	return err
 }
 
@@ -35,6 +37,7 @@ func HighlightedTable(out io.Writer, headers []string, rows [][]string, selected
 type tableStyle struct {
 	header, highlight string
 	selected          int
+	unwrappedColumns  []int
 }
 
 func terminalWidth(out io.Writer) int {
@@ -54,7 +57,7 @@ func tableText(headers []string, rows [][]string, limit int, style tableStyle) s
 	if len(headers) == 0 {
 		return "\n"
 	}
-	table := textTable{widths: tableWidths(headers, rows, limit), keepFirst: idColumn(headers[0]), wrap: cells.Wrap}
+	table := textTable{widths: tableWidths(headers, rows, limit, style.unwrappedColumns), keepFirst: idColumn(headers[0]), wrap: cells.Wrap}
 	table.border("┏", "┳", "┓", "━")
 	table.row(headers, "┃", style.header)
 	table.border("┡", "╇", "┩", "━")
@@ -113,7 +116,7 @@ func (t *textTable) row(row []string, bar, color string) {
 	}
 }
 
-func tableWidths(headers []string, rows [][]string, limit int) []int {
+func tableWidths(headers []string, rows [][]string, limit int, unwrappedColumns []int) []int {
 	widths := make([]int, len(headers))
 	minimums := make([]int, len(headers))
 	for i, header := range headers {
@@ -131,6 +134,9 @@ func tableWidths(headers []string, rows [][]string, limit int) []int {
 		// Platform IDs fit in 36 cells and must stay intact for copying.
 		widths[0] = 36
 		minimums[0] = widths[0]
+	}
+	for _, index := range unwrappedColumns {
+		minimums[index] = widths[index]
 	}
 	remaining := 1 + 3*len(widths) - limit
 	for _, width := range widths {
