@@ -86,9 +86,10 @@ class BundleTests(unittest.TestCase):
             self.assertTrue(manifest["includeTelemetry"])
 
         changed = "https://changed.fixture.test/v1/traces"
-        self.write(includeTelemetry=True, telemetryEndpoint=changed)
+        self.write(includeTelemetry=True, telemetryEndpoint=changed, telemetryContentEnvironments=["*"])
         update = self.entries(self.build().read_bytes())
         self.assertIn(changed.encode(), update["cordis.patch.yml"])
+        self.assertIn(b'contentEnvironments: ["*"]', update["cordis.patch.yml"])
         self.assertNotIn(endpoint.encode(), update["cordis.patch.yml"])
 
     def test_keepalive_build_ignores_telemetry_and_preserves_base_bundle(self):
@@ -118,6 +119,8 @@ class BundleTests(unittest.TestCase):
             {"telemetryEndpoint": "https://telemetry.fixture.test/v1/logs"},
             {"telemetryEndpoint": "https://telemetry.fixture.test/v1/traces", "telemetryContentEnvironments": "sit"},
             {"telemetryEndpoint": "http://telemetry.fixture.test/v1/traces", "telemetryContentEnvironments": ["sit"]},
+            {"telemetryEndpoint": "http://telemetry.fixture.test/v1/traces", "telemetryContentEnvironments": ["*"]},
+            {"telemetryEndpoint": "https://telemetry.fixture.test/v1/traces", "telemetryContentEnvironments": ["*", "sit"]},
         ):
             with self.subTest(config=config):
                 self.write(**config)

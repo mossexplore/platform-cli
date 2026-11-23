@@ -85,11 +85,18 @@ test('omits content for unknown, unbound, production and metadata-only modes', a
     [{ env: 'production-eu', bound: true }, settings],
     [{ env: 'sit', bound: true }, { ...settings, mode: 'metadata_only' }],
     [{ env: 'sit', bound: true }, { ...settings, contentEnvironments: new Set() }],
+    [{ env: 'sit' }, { ...settings, contentEnvironments: new Set(['*']) }],
   ]) {
     const spans = await collect(context, config)
     assert.equal(spans.length, 4)
     assert.doesNotMatch(JSON.stringify(spans), /langfuse\.observation\.(input|output)|injected|model response/)
   }
+})
+
+test('the wildcard includes bound production environments and still redacts content', async () => {
+  const spans = await collect({ env: 'prod', bound: true }, { ...settings, contentEnvironments: new Set(['*']) })
+  assert.equal(data(spans[0])['langfuse.environment'], 'prod')
+  assert.equal(data(spans[0])['langfuse.observation.input'], 'hello csrftoken=[REDACTED]')
 })
 
 test('isolates concurrent sessions and does not upload a previously open or replayed turn', async () => {
@@ -216,13 +223,17 @@ test('isolates missing host library, occupied backend, and the runtime off switc
     class Coordinator {
       constructor(_, backend, capture) { calls.push([backend.sharing, capture]) }
     }
-    startTelemetry(ctx, { endpoint: settings.endpoint, mode: 'full' }, {
+    let configuredEnvironments
+    startTelemetry(ctx, { endpoint: settings.endpoint, mode: 'full', contentEnvironments: ['*'] }, {
       async getUserSettings() { return state === 'off' ? { mode: 'off' } : {} },
       async loadHost() {
         if (state === 'missing') throw new Error('private path')
         return { SessionTelemetryBackend: Backend, SessionTelemetryCoordinator: Coordinator }
       },
-      createPipeline() { return {} },
+      createPipeline(configuration) {
+        configuredEnvironments = [...configuration.contentEnvironments]
+        return {}
+      },
     })
     await settled
     if (state === 'missing' || state === 'occupied') {
@@ -231,8 +242,12 @@ test('isolates missing host library, occupied backend, and the runtime off switc
     } else {
       assert.equal(messages.length, 0)
       assert.equal(calls.at(-1)?.sharing, state === 'off' ? 'disabled' : 'full')
-      if (state === 'active') assert.deepEqual(calls[0], ['full', { capture: 'live', includeHistory: false }])
-      else assert.equal(calls.length, 1)
+      if (state === 'active') {
+        assert.deepEqual(calls[0], ['full', { capture: 'live', includeHistory: false }])
+        assert.deepEqual(configuredEnvironments, ['*'])
+      } else {
+        assert.equal(calls.length, 1)
+      }
     }
   }
 })

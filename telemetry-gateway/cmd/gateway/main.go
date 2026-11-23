@@ -3,10 +3,12 @@ package main
 import (
 	"context"
 	"errors"
+	"io"
 	"log"
 	"net/http"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"syscall"
 	"time"
 
@@ -15,16 +17,26 @@ import (
 	"github.com/mossexplore/platform-cli/telemetry-gateway/internal/server"
 )
 
-const version = "0.1.0"
+const version = "0.1.1"
+const logDirectory = "/var/log/wiserec-telemetry-gateway"
 
 func main() {
 	logger := log.New(os.Stderr, "", 0)
+	file, err := openLogFile(logDirectory)
+	if err != nil {
+		logger.Fatalf("cannot open gateway log: %v", err)
+	}
+	if file != nil {
+		defer file.Close()
+		logger.SetOutput(io.MultiWriter(os.Stderr, file))
+	}
 	cfg, err := config.Load(os.Getenv)
 	if err != nil {
 		logger.Fatal(err)
 	}
 	service := &http.Server{
 		Addr: cfg.Listen, Handler: server.New(cfg, forwarder.New(cfg), logger, version),
+		ErrorLog:          logger,
 		ReadHeaderTimeout: 3 * time.Second, ReadTimeout: 10 * time.Second,
 		WriteTimeout: cfg.UpstreamTimeout + 12*time.Second, IdleTimeout: 30 * time.Second,
 		MaxHeaderBytes: 16 << 10,
@@ -47,4 +59,13 @@ func main() {
 			_ = service.Close()
 		}
 	}
+}
+
+func openLogFile(directory string) (*os.File, error) {
+	file, err := os.OpenFile(filepath.Join(directory, "gateway.log"), os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o640)
+	if errors.Is(err, os.ErrNotExist) {
+		// The image leaves the directory absent when no volume is mounted.
+		return nil, nil
+	}
+	return file, err
 }

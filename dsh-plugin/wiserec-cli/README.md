@@ -59,7 +59,11 @@ DSH 会话列表的行尾图标显示该会话所绑定的 WiseRec 环境状态�
 | --- | --- |
 | `build.includeTelemetry` | 默认为 `true`，打包保活和可观测性。设为 `false` 后只打包保活。 |
 | `build.telemetryEndpoint` | 完整包必填。填写实际网关的完整 URL，包括 `/v1/traces`。网关地址写入 Bundle。 |
-| `build.telemetryContentEnvironments` | 可选。填写获准上报脱敏正文的非生产 CLI 环境名，例如 `["sit"]`。默认空数组，仅上报元数据。填写时网关 URL 须使用 HTTPS。 |
+| `build.telemetryContentEnvironments` | 默认 `[]`，仅上报元数据。填写获准上报脱敏正文的环境名，例如 `["sit"]`。显式填写 `["*"]` 可让所有已确认环境发送脱敏正文，包括生产环境。名单非空时网关 URL 须使用 HTTPS。 |
+
+逐项配置时沿用对 `prod`、`production` 及其带分隔符变体的正文拦截规则。
+
+插件允许发送正文后，网关仍可按环境决定转发整条记录或仅转发元数据。详见 [网关环境配置](../../telemetry-gateway/README.md#按环境控制写入)。
 
 网关使用写入 Token 时，在构建进程中设置 `DSH_TELEMETRY_INGEST_TOKEN`。该 Token 只赋予网关写入权限，分发完整包时应按写入凭据管理。服务器配置见 [Go 遥测网关](../../telemetry-gateway/README.md)。
 

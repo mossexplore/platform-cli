@@ -54,8 +54,9 @@ function configuration(raw, localMode) {
     endpoint: endpoint.href,
     ingestToken,
     mode: localMode === 'metadata_only' || !modes.has(raw.mode) ? 'metadata_only' : raw.mode,
-    contentEnvironments: new Set(envs.filter(value => typeof value === 'string' &&
-      /^[a-z0-9][a-z0-9_.-]{0,63}$/i.test(value)).map(value => value.toLowerCase())),
+    contentEnvironments: new Set(envs.length === 1 && envs[0] === '*' ? envs :
+      envs.filter(value => typeof value === 'string' &&
+        /^[a-z0-9][a-z0-9_.-]{0,63}$/i.test(value)).map(value => value.toLowerCase())),
     timeoutMs: integer(raw.timeoutMs, 4000, 100, 30_000),
     maxQueueSize: integer(raw.maxQueueSize, 50, 1, 100),
     maxPayloadChars: integer(raw.maxPayloadChars, 16_384, 128, 16_384),

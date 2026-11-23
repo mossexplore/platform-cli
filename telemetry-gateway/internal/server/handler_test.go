@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"log"
 	"net/http"
 	"net/http/httptest"
@@ -19,7 +20,8 @@ import (
 const trace = `{"resourceSpans":[{"resource":{"attributes":[{"key":"service.name","value":{"stringValue":"dsh-wiserec-cli"}}]},
 "scopeSpans":[{"scope":{"name":"dsh-wiserec-cli"},"spans":[{"traceId":"0123456789abcdef0123456789abcdef","spanId":"0123456789abcdef","name":"dsh.turn","kind":1,
 "startTimeUnixNano":"1790000000123456789","endTimeUnixNano":"1790000000123456790","status":{"code":2,"message":"span-private"},
-"attributes":[{"key":"langfuse.observation.input","value":{"stringValue":"hello Authorization: Bearer abcsecret\ncsrftoken=sensitivecsrf sk-lf-sensitivekey"}},
+"attributes":[{"key":"langfuse.environment","value":{"stringValue":"sit"}},
+{"key":"langfuse.observation.input","value":{"stringValue":"hello Authorization: Bearer abcsecret\ncsrftoken=sensitivecsrf sk-lf-sensitivekey"}},
 {"key":"langfuse.observation.metadata.tool_exit_code","value":{"intValue":"-1"}},
 {"key":"unknown","value":{"stringValue":"unlisted-private"}}],
 "events":[{"name":"event-private"}]}]}]}]}`
@@ -106,6 +108,63 @@ func TestWritesOnlyAllowedRoutesAndPayloadFields(t *testing.T) {
 	if sends != 2 || !strings.Contains(logs.String(), "client_ip=127.0.0.1") ||
 		strings.Contains(logs.String(), "sensitive") || strings.Contains(logs.String(), "ingest-fixture") {
 		t.Fatalf("sends=%d unexpected access log=%s", sends, logs.String())
+	}
+}
+
+func TestFiltersTracesAndRestrictsContentBeforeForwarding(t *testing.T) {
+	cfg := testConfig()
+	cfg.AllowedEnvironments = config.EnvironmentSet{"sit": {}, "uat": {}}
+	cfg.ContentEnvironments = config.EnvironmentSet{"sit": {}}
+	var logs bytes.Buffer
+	sends := 0
+	handler := New(cfg, senderFunc(func(_ context.Context, payload []byte) (int64, error) {
+		sends++
+		body := string(payload)
+		for _, want := range []string{"sit-span", "uat-span", "sit-body", "[REDACTED]"} {
+			if !strings.Contains(body, want) {
+				t.Errorf("missing %q in %s", want, body)
+			}
+		}
+		for _, denied := range []string{"uat-body", "prod-span", "unbound-span", "mixed-span", "synthetic-secret", "resource-body"} {
+			if strings.Contains(body, denied) {
+				t.Errorf("unexpected %q in %s", denied, body)
+			}
+		}
+		return 1, nil
+	}), log.New(&logs, "", 0), "test")
+
+	span := func(traceID, spanID, name, env, content string) string {
+		envAttr := ""
+		if env != "" {
+			envAttr = fmt.Sprintf(`{"key":"langfuse.environment","value":{"stringValue":%q}},`, env)
+		}
+		return fmt.Sprintf(`{"traceId":%q,"spanId":%q,"name":%q,"startTimeUnixNano":"1","endTimeUnixNano":"2",
+			"attributes":[%s{"key":"langfuse.observation.input","value":{"stringValue":%q}}]}`,
+			strings.Repeat(traceID, 32), strings.Repeat(spanID, 16), name, envAttr, content)
+	}
+	body := func(spans ...string) string {
+		return `{"resourceSpans":[{"resource":{"attributes":[{"key":"langfuse.observation.input","value":{"stringValue":"resource-body"}}]},
+			"scopeSpans":[{"spans":[` + strings.Join(spans, ",") + `]}]}]}`
+	}
+	w := httptest.NewRecorder()
+	handler.ServeHTTP(w, request("POST", "/v1/traces", body(
+		span("a", "1", "sit-span", "SIT", "sit-body password=synthetic-secret"),
+		span("b", "2", "uat-span", "uat", "uat-body"),
+		span("c", "3", "prod-span", "prod", "prod-body"),
+		span("d", "4", "unbound-span", "", "unbound-body"),
+		span("e", "5", "mixed-span", "sit", "mixed-body"),
+		span("E", "6", "mixed-span", "prod", "mixed-body"),
+	), "", "ingest-fixture", "127.0.0.1:1234"))
+	if w.Code != http.StatusOK || !strings.Contains(w.Body.String(), `"rejectedSpans":5`) ||
+		!strings.Contains(logs.String(), "filtered_spans=4") || sends != 1 {
+		t.Fatalf("unexpected result: %d %s sends=%d logs=%s", w.Code, w.Body, sends, &logs)
+	}
+
+	w = httptest.NewRecorder()
+	handler.ServeHTTP(w, request("POST", "/v1/traces", body(span("c", "3", "prod-span", "prod", "prod-body")),
+		"", "ingest-fixture", "127.0.0.1:1234"))
+	if w.Code != http.StatusOK || !strings.Contains(w.Body.String(), `"rejectedSpans":1`) || sends != 1 {
+		t.Fatalf("all-filtered batch forwarded: %d %s sends=%d", w.Code, w.Body, sends)
 	}
 }
 

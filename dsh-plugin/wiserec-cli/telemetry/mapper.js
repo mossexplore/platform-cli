@@ -47,8 +47,10 @@ export function turnSpans(turn, end, context, settings) {
   const traceId = id(seed, 32)
   const rootId = id(seed + ':turn', 16)
   const env = context.env?.toLowerCase()
-  const allowed = settings.mode === 'full' && context.bound && env && !/(?:^|[-_.])prod(?:uction)?(?:$|[-_.])/.test(env) &&
-    settings.contentEnvironments.has(env)
+  const allowed = settings.mode === 'full' && context.bound && env && (
+    settings.contentEnvironments.has('*') ||
+    (!/(?:^|[-_.])prod(?:uction)?(?:$|[-_.])/.test(env) && settings.contentEnvironments.has(env))
+  )
   const common = {
     'langfuse.session.id': redactText(turn.id, 128),
     'langfuse.user.id': redactText(context.userId, 128),

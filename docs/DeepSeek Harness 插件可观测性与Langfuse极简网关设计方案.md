@@ -18,7 +18,7 @@
 1. **单 Bundle、员工零配置**。员工只需在 DSH 插件管理器安装 `dsh-wiserec-cli`。完整包内部复用 DSH 宿主提供的官方遥测库，构建时从仓库 `config.json` 读取并写入内网网关地址。员工无需另装官方遥测插件、编辑 Profile 或填写地址与密钥。
 2. **保活与可观测性独立交付**。`dsh-wiserec-cli` 默认同时打包保活和可观测性。可观测性出现兼容性或运行问题时，可通过 `config.json` 重新构建仅保活的插件包。两种产物均支持离线安装，完整包的遥测库由宿主提供。
 3. **业务上下文完备**：上报的 Trace 自动附带 WiseRec 业务标签（当前 `ml` 登录用户名、会话环境、业务 ID、CLI 与插件版本），支持在 Langfuse v4 中按人、按环境、按版本深度分析。
-4. **最小采集与双层脱敏**。默认只上报元数据。经明确允许的非生产环境可通过 HTTPS 上报脱敏文本，客户端先过滤和脱敏，网关再次校验与脱敏。网关只暴露写入和健康检查接口。
+4. **最小采集与双层脱敏**。默认只上报元数据。可按环境名单或显式通配符通过 HTTPS 上报脱敏文本。网关独立配置 trace 与正文的转发范围，再执行校验和脱敏。网关只暴露写入和健康检查接口。
 5. **极简低耗服务端网关**：使用 Go 开发极简网关，编译为静态单二进制并打包为 `< 20MB` 的 `linux/amd64` Docker 镜像，与 Langfuse v4 同机部署，维护成本极低。
 
 ### 1.3 范围与非目标
@@ -135,7 +135,7 @@ dsh-plugin/wiserec-cli/
 
 ### 3.4 本地脱敏、截断与可靠性保障
 
-1. **本地过滤与脱敏**。采集从新的 Turn 开始。默认仅采集元数据，交付人员可明确列出允许通过 HTTPS 采集正文的非生产环境。只考虑用户可见文本、模型可见回复和工具参数及结果，排除模型推理、系统提示词、注入上下文、附件和工具私有元数据。对允许上报的文本使用以下规则替换已识别的敏感值：
+1. **本地过滤与脱敏**。采集从新的 Turn 开始。默认仅采集元数据，交付人员可在使用 HTTPS 时明确指定允许采集正文的环境范围。只考虑用户可见文本、模型可见回复和工具参数及结果，排除模型推理、系统提示词、注入上下文、附件和工具私有元数据。对允许上报的文本使用以下规则替换已识别的敏感值：
      - HTTP 鉴权与会话头：`Cookie`、`Set-Cookie`、`csrftoken`、`x-csrftoken`、`Authorization: Basic/Bearer ...`；
      - 常见密钥格式：`pk-lf-*`、`sk-lf-*`、`sk-*`、`ghp_*`、PEM 私钥块（`-----BEGIN ... PRIVATE KEY-----`）；
      - 常见字段键值对：`password`、`passwd`、`secret`、`token`、`access_key`、`api_key` 等。
@@ -206,7 +206,7 @@ sequenceDiagram
 关键安全细节：
 - **防 gzip 炸弹**：当请求携带 `Content-Encoding: gzip` 时，使用 `io.LimitReader` 限制解压后的最大字节数（默认 `8MB`），超限直接返回 `413 Payload Too Large`。
 - **上游错误脱敏**：若 Langfuse 返回 `401` 或 `5xx`，网关仅向客户端返回简短错误码（如 `502 Bad Gateway`），绝不将上游响应头或内部地址回传给客户端。
-- **日志规范**：所有时间戳按北京时间（UTC+8）输出 `YYYY-MM-DD HH:mm:ss`，仅记录 `client_ip`、`bytes`、`spans`、`status`、`rejected_spans`、`duration_ms`。
+- **访问日志**：访问时间按北京时间（UTC+8）输出 `YYYY-MM-DD HH:mm:ss`，记录 `client_ip`、`bytes`、`spans`、`status`、`rejected_spans`、`filtered_spans` 和 `duration_ms`。挂载容器目录 `/var/log/wiserec-telemetry-gateway` 后，宿主机可同步读取 `gateway.log`。未挂载时通过 `docker logs` 查看。
 
 ### 4.4 网关环境变量配置（`gateway.env.example`）
 
@@ -223,6 +223,8 @@ LANGFUSE_INGESTION_VERSION=4
 # 客户端只写投递校验（留空则仅靠内网隔离；设置后客户端需携带 X-Ingest-Token）
 GATEWAY_INGEST_TOKEN=
 GATEWAY_ALLOWED_CIDRS=127.0.0.0/8,::1/128
+GATEWAY_ALLOWED_ENVIRONMENTS=*
+GATEWAY_ALLOW_CONTENT_FOR_ENVIRONMENTS=*
 
 # 安全与限流参数
 GATEWAY_MAX_BODY_BYTES=4194304
@@ -239,7 +241,7 @@ GATEWAY_RATE_LIMIT_BURST=40
 ### 5.1 多阶段 Dockerfile（`linux/amd64`）
 
 ```sh
-docker build --platform linux/amd64 -t wiserec-telemetry-gateway:0.1.0 telemetry-gateway
+docker build --platform linux/amd64 -t wiserec-telemetry-gateway:0.1.1 telemetry-gateway
 ```
 
 镜像使用 [Dockerfile](../telemetry-gateway/Dockerfile) 编译静态二进制并以非 root 用户运行。
@@ -251,7 +253,7 @@ docker build --platform linux/amd64 -t wiserec-telemetry-gateway:0.1.0 telemetry
 
 ```yaml
   wiserec-telemetry-gateway:
-    image: wiserec-telemetry-gateway:0.1.0
+    image: wiserec-telemetry-gateway:0.1.1
     container_name: wiserec-telemetry-gateway
     restart: unless-stopped
     env_file:
@@ -276,7 +278,7 @@ docker build --platform linux/amd64 -t wiserec-telemetry-gateway:0.1.0 telemetry
 
 ```bash
 # 离线导入镜像
-docker load -i wiserec-telemetry-gateway-0.1.0-linux-amd64.tar.gz
+docker load -i wiserec-telemetry-gateway-0.1.1-linux-amd64.tar.gz
 
 # 启动容器
 docker run -d \
@@ -291,7 +293,7 @@ docker run -d \
   --log-driver json-file \
   --log-opt max-size=10m \
   --log-opt max-file=3 \
-  wiserec-telemetry-gateway:0.1.0
+  wiserec-telemetry-gateway:0.1.1
 ```
 
 ### 5.3 部署后连通性验收
@@ -331,7 +333,7 @@ curl -i http://127.0.0.1:8088/api/public/traces
 
 `scripts/build_dsh_plugin.py` 在组装前读取布尔开关，并据此选择入口、文件清单和宿主补丁。开关为非布尔值时构建报错。完整包要求地址是包含主机和 `/v1/traces` 路径的绝对 HTTP(S) URL，缺失或格式无效时构建报错。构建脚本把该地址直接写入包内生成的 `cordis.patch.yml` 遥测行中的 `config.endpoint`，运行时由 WiseRec 读取。用户无需从本机 `config.json`、环境变量或安装命令提供地址。网关启用写入 Token 时，由交付方在构建进程设置 `DSH_TELEMETRY_INGEST_TOKEN`，Langfuse 项目密钥由网关持有。
 
-`build.telemetryContentEnvironments` 默认是空数组。填入经允许的非生产环境（如 `["sit"]`）后，对已核对会话及业务绑定的会话允许采集脱敏正文，此时必须使用 HTTPS。
+`build.telemetryContentEnvironments` 默认是空数组。填入经允许的环境（如 `["sit"]`）后，对已核对会话及业务绑定的会话允许采集脱敏正文。显式使用 `["*"]` 时，所有已确认环境均可采集脱敏正文，包括生产环境。名单非空须使用 HTTPS。网关以 `GATEWAY_ALLOWED_ENVIRONMENTS` 控制 trace 转发，以 `GATEWAY_ALLOW_CONTENT_FOR_ENVIRONMENTS` 控制正文保留范围。网关按同一批次的 Trace ID 检查环境归属，再执行二次脱敏。
 
 直接安装的 `.tgz` Bundle 和 ZIP 内的 Bundle 使用同一规则。生成包内 `config.json` 时移除源文件的 `build` 段，避免仅保活包通过默认配置携带网关地址。产物元数据和构建日志记录实际的 `includeTelemetry` 值，同版本的两种产物输出到不同目录。更换网关地址或切换打包范围时，由构建人员修改仓库 `config.json`、重新出包并分发替换。
 
@@ -368,7 +370,7 @@ curl -i http://127.0.0.1:8088/api/public/traces
    - 转发上游时正确注入 `Authorization: Basic ...` 与 `x-langfuse-ingestion-version: 4`，日志不泄露敏感值。
 2. **插件单元测试**（`node --test dsh-plugin/wiserec-cli/tests/telemetry.test.mjs`）：
    - DSH 事件正确映射为 OTLP `resourceSpans`（包含 `session.id`、`user.id`、`wiserec.env`、`gen_ai.*`）；
-   - 验证本地脱敏、截断以及未知环境、生产环境和 `metadata_only` 模式下的正文关闭行为；
+   - 验证本地脱敏和截断，验证未知环境和 `metadata_only` 模式丢弃正文，以及通配符可在有效绑定的生产环境发送脱敏正文；
    - 网关不可达/超时时静默降级、队列有界不泄漏内存。
 3. **打包验证**。验证开关缺失、`true`、`false` 和非法值。完整包缺少有效地址时应拒绝构建，地址变更后重新出包应反映新值。解包检查 `.tgz` 和 ZIP 内 Bundle 的文件清单、入口引用、宿主补丁及产物元数据。确认完整包地址来自仓库 `config.json`，且未包含宿主共享库的副本。设置 `false` 时，无网关配置亦可构建，即使源配置已填写网关地址，产物仍只包含保活功能。
 
@@ -382,7 +384,7 @@ curl -i http://127.0.0.1:8088/api/public/traces
 4. 确认插件请求发往打包时写入的网关地址，在 Langfuse v4 的 **Tracing → Sessions / Traces** 中验证：
    - 完整出现多轮 Session 与每一轮的 Turn → Generation → Tool Span；
    - 每个 Span 均可按确认后的用户、环境、业务 ID 筛选。
-   - 在允许正文的测试环境，模拟值已被替换为 `[REDACTED]`。在默认元数据模式及生产、未知或切换环境时，检查根 Span 和子 Span 均无正文。
+- 在允许正文的测试环境，模拟值已被替换为 `[REDACTED]`。在默认元数据模式、未知环境或会话中途切换环境时，检查根 Span 和子 Span 均无正文。使用通配符后验证稳定绑定的生产环境正文仍经过脱敏。
 5. 临时停止网关容器，在 DSH 继续正常对话 3 轮，确认 DSH 响应速度无感知下降、无弹窗或报错。
 6. 将完整包的 `telemetry.mode` 设为 `off`，确认保活正常且本插件停止向 WiseRec 网关上报。再通过插件管理器替换为仅保活包并重启 DSH，确认原有遥测配置恢复、用户补丁保留、保活正常，以及本插件没有向 WiseRec 网关发起请求。
 
@@ -403,7 +405,7 @@ curl -i http://127.0.0.1:8088/api/public/traces
 
 | 风险点 | 影响 | 缓解措施 |
 | --- | --- | --- |
-| 问答或工具输出意外包含敏感凭据或生产数据 | 敏感信息进入 Langfuse | 默认只上报元数据。正文要求 HTTPS、非生产环境白名单和稳定的会话业务绑定，并进行双层脱敏 |
+| 问答或工具输出意外包含敏感凭据或生产数据 | 敏感信息进入 Langfuse | 默认只上报元数据。正文要求 HTTPS、明确的环境范围和稳定的会话业务绑定，网关独立筛选并执行二次脱敏 |
 | DSH 升级后 `@deepseek-ai/dsh-session-telemetry` 接口或事件字段调整 | 采集字段缺失、启动或运行报错 | 采集异常时停用上报。出现加载或兼容性问题时，通过 `build.includeTelemetry: false` 重新出包并回退到仅保活包 |
 | Langfuse 服务宕机或内网抖动 | 客户端积压或卡顿 | 插件侧采用有界内存队列（上限 50 条）+ 4 秒短超时 + 失败静默丢弃；网关侧加限流与超时控制 |
 | 网关被误扫或恶意写入垃圾数据 | Langfuse 存储膨胀 | 仅开放内网访问 + 单 IP 限流 + `4MB` 请求体上限 + 可选只写 `X-Ingest-Token` |

@@ -74,11 +74,11 @@ def telemetry_patch(settings, token):
     if token and not re.fullmatch(r"[!-~]{1,1024}", token):
         raise ValueError("DSH_TELEMETRY_INGEST_TOKEN contains invalid characters or exceeds its limit")
     environments = settings.get("telemetryContentEnvironments", [])
-    if not isinstance(environments, list) or len(environments) > 64 or any(
+    if environments != ["*"] and (not isinstance(environments, list) or len(environments) > 64 or any(
         not isinstance(env, str) or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.-]{0,63}", env)
         for env in environments
-    ):
-        raise ValueError("build.telemetryContentEnvironments must be a list of environment names")
+    )):
+        raise ValueError('build.telemetryContentEnvironments must list environment names or be ["*"]')
     if environments and parsed.scheme != "https":
         raise ValueError("telemetry content collection requires an HTTPS endpoint")
     return (

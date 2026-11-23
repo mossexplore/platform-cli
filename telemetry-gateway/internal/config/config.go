@@ -16,6 +16,8 @@ type Config struct {
 	PublicKey, SecretKey string
 	IngestToken          string
 	Allowed              []netip.Prefix
+	AllowedEnvironments  EnvironmentSet
+	ContentEnvironments  EnvironmentSet
 	MaxBody, MaxExpanded int64
 	UpstreamTimeout      time.Duration
 	Rate, Burst          int
@@ -28,6 +30,19 @@ func Load(get func(string) string) (Config, error) {
 	}
 	if cfg.Listen == "" {
 		cfg.Listen = ":8088"
+	}
+	for _, setting := range []struct {
+		name string
+		dest *EnvironmentSet
+	}{
+		{"GATEWAY_ALLOWED_ENVIRONMENTS", &cfg.AllowedEnvironments},
+		{"GATEWAY_ALLOW_CONTENT_FOR_ENVIRONMENTS", &cfg.ContentEnvironments},
+	} {
+		set, err := ParseEnvironments(get(setting.name))
+		if err != nil {
+			return Config{}, fmt.Errorf("%s: %w", setting.name, err)
+		}
+		*setting.dest = set
 	}
 	base, err := url.Parse(get("LANGFUSE_BASE_URL"))
 	if err != nil || (base.Scheme != "http" && base.Scheme != "https") ||

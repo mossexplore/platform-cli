@@ -59,13 +59,14 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		now := time.Now()
 		peer, _ := netip.ParseAddrPort(r.RemoteAddr)
 		ip := peer.Addr().Unmap()
-		status, message, size, count, rejected := h.ingest(w, r, ip, now)
+		status, message, size, counts, rejected := h.ingest(w, r, ip, now)
+		rejected += int64(counts.Filtered)
 		if h.logger != nil {
-			h.logger.Printf("%s client_ip=%s bytes=%d spans=%d rejected_spans=%d status=%d duration_ms=%d",
-				now.In(beijing).Format(time.DateTime), ip, size, count, rejected, status, time.Since(now).Milliseconds())
+			h.logger.Printf("%s client_ip=%s bytes=%d spans=%d rejected_spans=%d status=%d duration_ms=%d filtered_spans=%d",
+				now.In(beijing).Format(time.DateTime), ip, size, counts.Received, rejected, status, time.Since(now).Milliseconds(), counts.Filtered)
 		}
 		switch {
-		case rejected > 0:
+		case status == http.StatusOK && rejected > 0:
 			reply(w, status, map[string]any{"partialSuccess": map[string]any{"rejectedSpans": rejected}})
 		case status == http.StatusOK:
 			reply(w, status, struct{}{})
@@ -77,7 +78,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (h *Handler) ingest(w http.ResponseWriter, r *http.Request, ip netip.Addr, now time.Time) (status int, message string, size, count int, rejected int64) {
+func (h *Handler) ingest(w http.ResponseWriter, r *http.Request, ip netip.Addr, now time.Time) (status int, message string, size int, counts redact.Counts, rejected int64) {
 	allowed := false
 	for _, network := range h.Allowed {
 		if network.Contains(ip) {
@@ -86,47 +87,48 @@ func (h *Handler) ingest(w http.ResponseWriter, r *http.Request, ip netip.Addr, 
 		}
 	}
 	if !allowed {
-		return http.StatusForbidden, "source not allowed", 0, 0, 0
+		return http.StatusForbidden, "source not allowed", 0, counts, 0
 	}
 	if !h.rate.allow(ip, now) {
-		return http.StatusTooManyRequests, "rate limit exceeded", 0, 0, 0
+		return http.StatusTooManyRequests, "rate limit exceeded", 0, counts, 0
 	}
 	actual := sha256.Sum256([]byte(r.Header.Get("X-Ingest-Token")))
 	if h.IngestToken != "" && (subtle.ConstantTimeCompare(actual[:], h.tokenHash[:]) != 1 ||
 		len(r.Header.Values("X-Ingest-Token")) != 1) {
-		return http.StatusUnauthorized, "invalid ingest token", 0, 0, 0
+		return http.StatusUnauthorized, "invalid ingest token", 0, counts, 0
 	}
 	media, _, err := mime.ParseMediaType(r.Header.Get("Content-Type"))
 	if err != nil || media != "application/json" {
-		return http.StatusUnsupportedMediaType, "expected application/json", 0, 0, 0
+		return http.StatusUnsupportedMediaType, "expected application/json", 0, counts, 0
 	}
 	select {
 	case h.inFlight <- struct{}{}:
 		defer func() { <-h.inFlight }()
 	default:
-		return http.StatusServiceUnavailable, "gateway busy", 0, 0, 0
+		return http.StatusServiceUnavailable, "gateway busy", 0, counts, 0
 	}
 
 	payload, status := h.readPayload(w, r)
 	if status != http.StatusOK {
-		return status, "invalid request body", 0, 0, 0
+		return status, "invalid request body", 0, counts, 0
 	}
 	size = len(payload)
-	clean, count, err := redact.Traces(payload)
+	clean, counts, err := redact.Traces(payload, h.AllowedEnvironments, h.ContentEnvironments)
 	if err != nil {
-		return http.StatusBadRequest, "invalid OTLP spans", size, 0, 0
+		return http.StatusBadRequest, "invalid OTLP spans", size, counts, 0
 	}
+	count := counts.Received - counts.Filtered
 	if count == 0 {
-		return http.StatusOK, "", size, 0, 0
+		return http.StatusOK, "", size, counts, 0
 	}
 	if int64(len(clean)) > h.MaxExpanded {
-		return http.StatusRequestEntityTooLarge, "payload exceeds forwarding limit", size, count, 0
+		return http.StatusRequestEntityTooLarge, "payload exceeds forwarding limit", size, counts, 0
 	}
 	rejected, err = h.sender.Send(r.Context(), clean)
 	if err != nil || rejected > int64(count) {
-		return http.StatusBadGateway, "ingestion upstream unavailable", size, count, 0
+		return http.StatusBadGateway, "ingestion upstream unavailable", size, counts, 0
 	}
-	return http.StatusOK, "", size, count, rejected
+	return http.StatusOK, "", size, counts, rejected
 }
 
 func (h *Handler) readPayload(w http.ResponseWriter, r *http.Request) ([]byte, int) {

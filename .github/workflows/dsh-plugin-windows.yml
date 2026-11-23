@@ -136,13 +136,23 @@ jobs:
           docker build --platform linux/amd64 --label "org.opencontainers.image.revision=$GITHUB_SHA" \
             -t "$image" telemetry-gateway
           test "$(docker image inspect --format '{{.Os}}/{{.Architecture}} {{.Config.User}}' "$image")" = "linux/amd64 nonroot:nonroot"
-          container=$(docker run -d --rm -p 127.0.0.1:8088:8088 \
+          log_dir="$RUNNER_TEMP/gateway-logs"
+          sudo install -d -o 65532 -g 65532 -m 0750 "$log_dir"
+          container=$(docker run -d --rm --read-only -p 127.0.0.1:8088:8088 \
+            --mount "type=bind,source=$log_dir,target=/var/log/wiserec-telemetry-gateway" \
+            -e GATEWAY_ALLOWED_CIDRS=0.0.0.0/0,::/0 -e GATEWAY_ALLOWED_ENVIRONMENTS=sit \
             -e LANGFUSE_BASE_URL=http://127.0.0.1:9 \
             -e LANGFUSE_PUBLIC_KEY=fixture-public -e LANGFUSE_SECRET_KEY=fixture-secret "$image")
           trap 'docker stop "$container" >/dev/null' EXIT
           version=$(curl --fail --silent --show-error --retry 5 --retry-connrefused http://127.0.0.1:8088/health \
             | jq -er 'select(.status == "ok") | .version | strings')
           [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]
+          curl --fail --silent --show-error -H 'Content-Type: application/json' --data-binary @- \
+            http://127.0.0.1:8088/v1/traces <<'JSON' | jq -e '.partialSuccess.rejectedSpans == 1'
+          {"resourceSpans":[{"scopeSpans":[{"spans":[{"traceId":"11111111111111111111111111111111","spanId":"1111111111111111","name":"ci.filter","startTimeUnixNano":"1","endTimeUnixNano":"2","attributes":[{"key":"langfuse.environment","value":{"stringValue":"prod"}}]}]}]}]}
+          JSON
+          sudo grep -q 'filtered_spans=1' "$log_dir/gateway.log"
+          docker logs "$container" 2>&1 | grep 'filtered_spans=1'
           image_id=$(docker image inspect --format '{{.Id}}' "$image")
           printf 'version=%s\nimage_id=%s\n' "$version" "$image_id" >> "$GITHUB_OUTPUT"
       - name: Export and reload the tested gateway image

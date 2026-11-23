@@ -7,6 +7,9 @@ import (
 	"io"
 	"regexp"
 	"strconv"
+	"strings"
+
+	"github.com/mossexplore/platform-cli/telemetry-gateway/internal/config"
 )
 
 type Document struct {
@@ -88,10 +91,13 @@ func validID(id string, length int) bool {
 	return len(id) == length && validHex.MatchString(id) && len(bytes.Trim([]byte(id), "0")) != 0
 }
 
-func attributes(raw []Attribute) []Attribute {
+func attributes(raw []Attribute, allowContent bool) []Attribute {
 	accepted := raw[:0]
 	seen := make(map[string]bool)
 	for _, entry := range raw {
+		if !allowContent && (entry.Key == "langfuse.observation.input" || entry.Key == "langfuse.observation.output") {
+			continue
+		}
 		if seen[entry.Key] {
 			continue
 		}
@@ -112,45 +118,96 @@ func attributes(raw []Attribute) []Attribute {
 	return accepted
 }
 
-func Traces(payload []byte) ([]byte, int, error) {
+type Counts struct {
+	Received, Filtered int
+}
+
+func spanEnvironment(attrs []Attribute) string {
+	name := ""
+	found := false
+	for _, attr := range attrs {
+		if attr.Key != "langfuse.environment" {
+			continue
+		}
+		if found || attr.Value.Text == nil || attr.Value.Integer != nil {
+			return ""
+		}
+		found, name = true, config.NormalizeEnvironment(*attr.Value.Text)
+	}
+	return name
+}
+
+func Traces(payload []byte, allowed, content config.EnvironmentSet) ([]byte, Counts, error) {
 	var doc Document
+	var counts Counts
 	decoder := json.NewDecoder(bytes.NewReader(payload))
 	if err := decoder.Decode(&doc); err != nil || doc.Resources == nil ||
 		decoder.Decode(new(json.RawMessage)) != io.EOF {
-		return nil, 0, errors.New("invalid OTLP request")
+		return nil, counts, errors.New("invalid OTLP request")
 	}
 
-	count := 0
+	environments := make(map[string]string)
 	for i := range doc.Resources {
 		resource := &doc.Resources[i]
-		resource.Resource.Attributes = attributes(resource.Resource.Attributes)
 		if len(resource.Scopes) == 0 {
-			return nil, 0, errors.New("missing OTLP scope")
+			return nil, Counts{}, errors.New("missing OTLP scope")
 		}
 		for j := range resource.Scopes {
 			scope := &resource.Scopes[j]
-			scope.Scope.Name = Text(scope.Scope.Name)
-			scope.Scope.Version = Text(scope.Scope.Version)
 			if len(scope.Spans) == 0 {
-				return nil, 0, errors.New("missing OTLP spans")
+				return nil, Counts{}, errors.New("missing OTLP spans")
 			}
 			for k := range scope.Spans {
 				span := &scope.Spans[k]
-				count++
-				if count > 4096 || !validID(span.TraceID, 32) || !validID(span.SpanID, 16) ||
+				counts.Received++
+				if counts.Received > 4096 || !validID(span.TraceID, 32) || !validID(span.SpanID, 16) ||
 					(span.ParentID != "" && !validID(span.ParentID, 16)) ||
 					span.Start == 0 || span.End < span.Start || len(span.Name) == 0 || len(span.Name) > 256 ||
 					span.Kind < 0 || span.Kind > 5 || (span.Status != nil && (span.Status.Code < 0 || span.Status.Code > 2)) {
-					return nil, 0, errors.New("invalid OTLP span")
+					return nil, Counts{}, errors.New("invalid OTLP span")
 				}
-				span.Name = Text(span.Name)
-				span.Attributes = attributes(span.Attributes)
+				key := strings.ToLower(span.TraceID)
+				env := spanEnvironment(span.Attributes)
+				if previous, seen := environments[key]; seen && previous != env {
+					env = ""
+				}
+				environments[key] = env
 			}
 		}
 	}
-	if count == 0 {
-		return nil, 0, nil
+	// Decide for the whole trace in the batch before forwarding any of its spans.
+	resources := doc.Resources[:0]
+	for _, resource := range doc.Resources {
+		scopes := resource.Scopes[:0]
+		for _, scope := range resource.Scopes {
+			spans := scope.Spans[:0]
+			for _, span := range scope.Spans {
+				env := environments[strings.ToLower(span.TraceID)]
+				if !allowed.Allows(env) {
+					counts.Filtered++
+					continue
+				}
+				span.Name = Text(span.Name)
+				span.Attributes = attributes(span.Attributes, env != "" && content.Allows(env))
+				spans = append(spans, span)
+			}
+			if len(spans) > 0 {
+				scope.Scope.Name = Text(scope.Scope.Name)
+				scope.Scope.Version = Text(scope.Scope.Version)
+				scope.Spans = spans
+				scopes = append(scopes, scope)
+			}
+		}
+		if len(scopes) > 0 {
+			resource.Resource.Attributes = attributes(resource.Resource.Attributes, false)
+			resource.Scopes = scopes
+			resources = append(resources, resource)
+		}
 	}
+	if len(resources) == 0 {
+		return nil, counts, nil
+	}
+	doc.Resources = resources
 	clean, err := json.Marshal(doc)
-	return clean, count, err
+	return clean, counts, err
 }
