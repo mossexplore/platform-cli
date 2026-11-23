@@ -41,8 +41,9 @@ class BundleTests(unittest.TestCase):
             return {entry.name.removeprefix("package/"): archive.extractfile(entry).read() for entry in archive}
 
     def test_install_docs_are_short_and_consistent_across_packages(self):
-        readme = (self.plugin / "INSTALL.md").read_bytes()
-        _, notice, features = readme.decode("utf-8").strip().split("\n\n")
+        readme_path = self.plugin / "INSTALL.md"
+        readme = readme_path.read_bytes()
+        _, notice, features = readme_path.read_text(encoding="utf-8").strip().split("\n\n")
         self.assertIn("申请使用权限，审批通过后即可使用", notice)
         self.assertIn("平台会记录使用情况", notice)
         for include in (True, False):
