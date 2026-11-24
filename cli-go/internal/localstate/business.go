@@ -111,6 +111,7 @@ type businessFile struct {
 
 type BusinessEntry struct {
 	Username string       `json:"username"`
+	Origin   string       `json:"origin,omitempty"`
 	StateID  string       `json:"state_id"`
 	Catalog  []Department `json:"catalog"`
 	Selected Selection    `json:"selected"`
@@ -136,7 +137,7 @@ func (p Paths) BusinessEntry(creds Credentials) (BusinessEntry, error) {
 		return BusinessEntry{}, err
 	}
 	entry.Selected = Selection{}
-	if sel, ok := state.Selections[creds.Profile]; ok && sel.Username == creds.Username {
+	if sel, ok := state.Selections[creds.Profile]; ok && sel.matchesAccount(creds) {
 		candidate := sel.toSelection()
 		if validHeader(candidate.BusinessID) && matchesSelection(entry.Catalog, candidate) {
 			entry.Selected = candidate
@@ -150,7 +151,8 @@ func (file businessFile) entry(creds Credentials, allowLegacy bool) (BusinessEnt
 		return BusinessEntry{}, errors.New("business.json 版本不兼容")
 	}
 	entry := file.Profiles[creds.Profile]
-	if entry.Username != creds.Username || entry.StateID != creds.StateID && !(allowLegacy && entry.StateID == "") {
+	if entry.Username != creds.Username || entry.Origin != "" && entry.Origin != creds.Origin ||
+		entry.StateID != creds.StateID && !(allowLegacy && entry.StateID == "") {
 		return BusinessEntry{}, errors.New("当前环境的业务目录与登录账号不匹配")
 	}
 	return entry, nil
@@ -216,7 +218,7 @@ func (p Paths) selectedBusiness(creds Credentials, state *SessionState) (string,
 		return "", sessionBusinessUnboundError(creds.Profile)
 	}
 	candidate := sel.toSelection()
-	if sel.Username != creds.Username || !validHeader(candidate.BusinessID) || !matchesSelection(entry.Catalog, candidate) {
+	if !sel.matchesAccount(creds) || !validHeader(candidate.BusinessID) || !matchesSelection(entry.Catalog, candidate) {
 		return "", sessionBusinessInvalidError(creds.Profile)
 	}
 	return candidate.BusinessID, nil

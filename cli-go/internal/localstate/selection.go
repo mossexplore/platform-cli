@@ -126,11 +126,12 @@ func (p Paths) SelectBusiness(profile Profile, creds Credentials, department, te
 			if state.Selections == nil {
 				state.Selections = make(map[string]SessionSelection)
 			}
-			state.Selections[profile.Name] = sessionSelectionFrom(latest.Username, selection)
+			state.Selections[profile.Name] = sessionSelectionFrom(latest, selection)
 			return nil
 		})
 		return entry, err
 	}
+	entry.Origin = latest.Origin
 	file.Profiles[profile.Name] = entry
 	return entry, writeState(p.Business(), file)
 }

@@ -69,14 +69,17 @@ func (p Paths) saveLogin(creds Credentials, catalog []Department, browserBusines
 		loginSelection = selectionFromBrowser(catalog, scopeTenantID, true)
 	}
 	isolated := p.IsSessionIsolated()
-	entry := BusinessEntry{Username: creds.Username, StateID: creds.StateID, Catalog: catalog, Selected: browserSelection}
+	entry := BusinessEntry{Username: creds.Username, Origin: creds.Origin, StateID: creds.StateID, Catalog: catalog, Selected: browserSelection}
 	if !isolated {
 		entry.Selected = loginSelection
 	}
 	previous := businessData.Profiles[creds.Profile]
 	oldCredentials := credentialData.Profiles[creds.Profile]
-	if oldCredentials.Origin == creds.Origin && oldCredentials.StateID == previous.StateID &&
-		previous.Username == creds.Username && validHeader(previous.Selected.BusinessID) &&
+	legacyOriginVerified := oldCredentials.Origin == creds.Origin && oldCredentials.Username == creds.Username &&
+		oldCredentials.StateID != "" && oldCredentials.StateID == previous.StateID && previous.Username == creds.Username &&
+		(previous.Origin == "" || previous.Origin == creds.Origin)
+	if previous.Username == creds.Username && validHeader(previous.Selected.BusinessID) &&
+		(previous.Origin == creds.Origin || previous.Origin == "" && legacyOriginVerified) &&
 		matchesSelection(catalog, previous.Selected) {
 		entry.Selected = previous.Selected
 	}
@@ -97,14 +100,16 @@ func (p Paths) saveLogin(creds Credentials, catalog []Department, browserBusines
 		if state.Selections == nil {
 			state.Selections = make(map[string]SessionSelection)
 		}
-		if existing, ok := state.Selections[creds.Profile]; ok &&
-			oldCredentials.Origin == creds.Origin && existing.Username == creds.Username && validHeader(existing.BusinessID) &&
+		if existing, ok := state.Selections[creds.Profile]; ok && existing.matchesAccount(creds) &&
+			(existing.Origin != "" || legacyOriginVerified) && validHeader(existing.BusinessID) &&
 			matchesSelection(catalog, existing.toSelection()) {
+			existing.Origin = creds.Origin
+			state.Selections[creds.Profile] = existing
 			sessionBusinessID = existing.BusinessID
 			return nil
 		}
 		if loginSelection.BusinessID != "" {
-			state.Selections[creds.Profile] = sessionSelectionFrom(creds.Username, loginSelection)
+			state.Selections[creds.Profile] = sessionSelectionFrom(creds, loginSelection)
 			sessionBusinessID = loginSelection.BusinessID
 			return nil
 		}

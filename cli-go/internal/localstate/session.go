@@ -36,6 +36,7 @@ type SessionScope struct {
 
 type SessionSelection struct {
 	Username     string `json:"username"`
+	Origin       string `json:"origin,omitempty"`
 	DepartmentID string `json:"department_id"`
 	TenantID     string `json:"tenant_id"`
 	TeamID       string `json:"team_id"`
@@ -51,9 +52,14 @@ func (s SessionSelection) toSelection() Selection {
 	}
 }
 
-func sessionSelectionFrom(username string, sel Selection) SessionSelection {
+func (s SessionSelection) matchesAccount(creds Credentials) bool {
+	return s.Username == creds.Username && (s.Origin == "" || s.Origin == creds.Origin)
+}
+
+func sessionSelectionFrom(creds Credentials, sel Selection) SessionSelection {
 	return SessionSelection{
-		Username:     username,
+		Username:     creds.Username,
+		Origin:       creds.Origin,
 		DepartmentID: sel.DepartmentID,
 		TenantID:     sel.TenantID,
 		TeamID:       sel.TeamID,
