@@ -5,6 +5,7 @@
 用 `ml service --help` 在 `Commands` 面板找到子命令，再用对应子命令的 `--help` 核对用法、参数和必填项。服务 ID 示例需换成当前业务中实际查询到的 ID。
 
 ```powershell
+ml service list --name 'SERVICE_NAME,SERVICE_NAME' -o json
 ml service list --name SERVICE_NAME -o json
 ml service list -A --name SERVICE_NAME
 ml service host list SERVICE_ID -o json

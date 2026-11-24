@@ -6,6 +6,7 @@
 ## 数据集
 
 ```powershell
+ml dataset list --name 'DATASET_NAME,DATASET_NAME' -o json
 ml dataset list --name DATASET_NAME -o json
 ml dataset list -A --name DATASET_NAME
 ml dataset detail DATASET_ID -o json
@@ -23,6 +24,7 @@ ml dataset files upload DATASET_ID 'D:\data\sample.csv' --dir / -o json
 WiseRec 和 MLOps 均支持特征任务列表、详情、执行记录及日志搜索。列表查询使用当前选中的业务。
 
 ```powershell
+ml feature-task list --name 'NAME,NAME' -o json
 ml feature-task list --name NAME --create-user USER --page 1 --page-size 10 -o json
 ml feature-task list --category train_fi -o json
 ml feature-task detail TASK_ID -o json

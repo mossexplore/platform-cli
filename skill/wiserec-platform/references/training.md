@@ -6,7 +6,7 @@
 
 参数齐全时直接运行 `ml train history logs download TASK_ID JOB_ID`（未就绪时自动触发归档属低风险操作，含 `product` 环境在内均无需二次确认）。仅分布式训练（`jobType=dps-train`）支持 `--role-job-id`，在非交互或 JSON 模式下必填，多个指定角色逐个下载；普通训练不要传 `--role-job-id`。交互终端使用表格输出时可按编号选角色。
 
-- **缺少 ID**：用 `ml train list --name NAME -o json` 查 `TASK_ID`，用 `ml train history list TASK_ID -o json`（默认第 1 页 10 条，未找到可加 `--page-size 200` 或翻页，查询历史实例加 `--latest-flag all`）查 `JOB_ID` 或从目标记录的 `roleJobInfo` 取 `roleJobId`。下载流程中禁止调用 `ml train history detail`。
+- **缺少 ID**：已知完整任务名时优先用 `ml train list --name 'NAME,NAME' -o json` 精确查 `TASK_ID`（未命中或仅知关键词时回退 `--name NAME`），用 `ml train history list TASK_ID -o json`（默认第 1 页 10 条，未找到可加 `--page-size 200` 或翻页，查询历史实例加 `--latest-flag all`）查 `JOB_ID` 或从目标记录的 `roleJobInfo` 取 `roleJobId`。下载流程中禁止调用 `ml train history detail`。
 - **可选参数**：默认下载普通日志，`--type plog` 仅在记录已有 plog（`sysParam.plogUploadSuccess=1`）时下载，无 plog 直接报错且不触发归档。`--directory DIR` 指定已存在的保存目录，默认当前目录。`-o json` 输出结果摘要。
 - **下载结果**：成功时报告保存路径。普通日志未就绪时，命令会提交归档并以退出码 1 返回；普通训练顶层 `status` 为 `not_ready`，分布式训练顶层 `status` 为 `failed` 且 `items[].status` 为 `not_ready`，均表示已触发归档，稍后重跑同一命令，勿误判为下载异常。提示“该job无分布式角色，无日志可下载”时，报告该作业没有可下载的角色日志。
 
@@ -41,6 +41,7 @@ ml offline experiment clone PROJECT_ID --name NEW_NAME --yes -o json
 ## 训练任务
 
 ```powershell
+ml train list --name 'NAME,NAME' -o json
 ml train list --name NAME -o json
 ml train list -A --name NAME
 ml train detail TASK_ID -o json
@@ -108,6 +109,7 @@ ml sample-task execution list TASK_ID --include-history --page 2 --page-size 20 
 算法仓查询、下载与克隆仅在 WiseRec 环境可用。
 
 ```powershell
+ml algorithm list --name 'NAME,NAME' -o json
 ml algorithm list --name NAME -o json
 ml algorithm download ALGORITHM_ID --file 'D:\download\algo.zip'
 ml algorithm clone ALGORITHM_ID --name NEW_NAME --version VERSION --yes

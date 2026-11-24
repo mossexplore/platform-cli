@@ -41,7 +41,7 @@ ml auth status
 实际使用的 shell 以工具说明为准，不根据 Agent 名称或版本推断。以下仅提供现有 Windows 安装的调用示例，不改变工具权限或加载配置。
 
 - **找不到 `ml`**：刚安装后请完全退出并重新打开 Agent，让它继承新 PATH。用 `where.exe ml` 核对实际入口。仍找不到时，按安装方式使用下面的绝对路径。便携包使用解压目录中的 `ml.exe`。
-- **引号**：PowerShell 中含空格或反斜杠的路径用单引号包住。Windows PowerShell 5.1 和 PowerShell 7.3 之前的版本会去掉参数里嵌入的双引号；有文件参数时（如 `--from-file`、`--request-file`、`--request-sample-file`）先把文本写入本地文件再传入，必须直接传含双引号的值（如 JSON 形式的 `--customize-config`）时，在这些版本中把每个 `"` 写成 `\"`，执行后核对平台上的实际值。
+- **引号**：PowerShell 中含空格、反斜杠或英文逗号（如 `--name 'NAME,NAME'`、`--select '1,3'`）的参数值须用单引号包住。Windows PowerShell 5.1 和 PowerShell 7.3 之前的版本会去掉参数里嵌入的双引号；有文件参数时（如 `--from-file`、`--request-file`、`--request-sample-file`）先把文本写入本地文件再传入，必须直接传含双引号的值（如 JSON 形式的 `--customize-config`）时，在这些版本中把每个 `"` 写成 `\"`，执行后核对平台上的实际值。
 - **中文乱码**：CLI 对 Windows 重定向输出使用 UTF-8；接收端仍需使用一致的解码方式。仅在发生乱码时核对实际 shell 和输出接收方式。在 PowerShell 中可按需要设置 `[Console]::OutputEncoding = [System.Text.Encoding]::UTF8;` 并验证结果，不为每条命令固定添加前缀，不修改 CLI 代码解决编码问题。
 
 Windows Git Bash 可用 `cygpath -u` 转换 `LOCALAPPDATA` 后拼接安装路径。PowerShell 中可直接调用默认安装路径：
