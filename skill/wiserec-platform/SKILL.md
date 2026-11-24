@@ -17,7 +17,7 @@ metadata:
 3. **禁止交互终端与凭据输出**：不运行 `ml jupyter terminal open`、`ml jupyter terminal attach` 或 `ml login --show-secrets`，不分配 TTY/PTY、模拟按键或维持交互 Shell。不索取密码、验证码、Cookie 或 Token，也不将秘密、签名下载链接或带 Token 的地址写入回复或共享文件。
 4. **先核对副作用，超时不盲目重放**：执行既有程序或 Notebook 前须确认其不改码；无法确认则停止。写操作、exec、Notebook 等有副作用命令超时或中断后，先查远端状态，确认未生效后再决定是否重试；只读查询可有限重试。
 5. **非交互执行与写操作确认**：
-   - 有确认提示的命令仅在用户授权具体目标后加 `--yes`；按租户 ID 切换可用 `ml business TENANT_ID`，使用 `business use` 时必传 `--tenant`，`service host log-search` 及仅传 `SERVICE_ID` 的 `service host pod-event` / `log-stdout` 必加 `--no-input`，实例日志下载必传 `--select`（仅用户明确要求全部时传 `all`），分布式执行记录日志使用 `--role-job-id`，不使用无子命令的 `ml history`。
+   - 有确认提示的命令仅在用户授权具体目标后加 `--yes`；按租户 ID 切换可用 `ml business TENANT_ID`、`ml business use TENANT_ID` 或 `ml business use --tenant TENANT_ID`，`service host log-search` 及仅传 `SERVICE_ID` 的 `service host pod-event` / `log-stdout` 必加 `--no-input`，实例日志下载必传 `--select`（仅用户明确要求全部时传 `all`），分布式执行记录日志使用 `--role-job-id`，不使用无子命令的 `ml history`。
    - 执行实例日志下载需要先归档。归档未完成或归档失败时无法下载，按选择表中的状态和失败原因向用户说明。
    - 每次提交写操作前，用 `ml context --json` 和 `ml auth status` 核对上下文模式、会话 ID、环境、账号和业务，并核对目标 ID。若当前租户或团队与已确认的写操作目标不一致，停止提交并重新确认。执行后查询结果，区分“请求已接受”与“远端已完成”。**`product` 环境写操作须先复述环境、目标和参数并得到用户确认，笼统授权不算**。
 

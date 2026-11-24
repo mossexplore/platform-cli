@@ -19,7 +19,7 @@ func newBusiness(options Options, load loadConfig) *cobra.Command {
 	group := &cobra.Command{Use: "business [TENANT_ID]", Short: "管理部门、租户和团队，可直接指定租户 ID", Args: optionalPositional(1)}
 	list := &cobra.Command{Use: "list", Short: "显示当前环境可见的部门、租户和团队目录", Args: positional(0)}
 	show := &cobra.Command{Use: "show", Short: "显示当前租户或团队上下文", Args: positional(0)}
-	use := &cobra.Command{Use: "use", Short: "交互式或通过 ID 选择租户和团队", Args: positional(0)}
+	use := &cobra.Command{Use: "use [TENANT_ID]", Short: "交互式或通过 ID 选择租户和团队", Args: optionalPositional(1)}
 	tenant := use.Flags().String("tenant", "", "租户 ID")
 	team := use.Flags().String("team", "", "团队 ID 或 key")
 	dept := use.Flags().String("department", "", "部门 ID")
@@ -75,7 +75,7 @@ func newBusiness(options Options, load loadConfig) *cobra.Command {
 		}
 		if !direct {
 			if cmd.Flags().Changed("team") || cmd.Flags().Changed("department") {
-				return usageError{errors.New("请同时通过 --tenant 指定租户")}
+				return usageError{errors.New("请通过位置参数或 --tenant 指定租户")}
 			}
 			selection, err := selectInteractive(cmd, entry.Catalog, strings.ToLower(strings.TrimSpace(*search)))
 			if err != nil {
@@ -99,7 +99,13 @@ func newBusiness(options Options, load loadConfig) *cobra.Command {
 		maintainSessionFiles(paths)
 		return nil
 	}
-	use.RunE = func(cmd *cobra.Command, _ []string) error {
+	use.RunE = func(cmd *cobra.Command, args []string) error {
+		if len(args) == 1 {
+			if cmd.Flags().Changed("tenant") {
+				return usageError{errors.New("租户 ID 只能通过位置参数或 --tenant 指定一次")}
+			}
+			return selectBusiness(cmd, args[0], true)
+		}
 		return selectBusiness(cmd, *tenant, cmd.Flags().Changed("tenant"))
 	}
 	group.RunE = func(cmd *cobra.Command, args []string) error {

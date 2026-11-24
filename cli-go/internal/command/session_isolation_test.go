@@ -276,8 +276,12 @@ func TestConcurrentSessionsDoNotCrossTalkOrTriggerTargetChanged(t *testing.T) {
 	if code, _, stderr := run(t, sessA, "env", "use", "dev"); code != 0 {
 		t.Fatalf("sessA env use: %s", stderr)
 	}
-	if code, _, stderr := run(t, sessA, "business", "tenant-a"); code != 0 {
+	if code, _, stderr := run(t, sessA, "business", "use", "tenant-a"); code != 0 {
 		t.Fatalf("sessA business use: %s", stderr)
+	}
+	if code, _, stderr := run(t, sessA, "business", "use", "tenant-b", "--tenant", "tenant-a"); code != 2 ||
+		!strings.Contains(stderr, "租户 ID 只能通过位置参数或 --tenant 指定一次") {
+		t.Fatalf("sessA accepted two tenant selectors: code=%d stderr=%s", code, stderr)
 	}
 	if code, _, stderr := run(t, sessB, "env", "use", "dev"); code != 0 {
 		t.Fatalf("sessB env use: %s", stderr)

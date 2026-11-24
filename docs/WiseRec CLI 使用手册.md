@@ -423,7 +423,7 @@ ml auth status
 ml business TENANT_ID
 ml business list
 ml business show
-ml business use [OPTIONS]
+ml business use [OPTIONS] [TENANT_ID]
 ml business refresh
 ```
 
@@ -432,16 +432,16 @@ ml business refresh
 | 选项 | 用途 |
 | --- | --- |
 | `TENANT_ID` | 直接选择租户的完整 ID，可从 `ml business list` 查询 |
-| `--tenant ID` | 在 `business use` 中指定租户 |
-| `--team ID` | 在指定租户内选择团队，需同时提供 `--tenant` |
-| `--department ID` | 同名租户有歧义时指定部门，需同时提供 `--tenant` |
-| `--search 关键词` | 按部门名称或 ID 的部分内容筛选交互列表，不能与 `--tenant` 同时使用 |
+| `--tenant ID` | 在 `business use` 中指定租户，与位置参数 `TENANT_ID` 二选一 |
+| `--team ID` | 在指定租户内选择团队，需指定租户 ID |
+| `--department ID` | 同名租户有歧义时指定部门，需指定租户 ID |
+| `--search 关键词` | 按部门名称或 ID 的部分内容筛选交互列表，仅在未指定租户 ID 时使用 |
 
 ### 6.3 说明
 
-登录当前环境后，执行 `ml business TENANT_ID` 可直接切换到租户级业务，无需交互确认。租户 ID 有歧义时，用 `ml business use --tenant TENANT_ID --department DEPARTMENT_ID` 指定部门。选择团队时，使用 `ml business use --tenant TENANT_ID --team TEAM_ID`。
+登录当前环境后，执行 `ml business use TENANT_ID`、`ml business use --tenant TENANT_ID` 或 `ml business TENANT_ID` 可直接切换到租户级业务，无需交互确认。租户 ID 有歧义时，用 `ml business use --tenant TENANT_ID --department DEPARTMENT_ID` 指定部门。选择团队时，使用 `ml business use --tenant TENANT_ID --team TEAM_ID`。
 
-单独运行 `business use` 会引导选择部门、租户和团队。输入序号选择，`b` 返回，`q` 取消，核对后输入 `y` 保存。`--search` 筛选部门；直接指定 `--tenant` 无需交互确认。取消时保留原选择。使用 `show` 核对选择，`refresh` 刷新目录。在多会话隔离模式下，业务切换只更新当前会话在当前环境下的选择。
+单独运行 `business use` 会引导选择部门、租户和团队。输入序号选择，`b` 返回，`q` 取消，核对后输入 `y` 保存。`--search` 筛选部门。取消时保留原选择。使用 `show` 核对选择，`refresh` 刷新目录。在多会话隔离模式下，业务切换只更新当前会话在当前环境下的选择。
 
 ### 6.4 示例
 
@@ -450,6 +450,8 @@ ml business list
 ml business TENANT_ID
 ml business use
 ml business use --search 云平台
+ml business use TENANT_ID
+ml business use --tenant TENANT_ID
 ml business use --tenant mep --team team-a
 ml business show
 ml business refresh
