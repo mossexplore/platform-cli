@@ -20,7 +20,7 @@ func newModel(options Options, load loadConfig) *cobra.Command {
 	fixed["modelUsage"] = "cloud"
 	list := catalogQuery{
 		route: modelPrefix + "queryList", command: "list", summary: "查询当前业务的模型列表", paged: true, allowAllBusiness: true,
-		nameHelp: "按模型名称筛选", strings: []string{"name", "team-id"}, nullable: []string{"type", "owner"},
+		nameHelp: "按模型名称筛选（模糊查询；传入 '名称,名称' 可精确查询）", strings: []string{"name", "team-id"}, nullable: []string{"type", "owner"},
 		fixed: fixed, assign: map[string]string{"name": "modelName", "team-id": "teamId", "type": "modelType", "owner": "owner"},
 		body: withBusiness, items: "models", total: "count", preserve: true, optionalCode: true, empty: "暂无模型",
 		columns: []recordColumn{{"模型 ID", "modelId"}, {"模型名称", "name"}, {"模型版本", "version"}, {"业务编码", "businessId"},

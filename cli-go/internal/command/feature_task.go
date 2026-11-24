@@ -21,7 +21,7 @@ func newFeatureTask(options Options, load loadConfig) *cobra.Command {
 		"", "noticeTime jobStatus taskTags tags reverseTaskTags reverseTags")
 	fixed["taskType1"], fixed["private"], fixed["running"] = "ALL", false, false
 	list := catalogQuery{route: taskPrefix + "queryList", command: "list", summary: "分页查询当前业务下的特征任务", paged: true,
-		nameHelp: "按特征任务名称筛选", strings: []string{"name", "category", "create-user"}, defaults: map[string]string{"category": "dpp-all"},
+		nameHelp: "按特征任务名称筛选（模糊查询；传入 '名称,名称' 可精确查询）", strings: []string{"name", "category", "create-user"}, defaults: map[string]string{"category": "dpp-all"},
 		fixed: fixed, assign: map[string]string{"name": "taskName", "category": "category", "create-user": "createUser"},
 		body: func(body map[string]any, cmd *cobra.Command, args []string, api *platform.API) (any, error) {
 			if _, supported := featureTaskTypes[body["category"].(string)]; !supported {

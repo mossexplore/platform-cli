@@ -108,3 +108,30 @@ func TestBusinessHelpAdvertisesDirectTenantSelection(t *testing.T) {
 		}
 	}
 }
+
+func TestExactNameLookupHelp(t *testing.T) {
+	t.Setenv("TERMINAL_WIDTH", "160")
+	for _, path := range []string{
+		"train list",
+		"model list",
+		"algorithm list",
+		"dataset list",
+		"service list",
+		"feature-task list",
+	} {
+		t.Run(path, func(t *testing.T) {
+			var stdout, stderr bytes.Buffer
+			code := Run(context.Background(), Options{
+				Args: append(strings.Fields(path), "--help"), Version: "test", Stdout: &stdout, Stderr: &stderr,
+				Paths: func() (localstate.Paths, error) {
+					t.Fatal("help tried to read local state")
+					return localstate.Paths{}, nil
+				},
+			})
+			help := stdout.String()
+			if code != 0 || stderr.Len() != 0 || !strings.Contains(help, "传入 '名称,名称' 可精确查询") {
+				t.Fatalf("help missing exact name hint: exit %d, stderr %q\n%s", code, &stderr, help)
+			}
+		})
+	}
+}

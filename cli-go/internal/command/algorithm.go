@@ -19,7 +19,7 @@ func newAlgorithm(options Options, load loadConfig) *cobra.Command {
 	const prefix = "/ai/backend/modelDev/algorithmWarehouse/"
 	fixed := defaultFields("updater creator visualTag algorithmVersion region algorithmPurpose enableFlag teamId", "beginTime endTime", "tagsList noticeTime")
 	list := catalogQuery{route: prefix + "list", command: "list", summary: "分页查询当前业务的算法仓", paged: true, wiseref: true, allowAllBusiness: true, appendBusinessColumn: true,
-		nameHelp: "按算法仓名称筛选，也可使用 --algorithm-name", strings: []string{"name", "bucket-name"}, fixed: fixed, assign: map[string]string{"name": "algorithmName", "bucket-name": "bucketName"},
+		nameHelp: "按算法仓名称筛选，也可使用 --algorithm-name（模糊查询；传入 '名称,名称' 可精确查询）", strings: []string{"name", "bucket-name"}, fixed: fixed, assign: map[string]string{"name": "algorithmName", "bucket-name": "bucketName"},
 		body: func(body map[string]any, cmd *cobra.Command, _ []string, api *platform.API) (any, error) {
 			if cmd.Flags().Changed("algorithm-name") && !cmd.Flags().Changed("name") {
 				body["algorithmName"], _ = cmd.Flags().GetString("algorithm-name")

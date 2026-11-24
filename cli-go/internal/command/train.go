@@ -26,7 +26,7 @@ func newTrain(options Options, load loadConfig) *cobra.Command {
 		}, trainTaskColumns, "暂无训练任务")
 	addAllBusinessFlag(list)
 	list.Flags().Lookup("page-size").Usage += "，MLOps 最多 200 条"
-	list.Flags().String("name", "", "按任务名称模糊查询")
+	list.Flags().String("name", "", "按任务名称模糊查询；传入 '名称,名称' 可精确查询")
 	instanceList := trainListCommand("list TASK_ID", "分页查询训练任务执行实例", 1, options, load,
 		func(ctx context.Context, api *platform.API, _ *cobra.Command, args []string, page, size int) (platform.Page, string, error) {
 			task, err := api.TrainTask(ctx, args[0])

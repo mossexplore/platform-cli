@@ -663,7 +663,7 @@ WiseRec 和 MLOps 均可跨租户查询训练任务，表格追加业务编码�
 
 环境的 `platform_type` 支持 `wiserec` 和 `mlops`，未配置时默认 `wiserec`。两种环境均支持本章所有训练命令。先登录并选择业务，再执行训练命令。两种环境均按 `auth.auto_ping` 配置自动保活，也可用 `ml auth ping` 管理。
 
-`list` 的 `--name` 按名称模糊查询，`--page` 默认 1，`--page-size` 默认 10，MLOps 每页最多 200 条。查询成功且总数为 0 时，表格提示“暂无训练任务”，JSON 返回 `count: 0` 和 `items: []`。列表时间按北京时间展示，大小从字节转换为 B、K、M、G，JSON 保留原始数值和额外字段。
+`list` 的 `--name` 默认按名称模糊查询，传入 `'名称,名称'` 可精确查询；`--page` 默认 1，`--page-size` 默认 10，MLOps 每页最多 200 条。查询成功且总数为 0 时，表格提示“暂无训练任务”，JSON 返回 `count: 0` 和 `items: []`。列表时间按北京时间展示，大小从字节转换为 B、K、M、G，JSON 保留原始数值和额外字段。
 
 `detail` 按任务 ID 查询。表格展示基本信息、首个样本的数据集、输出引用（输出目录和输出名称）、首个样本的配置引用、算法参数和自定义参数，时间按北京时间显示。自定义参数为 JSON 时缩进展示，普通文本按行显示。使用 `-o json` 获取完整原始详情。
 
@@ -741,7 +741,7 @@ ml algorithm clone SOURCE_ID --name NAME --version VERSION [--yes]
 
 | 命令 | 主要参数与选项 |
 | --- | --- |
-| `list` | `--page`、`--page-size`、`--name` / `--algorithm-name`、`--bucket-name`、`--output` / `-o` |
+| `list` | `--page`、`--page-size`、`--name` / `--algorithm-name`（默认模糊查询，传入 `'名称,名称'` 可精确查询）、`--bucket-name`、`--output` / `-o` |
 | `download` | 必填 `ALGORITHM_ID`；可选 `--file PATH` |
 | `clone` | 必填 `SOURCE_ID`、`--name NAME`、`--version VERSION`；可选 `--yes` / `-y` |
 
@@ -786,7 +786,7 @@ ml service deployment list SERVICE_ID [-o table|json]
 
 | 命令 | 主要参数与选项 |
 | --- | --- |
-| `list` | `--page`、`--page-size`；可用 `--name` / `--service-name`、`--model-name`、`--model-version` 筛选；可选 `--output` / `-o` |
+| `list` | `--page`、`--page-size`；可用 `--name` / `--service-name`（默认模糊查询，传入 `'名称,名称'` 可精确查询）、`--model-name`、`--model-version` 筛选；可选 `--output` / `-o` |
 | `mock` | 必填 `SERVICE_ID`；`--transmission-tag` 默认 `0`，表示不调用透传接口，设为 `1` 表示调用透传接口，仅支持这两个整数；`--output` / `-o` 支持 `table`、`json`，默认沿用当前环境输出配置 |
 | `mock`、`host mock` | 可选 `--request-sample-file PATH` 读取本地 UTF-8 JSON 文件，兼容 BOM；不传则使用服务文档中的请求样例 |
 | `host log-search` / `logs` | 必填 `SERVICE_ID`；可选成对的 `--pod` 与 `--cluster-name`，以及 `--type`、`--file`；`--keyword` / `-k` 可重复，`--lines` / `-n` 默认 200；`--list` 只列文件，`--no-input` 禁止交互；高级选项 `--search-order` 默认 tail、`--grep-scope` 默认 C、`--grep-line` 默认 0。Go 客户端使用 `host log-search`，Python 客户端使用 `logs` |
@@ -879,7 +879,7 @@ ml dataset files upload DATASET_ID LOCAL_FILE [--dir REMOTE_DIR] [--timeout SECO
 
 | 命令 | 主要参数与选项 |
 | --- | --- |
-| `list` | `--page`、`--page-size`；可用 `--name` / `--dataset-name`、`--create-user`、`--update-user`、`--bucket-name` 筛选；可选 `--output` / `-o` |
+| `list` | `--page`、`--page-size`；可用 `--name` / `--dataset-name`（默认模糊查询，传入 `'名称,名称'` 可精确查询）、`--create-user`、`--update-user`、`--bucket-name` 筛选；可选 `--output` / `-o` |
 | `detail` | 必填 `DATASET_ID`；可选 `--output` / `-o` |
 | `files list` | 必填 `DATASET_ID`；`--dir` 默认 `/`；可选 `--output` / `-o` |
 | `files upload` | 必填 `DATASET_ID`、`LOCAL_FILE`；`--dir` 默认 `/`；`--timeout` 默认 1800 秒，限制单次网络操作等待时间；可选 `--output` / `-o` |
@@ -1174,7 +1174,7 @@ ml model source MODEL_ID [--train-task] [--output table|json]
 | --- | --- | --- |
 | `list` | `--page PAGE` | 页码，默认 1，最小 1 |
 | `list` | `--page-size SIZE` | 每页条数，默认 10，最小 1 |
-| `list` | `--name NAME` | 模型名称条件，默认空字符串 |
+| `list` | `--name NAME` | 模型名称条件，默认空字符串（默认模糊查询，传入 `'名称,名称'` 可精确查询） |
 | `list` | `--type TYPE` | 模型类型条件，未指定时不限制 |
 | `list` | `--owner OWNER` | 归属者条件，未指定时不限制 |
 | `list` | `--team-id TEAM_ID` | 团队条件，默认空字符串 |
@@ -1461,7 +1461,7 @@ ml feature-task list [--name TEXT] [--category TYPE] [--create-user USER] [--pag
 
 | 参数 | 默认值 | 说明 |
 | --- | --- | --- |
-| `--name TEXT` | 空 | 按任务名称查询，匹配规则由平台决定 |
+| `--name TEXT` | 空 | 按任务名称查询（默认模糊查询，传入 `'名称,名称'` 可精确查询） |
 | `--category TYPE` | `dpp-all` | 按任务类型查询，使用下表中的原始值 |
 | `--create-user USER` | 空 | 按创建者查询 |
 | `--page INTEGER` | `1` | 查询页码，必须为正整数 |
