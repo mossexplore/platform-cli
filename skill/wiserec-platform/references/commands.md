@@ -21,7 +21,7 @@ WiseRec 和 MLOps 均支持 `train` 和 `feature-task` 命令，`algorithm` 仅�
 | `ml tree [--all]` | 查看当前环境可用命令，无需登录。加 `--all` 显示全部命令及限制标记 | | |
 | `ml env list [-o json]` / `ml env show` | 列出已授权及授权状态未知的环境 / 查看当前环境 | | |
 | `ml env use NAME` | 切换当前环境；插件在后续调度读取新环境 | | 本地配置或会话状态 |
-| `ml login` | 打开 Edge 登录，需用户操作；禁止 `--show-secrets` | | 本地凭据 |
+| `ml login` | 打开 Edge 登录，优先使用页面已选业务，页面未提供业务 ID 时使用权限范围中的第一个租户 ID；禁止 `--show-secrets` | | 本地凭据和业务选择 |
 | `ml logout [--all] [--forget-browser]` | 清除当前或全部环境的认证 | | 本地凭据 |
 | `ml auth status` | 本地认证状态、剩余有效时长和保活提示 | | |
 | `ml auth ping start` / `stop` / `status` | 启动终端保活或恢复已登记的 Harness 插件；同一环境插件优先，终端待命；停止作用于当前环境，查看状态只读 | | 本地进程与会话登记 |

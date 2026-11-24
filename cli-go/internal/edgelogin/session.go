@@ -17,6 +17,7 @@ type browserSession struct {
 	credentials localstate.Credentials
 	catalog     []localstate.Department
 	businessID  string
+	scopeID     string
 	identity    userInfo
 }
 
@@ -24,11 +25,13 @@ func awaitLogin(ctx context.Context, profile localstate.Profile, capture *userIn
 	var stored struct {
 		BusinessList string `json:"businessList"`
 		BusinessID   string `json:"businessID"`
+		UserInfo     string `json:"userInfo"`
 	}
 	origin, _ := json.Marshal(profile.Origin())
 	expression := `location.origin === new URL(` + string(origin) + `).origin ? ({
 		businessList: (localStorage.getItem('ai-businessList') || '').slice(0, 4194305),
-		businessID: (localStorage.getItem('ai-businessId') || '').slice(0, 1024)
+		businessID: (localStorage.getItem('ai-businessId') || '').slice(0, 1024),
+		userInfo: (localStorage.getItem('ai-businessId') || '').trim() ? '' : (localStorage.getItem('ai-userInfo') || '').slice(0, 4194305)
 	}) : ({})`
 	ticker := time.NewTicker(300 * time.Millisecond)
 	defer ticker.Stop()
@@ -42,7 +45,7 @@ func awaitLogin(ctx context.Context, profile localstate.Profile, capture *userIn
 		if id == "" || !validToken(token) {
 			continue
 		}
-		stored.BusinessList, stored.BusinessID = "", ""
+		stored.BusinessList, stored.BusinessID, stored.UserInfo = "", "", ""
 		var body []byte
 		var cookies []*network.Cookie
 		err := chromedp.Run(ctx, chromedp.Evaluate(expression, &stored), chromedp.ActionFunc(func(target context.Context) error {
@@ -83,9 +86,31 @@ func awaitLogin(ctx context.Context, profile localstate.Profile, capture *userIn
 				Origin: profile.Origin(), Profile: profile.Name, Username: identity.Username,
 				Cookie: request.Header.Get("Cookie"), CSRFToken: token,
 			},
-			catalog: catalog, businessID: stored.BusinessID, identity: identity,
+			catalog: catalog, businessID: strings.TrimSpace(stored.BusinessID), scopeID: firstScopePermission(stored.UserInfo), identity: identity,
 		}, nil
 	}
+}
+
+func firstScopePermission(raw string) string {
+	var info struct {
+		Roles struct {
+			ScopePermissions json.RawMessage `json:"scopePermissions"`
+		} `json:"roles"`
+	}
+	if len(raw) > 4<<20 || json.Unmarshal([]byte(raw), &info) != nil {
+		return ""
+	}
+	// Read the first key in the cached JSON's order.
+	decoder := json.NewDecoder(strings.NewReader(string(info.Roles.ScopePermissions)))
+	if token, err := decoder.Token(); err != nil || token != json.Delim('{') {
+		return ""
+	}
+	token, err := decoder.Token()
+	key, ok := token.(string)
+	if err != nil || !ok || !validToken(key) {
+		return ""
+	}
+	return key
 }
 
 func validToken(value string) bool {

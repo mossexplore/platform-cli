@@ -67,6 +67,22 @@ func TestParseBrowserIdentityAndBusiness(t *testing.T) {
 	}
 }
 
+func TestFirstScopePermissionUsesJSONOrder(t *testing.T) {
+	for _, tc := range []struct{ raw, want string }{
+		{`{"roles":{"scopePermissions":{"pps":{"read":true},"browswer":{}}}}`, "pps"},
+		{`{"roles":{"scopePermissions":{"browswer":{},"pps":{}}}}`, "browswer"},
+		{`{"roles":{"scopePermissions":{}}}`, ""},
+		{`{"roles":{"scopePermissions":null}}`, ""},
+		{`{"roles":{"scopePermissions":["pps"]}}`, ""},
+		{`{"roles":{"scopePermissions":{"pps":`, ""},
+		{`{"roles":{}}`, ""},
+	} {
+		if got := firstScopePermission(tc.raw); got != tc.want {
+			t.Errorf("first scope for %s = %q, want %q", tc.raw, got, tc.want)
+		}
+	}
+}
+
 func TestParseBrowserAdminFlags(t *testing.T) {
 	flag := func(value bool) *bool { return &value }
 	for _, tc := range []struct {

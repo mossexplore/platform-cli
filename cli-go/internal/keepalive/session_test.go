@@ -81,7 +81,7 @@ func (f keepaliveFixture) saveLogin(t *testing.T, cookie, globalTenant string) {
 	_, err = f.base.SaveLogin(localstate.Credentials{
 		Origin: f.profile.Origin(), Profile: f.profile.Name, Username: "fixture-user",
 		Cookie: cookie, CSRFToken: "fixture-csrf", ExpiresAt: expiry,
-	}, f.catalog, globalTenant)
+	}, f.catalog, globalTenant, "")
 	if err != nil {
 		t.Fatal(err)
 	}

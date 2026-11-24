@@ -104,14 +104,14 @@ func TestMultiSessionEnvironmentAndBusinessIsolation(t *testing.T) {
 		Origin: devProfile.Origin(), Profile: "dev", Username: "alice",
 		Cookie: "c=1", CSRFToken: "t1", ExpiresAt: expiry,
 	}
-	if _, err := globalPaths.SaveLogin(devCreds, catalog, "tenant-global"); err != nil {
+	if _, err := globalPaths.SaveLogin(devCreds, catalog, "tenant-global", ""); err != nil {
 		t.Fatal(err)
 	}
 	testCreds := Credentials{
 		Origin: testProfile.Origin(), Profile: "test", Username: "alice",
 		Cookie: "c=2", CSRFToken: "t2", ExpiresAt: expiry,
 	}
-	if _, err := globalPaths.SaveLogin(testCreds, catalog, "tenant-global"); err != nil {
+	if _, err := globalPaths.SaveLogin(testCreds, catalog, "tenant-global", ""); err != nil {
 		t.Fatal(err)
 	}
 
@@ -203,7 +203,7 @@ func TestSessionSaveLoginPolicy(t *testing.T) {
 	}
 
 	// Unbound session A logs in with unique browser business -> binds tenant-a.
-	got, err := sessA.SaveLogin(aliceCreds, catalog, "tenant-a")
+	got, err := sessA.SaveLogin(aliceCreds, catalog, "tenant-a", "tenant-c")
 	if err != nil || got != "tenant-a" {
 		t.Fatalf("initial session login: %q %v", got, err)
 	}
@@ -215,11 +215,17 @@ func TestSessionSaveLoginPolicy(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// Session A re-logs in as same user with different browser business -> keeps tenant-a;
+	// Session A re-logs in as same user with different browser business -> switches to tenant-c;
 	// Session B's tenant-b also remains valid seamlessly after shared StateID renewal.
-	got, err = sessA.SaveLogin(aliceCreds, catalog, "tenant-c")
-	if err != nil || got != "tenant-a" {
-		t.Fatalf("re-login should keep existing session selection: %q %v", got, err)
+	got, err = sessA.SaveLogin(aliceCreds, catalog, "tenant-c", "tenant-b")
+	if err != nil || got != "tenant-c" {
+		t.Fatalf("re-login should use the browser selection: %q %v", got, err)
+	}
+	if got, err := sessA.SaveLogin(aliceCreds, catalog, "", "tenant-b"); err != nil || got != "tenant-b" {
+		t.Fatalf("missing browser business should select the scoped tenant: %q %v", got, err)
+	}
+	if got, err := sessA.SaveBusinessRefresh(aliceCreds, catalog, "tenant-c"); err != nil || got != "tenant-b" {
+		t.Fatalf("refresh should keep the session selection: %q %v", got, err)
 	}
 	renewedCreds, err := sessB.LoadCredentials(devProfile, time.Now())
 	if err != nil {
@@ -228,11 +234,14 @@ func TestSessionSaveLoginPolicy(t *testing.T) {
 	if gotB, err := sessB.SelectedBusiness(renewedCreds); err != nil || gotB != "tenant-b" {
 		t.Fatalf("session B should stay valid across same-user renewal: %q %v", gotB, err)
 	}
+	if got, err := globalPaths.SelectedBusiness(renewedCreds); err != nil || got != "tenant-a" {
+		t.Fatalf("session login should keep the global selection: %q %v", got, err)
+	}
 
 	// Different user logs in on session A -> session B's old binding must fail closed.
 	bobCreds := aliceCreds
 	bobCreds.Username = "bob"
-	if got, err := sessA.SaveLogin(bobCreds, catalog, "tenant-c"); err != nil || got != "tenant-c" {
+	if got, err := sessA.SaveLogin(bobCreds, catalog, "tenant-c", ""); err != nil || got != "tenant-c" {
 		t.Fatalf("different user login should bind new browser business: %q %v", got, err)
 	}
 	bobLive, err := sessB.LoadCredentials(devProfile, time.Now())
@@ -243,17 +252,17 @@ func TestSessionSaveLoginPolicy(t *testing.T) {
 		t.Fatalf("expected ErrSessionBusinessInvalid after user change, got %v", err)
 	}
 
-	// Same user login where previous tenant was revoked and browser has no unique selection -> cleared.
+	// An unmatched scope cannot select a tenant after the directory changes.
 	shrunkCatalog := []Department{{ID: "dept-1", Tenants: []Tenant{{ID: "tenant-a"}}}}
-	if got, err := sessA.SaveLogin(bobCreds, shrunkCatalog, ""); err != nil || got != "" {
-		t.Fatalf("revoked business with empty browser business should clear: %q %v", got, err)
+	if got, err := sessA.SaveLogin(bobCreds, shrunkCatalog, "", "tenant-c"); err != nil || got != "" {
+		t.Fatalf("unmatched scope should leave the session unbound: %q %v", got, err)
 	}
 	shrunkLive, err := sessA.LoadCredentials(devProfile, time.Now())
 	if err != nil {
 		t.Fatal(err)
 	}
 	if _, err := sessA.SelectedBusiness(shrunkLive); !errors.Is(err, ErrSessionBusinessUnbound) {
-		t.Fatalf("expected ErrSessionBusinessUnbound after clearing revoked selection, got %v", err)
+		t.Fatalf("expected an unbound session: %v", err)
 	}
 }
 

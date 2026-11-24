@@ -116,7 +116,7 @@ func newBusiness(options Options, load loadConfig) *cobra.Command {
 		if _, err := cfg.RequireProfile(); err != nil {
 			return err
 		}
-		if _, err := edgelogin.Run(cmd.Context(), paths, cfg, cmd.ErrOrStderr()); err != nil {
+		if _, err := edgelogin.Refresh(cmd.Context(), paths, cfg, cmd.ErrOrStderr()); err != nil {
 			return err
 		}
 		_, err = fmt.Fprintln(cmd.ErrOrStderr(), "[成功] 当前环境的业务目录已刷新")

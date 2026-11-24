@@ -82,7 +82,7 @@ func saveSharedEnvState(t *testing.T, paths localstate.Paths, profileName, origi
 		{ID: "tenant-a", Name: "租户A"},
 		{ID: "tenant-b", Name: "租户B"},
 	}}}
-	if _, err := paths.WithoutSession().SaveLogin(creds, catalog, "tenant-global"); err != nil {
+	if _, err := paths.WithoutSession().SaveLogin(creds, catalog, "tenant-global", ""); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -106,7 +106,7 @@ func TestContextReportsTenantNameForTeamWithoutInheritingAnotherSession(t *testi
 		_, err = base.SaveLogin(localstate.Credentials{
 			Origin: origin, Profile: "dev", Username: "alice",
 			Cookie: "fixture=local", CSRFToken: "test-csrf", ExpiresAt: expiry,
-		}, catalog, "")
+		}, catalog, "", "")
 		if err != nil {
 			t.Fatal(err)
 		}

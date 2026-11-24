@@ -66,7 +66,7 @@ func TestHostDistinguishesExpiredAndMissingLogin(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := f.base.SaveLogin(creds, f.catalog, "global-tenant"); err != nil {
+	if _, err := f.base.SaveLogin(creds, f.catalog, "global-tenant", ""); err != nil {
 		t.Fatal(err)
 	}
 	if result := mustTick(t, f, "host-a", "dsh-a", "tick", "login_expired"); result.Environment != "dev" || result.RequestID != "" {

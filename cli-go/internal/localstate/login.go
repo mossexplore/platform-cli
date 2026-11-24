@@ -5,6 +5,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 )
 
@@ -26,7 +27,15 @@ func (p Paths) LockPingWithin(wait time.Duration) (func(), error) {
 	return p.lockWithin("ping-go.lock", wait)
 }
 
-func (p Paths) SaveLogin(creds Credentials, catalog []Department, browserBusinessID string) (string, error) {
+func (p Paths) SaveLogin(creds Credentials, catalog []Department, browserBusinessID, scopeTenantID string) (string, error) {
+	return p.saveLogin(creds, catalog, browserBusinessID, scopeTenantID, false)
+}
+
+func (p Paths) SaveBusinessRefresh(creds Credentials, catalog []Department, browserBusinessID string) (string, error) {
+	return p.saveLogin(creds, catalog, browserBusinessID, "", true)
+}
+
+func (p Paths) saveLogin(creds Credentials, catalog []Department, browserBusinessID, scopeTenantID string, preserveSelection bool) (string, error) {
 	if err := p.ValidateSession(); err != nil {
 		return "", err
 	}
@@ -53,14 +62,23 @@ func (p Paths) SaveLogin(creds Credentials, catalog []Department, browserBusines
 		businessData.Profiles = make(map[string]BusinessEntry)
 	}
 	creds.StateID = NewID()
-	entry := BusinessEntry{Username: creds.Username, StateID: creds.StateID, Catalog: catalog}
+	browserBusinessID = strings.TrimSpace(browserBusinessID)
+	browserSelection := selectionFromBrowser(catalog, browserBusinessID, false)
+	loginSelection := browserSelection
+	if !preserveSelection && browserBusinessID == "" {
+		loginSelection = selectionFromBrowser(catalog, scopeTenantID, true)
+	}
+	isolated := p.IsSessionIsolated()
+	entry := BusinessEntry{Username: creds.Username, StateID: creds.StateID, Catalog: catalog, Selected: browserSelection}
+	if !isolated {
+		entry.Selected = loginSelection
+	}
 	previous := businessData.Profiles[creds.Profile]
 	oldCredentials := credentialData.Profiles[creds.Profile]
-	if oldCredentials.Origin == creds.Origin && oldCredentials.StateID == previous.StateID &&
+	if (preserveSelection || isolated) &&
+		oldCredentials.Origin == creds.Origin && oldCredentials.StateID == previous.StateID &&
 		previous.Username == creds.Username && matchesSelection(catalog, previous.Selected) {
 		entry.Selected = previous.Selected
-	} else {
-		entry.Selected = selectionFromBrowser(catalog, browserBusinessID)
 	}
 	businessData.Profiles[creds.Profile] = entry
 	credentialData.Profiles[creds.Profile] = creds
@@ -71,7 +89,7 @@ func (p Paths) SaveLogin(creds Credentials, catalog []Department, browserBusines
 	if err := writeState(p.Credentials(), credentialData); err != nil {
 		return "", err
 	}
-	if !p.IsSessionIsolated() {
+	if !isolated {
 		return entry.Selected.BusinessID, nil
 	}
 	var sessionBusinessID string
@@ -79,15 +97,15 @@ func (p Paths) SaveLogin(creds Credentials, catalog []Department, browserBusines
 		if state.Selections == nil {
 			state.Selections = make(map[string]SessionSelection)
 		}
-		if existing, ok := state.Selections[creds.Profile]; ok &&
+		if existing, ok := state.Selections[creds.Profile]; ok && preserveSelection &&
 			existing.Username == creds.Username && validHeader(existing.BusinessID) &&
 			matchesSelection(catalog, existing.toSelection()) {
 			sessionBusinessID = existing.BusinessID
 			return nil
 		}
-		if selected := selectionFromBrowser(catalog, browserBusinessID); selected.BusinessID != "" {
-			state.Selections[creds.Profile] = sessionSelectionFrom(creds.Username, selected)
-			sessionBusinessID = selected.BusinessID
+		if loginSelection.BusinessID != "" {
+			state.Selections[creds.Profile] = sessionSelectionFrom(creds.Username, loginSelection)
+			sessionBusinessID = loginSelection.BusinessID
 			return nil
 		}
 		delete(state.Selections, creds.Profile)
@@ -120,8 +138,8 @@ func (p Paths) UpdateAdminFlags(expected Credentials, superAdmin, aiSupporter bo
 	return writeState(p.Credentials(), file)
 }
 
-func selectionFromBrowser(catalog []Department, id string) Selection {
-	if id == "" {
+func selectionFromBrowser(catalog []Department, id string, tenantOnly bool) Selection {
+	if !validHeader(id) {
 		return Selection{}
 	}
 	var matches []Selection
@@ -129,6 +147,9 @@ func selectionFromBrowser(catalog []Department, id string) Selection {
 		for _, tenant := range department.Tenants {
 			if tenant.ID == id {
 				matches = append(matches, Selection{DepartmentID: department.ID, TenantID: tenant.ID, BusinessID: tenant.ID})
+			}
+			if tenantOnly {
+				continue
 			}
 			for _, team := range tenant.Teams {
 				if (id == team.ID || id == team.Key || id == team.BusinessID) &&

@@ -33,6 +33,19 @@ type Summary struct {
 }
 
 func Run(ctx context.Context, paths localstate.Paths, cfg localstate.Config, progress io.Writer) (Summary, error) {
+	return run(ctx, paths, cfg, progress, func(session browserSession) (string, error) {
+		return paths.SaveLogin(session.credentials, session.catalog, session.businessID, session.scopeID)
+	})
+}
+
+func Refresh(ctx context.Context, paths localstate.Paths, cfg localstate.Config, progress io.Writer) (Summary, error) {
+	return run(ctx, paths, cfg, progress, func(session browserSession) (string, error) {
+		return paths.SaveBusinessRefresh(session.credentials, session.catalog, session.businessID)
+	})
+}
+
+func run(ctx context.Context, paths localstate.Paths, cfg localstate.Config, progress io.Writer,
+	save func(browserSession) (string, error)) (Summary, error) {
 	executable, err := installedEdge()
 	if err != nil {
 		return Summary{}, err
@@ -106,12 +119,13 @@ func Run(ctx context.Context, paths localstate.Paths, cfg localstate.Config, pro
 	if err != nil {
 		return Summary{}, errors.New("登录缓存有效期超出可保存范围")
 	}
-	id, err := paths.SaveLogin(creds, session.catalog, session.businessID)
+	session.credentials = creds
+	id, err := save(session)
 	if err != nil {
 		return Summary{}, err
 	}
 	if id == "" {
-		fmt.Fprintln(progress, "[提示] 当前 Edge 页面没有可唯一匹配的业务，请在平台页面选择业务后重新运行 ml login")
+		fmt.Fprintln(progress, "[提示] 未能自动选择业务，请用 ml business list 查看候选，再用 ml business TENANT_ID 选择")
 	}
 	return Summary{
 		Environment: environment, Username: creds.Username, ChineseName: session.identity.ChineseName,

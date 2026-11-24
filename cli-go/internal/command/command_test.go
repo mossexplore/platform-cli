@@ -276,7 +276,7 @@ func saveState(t *testing.T, paths localstate.Paths, origin string) {
 	catalog := []localstate.Department{{ID: "dept", Tenants: []localstate.Tenant{{
 		ID: "tenant", Teams: []localstate.Team{{ID: "team", Key: "browser-alias", Status: "available", BusinessID: "business-real"}},
 	}}}}
-	id, err := paths.SaveLogin(credentials, catalog, "browser-alias")
+	id, err := paths.SaveLogin(credentials, catalog, "browser-alias", "")
 	if err != nil || id != "business-real" {
 		t.Fatalf("save login: %s %v", id, err)
 	}
