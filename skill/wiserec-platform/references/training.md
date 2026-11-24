@@ -6,7 +6,7 @@
 
 1. `ml train list --name NAME -o json` 定位 `taskId`（`detail` 可查数据集、配置及参数引用）。
 2. `ml train instance list TASK_ID -o json` 查当前运行或排队的实例。用 `ml train history list TASK_ID -o json` 获取可供详情和下载命令查找的 `jobId`。加 `--latest-flag all` 可查看历史实例的记录，仅在 `all` 结果中出现的记录会超出详情和下载命令的查找范围。
-3. 已知普通训练的 `TASK_ID` 和 `JOB_ID` 时可直接下载。如果需要核对训练类型或查找分布式角色，先运行 `ml train history detail TASK_ID JOB_ID -o json`。若 `jobType=dps-train`，从角色列表取目标 `roleJobId`，下载时传 `--role-job-id`。
+3. 下载执行记录日志时，禁止调用 `ml train history detail`。非交互下载优先复用已知的作业和角色 ID。如果需要定位角色，在 `history list -o json` 的 `items` 中按 `jobId` 找到目标记录。`jobType=dps-train` 时，从该记录的 `roleJobInfo` 按用户指定的角色选择 `roleJobId`，下载时传 `--role-job-id`。普通训练直接使用 `TASK_ID` 和 `JOB_ID`。
 4. 运行 `ml train history logs download TASK_ID JOB_ID [--type log|plog] [--role-job-id ROLE_JOB_ID] --directory DIR -o json`。普通训练的 `status` 或分布式训练对应角色的 `items[].status` 为 `not_ready` 时，表示归档请求已提交，稍后重跑同一命令。
 5. 取执行实例归档日志：运行 `ml train instance logs download TASK_ID JOB_ID --select SELECTION --directory DIR -o json`（非交互必须传 `--select` 编号或 `all`）。
 
@@ -47,7 +47,6 @@ ml train detail TASK_ID -o json
 ml train instance list TASK_ID --page 2 --page-size 20 -o json
 ml train history list TASK_ID --page 2 --page-size 20 -o json
 ml train history list TASK_ID --latest-flag all -o json
-ml train history detail TASK_ID JOB_ID -o json
 ml train history logs download TASK_ID JOB_ID --directory 'D:\logs' -o json
 ml train history logs download TASK_ID JOB_ID --role-job-id ROLE_JOB_ID --directory 'D:\logs' -o json
 ml train history logs download TASK_ID JOB_ID --type plog --role-job-id ROLE_JOB_ID --directory 'D:\logs' -o json
@@ -61,7 +60,7 @@ ml train instance logs download TASK_ID JOB_ID --select all --directory 'D:\logs
 - `instance list` 和 `history list` 默认返回第一页 10 条，支持 `--page` 和 `--page-size`（每页 1 至 200 条），按接口返回顺序展示。按日志来源从对应列表取得 `jobId`。执行记录默认下载普通日志，加 `--type plog` 下载 plog。
 - WiseRec 和 MLOps 的 `history list` 均需先登录并选择业务。`--latest-flag` 仅接受 `true` 和 `all`，默认 `true` 仅查询最新实例，`all` 同时查询历史实例。该命令只查询并分页展示记录。
 - `history detail` 和 `history logs download` 均在最新实例的执行记录中自动翻页匹配 `JOB_ID`。`history detail` 遇到 `jobType=dps-train` 时展示角色列表，首列为完整角色作业 ID，JSON 保留角色及额外字段。分布式训练使用 `-o json` 或非交互下载时须以 `--role-job-id` 指定角色。多个目标角色按用户指定范围逐个调用。普通训练不接受此参数。
-- `history logs download` 先查询执行记录，分布式训练随后选择并校验角色。下载普通日志时，先检查日志状态，就绪后获取并校验下载地址，再保存文件。检查发现日志未就绪，或获取下载地址时返回 `failedUploadSwitch=false`，才按作业提交手动归档。提交成功后提示“手动归档中，请稍后再次下载日志！”，退出码为 `1`。普通训练的 JSON 顶层返回 `status=not_ready`，分布式训练顶层返回 `status=failed`，触发归档的条目显示 `items[].status=not_ready`。稍后重试时会重新检查日志状态。同次命令内同一作业最多提交一次归档，随后继续处理其余选中角色。
+- `history logs download` 自行查询执行记录。分布式训练直接读取该记录的 `roleJobInfo`，按 `--role-job-id` 匹配并校验角色。分布式记录的 `roleJobInfo` 为 `null` 或空数组时，命令立即退出，提示“该job无分布式角色，无日志可下载”。交互终端使用表格输出时，省略 `--role-job-id` 会显示角色选择表，依次为编号、roleJobId、名称、算法名称、状态、节点数、CPU、GPU、内存、执行节点和开始时间。开始时间按北京时间显示，可按编号选择角色。下载普通日志时，先检查日志状态，就绪后获取并校验下载地址，再保存文件。检查发现日志未就绪，或获取下载地址时返回 `failedUploadSwitch=false`，才按作业提交手动归档。提交成功后提示“手动归档中，请稍后再次下载日志！”，退出码为 `1`。普通训练的 JSON 顶层返回 `status=not_ready`，分布式训练顶层返回 `status=failed`，触发归档的条目显示 `items[].status=not_ready`。稍后重试时会重新检查日志状态。同次命令内同一作业最多提交一次归档，随后继续处理其余选中角色。
 - 下载 plog 时，CLI 检查 `sysParam` JSON 字符串中的 `plogUploadSuccess`，其值须为字符串 `"1"`。普通训练检查执行记录自身，分布式训练检查角色。校验通过后直接获取 plog 链接并下载，跳过普通日志检查和手动归档。执行记录或所选角色无 plog 时，提示“该记录没有 plog 日志”。分布式 plog 文件命名为 `<roleJobId>_plog.zip`。
 - 历史日志下载按实际执行顺序显示进度，进度写入 stderr。执行实例日志也显示查询、归档、选取及下载步骤，并在交互终端显示接收字节数。逐条失败的 JSON 摘要含 `stage` 和带阶段名称的 `error`，可据此定位日志检查、地址或传输问题。
 - 下载日志 ZIP 时优先使用终端的 `HTTPS_PROXY`，其次使用 `ALL_PROXY`，并按 `NO_PROXY` 绕过代理。没有环境代理配置时，Windows 和 macOS 使用手动配置的系统 HTTPS 代理。仅使用 PAC 的环境可在当前终端设置 `HTTPS_PROXY` 后重试。已取到链接但下载失败时，按错误类别核对代理、DNS 或连接超时，不复述签名参数。

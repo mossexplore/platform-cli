@@ -1,6 +1,7 @@
 package command
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -10,7 +11,79 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/mossexplore/platform-cli/cli-go/internal/platform"
 )
+
+func TestHistoryLogRoleSelectionTable(t *testing.T) {
+	var roles []platform.Record
+	if err := json.Unmarshal([]byte(`[
+		{"roleJobId":"11111111-1111-1111-1111-111111111111","roleType":"chief","algorithmName":"Ranker","status":"RUNNING","infraSize":2,"cpuSize":16,"gpuSize":0,"memorySize":"32Gi","hostIp":"10.0.0.1","createTime":1788850476000},
+		{"roleJobId":"22222222-2222-2222-2222-222222222222","roleType":"worker","createTime":"2026-09-08T06:54:37.123+00:00"}
+	]`), &roles); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("COLUMNS", "160")
+	var out bytes.Buffer
+	if err := renderTrainHistoryLogRoles(&out, roles); err != nil {
+		t.Fatal(err)
+	}
+	lines := strings.Split(out.String(), "\n")
+	want := []string{
+		"编号|roleJobId|名称|算法名称|状态|节点数|CPU|GPU|内存|执行节点|开始时间",
+		"1|11111111-1111-1111-1111-111111111111|chief|Ranker|RUNNING|2|16|0|32Gi|10.0.0.1|2026-09-08 14:54:36",
+		"2|22222222-2222-2222-2222-222222222222|worker|-|-|-|-|-|-|-|2026-09-08 14:54:37",
+	}
+	for i, lineIndex := range []int{1, 3, 4} {
+		cells := strings.FieldsFunc(lines[lineIndex], func(r rune) bool { return r == '┃' || r == '│' })
+		for j := range cells {
+			cells[j] = strings.TrimSpace(cells[j])
+		}
+		if got := strings.Join(cells, "|"); got != want[i] {
+			t.Errorf("line %d = %q, want %q", lineIndex, got, want[i])
+		}
+	}
+	t.Setenv("COLUMNS", "80")
+	out.Reset()
+	if err := renderTrainHistoryLogRoles(&out, roles); err != nil {
+		t.Fatal(err)
+	}
+	for _, text := range []string{"11111111-1111-1111-1111-111111111111", "2026-09-08 14:54:36"} {
+		if !strings.Contains(out.String(), text) {
+			t.Errorf("narrow output split %q:\n%s", text, out.String())
+		}
+	}
+}
+
+func TestHistoryLogDownloadWithoutDistributedRoles(t *testing.T) {
+	t.Setenv("ML_HISTORY", "0")
+	for _, roleInfo := range []string{"null", "[]"} {
+		t.Run(roleInfo, func(t *testing.T) {
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				switch path.Base(r.URL.Path) {
+				case "check":
+					assertAccess(t, w, r, "ml train history logs download")
+				case "queryScheduleTaskList":
+					fmt.Fprintf(w, `{"result":{"code":0,"count":1,"jobs":[{"jobId":"job","jobType":"dps-train","roleJobInfo":%s}]}}`, roleInfo)
+				default:
+					t.Errorf("unexpected request %s", r.URL.Path)
+					w.WriteHeader(http.StatusNotFound)
+				}
+			}))
+			defer server.Close()
+			paths := fixtureConfig(t, t.TempDir(), server.URL, server.URL, false, "mlops", "")
+			saveState(t, paths, server.URL)
+			for _, options := range [][]string{nil, {"-o", "json", "--role-job-id", "role"}} {
+				args := append([]string{"train", "history", "logs", "download", "task", "job"}, options...)
+				code, out, stderr := run(t, paths, args...)
+				if code != 1 || out != "" || !strings.Contains(stderr, "阶段「选择日志角色」失败：该job无分布式角色，无日志可下载") ||
+					strings.Contains(stderr, "输入日志编号") {
+					t.Fatalf("options %v: code=%d stdout=%q stderr=%q", options, code, out, stderr)
+				}
+			}
+		})
+	}
+}
 
 func TestHistoryLogDownloadReportsStages(t *testing.T) {
 	t.Setenv("ML_HISTORY", "0")

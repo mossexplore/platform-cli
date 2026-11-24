@@ -649,7 +649,7 @@ ml train config update TASK_ID --customize-config VALUE
 | `history detail` | 必填 `TASK_ID`、`JOB_ID`；可选 `--output` / `-o` |
 | `start` | 必填 `TASK_ID`；执行后显示作业 ID |
 | `config export` | 必填 `TASK_ID`；可选 `--file PATH` 指定保存位置 |
-| `history logs download` | 必填 `TASK_ID`、`JOB_ID`；`--type` 默认 `log`，也可选 `plog`；`--role-job-id ROLE_JOB_ID` 仅用于分布式训练，脚本和 JSON 模式必填；可选 `--directory DIR`、`--output` / `-o` |
+| `history logs download` | 必填 `TASK_ID`、`JOB_ID`；`--type` 默认 `log`，也可选 `plog`；`--role-job-id ROLE_JOB_ID` 仅用于 `jobType=dps-train` 的分布式训练，非交互下载和 JSON 模式必填；可选 `--directory DIR`、`--output` / `-o` |
 | `instance logs download` | 必填 `TASK_ID`、`JOB_ID`；可选 `--select SELECTION`、`--directory DIR`、`--output` / `-o` |
 | `cancel`、`delete` | 必填 `TASK_ID`；可选 `--yes` / `-y` 跳过确认 |
 | `clone` | 必填 `TASK_ID`、`--name NAME`；可选 `--customize-config VALUE`、`--yes` / `-y` |
@@ -683,13 +683,13 @@ WiseRec 和 MLOps 的 `history list` 表格的最后三列依次是“执行时�
 
 `history logs download` 需先登录并选择业务。WiseRec 和 MLOps 的普通训练、分布式训练下载普通日志前，均先检查日志是否存在；日志存在时获取下载链接。日志未就绪，或下载链接接口返回需要归档（`failedUploadSwitch=false`）时，按作业提交手动归档。提交成功后立即提示“手动归档中，请稍后再次下载日志！”。稍后重新运行下载命令。批量下载仍处理其他选中角色，同一次命令内每个作业只提交一次归档请求。
 
-分布式训练可从 `history detail` 复制角色作业 ID，使用 `--role-job-id` 精确下载。未指定角色 ID 时，交互终端显示角色作业 ID 在首列、编号在第二列的列表，可输入编号、逗号分隔的多个编号、`all` 下载全部或 `q` 取消。脚本和 JSON 模式必须传 `--role-job-id`。普通训练不接受此参数。角色标识缺失或不属于当前记录时不能下载。
+分布式训练可从 `history list -o json` 的 `roleJobInfo` 获取角色作业 ID，使用 `--role-job-id` 精确下载。未指定角色 ID 时，交互终端显示角色选择表，依次为编号、roleJobId、名称、算法名称、状态、节点数、CPU、GPU、内存、执行节点和开始时间。开始时间按北京时间显示为 `YYYY-MM-DD HH:mm:ss`。可输入编号、英文逗号分隔的多个编号、`all` 下载所有可选角色或 `q` 取消。脚本和 JSON 模式必须传 `--role-job-id`。普通训练不接受此参数。角色标识缺失或不属于当前记录时不能下载。分布式记录的 `roleJobInfo` 为 `null` 或空数组时，命令立即退出，提示“该job无分布式角色，无日志可下载”。
 
 普通训练的 JSON 下载摘要包含本地路径、字节数及状态；分布式训练返回逐角色结果和成功、失败数量。批量下载中单个角色失败会继续处理其余角色。状态 `downloaded` 表示下载成功，`not_ready` 表示手动归档中，`failed` 表示失败。批量结果的失败数量包含未就绪条目。全部下载成功返回退出码 0，否则返回非零。表格、选择提示和进度写入标准错误。
 
 历史日志下载按实际执行的步骤连续编号，显示查询记录、选择和校验角色、检查日志、手动归档、获取和校验地址、下载及保存结果。批量下载显示当前条目。出错时显示步骤编号、失败阶段和原因。逐条失败的 JSON 摘要包含 `stage`，可用来区分日志检查（`check_log`）、归档（`archive_log`）、获取地址（`get_download_url`）、校验地址（`validate_download_url`）和下载文件（`download_file`）。阶段与传输提示均写入标准错误。Go 客户端在交互终端更新已接收字节数，服务端提供总字节数时同时显示总量。
 
-使用 `--type plog` 下载 plog。下载前先检查 plog 是否可用。`sysParam` 中的 `plogUploadSuccess` 须为字符串 `"1"`。普通训练检查执行记录自身，分布式训练检查所选角色，角色选择表显示 plog 是否可下载。使用 `--role-job-id` 或编号选中的角色都须有 plog。在交互提示中输入 `all` 时仅下载可用的角色。选中项缺少 plog，或没有任何可用角色时，以红色提示“该记录没有plog日志，停止下载”，并返回非零退出码。plog 直接获取下载地址，进度带步骤编号。两种日志类型均无需提供 `target`。
+使用 `--type plog` 下载 plog。下载前先检查 plog 是否可用。`sysParam` 中的 `plogUploadSuccess` 须为字符串 `"1"`。普通训练检查执行记录自身，分布式训练按角色检查。交互选择时，输入 `all` 会选中所有可用角色，输入不可用角色的编号会提示重新选择。通过 `--role-job-id` 指定的角色或普通训练记录缺少 plog 时，命令报错。plog 直接获取下载地址，进度带步骤编号。两种日志类型均无需提供 `target`。
 
 `instance logs download` 需先登录并选择业务，通过 `instance list` 获取作业 ID。命令先请求归档。若尚无归档记录，稍后重新运行同一命令。归档选择表依次显示编号、任务名称、`jobId`、`roleJobId`、节点名称、状态、失败原因、开始时间、结束时间和是否可以下载。时间按北京时间显示，缺失值显示 `-`。
 

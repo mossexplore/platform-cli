@@ -31,7 +31,7 @@ func newTrainLogs(options Options, load loadConfig, history bool) *cobra.Command
 	wait := 120
 	if history {
 		cmd.Flags().StringVar(&kind, "type", kind, "日志类型 log 或 plog")
-		cmd.Flags().StringVar(&role, "role-job-id", "", "分布式角色作业 ID")
+		cmd.Flags().StringVar(&role, "role-job-id", "", "分布式角色作业ID，即jobType为dps-train，非交互下载时必填")
 		cmd.Flags().IntVar(&wait, "wait-timeout", wait, "归档等待参数")
 		_ = cmd.Flags().MarkHidden("wait-timeout")
 	} else {
@@ -159,8 +159,11 @@ func historyTrainDownload(cmd *cobra.Command, api *platform.API, taskID, jobID, 
 	if distributed {
 		steps.start("select_role", "已找到分布式训练记录，选择日志角色")
 		roles, err := responseRecords(row, "roleJobInfo")
-		if err != nil {
+		if err != nil && strings.TrimSpace(string(row["roleJobInfo"])) != "null" {
 			return steps.failure(err)
+		}
+		if len(roles) == 0 {
+			return steps.failure(errors.New("该job无分布式角色，无日志可下载"))
 		}
 		if roleID != "" {
 			items = nil
@@ -177,8 +180,8 @@ func historyTrainDownload(cmd *cobra.Command, api *platform.API, taskID, jobID, 
 			if format == "json" || !interactive || !term.IsTerminal(int(input.Fd())) {
 				return steps.failure(errors.New("非交互或 JSON 模式请指定 --role-job-id"))
 			}
-			for i, role := range roles {
-				fmt.Fprintf(cmd.ErrOrStderr(), "%d. %s %s\n", i+1, role.Text("roleType"), role.Text("roleJobId"))
+			if err := renderTrainHistoryLogRoles(cmd.ErrOrStderr(), roles); err != nil {
+				return steps.failure(err)
 			}
 			indices, err := selectTrainLogInputs(cmd, "", false, len(roles), func(i int) bool { return !plog || platform.HasPlog(roles[i]) })
 			if err != nil {

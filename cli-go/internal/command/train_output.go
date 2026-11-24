@@ -133,6 +133,22 @@ func renderRecordTable(out io.Writer, columns []recordColumn, records []platform
 	return output.Table(out, headers, rows)
 }
 
+func renderTrainHistoryLogRoles(out io.Writer, roles []platform.Record) error {
+	headers := []string{"编号", "roleJobId"}
+	for _, column := range trainRoles[1:] {
+		headers = append(headers, column.title)
+	}
+	rows := make([][]string, 0, len(roles))
+	for i, role := range roles {
+		row := []string{strconv.Itoa(i + 1)}
+		for _, column := range trainRoles {
+			row = append(row, trainValue(role, column.key))
+		}
+		rows = append(rows, row)
+	}
+	return output.Table(out, headers, rows, 1, len(headers)-1)
+}
+
 func renderTrainPage(out io.Writer, page platform.Page, heading string, columns []recordColumn, empty string) error {
 	if heading != "" {
 		fmt.Fprintln(out, heading)
