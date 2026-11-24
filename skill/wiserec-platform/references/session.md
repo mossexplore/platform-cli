@@ -54,7 +54,7 @@ Windows Git Bash 可用 `cygpath -u` 转换 `LOCALAPPDATA` 后拼接安装路径
 
 ## 登录与业务选择
 
-- **无缓存或已过期**：运行 `ml login`，为执行工具至少预留 10 分钟，工具参数名和单位以其说明为准。命令会打开 Edge，由用户完成 SSO 或验证码。每次登录优先使用 Edge 页面当前选中的业务；页面缓存没有 `ai-businessId` 时，使用 `ai-userInfo.roles.scopePermissions` 的第一个键作为租户 ID。登录后用 `ml auth status` 核对。不能代替用户输入凭据，也不要靠运行业务命令来触发登录。
+- **无缓存或已过期**：运行 `ml login`，为执行工具至少预留 10 分钟，工具参数名和单位以其说明为准。命令会打开 Edge，由用户完成 SSO 或验证码。每次登录优先保留当前环境中仍有效的上次业务选择。没有有效选择时，使用 Edge 缓存中的 `ai-businessId`；缓存中也没有该 ID 时，使用 `ai-userInfo.roles.scopePermissions` 的第一个键作为租户 ID。登录后用 `ml auth status` 核对。不能代替用户输入凭据，也不要靠运行业务命令来触发登录。
 - **未选业务**：用 `ml business list` 取得当前环境的候选，按用户明确的选择运行 `ml business use TENANT_ID`，也可使用 `ml business use --tenant TENANT_ID` 或 `ml business TENANT_ID`。需要指定团队或部门时，运行 `ml business use --tenant TENANT_ID [--team TEAM_ID] [--department DEPARTMENT_ID]`。按命令结果更新当前业务，必要时用 `ml business show` 核对。业务 ID 不从其他环境复制。
 - **业务目录缺失或失效**：`ml business refresh` 会打开 Edge 刷新目录，同样预留至少 10 分钟，刷新后重新核对选择。
 - **权限调用日志**：排查授权请求时，在权限管理系统的「完整命令」核对选项、参数和顺序。Go 客户端上报全部参数值，包括敏感值与内联脚本；本地历史仍脱敏。报告日志时只摘录排查所需的内容。

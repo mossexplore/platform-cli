@@ -215,16 +215,16 @@ func TestSessionSaveLoginPolicy(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// Session A re-logs in as same user with different browser business -> switches to tenant-c;
+	// Session A re-logs in as the same user with a different browser business and keeps tenant-a;
 	// Session B's tenant-b also remains valid seamlessly after shared StateID renewal.
 	got, err = sessA.SaveLogin(aliceCreds, catalog, "tenant-c", "tenant-b")
-	if err != nil || got != "tenant-c" {
-		t.Fatalf("re-login should use the browser selection: %q %v", got, err)
+	if err != nil || got != "tenant-a" {
+		t.Fatalf("re-login should keep the session selection: %q %v", got, err)
 	}
-	if got, err := sessA.SaveLogin(aliceCreds, catalog, "", "tenant-b"); err != nil || got != "tenant-b" {
-		t.Fatalf("missing browser business should select the scoped tenant: %q %v", got, err)
+	if got, err := sessA.SaveLogin(aliceCreds, catalog, "", "tenant-b"); err != nil || got != "tenant-a" {
+		t.Fatalf("scope fallback should not replace the session selection: %q %v", got, err)
 	}
-	if got, err := sessA.SaveBusinessRefresh(aliceCreds, catalog, "tenant-c"); err != nil || got != "tenant-b" {
+	if got, err := sessA.SaveBusinessRefresh(aliceCreds, catalog, "tenant-c"); err != nil || got != "tenant-a" {
 		t.Fatalf("refresh should keep the session selection: %q %v", got, err)
 	}
 	renewedCreds, err := sessB.LoadCredentials(devProfile, time.Now())
@@ -263,6 +263,9 @@ func TestSessionSaveLoginPolicy(t *testing.T) {
 	}
 	if _, err := sessA.SelectedBusiness(shrunkLive); !errors.Is(err, ErrSessionBusinessUnbound) {
 		t.Fatalf("expected an unbound session: %v", err)
+	}
+	if got, err := sessA.SaveLogin(bobCreds, catalog, "", "tenant-b"); err != nil || got != "tenant-b" {
+		t.Fatalf("unbound session should use the scope fallback: %q %v", got, err)
 	}
 }
 

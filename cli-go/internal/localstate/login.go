@@ -28,14 +28,14 @@ func (p Paths) LockPingWithin(wait time.Duration) (func(), error) {
 }
 
 func (p Paths) SaveLogin(creds Credentials, catalog []Department, browserBusinessID, scopeTenantID string) (string, error) {
-	return p.saveLogin(creds, catalog, browserBusinessID, scopeTenantID, false)
+	return p.saveLogin(creds, catalog, browserBusinessID, scopeTenantID)
 }
 
 func (p Paths) SaveBusinessRefresh(creds Credentials, catalog []Department, browserBusinessID string) (string, error) {
-	return p.saveLogin(creds, catalog, browserBusinessID, "", true)
+	return p.saveLogin(creds, catalog, browserBusinessID, "")
 }
 
-func (p Paths) saveLogin(creds Credentials, catalog []Department, browserBusinessID, scopeTenantID string, preserveSelection bool) (string, error) {
+func (p Paths) saveLogin(creds Credentials, catalog []Department, browserBusinessID, scopeTenantID string) (string, error) {
 	if err := p.ValidateSession(); err != nil {
 		return "", err
 	}
@@ -65,7 +65,7 @@ func (p Paths) saveLogin(creds Credentials, catalog []Department, browserBusines
 	browserBusinessID = strings.TrimSpace(browserBusinessID)
 	browserSelection := selectionFromBrowser(catalog, browserBusinessID, false)
 	loginSelection := browserSelection
-	if !preserveSelection && browserBusinessID == "" {
+	if browserBusinessID == "" {
 		loginSelection = selectionFromBrowser(catalog, scopeTenantID, true)
 	}
 	isolated := p.IsSessionIsolated()
@@ -75,9 +75,9 @@ func (p Paths) saveLogin(creds Credentials, catalog []Department, browserBusines
 	}
 	previous := businessData.Profiles[creds.Profile]
 	oldCredentials := credentialData.Profiles[creds.Profile]
-	if (preserveSelection || isolated) &&
-		oldCredentials.Origin == creds.Origin && oldCredentials.StateID == previous.StateID &&
-		previous.Username == creds.Username && matchesSelection(catalog, previous.Selected) {
+	if oldCredentials.Origin == creds.Origin && oldCredentials.StateID == previous.StateID &&
+		previous.Username == creds.Username && validHeader(previous.Selected.BusinessID) &&
+		matchesSelection(catalog, previous.Selected) {
 		entry.Selected = previous.Selected
 	}
 	businessData.Profiles[creds.Profile] = entry
@@ -97,8 +97,8 @@ func (p Paths) saveLogin(creds Credentials, catalog []Department, browserBusines
 		if state.Selections == nil {
 			state.Selections = make(map[string]SessionSelection)
 		}
-		if existing, ok := state.Selections[creds.Profile]; ok && preserveSelection &&
-			existing.Username == creds.Username && validHeader(existing.BusinessID) &&
+		if existing, ok := state.Selections[creds.Profile]; ok &&
+			oldCredentials.Origin == creds.Origin && existing.Username == creds.Username && validHeader(existing.BusinessID) &&
 			matchesSelection(catalog, existing.toSelection()) {
 			sessionBusinessID = existing.BusinessID
 			return nil

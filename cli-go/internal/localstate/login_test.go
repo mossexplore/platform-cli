@@ -50,22 +50,31 @@ func TestRefreshKeepsCurrentBusinessAndRejectsMismatchedState(t *testing.T) {
 	}
 }
 
-func TestLoginPrefersBrowserBusinessAndFallsBackOnlyWhenMissing(t *testing.T) {
-	paths := Paths{Dir: t.TempDir()}
+func TestLoginBusinessSelectionPriority(t *testing.T) {
 	creds := Credentials{Profile: "preview", Origin: "https://example.test", Username: "fixture-user"}
 	catalog := []Department{{ID: "department", Tenants: []Tenant{
 		{ID: "tenant-a", Teams: []Team{{ID: "team-a", Key: "pps", Status: "available", BusinessID: "team-business"}}},
 		{ID: "pps"},
 	}}}
-	for _, tc := range []struct{ browserID, scopeID, want string }{
-		{"tenant-a", "pps", "tenant-a"},
-		{"", "pps", "pps"},
-		{" ", "pps", "pps"},
-		{"team-a", "pps", "team-business"},
-		{"unknown", "pps", ""},
-		{"", "team-a", ""},
-		{"", "", ""},
+	for _, tc := range []struct{ savedID, browserID, scopeID, want string }{
+		{"pps", "tenant-a", "tenant-a", "pps"},
+		{"revoked", "tenant-a", "pps", "tenant-a"},
+		{"revoked", "", "pps", "pps"},
+		{"", "tenant-a", "pps", "tenant-a"},
+		{"", "", "pps", "pps"},
+		{"", " ", "pps", "pps"},
+		{"", "team-a", "pps", "team-business"},
+		{"", "unknown", "pps", ""},
+		{"", "", "team-a", ""},
+		{"", "", "", ""},
 	} {
+		paths := Paths{Dir: t.TempDir()}
+		if tc.savedID != "" {
+			previousCatalog := []Department{{ID: "department", Tenants: []Tenant{{ID: tc.savedID}}}}
+			if got, err := paths.SaveLogin(creds, previousCatalog, tc.savedID, ""); err != nil || got != tc.savedID {
+				t.Fatalf("seed business %q: got %q, error %v", tc.savedID, got, err)
+			}
+		}
 		if got, err := paths.SaveLogin(creds, catalog, tc.browserID, tc.scopeID); err != nil || got != tc.want {
 			t.Fatalf("browser business %q, scope %q: got %q, want %q, error %v", tc.browserID, tc.scopeID, got, tc.want, err)
 		}

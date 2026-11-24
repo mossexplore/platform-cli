@@ -329,7 +329,7 @@ ml auth ping tick --json
 
 `ml login` 和 `ml auth status` 显示当前账号的权限角色。旧登录信息尚未记录角色时显示“未获取”，首次跨租户查询时可自动补全。
 
-登录前须在 `config.json` 中为当前环境配置非空的 `alias`。提示“正在登录【环境别名】”，交互终端用单行旋转提示展示当前阶段，不显示百分比；非交互输出只显示简短静态提示。登录时隐藏浏览器驱动的 Warning 输出，登录失败等错误仍正常显示。成功后显示环境别名、账号、中文名、部门和当前选中的 `businessId`，缺失信息显示“未获取”。用户信息以表格展示。每次运行 `ml login`，优先使用 Edge 页面当前选中的业务。页面缓存没有 `ai-businessId` 时，取 `ai-userInfo` 中 `roles.scopePermissions` 的第一个键作为租户 ID。无法唯一匹配业务时，可用 `ml business list` 查看候选，再运行 `ml business TENANT_ID` 选择。需要申请权限时，按额外提示操作。环境名称不回退显示 `name`，Cookie 和 CSRF Token 仅在显式指定 `--show-secrets` 时显示。
+登录前须在 `config.json` 中为当前环境配置非空的 `alias`。提示“正在登录【环境别名】”，交互终端用单行旋转提示展示当前阶段，不显示百分比；非交互输出只显示简短静态提示。登录时隐藏浏览器驱动的 Warning 输出，登录失败等错误仍正常显示。成功后显示环境别名、账号、中文名、部门和当前选中的 `businessId`，缺失信息显示“未获取”。用户信息以表格展示。每次运行 `ml login`，优先保留同一账号在当前环境仍有效的上次业务选择。没有有效选择时，使用 Edge 缓存中的 `ai-businessId`。缓存中也没有该 ID 时，取 `ai-userInfo` 中 `roles.scopePermissions` 的第一个键作为租户 ID。无法唯一匹配业务时，可用 `ml business list` 查看候选，再运行 `ml business TENANT_ID` 选择。需要申请权限时，按额外提示操作。环境名称不回退显示 `name`，Cookie 和 CSRF Token 仅在显式指定 `--show-secrets` 时显示。
 
 登录取得当前账号后，会查询该账号是否拥有任意环境的有效 CLI 授权。若没有，按提示打开配置的权限服务地址下的 `/apply` 申请权限；地址无法打开时，将 `*.hwcloudtest.cn` 加入代理排除。账号、环境、授权均启用且授权未过期才算有效，申请通过前不会自动启动保活。
 
