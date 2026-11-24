@@ -45,7 +45,8 @@ def page_context(db, *, view, days, environment, business_id, q, status, page):
         if view == 'policies':
             query = query.where(VersionPolicy.deleted_at.is_(None))
         if environment:
-            query = query.where(model.environment == environment)
+            scope = VersionPolicy.in_environment(db, environment) if view == 'policies' else model.environment == environment
+            query = query.where(scope)
         if business_id:
             query = query.where(model.business_id.contains(business_id, autoescape=True))
         if q:
@@ -67,7 +68,7 @@ def page_context(db, *, view, days, environment, business_id, q, status, page):
     items = result.all() if view == 'usage' else result.scalars().all()
     for policy in items if view == 'policies' else []:
         policy.blocked_list = json.loads(policy.blocked_versions)
-        policy.copy_fields = {name: getattr(policy, name) for name in ('name','environment','business_id','mode',
+        policy.copy_fields = {name: getattr(policy, name) for name in ('name','environments','business_id','mode',
             'minimum_version','recommended_version','upgrade_url')}
         policy.copy_fields['blocked_versions'] = ', '.join(policy.blocked_list)
         policy.copy_fields['effective_at'] = ''

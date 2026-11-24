@@ -101,6 +101,8 @@ def audit_detail(item):
         return {'label': ACTIONS[item.action], 'summary': '删除 · ' + str(before.get('username') or before.get('name')) + ' · 清理 ' + str(data.get('removed_grants', 0)) + ' 条授权', 'changes': [{'field': '记录', 'before': before.get('username') or before.get('name'), 'after': '已物理删除'}]}
 
     def display(key, value):
+        if key == 'environment' and isinstance(value, list):
+            return '、'.join(value) or '全部环境'
         if value in (None, 'None', ''):
             return '—'
         if key == 'forbidden_commands':

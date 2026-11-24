@@ -1,5 +1,5 @@
 {% extends 'base.html' %}
-{% from 'version_components.html' import policy_status, exception_status, confirm_action, policy_detail, policy_delete %}
+{% from 'version_components.html' import policy_status, exception_status, confirm_action, policy_detail, policy_delete, environment_scope %}
 {% set tab = 'versions' %}{% set page_title = '版本管理' %}
 {% set titles = {'policies':'版本策略','usage':'版本使用','exceptions':'临时例外'} %}
 {% block title %}版本管理{% endblock %}
@@ -38,7 +38,7 @@
     <table class="version-policy-table"><thead><tr><th>策略名称</th><th>适用范围</th><th>版本要求</th><th>执行模式</th><th>状态</th><th class="actions">操作</th></tr></thead><tbody>
     {% for p in policies %}<tr>
       <td><button type="button" class="text-button version-name" data-open="policy-detail-{{ p.id }}">{{ p.name }}</button><small class="version-subline">{{ p.created_by }} · 策略 #{{ p.id }}</small></td>
-      <td><strong>{{ environment_names.get(p.environment, p.environment) or '全部环境' }}</strong><small class="version-subline">{{ p.business_id or '全部业务' }}</small></td>
+      <td><strong class="version-environment-names">{{ environment_scope(p.environments, environment_names) }}</strong><small class="version-subline">{{ p.business_id or '全部业务' }}</small></td>
       <td><span class="mono">≥ {{ p.minimum_version }}</span><small class="version-subline">推荐 {{ p.recommended_version or '未设置' }}{% if p.blocked_list %} · 禁用 {{ p.blocked_list|length }} 个{% endif %}</small></td>
       <td><span class="badge {{ 'danger' if p.mode=='enforce' else 'warning' if p.mode=='warn' else 'neutral' }}">{{ modes[p.mode] }}</span></td>
       <td>{{ policy_status(p, now) }}</td>

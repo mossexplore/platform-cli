@@ -7,7 +7,18 @@
 <div data-policy-fields>
   <h3 class="version-section-title">基本信息</h3>
   <label>策略名称 <span class="required">*</span><input name="name" required maxlength="128" placeholder="例如：生产环境 CLI 最低版本要求"></label>
-  <div class="version-field-grid"><label>适用环境<select name="environment" data-policy-environment><option value="">全部环境</option>{% for e in environments %}<option value="{{ e.name }}">{{ e.display_name }}（{{ e.name }}）</option>{% endfor %}</select></label><label>业务 ID<input name="business_id" maxlength="256" placeholder="留空为全部业务" data-policy-business><small>指定业务前请先选择环境。</small></label></div>
+  <fieldset class="environment-choices version-environments">
+    <legend>适用环境</legend>
+    <div class="version-scope-options">
+      <label class="choice"><input type="radio" name="environment_scope" value="all" checked>全部环境</label>
+      <label class="choice"><input type="radio" name="environment_scope" value="selected">指定环境</label>
+    </div>
+    <fieldset class="version-environment-list" aria-label="可选环境" data-policy-environments hidden disabled>
+      {% for e in environments %}<label class="choice"><input type="checkbox" name="environment" value="{{ e.name }}"><span>{{ e.display_name }}<small>{{ e.name }}</small></span></label>{% endfor %}
+      <small data-no-environments {% if environments %}hidden{% endif %}>暂无可选环境，请先在环境管理中添加。</small>
+    </fieldset>
+  </fieldset>
+  <label>业务 ID<input name="business_id" maxlength="256" placeholder="留空为全部业务" data-policy-business disabled><small>指定业务 ID 后，策略在所选环境中匹配该业务。</small></label>
   <h3 class="version-section-title">版本规则</h3>
   <label>执行模式 <span class="required">*</span><select name="mode" data-policy-mode><option value="observe">仅观察</option><option value="warn">提醒升级</option><option value="enforce">强制拒绝</option></select><small data-mode-help>记录版本判断，不提醒、不拒绝，适合首次接入。</small></label>
   <div class="version-field-grid"><label>最低允许版本 <span class="required">*</span><input name="minimum_version" value="1.0.0" required maxlength="64" placeholder="例如 1.0.3.2"></label><label>推荐版本<input name="recommended_version" maxlength="64" placeholder="例如 1.0.3.2"></label></div>
@@ -26,7 +37,7 @@
 <div class="drawer-heading"><div><p class="eyebrow">TEMPORARY EXCEPTION</p><h2 id="exception-create-title">新增临时例外</h2></div><button type="button" class="text-button" data-close>关闭</button></div>
 <div class="drawer-body"><div class="form-error" role="alert" hidden></div><p class="version-inline-note">只豁免指定策略的最低版本要求，账号授权和禁用版本仍然生效。</p>
 {% if not policy_options %}<p class="version-inline-note">暂无启用策略，请先新增并启用策略。</p>{% endif %}
-<label>关联策略 <span class="required">*</span><select name="policy_id" required data-exception-policy><option value="">请选择启用的策略</option>{% for p in policy_options %}<option value="{{ p.id }}" data-environment="{{ p.environment }}" data-business="{{ p.business_id }}">{{ p.name }}（#{{ p.id }}）</option>{% endfor %}</select></label>
+<label>关联策略 <span class="required">*</span><select name="policy_id" required data-exception-policy><option value="">请选择启用的策略</option>{% for p in policy_options %}<option value="{{ p.id }}" data-environments='{{ p.environments|tojson }}' data-business="{{ p.business_id }}">{{ p.name }}（#{{ p.id }}）</option>{% endfor %}</select></label>
 <div class="version-field-grid"><label>环境 <span class="required">*</span><select name="environment" required><option value="">请选择环境</option>{% for e in environments %}<option value="{{ e.name }}">{{ e.display_name }}（{{ e.name }}）</option>{% endfor %}</select></label><label>业务 ID <span class="required">*</span><input name="business_id" required maxlength="256" placeholder="填写完整业务 ID"></label></div>
 <label>平台账号 <span class="required">*</span><input name="username" required maxlength="128" placeholder="填写需要临时放行的账号"></label>
 <div class="version-field-grid"><label>最低例外版本 <span class="required">*</span><input name="minimum_version" required maxlength="64" placeholder="例如 1.0.3.0"></label><label>最高例外版本 <span class="required">*</span><input name="maximum_version" required maxlength="64" placeholder="例如 1.0.3.2"></label></div>

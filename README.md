@@ -19,7 +19,7 @@
 ## 核心特性
 
 - **全流程平台 CLI（`ml`）**：覆盖环境与租户切换、算法创建/克隆、单机与分布式训练、执行实例与角色日志归档下载、数据集管理、模型评估、推理服务部署、容器监控及交互式 Jupyter 会话管理。
-- **集中式权限治理（`access-service`，可选）**：提供基于 FastAPI + MySQL 的独立权限管理服务，支持人员/环境授权、到期控制、版本准入策略、环境禁用命令清单（如禁止特定子命令组）与调用审计看板。
+- **集中式权限治理（`access-service`，可选）**：提供基于 FastAPI + MySQL 的独立权限管理服务，支持人员/环境授权、到期控制、多环境版本准入策略、环境禁用命令清单（如禁止特定子命令组）与调用审计看板。
 - **AI Agent 技能集成（`agent-service`，可选）**：支持 OpenCode 等 AI Agent 调用 `ml` 命令完成平台操作，并提供 `mlops-agent` CLI 与统一管理流程。
 - **权限通知助手（`permission-notifier`，可选）**：面向管理员的桌面通知服务与审批提醒客户端。
 - **本地命令历史**：支持 `ml history` 查看近期命令、`ml history clear` 清理历史，可设置 `ML_HISTORY=0` 关闭自动记录。
@@ -35,7 +35,7 @@ flowchart LR
     AgentSvc -->|"调用"| CLI
 
     CLI -->|"权限校验与调用上报 (可选)"| Access["access-service (FastAPI)"]
-    Access -->|"读写授权与审计"| DB[("MySQL (Schema 13)")]
+    Access -->|"读写授权与审计"| DB[("MySQL")]
     Access -->|"待办提醒"| Notifier["permission-notifier"]
 
     CLI -->|"HTTPS / API & 浏览器登录"| Platform["WiseRec 平台 API"]
@@ -106,10 +106,10 @@ ml access status
 
 ## 部署权限管理系统（可选）
 
-`access-service` 提供离线容器镜像与标准化 Docker 部署方案，默认搭配外部 **MySQL** 运行。当前代码要求数据库结构版本为 **Schema 13**：
+`access-service` 提供离线容器镜像与标准化 Docker 部署方案，默认搭配外部 **MySQL** 运行。当前源码要求数据库结构版本为 **Schema 15**。
 
 - **首次部署**：下载 Release 中的 `cli-access-<version>-linux-amd64.tar.gz`，按 [权限管理系统 Docker 安装部署与调试指南](docs/权限管理系统Docker安装部署与调试指南.md) 完成建库、初始化与启动。
-- **已有环境升级**：若当前数据库为 Schema 12，必须先完成备份与显式迁移，再切换新版本镜像，详见 [权限管理系统结构 12 升级至 1.0.9.1 指南](docs/权限管理系统结构12升级至1.0.9.1指南.md)。
+- **已有环境升级**：根据目标产物选择适用的迁移要求，先停写备份并显式迁移，再切换服务。详见 [权限服务源码及数据库结构说明](access-service/README.md)。
 - **运维与发布**：参见 [Linux 部署与运维手册](docs/权限管理系统Linux部署与运维手册.md) 与 [Docker 部署与发布指南](docs/权限管理系统Docker部署与发布指南.md)。
 
 ---

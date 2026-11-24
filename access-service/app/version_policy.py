@@ -34,7 +34,7 @@ def metadata(request):
 def policies_for(db, environment, business_id, timestamp):
     return db.scalars(select(VersionPolicy).where(
         VersionPolicy.enabled.is_(True), VersionPolicy.deleted_at.is_(None), VersionPolicy.effective_at <= timestamp,
-        or_(VersionPolicy.environment == '', VersionPolicy.environment == environment),
+        or_(VersionPolicy.environment == '', VersionPolicy.in_environment(db, environment)),
         or_(VersionPolicy.business_id == '', VersionPolicy.business_id == business_id)
     ).order_by(VersionPolicy.id)).all()
 

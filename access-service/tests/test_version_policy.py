@@ -299,6 +299,22 @@ def test_v9_migration_preserves_policies_and_adds_deletion_marker(system):
         assert item.name == 'test-policy' and item.deleted_at is None
 
 
+def test_v14_migration_preserves_global_and_single_environment_policies(system):
+    app, client, _ = system
+    global_id = policy(app, enabled=False)
+    scoped_id = policy(app, environment='prod')
+    with app.state.engine.begin() as conn:
+        conn.execute(text('ALTER TABLE cli_version_policies DROP COLUMN additional_environments'))
+        conn.execute(text('UPDATE schema_versions SET version=14'))
+    migrate(app.state.engine, app.state.sessions)
+    migrate(app.state.engine, app.state.sessions)
+    with app.state.sessions() as db:
+        assert db.get(SchemaVersion, SCHEMA_VERSION)
+        assert db.get(VersionPolicy, global_id).environments == []
+        assert db.get(VersionPolicy, scoped_id).environments == ['prod']
+    assert call(client).json()['policy_ids'] == [scoped_id]
+
+
 def test_duplicate_version_and_protocol_headers_do_not_bypass(system):
     app, client, _ = system
     policy(app)

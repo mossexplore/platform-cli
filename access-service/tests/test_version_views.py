@@ -1,6 +1,7 @@
+import json
 from datetime import timedelta
 from sqlalchemy import select
-from app.models import Admin, CallLog, now
+from app.models import Admin, Audit, CallLog, Environment, Grant, now
 from app.version_models import VersionPolicy, VersionException
 from test_service import system, login
 from test_version_policy import policy, call
@@ -65,6 +66,70 @@ def test_json_preview_validates_and_never_publishes(system):
     with app.state.sessions() as db:
         assert db.scalar(select(VersionPolicy)) is None
     assert client.post(url,headers=headers,data={**data,'intent':'publish'},follow_redirects=False).status_code == 303
+
+
+def test_multi_environment_policy_preview_publish_edit_and_exceptions(system):
+    app, client, _ = system
+    with app.state.sessions() as db:
+        for name, display_name in [('stage', '预发布'), ('stage-other', '另一环境')]:
+            env = Environment(name=name, display_name=display_name, platform_origin='https://platform.example.com')
+            db.add(env)
+            db.flush()
+            db.add(Grant(user_id=1, environment_id=env.id))
+        db.commit()
+    for env in ('prod', 'stage', 'stage-other'):
+        assert call(client, environment=env).json()['allowed']
+    assert call(client, business='other').json()['allowed']
+    csrf = login(client)
+    root = '/cli-permission/admin/versions'
+    url = root + '/policies'
+    data = {'csrf': csrf, 'name': 'Shared rollout', 'environment_scope': 'selected',
+            'environment': ['stage', 'prod', 'stage'], 'business_id': 'selected',
+            'minimum_version': '1.0.3', 'mode': 'enforce'}
+    for invalid in ({'environment': []}, {'environment': ['prod', 'unknown']}, {'environment_scope': 'all'}):
+        assert client.post(url, data={**data, **invalid, 'intent': 'publish'}).status_code == 400
+    preview = client.post(url, data=data)
+    assert preview.status_code == 200 and '其中 2 次会被拒绝' in preview.text
+    assert 'prod、stage' in preview.text and preview.text.count('name="environment"') == 2
+    assert call(client, environment='stage').json()['allowed']
+    assert client.post(url, data={**data, 'intent': 'publish'}, follow_redirects=False).status_code == 303
+    with app.state.sessions() as db:
+        item = db.scalars(select(VersionPolicy)).one()
+        assert item.environments == ['prod', 'stage']
+        policy_id = item.id
+    for env in ('prod', 'stage'):
+        decision = call(client, environment=env).json()
+        assert decision['reason'] == 'CLI_VERSION_TOO_OLD' and decision['policy_ids'] == [policy_id]
+    assert call(client, environment='stage-other').json()['allowed']
+    assert call(client, business='other', environment='stage').json()['allowed']
+    html = client.get(root, params={'environment': 'stage'}).text
+    assert '生产、预发布' in html and '共 1 条' in html
+    assert html.count('"environments": ["prod", "stage"]') == 3
+    assert '暂无匹配策略' in client.get(root, params={'environment': 'stage-other'}).text
+
+    exception = {'csrf': csrf, 'policy_id': policy_id, 'environment': 'stage',
+                 'business_id': 'selected', 'username': 'alice', 'minimum_version': '1.0.0',
+                 'maximum_version': '1.0.2', 'expires_at': '2099-09-21T14:00:00', 'reason': '等待升级'}
+    assert client.post(root + '/exceptions', data={**exception, 'environment': 'stage-other'}).status_code == 400
+    assert client.post(root + '/exceptions', data=exception, follow_redirects=False).status_code == 303
+    assert call(client, environment='stage').json()['allowed']
+    assert not call(client).json()['allowed']
+
+    edit_url = f'{url}/{policy_id}'
+    edit = {**data, 'environment': ['stage-other']}
+    response = client.post(edit_url, data=edit, headers={'accept': 'application/json'})
+    assert response.status_code == 200
+    assert '范围内 9 次检查，其中 2 次会被拒绝' in response.json()['preview_html']
+    assert client.post(edit_url, data={**edit, 'intent': 'publish'}, follow_redirects=False).status_code == 303
+    assert call(client).json()['allowed']
+    assert call(client, environment='stage').json()['allowed']
+    assert not call(client, environment='stage-other').json()['allowed']
+    with app.state.sessions() as db:
+        audit = db.scalar(select(Audit).where(Audit.action == 'version_policy.update'))
+        detail = json.loads(audit.detail)
+        assert detail['before']['environment'] == ['prod', 'stage']
+        assert detail['after']['environment'] == ['stage-other']
+    assert 'prod、stage' in client.get('/cli-permission/admin?tab=audit').text
 
 
 def test_regular_admin_gets_details_without_write_controls(system):

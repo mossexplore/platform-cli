@@ -1,9 +1,11 @@
 """版本策略、发布前影响预览和有期限的逐策略例外。"""
 import json
 from datetime import timedelta
+from typing import Annotated, Literal
 from urllib.parse import urlsplit
 from fastapi import APIRouter, Form, HTTPException, Query, Request
 from fastapi.responses import RedirectResponse, JSONResponse
+from pydantic import StringConstraints
 from sqlalchemy import func, select
 from .admin_auth import admin_session, authorize_form
 from .models import Audit, CallLog, Environment, now
@@ -13,6 +15,7 @@ from .version_policy import evaluate_version, policies_for, version_tuple
 from .version_views import page_context
 
 router = APIRouter()
+EnvironmentName = Annotated[str, StringConstraints(max_length=64)]
 
 
 def privileged(request, db, csrf):
@@ -33,10 +36,13 @@ def parse_version(value):
 def validate_policy(db, values):
     if values['mode'] not in ('observe', 'warn', 'enforce'):
         raise HTTPException(400, '版本策略模式无效')
-    if values['business_id'] and not values['environment']:
+    environments = values['environment']
+    if values['business_id'] and not environments:
         raise HTTPException(400, '业务策略必须指定环境')
-    if values['environment'] and not db.scalar(select(Environment).where(Environment.name == values['environment'])):
-        raise HTTPException(400, '指定环境不存在')
+    if environments:
+        known = set(db.scalars(select(Environment.name).where(Environment.name.in_(environments))))
+        if known != set(environments):
+            raise HTTPException(400, '所选环境中有环境不存在')
     parse_version(values['minimum_version'])
     if values['recommended_version']:
         parse_version(values['recommended_version'])
@@ -59,17 +65,28 @@ def validate_policy(db, values):
             valid = False
         if not valid:
             raise HTTPException(400, '升级地址必须是无凭据的 HTTP(S) 地址')
-    return {**values, 'blocked_versions': json.dumps(blocked), 'effective_at': expiry(values['effective_at']) or now()}
+    return {**values, 'environment': environments[0] if environments else '',
+            'additional_environments': environments[1:] or None,
+            'blocked_versions': json.dumps(blocked), 'effective_at': expiry(values['effective_at']) or now()}
 
 
 def snapshot(item):
-    return {key: (value.isoformat() if hasattr(value, 'isoformat') else value)
-            for key, value in vars(item).items() if not key.startswith('_')}
+    result = {key: (value.isoformat() if hasattr(value, 'isoformat') else value)
+              for key, value in vars(item).items() if not key.startswith('_')}
+    if isinstance(item, VersionPolicy):
+        result['environment'] = item.environments
+        result.pop('additional_environments', None)
+    return result
 
 
-def policy_values(name, environment, business_id, mode, minimum_version,
+def policy_values(name, environment, environment_scope, business_id, mode, minimum_version,
                   recommended_version, blocked_versions, upgrade_url, effective_at):
-    return dict(name=name.strip(), environment=environment, business_id=business_id, mode=mode,
+    environments = sorted(set(environment or []) - {''})
+    if environment_scope == 'selected' and not environments:
+        raise HTTPException(400, '请至少选择一个适用环境')
+    if environments and (environment_scope == 'all' or '' in (environment or [])):
+        raise HTTPException(400, '全部环境与指定环境不能同时选择')
+    return dict(name=name.strip(), environment=environments, business_id=business_id, mode=mode,
                 minimum_version=minimum_version, recommended_version=recommended_version,
                 blocked_versions=blocked_versions, upgrade_url=upgrade_url, effective_at=effective_at)
 
@@ -92,11 +109,8 @@ def persist_policy(request, csrf, values, intent, policy_id=None):
                 CallLog.created_at >= now() - timedelta(days=7)).group_by(*groups)).all()
             affected, checked = 0, 0
             for env, business, actor, version, protocol, total in samples:
-                new_scope = (not values['environment'] or env == values['environment']) and (
-                    not values['business_id'] or business == values['business_id'])
-                old_scope = existing is not None and (
-                    not existing.environment or env == existing.environment) and (
-                    not existing.business_id or business == existing.business_id)
+                new_scope = item.matches_scope(env, business)
+                old_scope = existing is not None and existing.matches_scope(env, business)
                 if not new_scope and not old_scope:
                     continue
                 try:
@@ -158,24 +172,26 @@ def versions(request: Request, days: int = Query(7, ge=1, le=90),
 
 @router.post('/admin/versions/policies')
 def save_policy(request: Request, csrf: str = Form(max_length=64),
-                name: str = Form(min_length=1, max_length=128), environment: str = Form('', max_length=64),
+                name: str = Form(min_length=1, max_length=128), environment: list[EnvironmentName] | None = Form(None),
+                environment_scope: Literal['all', 'selected'] | None = Form(None),
                 business_id: str = Form('', max_length=256), mode: str = Form('observe'),
                 minimum_version: str = Form('1.0.0', max_length=64), recommended_version: str = Form('', max_length=64),
                 blocked_versions: str = Form('', max_length=4096), upgrade_url: str = Form('', max_length=1024),
                 effective_at: str = Form('', max_length=32), intent: str = Form('preview')):
-    values = policy_values(name, environment, business_id, mode, minimum_version,
+    values = policy_values(name, environment, environment_scope, business_id, mode, minimum_version,
                            recommended_version, blocked_versions, upgrade_url, effective_at)
     return persist_policy(request, csrf, values, intent)
 
 
 @router.post('/admin/versions/policies/{policy_id}')
 def edit_policy(policy_id: int, request: Request, csrf: str = Form(max_length=64),
-                name: str = Form(min_length=1, max_length=128), environment: str = Form('', max_length=64),
+                name: str = Form(min_length=1, max_length=128), environment: list[EnvironmentName] | None = Form(None),
+                environment_scope: Literal['all', 'selected'] | None = Form(None),
                 business_id: str = Form('', max_length=256), mode: str = Form('observe'),
                 minimum_version: str = Form('1.0.0', max_length=64), recommended_version: str = Form('', max_length=64),
                 blocked_versions: str = Form('', max_length=4096), upgrade_url: str = Form('', max_length=1024),
                 effective_at: str = Form('', max_length=32), intent: str = Form('preview')):
-    values = policy_values(name, environment, business_id, mode, minimum_version,
+    values = policy_values(name, environment, environment_scope, business_id, mode, minimum_version,
                            recommended_version, blocked_versions, upgrade_url, effective_at)
     return persist_policy(request, csrf, values, intent, policy_id)
 
@@ -233,7 +249,7 @@ def add_exception(request: Request, csrf: str = Form(max_length=64), policy_id: 
         policy = db.get(VersionPolicy, policy_id)
         if not policy or not policy.enabled or policy.deleted_at is not None:
             raise HTTPException(400, '只能为已启用的策略创建例外')
-        if (policy.environment and policy.environment != environment) or (policy.business_id and policy.business_id != business_id):
+        if not policy.matches_scope(environment, business_id):
             raise HTTPException(400, '例外与指定策略的环境或业务不匹配')
         parse_version(minimum_version)
         parse_version(maximum_version)

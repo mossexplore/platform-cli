@@ -6,7 +6,7 @@ from .models import Base, CallLog, SchemaVersion, AccessApplication, Application
 from .version_models import VersionPolicy, VersionException
 from .notification_models import NotificationClient, NotificationTask
 
-SCHEMA_VERSION = 14
+SCHEMA_VERSION = 15
 
 
 def migrate(engine, sessions):
@@ -99,6 +99,11 @@ def migrate(engine, sessions):
             with engine.begin() as connection:
                 connection.execute(text(
                     'ALTER TABLE cli_call_logs MODIFY COLUMN full_command LONGTEXT CHARACTER SET utf8mb4 NULL'))
+    if version < 15:
+        columns = {column['name'] for column in inspect(engine).get_columns('cli_version_policies')}
+        if 'additional_environments' not in columns:
+            with engine.begin() as connection:
+                connection.execute(text('ALTER TABLE cli_version_policies ADD COLUMN additional_environments JSON NULL'))
     with sessions() as db:
         if db.get(NotificationClient, 1) is None:
             db.add(NotificationClient(id=1))

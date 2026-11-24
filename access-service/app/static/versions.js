@@ -31,10 +31,37 @@ if (policyForm) {
     policyForm.querySelector('.drawer-body').scrollTop = 0;
   };
   back.addEventListener('click', () => { if (!busy) { changeStage('preview'); policyForm.elements.name.focus(); } });
-  const scope = policyForm.querySelector('[data-policy-environment]');
+  const scope = policyForm.elements.environment_scope;
+  const environmentList = policyForm.querySelector('[data-policy-environments]');
+  const environmentChoices = () => [...environmentList.querySelectorAll('input[name="environment"]')];
   const business = policyForm.querySelector('[data-policy-business]');
-  const syncScope = () => { business.disabled = !scope.value; };
-  scope.addEventListener('change', syncScope);
+  const syncScope = () => {
+    const selected = scope.value === 'selected';
+    environmentList.hidden = !selected;
+    environmentList.disabled = !selected;
+    business.disabled = !selected;
+    environmentList.querySelector('[data-no-environments]').hidden = environmentChoices().length > 0;
+  };
+  for (const option of scope) option.addEventListener('change', syncScope);
+  const setEnvironments = (environments) => {
+    environmentList.querySelectorAll('[data-removed-environment]').forEach((label) => label.remove());
+    const choices = environmentChoices();
+    for (const choice of choices) choice.checked = environments.includes(choice.value);
+    for (const name of environments) {
+      if (choices.some((choice) => choice.value === name)) continue;
+      const label = document.createElement('label');
+      label.className = 'choice';
+      label.dataset.removedEnvironment = '';
+      const input = document.createElement('input');
+      input.type = 'checkbox';
+      input.name = 'environment';
+      input.value = name;
+      input.checked = true;
+      label.append(input, `${name}（已删除，请取消勾选）`);
+      environmentList.append(label);
+    }
+    scope.value = environments.length ? 'selected' : 'all';
+  };
   syncScope();
   const mode = policyForm.querySelector('[data-policy-mode]');
   const syncMode = () => { policyForm.querySelector('[data-mode-help]').textContent = {
@@ -89,6 +116,7 @@ if (policyForm) {
         policyForm.action = createAction;
         title.textContent = '新增版本策略';
         policyForm.reset();
+        setEnvironments([]);
         syncScope(); syncMode();
       }
     }
@@ -98,7 +126,9 @@ if (policyForm) {
     editing = policyId !== null;
     policyForm.action = editing ? `${createAction}/${policyId}` : createAction;
     title.textContent = editing ? '编辑版本策略' : '新增版本策略';
-    for (const [key,value] of Object.entries(values)) if (policyForm.elements[key]) policyForm.elements[key].value = value;
+    const {environments, ...fields} = values;
+    for (const [key,value] of Object.entries(fields)) if (policyForm.elements[key]) policyForm.elements[key].value = value;
+    setEnvironments(environments);
     changeStage('preview'); syncScope(); syncMode(); error.hidden = true;
     button.closest('dialog')?.close();
     policyForm.closest('dialog').showModal();
@@ -116,6 +146,14 @@ const exceptionPolicy = document.querySelector('[data-exception-policy]');
 if (exceptionPolicy) exceptionPolicy.addEventListener('change', () => {
   const option = exceptionPolicy.selectedOptions[0];
   const form = exceptionPolicy.form;
-  form.elements.environment.value = option.dataset.environment || '';
+  const environments = JSON.parse(option.dataset.environments || '[]');
+  const environment = form.elements.environment;
+  for (const choice of environment.options) {
+    choice.disabled = Boolean(choice.value && environments.length && !environments.includes(choice.value));
+  }
+  if (environments.length === 1 || environment.selectedOptions[0]?.disabled) {
+    environment.value = environments.length === 1 ? environments[0] : '';
+    if (environment.selectedIndex === -1) environment.value = '';
+  }
   form.elements.business_id.value = option.dataset.business || '';
 });
