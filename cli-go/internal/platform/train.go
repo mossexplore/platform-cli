@@ -212,9 +212,9 @@ func (a *API) trainJobPage(ctx context.Context, action string, page, size int, b
 	return trainPage(result, "jobs", page, size, false)
 }
 
-func (a *API) TrainHistoryRecord(ctx context.Context, taskID, jobID string) (Record, error) {
+func (a *API) TrainHistoryRecord(ctx context.Context, taskID, jobID, latestFlag string) (Record, error) {
 	return findTrainRecord(ctx, jobID, "jobId", func(ctx context.Context, page int) (Page, error) {
-		return a.TrainHistory(ctx, taskID, page, 200, "true")
+		return a.TrainHistory(ctx, taskID, page, 200, latestFlag)
 	})
 }
 

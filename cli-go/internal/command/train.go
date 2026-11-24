@@ -62,7 +62,7 @@ func newTrain(options Options, load loadConfig) *cobra.Command {
 
 	historyDetail := &cobra.Command{Use: "detail TASK_ID JOB_ID", Short: "查询执行记录详情及分布式角色列表", Args: positional(2)}
 	historyDetail.RunE = authorized(options, load, func(cmd *cobra.Command, args []string, api *platform.API, format string) error {
-		record, err := api.TrainHistoryRecord(cmd.Context(), args[0], args[1])
+		record, err := api.TrainHistoryRecord(cmd.Context(), args[0], args[1], "true")
 		if err != nil {
 			return err
 		}

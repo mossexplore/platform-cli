@@ -150,7 +150,7 @@ func historyTrainDownload(cmd *cobra.Command, api *platform.API, taskID, jobID, 
 	ctx := cmd.Context()
 	steps := logDownloadSteps{out: cmd.ErrOrStderr()}
 	steps.start("query_record", "开始查询执行记录")
-	row, err := api.TrainHistoryRecord(ctx, taskID, jobID)
+	row, err := api.TrainHistoryRecord(ctx, taskID, jobID, "all")
 	if err != nil {
 		return steps.failure(err)
 	}

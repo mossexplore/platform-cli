@@ -121,6 +121,10 @@ func TestHistoryLogDownloadReportsStages(t *testing.T) {
 						t.Errorf("incorrect audit command: %v", body["full_command"])
 					}
 				case "queryScheduleTaskList":
+					if body := readRequest(t, r); body["latestFlag"] != "all" {
+						fmt.Fprint(w, `{"result":{"code":0,"count":1,"jobs":[{"taskId":"task","jobId":"latest-job"}]}}`)
+						return
+					}
 					fmt.Fprint(w, `{"result":{"code":0,"count":1,"jobs":[{"taskId":"task","jobId":"job","sysParam":"{\"plogUploadSuccess\":\"1\"}"}]}}`)
 				case "queryJobLogIsExist":
 					if tc.name == "plog" {

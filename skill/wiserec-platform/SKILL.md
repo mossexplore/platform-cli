@@ -34,7 +34,7 @@ metadata:
 - **命令与参数**：以已安装 CLI 为准（`ml tree` 查可用命令，`ml tree --all` 查全部命令与限制标记，使用 `ml COMMAND --help` 离线查看 `Usage`、位置参数和选项，并核对必填项、取值范围与默认值）。优先使用命令支持的 JSON 输出（详见 [命令速查](references/commands.md)），检查退出码和 stderr。
 - **等待时限**：`exec` 和 Notebook 按 `--startup-timeout` + `--timeout` 再加至少 60 秒；上传按 `--timeout` 留余量；`login` 和 `business refresh` 需用户操作 Edge，至少预留 10 分钟。
 - **定位与输出**：有准确 ID 直接使用，否则用最窄条件定位；任务、作业、模型、模板、Pod 等 ID 不互换；列表默认分页，第一页不代表全部。本地导出先核对路径（训练配置、日志、算法仓下载要求父目录已存在），不覆盖同名文件或代码。
-- **训练历史查询**：`ml train history list TASK_ID` 默认仅查询最新实例，需要包含历史实例时加 `--latest-flag all`。`history detail` 和 `history logs download` 只在最新实例的执行记录中查找 `JOB_ID`。使用 `history logs download` 下载执行记录日志时，禁止调用 `ml train history detail`。分布式日志下载可复用 `history list -o json` 返回的 `roleJobInfo` 来确定 `--role-job-id`，已有角色 ID 时直接下载。
+- **训练执行记录日志**：必需参数齐全时直接运行 `ml train history logs download`（未就绪时自动触发归档属低风险操作，含 `product` 环境在内均无需二次确认）。需要补齐 `JOB_ID` 或分布式角色 ID 时，用 `ml train history list TASK_ID -o json` 查询（默认每页 10 条，未找到可调大 `--page-size` 或翻页，查询历史实例加 `--latest-flag all`）。下载流程中禁止调用 `ml train history detail`。
 - **回复要求**：说明环境、业务、目标 ID、实际命令及可观察结果；带时区时间换算为北京时间 `YYYY-MM-DD HH:mm:ss`；模板详情、日志和程序输出可能含 Secret，仅提取必要字段。
 
 ## 按任务读取参考

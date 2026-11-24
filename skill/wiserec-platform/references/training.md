@@ -2,15 +2,15 @@
 
 以下命令的列表和查询均支持 `-o json`，具体筛选和分页参数查 `--help`。
 
-## 常见操作流：训练任务排障与取日志
+## 下载训练执行记录日志
 
-1. `ml train list --name NAME -o json` 定位 `taskId`（`detail` 可查数据集、配置及参数引用）。
-2. `ml train instance list TASK_ID -o json` 查当前运行或排队的实例。用 `ml train history list TASK_ID -o json` 获取可供详情和下载命令查找的 `jobId`。加 `--latest-flag all` 可查看历史实例的记录，仅在 `all` 结果中出现的记录会超出详情和下载命令的查找范围。
-3. 下载执行记录日志时，禁止调用 `ml train history detail`。非交互下载优先复用已知的作业和角色 ID。如果需要定位角色，在 `history list -o json` 的 `items` 中按 `jobId` 找到目标记录。`jobType=dps-train` 时，从该记录的 `roleJobInfo` 按用户指定的角色选择 `roleJobId`，下载时传 `--role-job-id`。普通训练直接使用 `TASK_ID` 和 `JOB_ID`。
-4. 运行 `ml train history logs download TASK_ID JOB_ID [--type log|plog] [--role-job-id ROLE_JOB_ID] --directory DIR -o json`。普通训练的 `status` 或分布式训练对应角色的 `items[].status` 为 `not_ready` 时，表示归档请求已提交，稍后重跑同一命令。
-5. 取执行实例归档日志：运行 `ml train instance logs download TASK_ID JOB_ID --select SELECTION --directory DIR -o json`（非交互必须传 `--select` 编号或 `all`）。
+参数齐全时直接运行 `ml train history logs download TASK_ID JOB_ID`（未就绪时自动触发归档属低风险操作，含 `product` 环境在内均无需二次确认）。仅分布式训练（`jobType=dps-train`）支持 `--role-job-id`，在非交互或 JSON 模式下必填，多个指定角色逐个下载；普通训练不要传 `--role-job-id`。交互终端使用表格输出时可按编号选角色。
 
-这两种下载都可能触发平台归档。执行前核对作业 ID，并确认用户授权包含归档。
+- **缺少 ID**：用 `ml train list --name NAME -o json` 查 `TASK_ID`，用 `ml train history list TASK_ID -o json`（默认第 1 页 10 条，未找到可加 `--page-size 200` 或翻页，查询历史实例加 `--latest-flag all`）查 `JOB_ID` 或从目标记录的 `roleJobInfo` 取 `roleJobId`。下载流程中禁止调用 `ml train history detail`。
+- **可选参数**：默认下载普通日志，`--type plog` 仅在记录已有 plog（`sysParam.plogUploadSuccess=1`）时下载，无 plog 直接报错且不触发归档。`--directory DIR` 指定已存在的保存目录，默认当前目录。`-o json` 输出结果摘要。
+- **下载结果**：成功时报告保存路径。普通日志未就绪时，命令会提交归档并以退出码 1 返回；普通训练顶层 `status` 为 `not_ready`，分布式训练顶层 `status` 为 `failed` 且 `items[].status` 为 `not_ready`，均表示已触发归档，稍后重跑同一命令，勿误判为下载异常。提示“该job无分布式角色，无日志可下载”时，报告该作业没有可下载的角色日志。
+
+取执行实例归档日志时，可用 `ml train instance list TASK_ID -o json` 查运行或排队实例，再用 `ml train instance logs download` 按编号下载。
 
 ## 训练看板（MTP Swanboard）
 
@@ -57,12 +57,10 @@ ml train instance logs download TASK_ID JOB_ID --select all --directory 'D:\logs
 
 - WiseRec 和 MLOps 均支持训练任务查询、启动、取消、软删除、克隆、配置管理、执行实例及执行记录查询和日志下载。MLOps 的 `train list --page-size` 最大为 200。
 - `detail` 使用 `train list` 中的任务 ID，结果含基本信息、首个样本的数据集、输出引用及首个样本的配置引用、算法参数及自定义参数。
-- `instance list` 和 `history list` 默认返回第一页 10 条，支持 `--page` 和 `--page-size`（每页 1 至 200 条），按接口返回顺序展示。按日志来源从对应列表取得 `jobId`。执行记录默认下载普通日志，加 `--type plog` 下载 plog。
+- `instance list` 和 `history list` 默认返回第一页 10 条，支持 `--page` 和 `--page-size`（每页 1 至 200 条），按接口返回顺序展示。
 - WiseRec 和 MLOps 的 `history list` 均需先登录并选择业务。`--latest-flag` 仅接受 `true` 和 `all`，默认 `true` 仅查询最新实例，`all` 同时查询历史实例。该命令只查询并分页展示记录。
-- `history detail` 和 `history logs download` 均在最新实例的执行记录中自动翻页匹配 `JOB_ID`。`history detail` 遇到 `jobType=dps-train` 时展示角色列表，首列为完整角色作业 ID，JSON 保留角色及额外字段。分布式训练使用 `-o json` 或非交互下载时须以 `--role-job-id` 指定角色。多个目标角色按用户指定范围逐个调用。普通训练不接受此参数。
-- `history logs download` 自行查询执行记录。分布式训练直接读取该记录的 `roleJobInfo`，按 `--role-job-id` 匹配并校验角色。分布式记录的 `roleJobInfo` 为 `null` 或空数组时，命令立即退出，提示“该job无分布式角色，无日志可下载”。交互终端使用表格输出时，省略 `--role-job-id` 会显示角色选择表，依次为编号、roleJobId、名称、算法名称、状态、节点数、CPU、GPU、内存、执行节点和开始时间。开始时间按北京时间显示，可按编号选择角色。下载普通日志时，先检查日志状态，就绪后获取并校验下载地址，再保存文件。检查发现日志未就绪，或获取下载地址时返回 `failedUploadSwitch=false`，才按作业提交手动归档。提交成功后提示“手动归档中，请稍后再次下载日志！”，退出码为 `1`。普通训练的 JSON 顶层返回 `status=not_ready`，分布式训练顶层返回 `status=failed`，触发归档的条目显示 `items[].status=not_ready`。稍后重试时会重新检查日志状态。同次命令内同一作业最多提交一次归档，随后继续处理其余选中角色。
-- 下载 plog 时，CLI 检查 `sysParam` JSON 字符串中的 `plogUploadSuccess`，其值须为字符串 `"1"`。普通训练检查执行记录自身，分布式训练检查角色。校验通过后直接获取 plog 链接并下载，跳过普通日志检查和手动归档。执行记录或所选角色无 plog 时，提示“该记录没有 plog 日志”。分布式 plog 文件命名为 `<roleJobId>_plog.zip`。
-- 历史日志下载按实际执行顺序显示进度，进度写入 stderr。执行实例日志也显示查询、归档、选取及下载步骤，并在交互终端显示接收字节数。逐条失败的 JSON 摘要含 `stage` 和带阶段名称的 `error`，可据此定位日志检查、地址或传输问题。
+- `history detail` 查询指定执行记录。遇到 `jobType=dps-train` 时展示角色列表，首列为完整角色作业 ID，JSON 保留角色及额外字段。
+- 日志下载失败时，前置校验阶段（如查询记录、角色或参数校验）仅在 stderr 报错且无 JSON 输出；单条下载阶段失败时，可结合 stderr 和 JSON 摘要中的 `stage`、`error` 定位问题。
 - 下载日志 ZIP 时优先使用终端的 `HTTPS_PROXY`，其次使用 `ALL_PROXY`，并按 `NO_PROXY` 绕过代理。没有环境代理配置时，Windows 和 macOS 使用手动配置的系统 HTTPS 代理。仅使用 PAC 的环境可在当前终端设置 `HTTPS_PROXY` 后重试。已取到链接但下载失败时，按错误类别核对代理、DNS 或连接超时，不复述签名参数。
 - `history list` 和 `instance list` 的 `-o json` 保留原始状态与时长字段（`runningTime`、`queueTime` 为分钟，`waitTime` 为秒）；表格模式会自动换算为中文状态和可读时长。
 - `ml train start TASK_ID` 返回 `jobId` 只表示请求已被接受，之后用 `history list` 确认状态。

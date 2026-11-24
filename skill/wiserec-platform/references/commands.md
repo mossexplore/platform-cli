@@ -61,7 +61,7 @@ WiseRec 和 MLOps 均支持 `train` 和 `feature-task` 命令，`algorithm` 仅�
 | `ml train instance list TASK_ID` | 分页查询执行实例 | | |
 | `ml train history list TASK_ID [--latest-flag true\|all]` | 分页查询执行记录；默认仅查最新实例，`all` 包含历史实例 | | |
 | `ml train history detail TASK_ID JOB_ID [-o json]` | 在最新实例的执行记录中查询作业及分布式角色详情 | | |
-| `ml train history logs download TASK_ID JOB_ID [--type log\|plog] [--directory DIR] [--role-job-id ROLE_JOB_ID]` | 下载最新实例的执行记录日志，普通日志未就绪时提交归档，分布式训练可从表格按编号选择角色，非交互须指定角色 ID | | 条件性写：平台日志归档及本地文件 |
+| `ml train history logs download TASK_ID JOB_ID [--type log\|plog] [--directory DIR] [--role-job-id ROLE_JOB_ID]` | 按任务和作业 ID 下载最新或历史实例的执行记录日志，普通日志未就绪时提交归档；仅分布式训练支持 `--role-job-id`（非交互必填，交互表格可按编号选角色） | | 条件性写：平台日志归档及本地文件 |
 | `ml train instance logs download TASK_ID JOB_ID [--select SELECTION] [--directory DIR]` | 先请求归档，仅下载归档成功的日志，`--select` 传编号或 `all` | | 写：平台归档及本地 ZIP 文件 |
 | `ml train start TASK_ID` | 立即启动任务 | | 写（无内置确认）：启动作业 |
 | `ml train cancel TASK_ID` | 逐个取消全部执行实例 | 是 | 写：取消作业 |
