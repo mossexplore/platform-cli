@@ -24,7 +24,8 @@ trap cleanup EXIT
 "${compose[@]}" run --rm cli-access python -m app.manage migrate
 "${compose[@]}" run --rm -T cli-access python - <<'PY'
 import os
-from app.models import Admin, Environment, Grant, User, database
+from app.models import Admin, CallLog, Environment, Grant, User, database
+from app.version_models import VersionPolicy
 from sqlalchemy import text
 from app.security import password_hash
 assert os.getuid() == 10001
@@ -36,13 +37,16 @@ with sessions() as db:
     db.add_all([user, environment])
     db.flush()
     db.add(Grant(user_id=user.id, environment_id=environment.id))
+    db.add(VersionPolicy(name='legacy-ci-policy', environment='ci', created_by='ci-admin'))
+    db.add(CallLog(actor='ci-user', environment='ci', business_id='ci-business', command='ml jupyter exec',
+                   full_command='ml jupyter exec -- print(1)', source_ip='', allowed=True, reason='ALLOWED'))
     db.commit()
-# Test-only fixture matching the user's current and previous formal schema 12.
+# Restore the previous formal schema in the disposable CI database.
 # This isolated MySQL database is never a production database.
 with engine.begin() as connection:
-    connection.execute(text('DROP TABLE environment_command_denies'))
-    connection.execute(text('ALTER TABLE environments DROP COLUMN command_policy_revision'))
-    connection.execute(text('UPDATE schema_versions SET version=12'))
+    connection.execute(text('ALTER TABLE cli_call_logs MODIFY COLUMN full_command TEXT NULL'))
+    connection.execute(text('ALTER TABLE cli_version_policies DROP COLUMN additional_environments'))
+    connection.execute(text('UPDATE schema_versions SET version=13'))
 engine.dispose()
 PY
 "${compose[@]}" run --rm cli-access python -m app.manage migrate
@@ -51,15 +55,31 @@ PY
 "${compose[@]}" exec -T cli-access python - <<'PY'
 import os
 from sqlalchemy import select
-from app.models import Environment, Grant, SchemaVersion, database
+from app.migrations import SCHEMA_VERSION
+from app.models import CallLog, Environment, Grant, SchemaVersion, database, now
+from app.version_models import VersionPolicy
+from app.version_policy import policies_for
 engine, sessions = database(os.environ['DATABASE_URL'])
 with sessions() as db:
-    assert db.scalar(select(SchemaVersion.version)) == 13
+    assert db.scalar(select(SchemaVersion.version)) == SCHEMA_VERSION
     environment = db.scalar(select(Environment))
     assert environment.default_grant is False
     assert environment.command_policy_revision == 0
     assert environment.forbidden_commands == []
     assert db.scalar(select(Grant)) is not None
+    legacy = db.scalar(select(VersionPolicy))
+    assert legacy.environments == ['ci']
+    assert db.scalar(select(CallLog.full_command)) == 'ml jupyter exec -- print(1)'
+    legacy.additional_environments = ['ci-stage']
+    db.flush()
+    assert [item.id for item in policies_for(db, 'ci-stage', 'ci-business', now())] == [legacy.id]
+    assert policies_for(db, 'ci-stage-other', 'ci-business', now()) == []
+    log = db.scalar(select(CallLog))
+    log.full_command = 'ml jupyter exec -- ' + '合成参数' * 20000
+    db.flush()
+    db.refresh(log)
+    assert len(log.full_command) > 80000
+    db.rollback()
 engine.dispose()
 PY
 python ci/smoke.py "http://127.0.0.1:$HTTP_PORT"

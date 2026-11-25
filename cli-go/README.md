@@ -1,5 +1,7 @@
 # WiseRec CLI Go 客户端
 
+从 [v1.1.1 Release](https://github.com/mossexplore/platform-cli/releases/tag/v1.1.1) 下载 Windows x64 MSI 或便携 ZIP。公开附件内置仓库示例配置，实际内网环境需使用获准分发的配置重新构建。
+
 Go 客户端使用独立版本，由根目录 `versions.toml` 的 `components.cli_go` 管理。运行 `build.cmd` 或 `build-release.ps1` 时，打包脚本会自动同步 Go 版本文件。Windows x64 安装后使用同一套 `ml` 命令和 WiseRec Platform Skill。支持范围用 `ml tree --all` 核对，实际参数用子命令的 `--help` 核对。
 
 Go 的各级 `--help` 随 EXE 分发，采用 Python CLI 的用法、说明和面板布局，参数及子命令以 Go 的实际支持范围为准。维护时可在安装了历史 CLI 依赖的 Python 环境中运行 `python cli-go/scripts/sync-python-help.py`，从只读的 `cli-python/` 生成帮助文案。详见 [仓库维护规则](../AGENTS.md)。

@@ -2,6 +2,11 @@ name: Build and verify Go CLI for Windows
 
 on:
   workflow_dispatch:
+  workflow_call:
+    inputs:
+      formal_release:
+        type: boolean
+        default: false
   push:
     branches: [main]
     paths: ['cli-go/**', 'skill/**', 'versions.toml', 'scripts/stage_skill_resources.py', 'scripts/sync_versions.py', '.github/workflows/cli-go-windows.yml']
@@ -17,6 +22,8 @@ jobs:
     timeout-minutes: 25
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          fetch-depth: 0
       - uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5 # v5.5.0
         with:
           go-version: '1.25.x'
@@ -85,14 +92,37 @@ jobs:
           } finally {
             Pop-Location
           }
-      - name: Verify portable package and MSI lifecycle
+      - name: Build Go 1.1.0 upgrade baseline from its source commit
+        if: inputs.formal_release
+        shell: pwsh
+        run: |
+          $source = Join-Path $env:RUNNER_TEMP 'previous-go'
+          git worktree add --detach $source 350a07de1e3b8e3dc51c1daef2091a86b89ad2e7
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          Push-Location (Join-Path $source 'cli-go')
+          try {
+            ./scripts/build-release.cmd -ConfigPath ../cli-python/config.example.json -OutputDirectory "$env:RUNNER_TEMP/previous-go-packages"
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          } finally {
+            Pop-Location
+          }
+          "WISECLI_PREVIOUS_PACKAGES=$env:RUNNER_TEMP/previous-go-packages" >> $env:GITHUB_ENV
+      - name: Verify portable package and MSI lifecycle offline
         working-directory: cli-go
         shell: pwsh
         run: |
-          ./scripts/installer/verify-windows.ps1 -Packages (Join-Path $env:GITHUB_WORKSPACE $env:WISEREC_GO_PACKAGES) `
-            -ReplacementPackages "$env:RUNNER_TEMP/go-replacement-packages" `
-            -UpgradePackages "$env:RUNNER_TEMP/go-upgrade-packages" -Work "$env:RUNNER_TEMP/go-msi-verification"
-      - name: Upload example-config test packages
+          $firewallGroup = "WiseRec MSI CI $([guid]::NewGuid())"
+          try {
+            New-NetFirewallRule -DisplayName "$firewallGroup installer" -Group $firewallGroup `
+              -Direction Outbound -Program (Join-Path $env:SystemRoot 'System32\msiexec.exe') -Action Block -ErrorAction Stop | Out-Null
+            ./scripts/installer/verify-windows.ps1 -Packages (Join-Path $env:GITHUB_WORKSPACE $env:WISEREC_GO_PACKAGES) `
+              -ReplacementPackages "$env:RUNNER_TEMP/go-replacement-packages" `
+              -UpgradePackages "$env:RUNNER_TEMP/go-upgrade-packages" -Work "$env:RUNNER_TEMP/go-msi-verification" `
+              -PreviousPackages $env:WISECLI_PREVIOUS_PACKAGES
+          } finally {
+            Remove-NetFirewallRule -Group $firewallGroup -ErrorAction SilentlyContinue
+          }
+      - name: Upload verified example-config packages
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: cli-go-windows-x64-test

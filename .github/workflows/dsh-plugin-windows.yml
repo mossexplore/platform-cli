@@ -12,6 +12,7 @@ on:
       - 'scripts/sync_versions.py'
       - 'versions.toml'
       - '.github/workflows/dsh-plugin-windows.yml'
+      - '.github/workflows/telemetry-gateway.yml'
   push:
     branches: [main]
     paths:
@@ -23,6 +24,7 @@ on:
       - 'scripts/sync_versions.py'
       - 'versions.toml'
       - '.github/workflows/dsh-plugin-windows.yml'
+      - '.github/workflows/telemetry-gateway.yml'
 
 permissions:
   contents: read
@@ -116,74 +118,4 @@ jobs:
           if-no-files-found: error
 
   gateway-linux:
-    runs-on: ubuntu-24.04
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
-        with:
-          go-version-file: telemetry-gateway/go.mod
-          cache: false
-      - name: Test and vet the gateway
-        working-directory: telemetry-gateway
-        run: |
-          go test -race ./...
-          go vet ./...
-      - name: Build and check the Linux amd64 container
-        id: gateway_image
-        shell: bash
-        run: |
-          image=wiserec-telemetry-gateway:ci
-          docker build --platform linux/amd64 --label "org.opencontainers.image.revision=$GITHUB_SHA" \
-            -t "$image" telemetry-gateway
-          test "$(docker image inspect --format '{{.Os}}/{{.Architecture}} {{.Config.User}}' "$image")" = "linux/amd64 nonroot:nonroot"
-          log_dir="$RUNNER_TEMP/gateway-logs"
-          sudo install -d -o 65532 -g 65532 -m 0750 "$log_dir"
-          container=$(docker run -d --rm --read-only -p 127.0.0.1:8088:8088 \
-            --mount "type=bind,source=$log_dir,target=/var/log/wiserec-telemetry-gateway" \
-            -e GATEWAY_ALLOWED_CIDRS=0.0.0.0/0,::/0 -e GATEWAY_ALLOWED_ENVIRONMENTS=sit \
-            -e LANGFUSE_BASE_URL=http://127.0.0.1:9 \
-            -e LANGFUSE_PUBLIC_KEY=fixture-public -e LANGFUSE_SECRET_KEY=fixture-secret "$image")
-          trap 'docker stop "$container" >/dev/null' EXIT
-          version=$(curl --fail --silent --show-error --retry 5 --retry-connrefused http://127.0.0.1:8088/health \
-            | jq -er 'select(.status == "ok") | .version | strings')
-          [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]
-          curl --fail --silent --show-error -H 'Content-Type: application/json' --data-binary @- \
-            http://127.0.0.1:8088/v1/traces <<'JSON' | jq -e '.partialSuccess.rejectedSpans == 1'
-          {"resourceSpans":[{"scopeSpans":[{"spans":[{"traceId":"11111111111111111111111111111111","spanId":"1111111111111111","name":"ci.filter","startTimeUnixNano":"1","endTimeUnixNano":"2","attributes":[{"key":"langfuse.environment","value":{"stringValue":"prod"}}]}]}]}]}
-          JSON
-          sudo grep -q 'filtered_spans=1' "$log_dir/gateway.log"
-          docker logs "$container" 2>&1 | grep 'filtered_spans=1'
-          image_id=$(docker image inspect --format '{{.Id}}' "$image")
-          printf 'version=%s\nimage_id=%s\n' "$version" "$image_id" >> "$GITHUB_OUTPUT"
-      - name: Export and reload the tested gateway image
-        if: github.ref == 'refs/heads/main'
-        shell: bash
-        env:
-          GATEWAY_VERSION: ${{ steps.gateway_image.outputs.version }}
-          TESTED_IMAGE_ID: ${{ steps.gateway_image.outputs.image_id }}
-          OUTPUT_DIR: ${{ runner.temp }}/offline-telemetry-gateway
-        run: |
-          image="wiserec-telemetry-gateway:$GATEWAY_VERSION"
-          archive="wiserec-telemetry-gateway-$GATEWAY_VERSION-linux-amd64.tar.gz"
-          mkdir -p "$OUTPUT_DIR"
-          cd "$OUTPUT_DIR"
-          docker image tag "$TESTED_IMAGE_ID" "$image"
-          docker image save "$image" | gzip -n > "$archive"
-          sha256sum "$archive" > SHA256SUMS
-          sha256sum -c SHA256SUMS
-          docker image rm "$image" wiserec-telemetry-gateway:ci
-          docker image load -i "$archive"
-          test "$(docker image inspect --format '{{.Id}}' "$image")" = "$TESTED_IMAGE_ID"
-          test "$(docker image inspect --format '{{.Os}}/{{.Architecture}} {{.Config.User}}' "$image")" = "linux/amd64 nonroot:nonroot"
-          test "$(docker image inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$image")" = "$GITHUB_SHA"
-          printf '### Offline telemetry gateway\n\nImage: `%s` (linux/amd64).\n\n`sha256sum -c SHA256SUMS`\n\n`docker load -i %s`\n' \
-            "$image" "$archive" >> "$GITHUB_STEP_SUMMARY"
-      - name: Upload the offline telemetry gateway
-        if: github.ref == 'refs/heads/main'
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
-        with:
-          name: wiserec-telemetry-gateway-${{ steps.gateway_image.outputs.version }}-linux-amd64
-          path: ${{ runner.temp }}/offline-telemetry-gateway/
-          compression-level: 0
-          retention-days: 30
-          if-no-files-found: error
+    uses: ./.github/workflows/telemetry-gateway.yml

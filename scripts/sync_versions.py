@@ -15,12 +15,12 @@ def read_versions(root):
         data = tomllib.load(source)
     versions = data['components']
     required = {'cli', 'cli_go', 'access', 'agent', 'notifier'}
-    if not required <= versions.keys() or versions.keys() - required - {'dsh_plugin'}:
-        raise ValueError('components 必须包含 cli、cli_go、access、agent、notifier，可选 dsh_plugin')
-    if 'dsh_plugin' in versions and not re.fullmatch(
-        r'(?:0|[1-9][0-9]*)(?:\.(?:0|[1-9][0-9]*)){2}', str(versions['dsh_plugin'])
-    ):
-        raise ValueError('DSH 插件版本必须是三段数字 SemVer')
+    optional = {'dsh_plugin', 'telemetry_gateway'}
+    if not required <= versions.keys() or versions.keys() - required - optional:
+        raise ValueError('components 必须包含 cli、cli_go、access、agent、notifier，可选 dsh_plugin、telemetry_gateway')
+    for key in optional & versions.keys():
+        if not re.fullmatch(r'(?:0|[1-9][0-9]*)(?:\.(?:0|[1-9][0-9]*)){2}', str(versions[key])):
+            raise ValueError(f'{key} 版本必须是三段数字 SemVer')
     tested = data['compatibility']['agent_cli']
     for value in [*versions.values(), tested]:
         if not isinstance(value, str) or not re.fullmatch(r'\d+\.\d+\.\d+(?:\.\d+)?', value):
@@ -79,6 +79,8 @@ def sync(root, check=False):
     }
     if (root / 'cli-go/go.mod').is_file():
         files[root / 'cli-go/cmd/ml/version.go'] = go_version_source(versions['cli_go'])
+    if (root / 'telemetry-gateway/go.mod').is_file():
+        files[root / 'telemetry-gateway/cmd/gateway/version.go'] = go_version_source(versions['telemetry_gateway'])
     plugin = root / 'dsh-plugin/wiserec-cli/package.json'
     if plugin.is_file():
         if 'dsh_plugin' not in versions:

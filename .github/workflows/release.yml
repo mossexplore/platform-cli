@@ -6,35 +6,38 @@ permissions:
 concurrency:
   group: formal-release
   cancel-in-progress: false
+
 jobs:
   validate:
     runs-on: ubuntu-24.04
     outputs:
       version: ${{ steps.version.outputs.version }}
-      cli_version: ${{ steps.version.outputs.cli_version }}
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
-      - name: Check component version sources
-        run: python scripts/sync_versions.py --check
-      - id: version
+      - name: Check component version sources and release scope
+        id: version
         env:
-          REF: ${{ github.ref }}
+          GH_TOKEN: ${{ github.token }}
         run: |
-          test "$REF" = refs/heads/main
-          python - <<'PY'
-          import os, re, pathlib, tomllib
-          version = pathlib.Path('access-service/VERSION').read_text().strip()
-          cli_version = tomllib.loads(pathlib.Path('cli-python/pyproject.toml').read_text())['project']['version']
-          assert re.fullmatch(r'\d+\.\d+\.\d+\.\d+', version)
-          assert cli_version == version, 'CLI and permission service release versions must match'
-          assert tomllib.loads(pathlib.Path('permission-notifier/pyproject.toml').read_text())['project']['version'] == version
-          assert f"__version__ = '{version}'" in pathlib.Path('permission-notifier/src/permission_notifier/__init__.py').read_text()
-          assert tomllib.loads(pathlib.Path('agent-service/pyproject.toml').read_text())['project']['version'] == version
+          test "$GITHUB_REF" = refs/heads/main
+          python scripts/sync_versions.py --check
+          version=$(python - <<'PY'
+          import pathlib, tomllib
+          versions = tomllib.loads(pathlib.Path('versions.toml').read_text())['components']
+          version = versions['access']
+          assert version == versions['cli_go'] == versions['telemetry_gateway']
           assert pathlib.Path(f'docs/RELEASE_NOTES_{version}.md').is_file()
-          assert f'__version__ = "{cli_version}"' in pathlib.Path('cli-python/src/wiserec_cli/__init__.py').read_text()
-          with open(os.environ['GITHUB_OUTPUT'], 'a') as f:
-              f.write(f'version={version}\ncli_version={cli_version}\n')
+          print(version)
           PY
+          )
+          tags=$(git ls-remote --tags origin "refs/tags/v$version")
+          test -z "$tags"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+  cli:
+    needs: validate
+    uses: ./.github/workflows/cli-go-windows.yml
+    with:
+      formal_release: true
   image:
     needs: validate
     permissions:
@@ -45,165 +48,44 @@ jobs:
     uses: ./.github/workflows/access-image.yml
     with:
       formal_release: true
-  cli:
+  gateway:
     needs: validate
-    runs-on: windows-2022
-    timeout-minutes: 25
-    env:
-      PY_PYTHON3: '3.12'
-      PY_PYTHON: '3.12'
-    steps:
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
-        with:
-          fetch-depth: 0
-      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1
-        with:
-          python-version: '3.12'
-          architecture: x64
-      - name: Prepare CI example configuration
-        run: python -c "from shutil import copyfile; copyfile('cli-python/config.example.json', 'cli-python/config.json')"
-      - name: Build Windows online and offline packages
-        shell: powershell
-        run: |
-          $env:SOURCE_DATE_EPOCH = git show -s --format=%ct HEAD
-          py -3 -c "import sys; assert sys.version_info[:2] == (3, 12)"
-          ./cli-python/scripts/windows/build-release.ps1 -Online
-          ./cli-python/scripts/windows/build-release.ps1 -Offline
-          $offline = Get-Content release/wiserec-cli-*-offline/release.json | ConvertFrom-Json
-          if ($offline.python_minor -ne 12 -or $offline.architecture -ne 'x64') { throw 'Wrong offline target' }
-      - name: Build previous CLI for upgrade test
-        shell: powershell
-        run: |
-          py -3 -m pip install build 'setuptools>=68'
-          if ($LASTEXITCODE -ne 0) { throw 'Previous build tools installation failed' }
-          git worktree add --detach "$env:RUNNER_TEMP/previous-cli" 749c3b8112e84dd0ddbee2b035b97c2721f31303
-          if ($LASTEXITCODE -ne 0) { throw 'Previous checkout failed' }
-          py -3 -m build --wheel --no-isolation --outdir "$env:RUNNER_TEMP/previous-wheel" "$env:RUNNER_TEMP/previous-cli"
-          if ($LASTEXITCODE -ne 0) { throw 'Previous build failed' }
-      - name: Verify clean installs, offline install and upgrade
-        shell: powershell
-        run: ./cli-python/scripts/windows/verify-windows.ps1
-      - name: Collect CLI assets
-        shell: powershell
-        run: |
-          New-Item -ItemType Directory assets | Out-Null
-          Copy-Item release/*.zip assets/
-          Copy-Item release/wiserec-cli-*-online/*.whl assets/
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
-        with:
-          name: release-cli
-          path: assets/
-          retention-days: 30
-          if-no-files-found: error
-  agent-tests:
-    needs: validate
-    runs-on: ubuntu-24.04
-    timeout-minutes: 20
-    steps:
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
-      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1
-        with:
-          python-version: '3.12'
-      - run: python -m pip install -r agent-service/requirements.lock pytest pytest-asyncio
-      - name: Prepare CI example configuration
-        run: python -c "from shutil import copyfile; copyfile('cli-python/config.example.json', 'cli-python/config.json')"
-      - run: python -m pip install --no-deps -e ./cli-python -e ./agent-service
-      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
-        with:
-          node-version: "22"
-      - run: node --test agent-service/tests/*.cjs
-      - name: Agent and CLI pairing tests
-        run: python -m pytest agent-service/tests -q
-  notifier-tests:
-    needs: validate
-    runs-on: ubuntu-24.04
-    timeout-minutes: 15
-    services:
-      mysql:
-        image: mysql:8.4
-        env:
-          MYSQL_ROOT_PASSWORD: notifier-ci-only
-          MYSQL_DATABASE: notification_test
-          MYSQL_ROOT_HOST: "%"
-        ports:
-          - 3306:3306
-        options: >-
-          --health-cmd="mysqladmin ping -h localhost -pnotifier-ci-only"
-          --health-interval=10s --health-timeout=5s --health-retries=20
-    steps:
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
-      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1
-        with:
-          python-version: '3.12'
-      - run: python -m pip install ./permission-notifier -r access-service/requirements.lock pytest
-      - name: Assistant and service integration tests
-        env:
-          PERMISSION_SERVICE_SOURCE: ${{ github.workspace }}/access-service
-        run: python -m pytest permission-notifier/tests -q
-      - name: Disposable MySQL migration and notification concurrency
-        env:
-          NOTIFIER_TEST_DATABASE_URL: mysql+pymysql://root:notifier-ci-only@127.0.0.1:3306/notification_test
-          PYTHONPATH: access-service
-        run: python -m pytest access-service/tests/test_notification_mysql.py -q
-      - run: python permission-notifier/scripts/smoke.py
-  notifier:
-    needs: validate
-    runs-on: windows-2022
-    timeout-minutes: 15
-    steps:
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
-      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1
-        with:
-          python-version: '3.12'
-          architecture: x64
-      - name: Build separate assistant archive
-        run: python permission-notifier/scripts/build.py
-      - name: Validate installer and installed assistant
-        shell: powershell
-        run: ./scripts/releasing/verify-notifier-windows.ps1
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
-        with:
-          name: release-notifier
-          path: permission-notifier/dist/*.zip
-          if-no-files-found: error
-          retention-days: 30
+    uses: ./.github/workflows/telemetry-gateway.yml
   draft:
-    needs: [validate, cli, image, notifier, notifier-tests, agent-tests]
+    needs: [validate, cli, image, gateway]
     runs-on: ubuntu-24.04
     permissions:
       contents: write
       packages: write
+    env:
+      VERSION: ${{ needs.validate.outputs.version }}
+      IMAGE_DIGEST: ${{ needs.image.outputs.digest }}
+      GATEWAY_IMAGE_ID: ${{ needs.gateway.outputs.image_id }}
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
-      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
         with:
-          name: release-cli
-          path: release-assets
+          name: cli-go-windows-x64-test
+          path: windows
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
         with:
           name: offline-image-${{ github.run_id }}
           path: release-assets
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
         with:
-          name: release-notifier
-          path: release-assets
+          name: ${{ needs.gateway.outputs.artifact }}
+          path: gateway
+      - name: Verify and assemble attachments
+        run: python scripts/releasing/go-suite-assets.py prepare release-assets windows gateway
       - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f
       - uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-      - name: Verify assets and prepare release metadata
+          password: ${{ github.token }}
+      - name: Tag tested access image and create release draft
         env:
-          VERSION: ${{ needs.validate.outputs.version }}
-          CLI_VERSION: ${{ needs.validate.outputs.cli_version }}
-          IMAGE_DIGEST: ${{ needs.image.outputs.digest }}
-        run: python scripts/releasing/prepare-assets.py
-      - name: Tag exact tested image and upload draft
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          VERSION: ${{ needs.validate.outputs.version }}
-          DIGEST: ${{ needs.image.outputs.digest }}
+          GH_TOKEN: ${{ github.token }}
           OWNER: ${{ github.repository_owner }}
         run: |
           image="ghcr.io/${OWNER,,}/cli-access"
@@ -212,35 +94,37 @@ jobs:
             exit 1
           fi
           if docker buildx imagetools inspect "$image:$VERSION" >/dev/null 2>&1; then
-            echo 'Image version already exists; refusing to overwrite.' >&2
+            echo 'Versioned image already exists; refusing to overwrite.' >&2
             exit 1
           fi
-          docker buildx imagetools create --tag "$image:$VERSION" "$image@$DIGEST"
           gh release create "v$VERSION" --target "$GITHUB_SHA" --draft \
-            --title "v$VERSION — CLI、权限管理系统、Agent 与权限通知助手" \
-            --notes-file "docs/RELEASE_NOTES_${VERSION}.md" release-assets/*
-          echo 'Draft ready. Verify assets and publish after review.' >> "$GITHUB_STEP_SUMMARY"
+            --title "v$VERSION — Go CLI、权限管理系统与 DSH 遥测网关" \
+            --notes-file "docs/RELEASE_NOTES_$VERSION.md" release-assets/*
+          docker buildx imagetools create --tag "$image:$VERSION" "$image@$IMAGE_DIGEST"
   verify-draft:
-    needs: [validate, image, draft]
+    needs: [validate, image, gateway, draft]
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     permissions:
-      # GitHub requires push access to read unpublished release drafts.
       contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      VERSION: ${{ needs.validate.outputs.version }}
+      IMAGE_DIGEST: ${{ needs.image.outputs.digest }}
+      GATEWAY_IMAGE_ID: ${{ needs.gateway.outputs.image_id }}
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
-      - name: Download draft into a clean runner and verify exact attachments
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          VERSION: ${{ needs.validate.outputs.version }}
-          IMAGE_DIGEST: ${{ needs.image.outputs.digest }}
+      - name: Download draft and independently recheck it
         run: |
-          api_url=$(gh release view "v$VERSION" --json apiUrl --jq .apiUrl)
-          gh api "$api_url" > "$RUNNER_TEMP/draft.json"
+          gh api "$(gh release view "v$VERSION" --json apiUrl --jq .apiUrl)" > "$RUNNER_TEMP/draft.json"
           gh release download "v$VERSION" --dir verified-assets
-          python scripts/releasing/verify-assets.py verified-assets "$RUNNER_TEMP/draft.json"
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends msitools
+          python scripts/releasing/go-suite-assets.py verify verified-assets "$RUNNER_TEMP/draft.json" --check-msi
           docker load -i "verified-assets/cli-access-$VERSION-linux-amd64.tar.gz"
-          expected=$(python -c 'import json; print(json.load(open("verified-assets/manifest.json"))["image_id"])')
-          test "$(docker image inspect --format '{{.Id}}' "cli-access:$VERSION")" = "$expected"
+          docker load -i "verified-assets/wiserec-telemetry-gateway-$VERSION-linux-amd64.tar.gz"
+          access_image_id=$(jq -er .image_id verified-assets/manifest.json)
+          test "$(docker image inspect --format '{{.Id}}' "cli-access:$VERSION")" = "$access_image_id"
+          test "$(docker image inspect --format '{{.Id}}' "wiserec-telemetry-gateway:$VERSION")" = "$GATEWAY_IMAGE_ID"
           test "$(docker run --rm --pull=never --network none "cli-access:$VERSION" python -c 'import os; print(os.getuid())')" = 10001
-          echo 'All 16 draft assets downloaded and verified; Docker archive loaded with matching image ID. Draft remains unpublished.' >> "$GITHUB_STEP_SUMMARY"
+          echo 'All assets downloaded and verified. Draft remains unpublished.' >> "$GITHUB_STEP_SUMMARY"

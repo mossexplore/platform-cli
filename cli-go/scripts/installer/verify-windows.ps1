@@ -3,7 +3,8 @@ param(
     [Parameter(Mandatory = $true)][string] $Packages,
     [Parameter(Mandatory = $true)][string] $ReplacementPackages,
     [Parameter(Mandatory = $true)][string] $UpgradePackages,
-    [Parameter(Mandatory = $true)][string] $Work
+    [Parameter(Mandatory = $true)][string] $Work,
+    [string] $PreviousPackages
 )
 
 $ErrorActionPreference = 'Stop'
@@ -457,6 +458,19 @@ try {
     Assert-Installed $portable
     Invoke-Msi '/x' $baseline 'uninstall-default-opencode' | Out-Null
     $installedMsi = $null
+    if ($PreviousPackages) {
+        $previous = Get-Package $PreviousPackages 'msi'
+        if ((Get-MsiValues $previous $versionQuery) -ne '1.1.0') { throw 'Wrong Go upgrade baseline' }
+        Invoke-Msi '/i' $previous 'install-previous-go' | Out-Null
+        $installedMsi = $previous
+        if ((& $installedExe --version) -ne 'ml 1.1.0') { throw 'Wrong installed Go baseline' }
+        Invoke-Msi '/i' $baseline 'upgrade-from-previous-go' | Out-Null
+        $installedMsi = $baseline
+        Assert-Installed $portable
+        if ((Get-FileHash $goConfig).Hash -ne $configDigest) { throw 'Go upgrade replaced the user configuration' }
+        Invoke-Msi '/x' $baseline 'uninstall-upgraded-go' | Out-Null
+        $installedMsi = $null
+    }
 } finally {
     $env:ML_HISTORY = $saveHistory
     if ($installedMsi) { Invoke-Msi '/x' $installedMsi 'cleanup' | Out-Null }

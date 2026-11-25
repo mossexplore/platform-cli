@@ -2,7 +2,7 @@
 
 当前源码版本为 `1.1.1`，要求数据库结构 15。结构 15 为版本策略增加可空的环境列表字段，保留已有的全部环境策略、单环境策略和临时例外。升级前先在独立库演练恢复，停写后完成数据库和配置备份，再使用目标服务运行 `python -m app.manage migrate` 并验收。旧服务要求原数据库结构，回滚需恢复停写后的备份。版本由根目录 `versions.toml` 的 `components.access` 维护，使用同步脚本生成 `VERSION` 和 `app/_version.py`，详见 [版本号管理说明](../docs/版本号管理说明.md)。
 
-结构 14 将完整命令审计字段扩为 MySQL `LONGTEXT`，详见 [结构 13 升至 14 指南](../docs/权限管理系统结构13升级至14指南.md)。结构 13 的正式附件见 [v1.0.9.1 Release](https://github.com/mossexplore/platform-cli/releases/tag/v1.0.9.1)，从结构 12 升级至该版见 [历史升级指南](../docs/权限管理系统结构12升级至1.0.9.1指南.md)。保留原配置、管理员和外部数据库；独立本地助手单独下载，不进入 CLI 安装包。
+在 [v1.1.1 Release](https://github.com/mossexplore/platform-cli/releases/tag/v1.1.1) 下载 Linux amd64 权限系统镜像。当前运行 1.0.9.1 的部署参阅 [结构 13 升至 15 指南](../docs/权限管理系统结构13升级至1.1.1指南.md)。结构 13 镜像仍可从 [v1.0.9.1 Release](https://github.com/mossexplore/platform-cli/releases/tag/v1.0.9.1) 下载，从结构 12 升级至该版见 [历史升级指南](../docs/权限管理系统结构12升级至1.0.9.1指南.md)。
 
 当前源码支持在环境“禁止命令”中填写父命令：例如 `ml jupyter` 会禁止其下全部现有和未来子命令。按命令层级匹配，不使用通配符，不影响名称相近的其他分组；此匹配扩展不改变数据库结构。
 

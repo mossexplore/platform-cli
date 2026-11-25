@@ -3,6 +3,7 @@
 cli = "1.0.9.6"
 cli_go = "1.1.1"
 dsh_plugin = "0.0.1"
+telemetry_gateway = "1.1.1"
 access = "1.1.1"
 agent = "1.0.9.1"
 notifier = "1.0.9.1"

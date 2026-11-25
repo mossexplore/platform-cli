@@ -146,3 +146,72 @@ def test_download_verifier_rejects_wrong_image_even_with_valid_file_hashes(tmp_p
     monkeypatch.chdir(tmp_path)
     with pytest.raises(AssertionError):
         verify(directory, downloaded_release(directory), VERSION, SHA, 'sha256:' + 'c' * 64)
+
+
+def test_go_suite_checks_artifact_inventory_and_image_identity(tmp_path, monkeypatch):
+    import struct
+
+    revision = 'a' * 40
+    version = '1.1.1'
+    digest = 'sha256:' + 'b' * 64
+    module = runpy.run_path(str(ROOT / 'scripts/releasing/go-suite-assets.py'))
+    monkeypatch.chdir(ROOT)
+    monkeypatch.setenv('GITHUB_REPOSITORY', 'mossexplore/platform-cli')
+    access, windows, gateway = (tmp_path / name for name in ('access', 'windows', 'gateway'))
+    for directory in (access, windows, gateway):
+        directory.mkdir()
+
+    def save_image(directory, stem):
+        config = json.dumps({'os': 'linux', 'architecture': 'amd64', 'config': {'Labels': {
+            'org.opencontainers.image.version': version, 'org.opencontainers.image.revision': revision}}}).encode()
+        image_hash = hashlib.sha256(config).hexdigest()
+        config_name = 'blobs/sha256/' + image_hash
+        image_file = f'{stem}-{version}-linux-amd64.tar.gz'
+        archive_manifest = [{'Config': config_name, 'RepoTags': [f'{stem}:{version}'], 'Layers': []}]
+        with tarfile.open(directory / image_file, 'w:gz') as archive:
+            for name, content in ((config_name, config), ('manifest.json', json.dumps(archive_manifest).encode())):
+                entry = tarfile.TarInfo(name)
+                entry.size = len(content)
+                archive.addfile(entry, io.BytesIO(content))
+        return image_file, 'sha256:' + image_hash
+
+    access_file, access_id = save_image(access, 'cli-access')
+    _, gateway_id = save_image(gateway, 'wiserec-telemetry-gateway')
+    metadata = {
+        'image_version': version, 'image_revision': revision, 'documents_source_revision': revision,
+        'image_reference': 'ghcr.io/mossexplore/cli-access@' + digest, 'image_tag': 'cli-access:' + version,
+        'image_file': access_file, 'image_id': access_id, 'platform': 'linux/amd64',
+    }
+    (access / 'manifest.json').write_text(json.dumps(metadata))
+    readme = (ROOT / 'docs/权限管理系统Docker离线导入与运行.md').read_text()
+    for key, value in metadata.items():
+        readme = readme.replace('{{' + key + '}}', value)
+    (access / 'README.md').write_text(readme)
+    for name in ('service.env.example', 'Docker-runbook.md', f'Docker-upgrade-{version}.md'):
+        (access / name).touch()
+    for directory in (access, gateway):
+        (directory / 'SHA256SUMS').write_text(''.join(
+            f'{module["sha256"](path)}  {path.name}\n' for path in sorted(directory.iterdir())))
+
+    package = windows / f'wiserec-cli-{version}-windows-x64'
+    (windows / (package.name + '.msi')).write_bytes(bytes.fromhex('d0cf11e0a1b11ae1'))
+    with ZipFile(windows / (package.name + '.zip'), 'w') as archive:
+        exe = bytearray(64)
+        exe[:2] = b'MZ'
+        struct.pack_into('<I', exe, 60, 64)
+        archive.writestr('ml.exe', exe + b'PE\x00\x00\x64\x86')
+        archive.writestr('README.md', 'fixture')
+        archive.writestr('LICENSE', 'fixture')
+        archive.writestr('release.json', json.dumps({
+            'component': 'cli_go', 'version': version, 'platform': 'windows', 'architecture': 'amd64'}))
+    module['prepare'](access, windows, gateway, version, revision, digest, gateway_id)
+    draft = {
+        'draft': True, 'prerelease': False, 'tag_name': 'v' + version, 'target_commitish': revision,
+        'name': f'v{version} — Go CLI、权限管理系统与 DSH 遥测网关',
+        'body': (ROOT / f'docs/RELEASE_NOTES_{version}.md').read_text(),
+        'assets': [{'name': p.name, 'size': p.stat().st_size,
+                    'digest': 'sha256:' + module['sha256'](p)} for p in access.iterdir()],
+    }
+    module['verify'](access, version, revision, digest, gateway_id, draft)
+    with pytest.raises(AssertionError):
+        module['verify'](access, version, revision, digest, 'sha256:' + 'c' * 64, draft)

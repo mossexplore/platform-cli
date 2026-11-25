@@ -4,21 +4,21 @@
 
 ## 下载与导入
 
-在 [GitHub Actions 的 DSH Windows plugin 工作流](https://github.com/mossexplore/platform-cli/actions/workflows/dsh-plugin-windows.yml) 中打开 `main` 的成功构建，下载 `wiserec-telemetry-gateway-0.1.1-linux-amd64`。解压外层 ZIP，将其中的 `.tar.gz` 和 `SHA256SUMS` 复制到 Linux x86_64 主机的同一目录。
+在 [GitHub Release v1.1.1](https://github.com/mossexplore/platform-cli/releases/tag/v1.1.1) 下载 `wiserec-telemetry-gateway-1.1.1-linux-amd64.tar.gz`、`SHA256SUMS` 和 `gateway.env.example`，复制到 Linux x86_64 主机的同一目录。
 
 ```sh
-sha256sum -c SHA256SUMS && \
-  docker load -i wiserec-telemetry-gateway-0.1.1-linux-amd64.tar.gz
+sha256sum --ignore-missing -c SHA256SUMS && \
+  docker load -i wiserec-telemetry-gateway-1.1.1-linux-amd64.tar.gz
 ```
 
-校验通过后导入。导入完成后使用镜像标签 `wiserec-telemetry-gateway:0.1.1`。构建产物保留 30 天。
+校验通过后导入。镜像标签为 `wiserec-telemetry-gateway:1.1.1`。
 
 ## 构建与部署
 
 也可从仓库根目录构建 Linux amd64 镜像。
 
 ```sh
-docker build --platform linux/amd64 -t wiserec-telemetry-gateway:0.1.1 telemetry-gateway
+docker build --platform linux/amd64 -t wiserec-telemetry-gateway:1.1.1 telemetry-gateway
 ```
 
 以 [gateway.env.example](gateway.env.example) 创建服务器上的 `gateway.env`，设置 Langfuse v4 的地址和项目密钥。内部 Docker 地址示例为 `http://langfuse-web:3000`。将 `WISEREC_LANGFUSE_NETWORK` 设置为 Langfuse 容器使用的 Docker 网络名。
@@ -30,7 +30,7 @@ docker run -d --name wiserec-telemetry-gateway \
   -p 127.0.0.1:8088:8088 --read-only --cap-drop ALL \
   --security-opt no-new-privileges:true \
   --log-driver json-file --log-opt max-size=10m --log-opt max-file=3 \
-  wiserec-telemetry-gateway:0.1.1
+  wiserec-telemetry-gateway:1.1.1
 ```
 
 使用企业内网 HTTPS 入口转发 `/v1/traces`。将 `GATEWAY_ALLOWED_CIDRS` 配置为网关直接看到的客户端或反向代理网段。限流按直接连接的 IP 计数。使用反向代理时，在代理层同步限制客户端来源和请求速率。配置 `GATEWAY_INGEST_TOKEN` 时，完整包构建使用同一个写入 Token。Langfuse 密钥只配置在服务器。

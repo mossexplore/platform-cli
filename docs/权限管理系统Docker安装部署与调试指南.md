@@ -1,8 +1,8 @@
 # 权限管理系统 Docker 部署速查
 
-> 本指南对应 1.0.9.1 更新包，数据库结构为 **13**，下载以正式 Release 状态为准。已有结构 12 的部署必须先完成恢复演练、停写和最终备份，再按 [结构 12 升级指南](https://github.com/mossexplore/platform-cli/releases/download/v1.0.9.1/Docker-upgrade-1.0.9.1.md)执行迁移、切换和验收。升级保留真实配置和已有管理员，不执行新库初始化或 create-admin。
+> 本指南对应 1.1.1 更新包，数据库结构为 **15**，下载以正式 Release 状态为准。已有结构 13 的部署必须先完成恢复演练、停写和最终备份，再按 [结构 13 升级指南](https://github.com/mossexplore/platform-cli/releases/download/v1.1.1/Docker-upgrade-1.1.1.md)执行迁移、切换和验收。升级保留真实配置和已有管理员，不执行新库初始化或 create-admin。
 
-适用：Linux x86_64、已有 MySQL，通过离线镜像部署。以下使用 `1.0.9.1` 镜像；升级时替换为新附件中的镜像文件名和标签。
+适用：Linux x86_64、已有 MySQL，通过离线镜像部署。以下使用 `1.1.1` 镜像；升级时替换为新附件中的镜像文件名和标签。
 
 ## 1. 检查 Docker
 
@@ -28,7 +28,7 @@ sudo systemctl enable --now docker
 
 ```bash
 sha256sum --ignore-missing -c SHA256SUMS
-docker load -i cli-access-1.0.9.1-linux-amd64.tar.gz
+docker load -i cli-access-1.1.1-linux-amd64.tar.gz
 ```
 
 SHA256SUMS 包含全部发布附件。只下载 Docker 文件时使用 `sha256sum --ignore-missing -c SHA256SUMS`，已下载文件应显示 OK。Release 附件不采用 Actions 的 30 天保留期。
@@ -59,16 +59,16 @@ FORWARDED_ALLOW_IPS=
 - 密码含 `@`、`:`、`/`、`%` 等特殊字符时，需要 URL 百分号编码。
 - 不把真实配置上传 GitHub；文件挂载不等于加密，Docker 管理员仍可读取。
 
-本版要求数据库结构版本 13。新库可按下面初始化；已有结构 12 的数据库必须转到升级指南，不能直接复制新库初始化步骤。更早结构应先核对历史迁移路径，不重新创建管理员。
+本版要求数据库结构版本 15。新库可按下面初始化；已有结构 13 的数据库必须转到升级指南，不能直接复制新库初始化步骤。更早结构应先核对历史迁移路径，不重新创建管理员。
 
 只有新数据库才执行：
 
 ```bash
 docker run --rm -v /opt/cli-access-config:/run/cli-access:ro \
-  cli-access:1.0.9.1 python -m app.manage migrate
+  cli-access:1.1.1 python -m app.manage migrate
 
 docker run --rm -it -v /opt/cli-access-config:/run/cli-access:ro \
-  cli-access:1.0.9.1 python -m app.manage create-admin
+  cli-access:1.1.1 python -m app.manage create-admin
 ```
 
 管理员密码按提示输入，至少 12 个字符。旧数据库需要升级结构时，先备份再迁移。
@@ -90,7 +90,7 @@ docker run -d \
   --log-driver local \
   --log-opt max-size=10m \
   --log-opt max-file=5 \
-  cli-access:1.0.9.1
+  cli-access:1.1.1
 ```
 
 服务自动读取挂载配置，镜像名后面不用追加命令。这里不使用旧 Docker 不支持的 `--pull` 和缺少 docker-init 时无法使用的 `--init`。
@@ -157,7 +157,7 @@ sudo chmod 640 /opt/cli-access-config/service.env
 
 ## 7. 历史升级：从 1.0.0 到 1.0.3
 
-该历史升级将数据库结构从 7 升至 8，使用 v1.0.3 镜像和当时的部署参数。完整步骤见保留的 [1.0.0 → 1.0.3 指南](https://github.com/mossexplore/platform-cli/blob/v1.0.9.1/docs/权限管理系统1.0.0升级至1.0.3指南.md)；不要把本页 1.0.9.1 的镜像命令混入旧版升级步骤。若当前仍为结构 7，先核对真实部署状态并制定连续升级与备份方案。
+该历史升级将数据库结构从 7 升至 8，使用 v1.0.3 镜像和当时的部署参数。完整步骤见保留的 [1.0.0 → 1.0.3 指南](https://github.com/mossexplore/platform-cli/blob/v1.0.9.1/docs/权限管理系统1.0.0升级至1.0.3指南.md)；不要把本页 1.1.1 的镜像命令混入旧版升级步骤。若当前仍为结构 7，先核对真实部署状态并制定连续升级与备份方案。
 
 ## 8. 从 1.0.3 升级到 1.0.3.1
 
@@ -172,6 +172,6 @@ sudo chmod 640 /opt/cli-access-config/service.env
 两版数据库结构均为 10，迁移代码未变化；已有结构 10 且数据正常时不运行迁移或重新创建管理员。先在独立库演练备份恢复；维护窗口停止旧应用和写入后完成最终备份，再替换为 1.0.3.7 镜像。核对健康、授权、日志、版本策略和有数据的数据看板后放行。完整分步操作和回滚条件见 [1.0.3.2 → 1.0.3.7 升级指南](https://github.com/mossexplore/platform-cli/blob/v1.0.9.1/docs/权限管理系统1.0.3.2升级至1.0.3.7指南.md)，正式附件为 `Docker-upgrade-1.0.3.7.md`。
 
 
-## 11. 从结构 12 升级到 1.0.9.1
+## 11. 从结构 13 升级到 1.1.1
 
-本次要求从结构 12 显式迁移到 13，不能只替换镜像。先完成独立库恢复演练，维护窗口停写并完成最终数据库及配置备份，之后才单进程迁移、核对旧数据、切换和验收。没有降级迁移，旧镜像不能直接连接结构 13；回滚须恢复最终备份，会丢失备份后的新增数据。详见 [升级指南](https://github.com/mossexplore/platform-cli/releases/download/v1.0.9.1/Docker-upgrade-1.0.9.1.md)，包内对应 `Docker-upgrade-1.0.9.1.md`。
+本次要求从结构 13 显式迁移到 15，不能只替换镜像。先完成独立库恢复演练，维护窗口停写并完成最终数据库及配置备份，之后才单进程迁移、核对旧数据、切换和验收。没有降级迁移，旧镜像不能直接连接结构 15；回滚须恢复最终备份，会丢失备份后的新增数据。详见 [升级指南](https://github.com/mossexplore/platform-cli/releases/download/v1.1.1/Docker-upgrade-1.1.1.md)，包内对应 `Docker-upgrade-1.1.1.md`。

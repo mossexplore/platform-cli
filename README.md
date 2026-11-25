@@ -108,7 +108,8 @@ ml access status
 
 `access-service` 提供离线容器镜像与标准化 Docker 部署方案，默认搭配外部 **MySQL** 运行。当前源码要求数据库结构版本为 **Schema 15**。
 
-- **首次部署**：下载 Release 中的 `cli-access-<version>-linux-amd64.tar.gz`，按 [权限管理系统 Docker 安装部署与调试指南](docs/权限管理系统Docker安装部署与调试指南.md) 完成建库、初始化与启动。
+- **1.1.1 下载**：从 [v1.1.1 Release](https://github.com/mossexplore/platform-cli/releases/tag/v1.1.1) 获取 Go CLI 的 Windows x64 MSI 和 ZIP、权限系统和 DSH 遥测网关的 Linux amd64 镜像。历史附件可在对应 Release 下载。
+- **首次部署**：下载权限系统镜像后，按 [权限管理系统 Docker 安装部署与调试指南](docs/权限管理系统Docker安装部署与调试指南.md) 完成建库、初始化与启动。
 - **已有环境升级**：根据目标产物选择适用的迁移要求，先停写备份并显式迁移，再切换服务。详见 [权限服务源码及数据库结构说明](access-service/README.md)。
 - **运维与发布**：参见 [Linux 部署与运维手册](docs/权限管理系统Linux部署与运维手册.md) 与 [Docker 部署与发布指南](docs/权限管理系统Docker部署与发布指南.md)。
 
@@ -123,7 +124,7 @@ ml access status
   - [CLI 演示环境使用指南](docs/CLI演示环境使用指南.md)
 - **版本与发布说明**
   - [版本号管理说明](docs/版本号管理说明.md)
-  - 近期变更：[1.0.9.6](docs/RELEASE_NOTES_1.0.9.6.md) · [1.0.9.5](docs/RELEASE_NOTES_1.0.9.5.md) · [1.0.9.2](docs/RELEASE_NOTES_1.0.9.2.md)
+  - 近期变更：[1.1.1](docs/RELEASE_NOTES_1.1.1.md) · [1.0.9.6](docs/RELEASE_NOTES_1.0.9.6.md) · [1.0.9.5](docs/RELEASE_NOTES_1.0.9.5.md)
 
 ---
 

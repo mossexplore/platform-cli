@@ -17,7 +17,6 @@ import (
 	"github.com/mossexplore/platform-cli/telemetry-gateway/internal/server"
 )
 
-const version = "0.1.1"
 const logDirectory = "/var/log/wiserec-telemetry-gateway"
 
 func main() {
