@@ -60,12 +60,15 @@ def test_environment_list_opens_the_matching_read_only_command_details(system):
     page = client.get('/cli-permission/admin?tab=environments')
     assert page.status_code == 200
     table = re.search(r'<table class="environment-table">(.*?)</table>', page.text, re.S)[1]
-    assert len(re.findall(r'<th(?:\s[^>]+)?>', table)) == 9
+    assert len(re.findall(r'<th(?:\s[^>]+)?>', table)) == 10
+    assert '<th>默认开通</th><th>禁止命令数</th><th>状态</th>' in table
     assert '<th>禁止命令</th>' not in table
     assert commands[0] not in table
     assert '左右滚动表格可查看全部字段和操作' not in page.text
-    for env_id, label in ((prod_id, '生产（prod）'), (staging_id, '预发（staging）')):
-        assert f'data-open="environment-details-{env_id}" aria-haspopup="dialog" aria-label="查看 {label}的禁止命令"' in table
+    for env_id, label, count in ((prod_id, '生产（prod）', 500), (staging_id, '预发（staging）', 0)):
+        trigger = f'data-open="environment-details-{env_id}" aria-haspopup="dialog" aria-label="查看 {label}的禁止命令"'
+        row = next(row for row in re.findall(r'<tr>(.*?)</tr>', table, re.S) if trigger in row)
+        assert f'<td class="environment-command-count">{count}</td>' in row
     prod_detail = re.search(rf'id="environment-details-{prod_id}"(.*?)</dialog>', page.text, re.S)[1]
     assert '共 500 条' in prod_detail
     assert re.findall(r'<li><code>(.*?)</code></li>', prod_detail) == commands
@@ -73,7 +76,7 @@ def test_environment_list_opens_the_matching_read_only_command_details(system):
     assert '此环境暂无禁止命令。' in staging_detail
     assert 'environment-command-list' not in staging_detail
     empty_table = client.get('/cli-permission/admin', params={'tab': 'environments', 'q': 'no-match'})
-    assert '<td colspan="9">' in empty_table.text
+    assert '<td colspan="10">' in empty_table.text
 
 
 @pytest.mark.parametrize('commands', [['ml env use'], ['ml'], ['ml jupyter files upload --force']])

@@ -164,11 +164,13 @@
 .environment-table td.origin { white-space: normal; overflow-wrap: anywhere; word-break: normal; }
 .environment-table th:nth-child(4), .environment-table td:nth-child(4) { width: 72px; min-width: 72px; max-width: 72px; padding-left: 8px; padding-right: 8px; }
 .environment-table th:nth-child(4) { white-space: normal; }
-.environment-table th:nth-child(5) { width: 80px; }
-.environment-table th:nth-child(6), .environment-table th:nth-child(7) { width: 176px; min-width: 176px; }
-.environment-table td:nth-child(6), .environment-table td:nth-child(7) { white-space: nowrap; }
-.environment-table th:nth-child(8) { width: 84px; }
-.environment-table td:nth-child(8) { max-width: 84px; }
+.environment-table th:nth-child(5) { width: 80px; white-space: nowrap; }
+.environment-command-count { font-variant-numeric: tabular-nums; }
+.environment-table th:nth-last-child(5) { width: 80px; }
+.environment-table th:nth-last-child(4), .environment-table th:nth-last-child(3) { width: 176px; min-width: 176px; }
+.environment-table td:nth-last-child(4), .environment-table td:nth-last-child(3) { white-space: nowrap; }
+.environment-table th:nth-last-child(2) { width: 84px; }
+.environment-table td:nth-last-child(2) { max-width: 84px; }
 .environment-name { display: flex; align-items: center; gap: 6px; }
 .environment-detail-trigger {
   display: inline-grid;
