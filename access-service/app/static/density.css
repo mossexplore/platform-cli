@@ -148,12 +148,12 @@
 .people-table th:nth-last-child(4), .people-table th:nth-last-child(3) { width: 164px; }
 .people-table th:nth-last-child(2) { width: 100px; }
 .people-table td:nth-last-child(2) { max-width: 100px; overflow-wrap: anywhere; white-space: normal; }
-.people-table .grant-pills { width: 100%; min-width: 0; overflow: hidden; flex-wrap: wrap; align-items: center; white-space: normal; }
-.people-table .grant-pills .badge { flex: 0 0 auto; max-width: 100%; white-space: normal; overflow-wrap: anywhere; text-align: left; }
-.people-table .grant-pills.is-collapsed { flex-wrap: nowrap; }
-.people-table .grant-pills.is-collapsed .badge { max-width: none; white-space: nowrap; }
-.people-table .grant-pills [hidden] { display: none; }
-.people-table .environment-toggle { flex: 0 0 auto; max-width: 100%; white-space: normal; }
+.grant-pills[data-environment-pills] { width: 100%; flex-wrap: wrap; align-items: center; white-space: normal; }
+.grant-pills[data-environment-pills] .badge { flex: 0 0 auto; max-width: 100%; white-space: normal; overflow-wrap: anywhere; text-align: left; }
+.grant-pills[data-environment-pills].is-collapsed { flex-wrap: nowrap; }
+[data-environment-pills].is-collapsed .badge { max-width: none; white-space: nowrap; }
+[data-environment-pills] [hidden] { display: none; }
+[data-environment-pills] .environment-toggle { flex: 0 0 auto; max-width: 100%; white-space: normal; }
 
 /* 环境表格：地址完整展示 */
 .management-page .table-scroll > .environment-table { table-layout: auto; min-width: 1000px; }

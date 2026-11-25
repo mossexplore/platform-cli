@@ -39,10 +39,10 @@ test('fills available width, reserves disclosure space and responds to resize', 
   assert.equal(view.visible(), 10);
   assert.equal(view.button.hidden, true);
 });
-test('oversized first label falls back to view all and remains accessible', () => {
+test('oversized first label can be expanded when no labels fit', () => {
   const view = setup([600, 30], 256);
   assert.equal(view.visible(), 0);
-  assert.equal(view.button.textContent, '查看全部（2）');
+  assert.equal(view.button.textContent, '展开全部（2）');
   view.button.click();
   assert.equal(view.visible(), 2);
   assert.equal(view.button.textContent, '收起');

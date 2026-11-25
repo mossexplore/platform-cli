@@ -104,6 +104,9 @@ def test_multi_environment_policy_preview_publish_edit_and_exceptions(system):
     assert call(client, business='other', environment='stage').json()['allowed']
     html = client.get(root, params={'environment': 'stage'}).text
     assert '生产、预发布' in html and '共 1 条' in html
+    assert f'id="policy-environments-{policy_id}" data-environment-pills' in html
+    assert f'aria-controls="policy-environments-{policy_id}" hidden>展开全部（2）' in html
+    assert '/cli-permission/static/environment-pills.js' in html
     assert html.count('"environments": ["prod", "stage"]') == 3
     assert '暂无匹配策略' in client.get(root, params={'environment': 'stage-other'}).text
 

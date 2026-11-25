@@ -36,7 +36,6 @@ function initEnvironmentPills() {
       button.textContent = '收起';
     } else {
       pills.forEach((pill, index) => { pill.hidden = index >= count; });
-      if (!count) button.textContent = `查看全部（${pills.length}）`;
     }
     button.hidden = !expanded && count === pills.length;
     button.setAttribute('aria-expanded', String(expanded));
