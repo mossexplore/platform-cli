@@ -40,12 +40,17 @@ class BundleTests(unittest.TestCase):
         with tarfile.open(fileobj=io.BytesIO(data), mode="r:gz") as archive:
             return {entry.name.removeprefix("package/"): archive.extractfile(entry).read() for entry in archive}
 
-    def test_install_docs_are_short_and_consistent_across_packages(self):
+    def test_install_docs_ship_in_the_bundle_and_keep_the_short_notice(self):
         readme_path = self.plugin / "INSTALL.md"
         readme = readme_path.read_bytes()
-        _, notice, features = readme_path.read_text(encoding="utf-8").strip().split("\n\n")
+        title, notice, features, *sections = readme_path.read_text(encoding="utf-8").strip().split("\n\n")
+        self.assertTrue(title.startswith("# "))
         self.assertIn("申请使用权限，审批通过后即可使用", notice)
         self.assertIn("平台会记录使用情况", notice)
+        guide = "\n\n".join(sections)
+        for phrase in ("多个会话各自绑定", "自动保活", "会话标题", "登录与保活状态", "ml env use", "ml auth ping status"):
+            self.assertIn(phrase, guide)
+        self.assertNotRegex(readme.decode("utf-8"), r"遥测|上报|上传|Langfuse")
         for include in (True, False):
             with self.subTest(include_telemetry=include):
                 self.write(includeTelemetry=include, telemetryEndpoint="https://telemetry.fixture.test/v1/traces")

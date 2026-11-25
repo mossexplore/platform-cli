@@ -1,7 +1,7 @@
 {
   "name": "dsh-wiserec-cli",
   "version": "0.0.1",
-  "description": "本插件需配合 WiseRec CLI 使用。请先完成 CLI 配置并申请使用权限，审批通过后即可使用。平台会记录使用情况。插件可协助保持会话登录状态，并在会话标题中显示当前环境和租户。",
+  "description": "本插件需配合 WiseRec CLI 使用。请先完成 CLI 配置并申请使用权限，审批通过后即可使用。平台会记录使用情况。插件在 DeepSeek Harness 中按会话绑定环境与业务，并在宿主运行期间自动保活、显示会话标题和登录状态。",
   "license": "MIT",
   "type": "module",
   "main": "./index.js",

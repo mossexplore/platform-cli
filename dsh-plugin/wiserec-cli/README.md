@@ -53,7 +53,7 @@ DSH 会话列表的行尾图标显示该会话所绑定的 WiseRec 环境状态�
 
 交付人员在仓库的 [config.json](config.json) 中配置打包范围。
 
-安装包使用 [INSTALL.md](INSTALL.md) 作为包内的 `README.md`，并在 `package.json` 的 `description` 中提供同样的简短介绍。
+安装包使用 [INSTALL.md](INSTALL.md) 作为包内的 `README.md`。`package.json` 的 `description` 只保留这份说明的开头两段，作为插件列表中的简短介绍。
 
 | 字段 | 用途 |
 | --- | --- |
