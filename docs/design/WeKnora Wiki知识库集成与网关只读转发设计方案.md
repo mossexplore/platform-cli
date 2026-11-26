@@ -245,7 +245,7 @@ KB_GATEWAY_RATE_LIMIT_BURST=40
 
 ### 4.4 Linux `amd64` 独立部署与 HTTPS 接入（兼容 Docker `18.09.0`）
 
-- **员工侧强制 HTTPS**：启用 KB 时，取票的 `access_control.url` 和携票访问的 `knowledge_base.url` 均要求 HTTPS 并校验证书；申请票据前检查配置。反代按员工来源限流，覆盖写入客户端 IP；网关仅对允许的反代来源采信该地址。员工电脑访问 `kb-gateway` 统一经前置 HTTPS SLB / Nginx 卸载 TLS 后反代到 `127.0.0.1:8087`。
+- **员工侧强制 HTTPS**：启用 KB 时，取票的 `access_control.url` 和携票访问的 `knowledge_base.url` 均要求 HTTPS 并校验证书；申请票据前检查配置。反代按员工来源限流，覆盖写入客户端 IP；网关仅对允许的反代来源采信该地址。员工电脑访问 `kb-gateway` 统一经前置 HTTPS SLB / Nginx 卸载 TLS 后转发到网关宿主机内网地址的 8087 端口，网络侧仅放行反代来源。
 - **容器启动与 365 天日志卷**（注意将日志目录属主设给 `distroless/static:nonroot` 实际运行 UID `65532`，确保非 root 容器可创建并追加写入当天 JSONL）：
 
 ```bash
@@ -267,7 +267,7 @@ docker run -d \
   --security-opt seccomp=unconfined \
   --env-file /opt/wiserec-kb-gateway/kb-gateway.env \
   -v /opt/wiserec-kb-gateway/logs:/var/log/kb-gateway \
-  -p 127.0.0.1:8087:8087 \
+  -p 8087:8087 \
   --log-driver json-file \
   --log-opt max-size=10m \
   --log-opt max-file=3 \

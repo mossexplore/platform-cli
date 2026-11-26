@@ -197,7 +197,7 @@ docker run -d \
   --security-opt seccomp=unconfined \
   --env-file /opt/wiserec-kb-gateway/kb-gateway.env \
   -v /opt/wiserec-kb-gateway/logs:/var/log/kb-gateway \
-  -p 127.0.0.1:8087:8087 \
+  -p 8087:8087 \
   --log-driver json-file \
   --log-opt max-size=10m \
   --log-opt max-file=3 \
@@ -206,7 +206,7 @@ docker run -d \
 
 参数要点说明：
 - `--network weknora-net`：与 WeKnora 共享内网，直连 `http://weknora-app:8080`，不向公网暴露 WeKnora 端口；
-- `-p 127.0.0.1:8087:8087`：仅监听宿主机回环口，强制经前置 HTTPS 反代对外提供服务；
+- `-p 8087:8087`：发布宿主机 8087 端口供反代连接。在安全组或支持 Docker 转发流量过滤的防火墙中，仅允许反代来源访问此端口；
 - `--security-opt seccomp=unconfined`：兼容 Linux 宿主机 Docker `18.09.0` 运行 Go 1.25 静态二进制。
 
 ### 4.4 前置 HTTPS 反向代理配置（Nginx 参考）
@@ -235,8 +235,9 @@ server {
     access_log /var/log/nginx/kb-gateway-access.log kb_gw_safe;
     error_log  /var/log/nginx/kb-gateway-error.log warn;
 
+    # 将示例地址 192.0.2.10 替换为网关宿主机的实际内网 IP（下方两处）。
     location = /health {
-        proxy_pass http://127.0.0.1:8087/health;
+        proxy_pass http://192.0.2.10:8087/health;
     }
 
     location /v1/kb/ {
@@ -245,7 +246,7 @@ server {
         }
         limit_req zone=kb_gw_ip burst=40 nodelay;
 
-        proxy_pass http://127.0.0.1:8087;
+        proxy_pass http://192.0.2.10:8087;
         proxy_http_version 1.1;
         proxy_set_header Host $host;
         # 强制覆写客户端真实 IP，防止伪造
