@@ -7,7 +7,8 @@ import uuid
 from urllib.parse import quote
 
 ACTIONS = {'ml kb list': 'kb_list', 'ml kb page list': 'kb_page_list',
-           'ml kb search': 'kb_search', 'ml kb page show': 'kb_page_show'}
+           'ml kb search': 'kb_search', 'ml kb page show': 'kb_page_show',
+           'ml kb file list': 'kb_file_list', 'ml kb file download': 'kb_file_download'}
 
 
 def audit_command(value):

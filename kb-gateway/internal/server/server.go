@@ -33,7 +33,8 @@ func New(c *weknora.Client, keys map[string]string, nets []netip.Prefix, dir str
 
 var auditZone = time.FixedZone("UTC+8", 28800)
 
-var routes = map[string]string{"/v1/kb/list": "kb_list", "/v1/kb/pages": "kb_page_list", "/v1/kb/page": "kb_page_show", "/v1/kb/search": "kb_search"}
+var routes = map[string]string{"/v1/kb/list": "kb_list", "/v1/kb/pages": "kb_page_list", "/v1/kb/page": "kb_page_show", "/v1/kb/search": "kb_search",
+	"/v1/kb/files": "kb_file_list", "/v1/kb/file": "kb_file_download"}
 var sensitive = regexp.MustCompile("(?i)cookie|csrf|authorization|token|password|secret|api[-_ ]?key|密钥|密码")
 
 func redact(s string) string {
@@ -46,6 +47,21 @@ func redact(s string) string {
 func reply(w http.ResponseWriter, status int, v any) {
 	w.WriteHeader(status)
 	json.NewEncoder(w).Encode(v)
+}
+
+func resultStatus(data map[string]any, err error) (int, map[string]any) {
+	if err == nil {
+		return http.StatusOK, data
+	}
+	var failure weknora.Failure
+	if !errors.As(err, &failure) {
+		failure = weknora.Failure{Status: 502, Code: "UPSTREAM_FAILURE"}
+	}
+	if data == nil {
+		data = map[string]any{}
+	}
+	data["code"] = failure.Code
+	return failure.Status, data
 }
 func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
@@ -102,19 +118,12 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	q := r.URL.Query()
-	data, e := s.Client.Read(r.Context(), action, id.Env, id.User, q)
-	status := 200
-	if e != nil {
-		var f weknora.Failure
-		if !errors.As(e, &f) {
-			f = weknora.Failure{Status: 502, Code: "UPSTREAM_FAILURE"}
-		}
-		status = f.Status
-		if data == nil {
-			data = map[string]any{}
-		}
-		data["code"] = f.Code
+	if action == "kb_file_download" {
+		s.download(w, r, id, ip, start)
+		return
 	}
+	data, e := s.Client.Read(r.Context(), action, id.Env, id.User, q)
+	status, data := resultStatus(data, e)
 	hits := 0
 	if rows, ok := data["items"].([]map[string]any); ok {
 		hits = len(rows)

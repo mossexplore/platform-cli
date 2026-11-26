@@ -1,6 +1,6 @@
 # CLI 权限管理服务
 
-当前源码版本为 `1.1.2`，要求数据库结构 15。结构 15 为版本策略增加可空的环境列表字段，保留已有的全部环境策略、单环境策略和临时例外。从已运行结构 15 的 1.1.1 升级至 1.1.2 无需结构迁移。下述迁移说明适用于结构 15 之前的版本。升级前先在独立库演练恢复，停写后完成数据库和配置备份，再使用目标服务运行 `python -m app.manage migrate` 并验收。旧服务要求原数据库结构，回滚需恢复停写后的备份。版本由根目录 `versions.toml` 的 `components.access` 维护，使用同步脚本生成 `VERSION` 和 `app/_version.py`，详见 [版本号管理说明](../docs/maintenance/版本号管理说明.md)。
+当前源码版本为 `1.1.3`，要求数据库结构 15。从结构 15 的 1.1.2 升级无需结构迁移。文件列表与下载使用独立的知识库动作票据，由网关按环境、账号和知识库校验授权。结构 15 为版本策略增加可空的环境列表字段，保留已有的全部环境策略、单环境策略和临时例外。从已运行结构 15 的 1.1.1 升级至 1.1.2 无需结构迁移。下述迁移说明适用于结构 15 之前的版本。升级前先在独立库演练恢复，停写后完成数据库和配置备份，再使用目标服务运行 `python -m app.manage migrate` 并验收。旧服务要求原数据库结构，回滚需恢复停写后的备份。版本由根目录 `versions.toml` 的 `components.access` 维护，使用同步脚本生成 `VERSION` 和 `app/_version.py`，详见 [版本号管理说明](../docs/maintenance/版本号管理说明.md)。
 
 在 [v1.1.1 Release](https://github.com/mossexplore/platform-cli/releases/tag/v1.1.1) 下载 Linux amd64 权限系统镜像。当前运行 1.0.9.1 的部署参阅 [结构 13 升至 15 指南](../docs/upgrades/权限管理系统结构13升级至1.1.1指南.md)。结构 13 镜像仍可从 [v1.0.9.1 Release](https://github.com/mossexplore/platform-cli/releases/tag/v1.0.9.1) 下载，从结构 12 升级至该版见 [历史升级指南](../docs/upgrades/权限管理系统结构12升级至1.0.9.1指南.md)。
 

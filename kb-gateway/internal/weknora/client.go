@@ -16,11 +16,13 @@ import (
 )
 
 type Client struct {
-	Base, Key  string
-	Visibility Visibility
-	HTTP       *http.Client
-	MaxBytes   int64
-	Preview    int
+	Base, Key              string
+	Visibility             Visibility
+	HTTP                   *http.Client
+	MaxBytes               int64
+	Preview                int
+	FileList, FileDownload FileGrants
+	MaxFileBytes           int64
 }
 type Failure struct {
 	Status int
@@ -50,24 +52,33 @@ type library struct {
 	} `json:"indexing_strategy"`
 }
 
-func (c *Client) get(ctx context.Context, path string, q url.Values, out any) error {
+func (c *Client) open(ctx context.Context, path string, q url.Values) (*http.Response, error) {
 	req, e := http.NewRequestWithContext(ctx, "GET", c.Base+"/api/v1/"+path, nil)
 	if e != nil {
-		return upstream
+		return nil, upstream
 	}
 	req.URL.RawQuery = q.Encode()
 	req.Header.Set("X-API-Key", c.Key)
 	resp, e := c.HTTP.Do(req)
 	if e != nil {
-		return upstream
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode == 404 {
-		return Failure{404, "NOT_FOUND"}
+		return nil, upstream
 	}
 	if resp.StatusCode != 200 {
-		return upstream
+		resp.Body.Close()
+		if resp.StatusCode == 404 {
+			return nil, Failure{404, "NOT_FOUND"}
+		}
+		return nil, upstream
 	}
+	return resp, nil
+}
+
+func (c *Client) get(ctx context.Context, path string, q url.Values, out any) error {
+	resp, e := c.open(ctx, path, q)
+	if e != nil {
+		return e
+	}
+	defer resp.Body.Close()
 	data, e := io.ReadAll(io.LimitReader(resp.Body, c.MaxBytes+1))
 	if e != nil {
 		return upstream
@@ -116,7 +127,7 @@ func slugPath(raw string) (string, error) {
 func summary(p page) obj {
 	return obj{"slug": p.Slug, "title": p.Title, "summary": p.Summary, "updated_at": stamp(p.Updated)}
 }
-func (c *Client) Read(ctx context.Context, action, env, user string, q url.Values) (obj, error) {
+func (c *Client) libraries(ctx context.Context) ([]library, error) {
 	var list struct{ Data *[]library }
 	if e := c.get(ctx, "knowledge-bases", nil, &list); e != nil {
 		return nil, e
@@ -124,9 +135,20 @@ func (c *Client) Read(ctx context.Context, action, env, user string, q url.Value
 	if list.Data == nil {
 		return nil, upstream
 	}
+	return *list.Data, nil
+}
+
+func (c *Client) Read(ctx context.Context, action, env, user string, q url.Values) (obj, error) {
+	if action == "kb_file_list" {
+		return c.listFiles(ctx, env, user, q)
+	}
+	libraries, err := c.libraries(ctx)
+	if err != nil {
+		return nil, err
+	}
 	items := []obj{}
 	visible := []library{}
-	for _, k := range *list.Data {
+	for _, k := range libraries {
 		if c.Visibility.allows(k.ID, env, user) && k.Strategy.Wiki {
 			visible = append(visible, k)
 			items = append(items, obj{"id": k.ID, "name": k.Name, "description": k.Description, "updated_at": stamp(k.Updated)})
@@ -135,7 +157,14 @@ func (c *Client) Read(ctx context.Context, action, env, user string, q url.Value
 	if action == "kb_list" {
 		return obj{"items": items}, nil
 	}
-	target := q.Get("kb")
+	k, data, err := matchLibrary(visible, q.Get("kb"))
+	if err != nil {
+		return data, err
+	}
+	return c.readWiki(ctx, action, k, q)
+}
+
+func matchLibrary(visible []library, target string) (library, obj, error) {
 	var matches []library
 	for _, k := range visible {
 		if target == k.ID {
@@ -147,16 +176,19 @@ func (c *Client) Read(ctx context.Context, action, env, user string, q url.Value
 		}
 	}
 	if len(matches) == 0 {
-		return nil, Failure{404, "KB_NOT_FOUND"}
+		return library{}, nil, Failure{404, "KB_NOT_FOUND"}
 	}
 	if len(matches) > 1 {
 		candidates := make([]obj, 0, len(matches))
 		for _, match := range matches {
 			candidates = append(candidates, obj{"name": match.Name, "id": match.ID})
 		}
-		return obj{"candidates": candidates}, Failure{400, "AMBIGUOUS_KB_USE_ID"}
+		return library{}, obj{"candidates": candidates}, Failure{400, "AMBIGUOUS_KB_USE_ID"}
 	}
-	k := matches[0]
+	return matches[0], nil, nil
+}
+
+func (c *Client) readWiki(ctx context.Context, action string, k library, q url.Values) (obj, error) {
 	base := "knowledgebase/" + url.PathEscape(k.ID) + "/wiki/"
 	result := obj{"kb_id": k.ID, "kb_name": k.Name}
 	switch action {

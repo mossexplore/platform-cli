@@ -40,13 +40,17 @@ def go_cli_tree(contract_path=CONTRACT):
         business.params.append(click.Argument(["tenant_id"]))
     kb = click.Group('kb')
     pages = click.Group('page')
+    files = click.Group('file')
     root.add_command(kb)
     kb.add_command(pages)
+    kb.add_command(files)
     for group, name, flags in ((kb, 'list', []), (kb, 'search', ['--kb', '--limit']),
                                (pages, 'list', ['--kb', '--page', '--page-size']),
-                               (pages, 'show', ['--kb'])):
+                               (pages, 'show', ['--kb']),
+                               (files, 'list', ['--kb', '--page', '--page-size', '--all'])):
         group.add_command(click.Command(name, params=[click.Option([flag]) for flag in flags]
                                         + [click.Option(['--output', '-o'])]))
+    files.add_command(click.Command('download', params=[click.Option(['--kb']), click.Option(['--file'])]))
     return root
 
 

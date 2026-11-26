@@ -1,6 +1,6 @@
 # `kb-gateway` 共享 Wiki 只读网关配置、部署与使用指南
 
-本文档严格依据仓库当前源码实现编写，覆盖 `kb-gateway`（`0.1.0`）、`access-service` 签票端（`1.1.2`）与 `cli-go` 客户端（`1.1.2`）的完整配置、部署、运维排障与使用方式。
+本文档严格依据仓库当前源码实现编写，覆盖 `kb-gateway`（`0.1.1`）、`access-service` 签票端（`1.1.3`）与 `cli-go` 客户端（`1.1.2`）的完整配置、部署、运维排障与使用方式。
 
 ---
 
@@ -17,9 +17,9 @@ ml kb ... (Go CLI 1.1.2+)
    │            • 服务端对 full_command 脱敏限长并写 CallLog（沿用结构 15，零迁移）
    │            • 签发 300 秒动作绑定 HMAC-SHA256 票据（含服务端 UUIDv4 ticket_id）
    │
-   └── 2. GET /v1/kb/{list|pages|search|page} (HTTPS, 仅带 X-KB-* 票据头，不带平台 Cookie)
+   └── 2. GET /v1/kb/{list|pages|search|page|files|file} (HTTPS, 仅带 X-KB-* 票据头，不带平台 Cookie)
           └─► 前置 HTTPS 反代 (Nginx / SLB，卸载 TLS 并覆写 X-Real-IP)
-                └─► kb-gateway 0.1.0 (Linux amd64, nonroot UID 65532, :8087)
+                └─► kb-gateway 0.1.1 (Linux amd64, nonroot UID 65532, :8087)
                       • 校验来源 CIDR、单 IP 限流、票据签名/有效期(±15s)、动作绑定
                       • 按正式库/灰度库白名单筛选 wiki_enabled 知识库并仅返回 published 页
                       • 写入 365 天独立 JSONL 审计卷（fail-closed）
@@ -112,6 +112,8 @@ WEKNORA_API_KEY=替换为WeKnora最小权限retrieve_API_Key
 WEKNORA_ALLOWED_KB_IDS=kb_public_01
 WEKNORA_PREVIEW_KB_IDS=
 KB_PREVIEW_USERS=
+KB_FILE_LIST_GRANTS=
+KB_FILE_DOWNLOAD_GRANTS=
 
 KB_TICKET_KEYS=kb-prod-v1:替换为与access-service一致的32字节以上随机SK
 
@@ -124,6 +126,7 @@ KB_GATEWAY_AUDIT_DIR=/var/log/kb-gateway
 KB_GATEWAY_TIMEOUT_SECONDS=10
 KB_GATEWAY_MAX_UPSTREAM_BYTES=8388608
 KB_GATEWAY_MAX_PAGE_CONTENT_BYTES=65536
+KB_GATEWAY_MAX_FILE_BYTES=67108864
 KB_GATEWAY_RATE_LIMIT_RPS=20
 KB_GATEWAY_RATE_LIMIT_BURST=40
 ```
@@ -138,8 +141,8 @@ KB_GATEWAY_RATE_LIMIT_BURST=40
 
 ```bash
 sha256sum -c SHA256SUMS
-docker load -i wiserec-kb-gateway-0.1.0-linux-amd64.tar.gz
-docker run --rm wiserec-kb-gateway:0.1.0 --version
+docker load -i wiserec-kb-gateway-0.1.1-linux-amd64.tar.gz
+docker run --rm wiserec-kb-gateway:0.1.1 --version
 ```
 
 确认输出对应版本后继续 §4.2。使用离线包时，下文的 `kb-gateway/kb-gateway.env.example` 取自解压目录中的 `kb-gateway.env.example`。需要自行从源码构建时，使用以下方式。
@@ -148,20 +151,20 @@ docker run --rm wiserec-kb-gateway:0.1.0 --version
 
 ```bash
 cd kb-gateway
-docker build --platform linux/amd64 -t wiserec-kb-gateway:0.1.0 .
+docker build --platform linux/amd64 -t wiserec-kb-gateway:0.1.1 .
 
-# 验证镜像内二进制版本（应输出 0.1.0）
-docker run --rm wiserec-kb-gateway:0.1.0 --version
+# 验证镜像内二进制版本（应输出 0.1.1）
+docker run --rm wiserec-kb-gateway:0.1.1 --version
 ```
 
 如果生产宿主机无法访问外网镜像源，可在有网构建机导出后拷贝到生产机导入：
 
 ```bash
 # 构建机导出
-docker save wiserec-kb-gateway:0.1.0 | gzip > wiserec-kb-gateway-0.1.0-linux-amd64.tar.gz
+docker save wiserec-kb-gateway:0.1.1 | gzip > wiserec-kb-gateway-0.1.1-linux-amd64.tar.gz
 
 # 生产机导入
-gunzip -c wiserec-kb-gateway-0.1.0-linux-amd64.tar.gz | docker load
+gunzip -c wiserec-kb-gateway-0.1.1-linux-amd64.tar.gz | docker load
 ```
 
 ### 4.2 准备宿主机目录与非 root 审计权限
@@ -201,7 +204,7 @@ docker run -d \
   --log-driver json-file \
   --log-opt max-size=10m \
   --log-opt max-file=3 \
-  wiserec-kb-gateway:0.1.0
+  wiserec-kb-gateway:0.1.1
 ```
 
 参数要点说明：
@@ -462,3 +465,10 @@ server {
 | CLI 报错：权限服务未返回有效知识库票据 | — | `access-service` 尚未升级至 `1.1.2+`，或未在 `service.env` 中配置 `KB_TICKET_AK`/`KB_TICKET_SK` |
 | CLI 报错：已拒绝重定向 | — | 打包配置的 `knowledge_base.url` 指向了发生 `3xx` 跳转的地址（如 HTTP 跳 HTTPS 或末尾路径重定向），请核对 URL 与 Nginx 配置 |
 | CLI 报错：知识库 HTTPS 请求失败 | — | 检查网络连通性、反代证书有效性，以及 `access_control.ca_source` / `ca_file` 是否覆盖网关证书链 |
+
+
+## 原始文件查询和下载
+
+原始文件功能需要包含本次改动的 Go CLI 1.1.2 构建、权限服务 1.1.3 和网关 0.1.1。旧的 Go CLI 1.1.2 安装包只有原有 Wiki 命令。保留既有库名单和签票配置，设置 `KB_FILE_LIST_GRANTS` 与 `KB_FILE_DOWNLOAD_GRANTS`，分别填写 `环境:账号:知识库ID`，多个授权以逗号分隔。留空时对应操作关闭。网关配置更新后按上文重建容器。角色和 Scoped Key 必须符合实际 WeKnora 部署版本的源文件访问要求；本链路复用客户端声明身份，仅用于非涉密文件。
+
+验收时查询 `ml kb file list --kb KB_ID --all -o json`，再用 `ml kb file download KNOWLEDGE_ID --kb KB_ID --file REPORT.xlsx` 保存测试原文件，核对哈希。检查仅获列表授权和跨库 ID 的下载拒绝，并核对审计记录。单文件上限由 `KB_GATEWAY_MAX_FILE_BYTES` 控制，默认 64 MiB；同时核对反代和下载超时。

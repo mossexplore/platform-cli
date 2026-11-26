@@ -95,10 +95,10 @@ func (a *API) ExportTrain(ctx context.Context, taskID, destination string) (stri
 }
 
 func SaveDownload(destination string, response *http.Response) (string, int64, error) {
-	return saveDownload(destination, response, nil)
+	return saveDownload(destination, response, nil, nil)
 }
 
-func saveDownload(destination string, response *http.Response, progress func(received, total int64)) (string, int64, error) {
+func saveDownload(destination string, response *http.Response, progress func(received, total int64), lockTarget func() (func(), error)) (string, int64, error) {
 	target, err := filepath.Abs(destination)
 	if err != nil {
 		return "", 0, fmt.Errorf("目标文件路径无效")
@@ -125,6 +125,13 @@ func saveDownload(destination string, response *http.Response, progress func(rec
 	}
 	if err != nil {
 		return "", 0, fmt.Errorf("下载文件未完整保存：%w", err)
+	}
+	if lockTarget != nil {
+		unlock, err := lockTarget()
+		if err != nil {
+			return "", 0, err
+		}
+		defer unlock()
 	}
 	extension := filepath.Ext(target)
 	stem := strings.TrimSuffix(target, extension)
@@ -226,7 +233,7 @@ func signedDownload(ctx context.Context, client *http.Client, raw, destination, 
 			if !strings.HasSuffix(strings.ToLower(destination), ".zip") {
 				destination += ".zip"
 			}
-			return saveDownload(destination, response, events.Progress)
+			return saveDownload(destination, response, events.Progress, nil)
 		default:
 			_ = response.Body.Close()
 			return "", 0, fmt.Errorf("文件下载失败，HTTP %d", response.StatusCode)

@@ -45,3 +45,21 @@ func ParseVisibility(public, preview, users string) (Visibility, error) {
 func (v Visibility) allows(id, env, user string) bool {
 	return v.public[id] || (v.preview[id] && v.users[[2]string{env, user}])
 }
+
+type FileGrants map[[3]string]bool
+
+func ParseFileGrants(raw string) (FileGrants, error) {
+	grants := make(FileGrants)
+	if strings.TrimSpace(raw) == "" {
+		return grants, nil
+	}
+	for _, entry := range strings.Split(raw, ",") {
+		fields := strings.Split(strings.TrimSpace(entry), ":")
+		if len(fields) != 3 || fields[0] == "" || fields[1] == "" || !identifier.MatchString(fields[2]) ||
+			strings.ContainsAny(fields[0]+fields[1], "*?\r\n") {
+			return nil, fmt.Errorf("文件授权项须使用 环境:账号:知识库ID")
+		}
+		grants[[3]string{fields[0], fields[1], fields[2]}] = true
+	}
+	return grants, nil
+}

@@ -9,6 +9,9 @@
 ```text
 ml                                              WiseRec 命令行工具
 ├── kb                                          查询共享 Wiki 知识库
+│   ├── file                                    查询和下载知识库原始文件
+│   │   ├── download                            下载知识库原始文件
+│   │   └── list                                列出知识库原始文件
 │   ├── list                                    列出可见知识库
 │   ├── search                                  按关键词检索已发布页面
 │   └── page                                    浏览 Wiki 页面
@@ -1929,15 +1932,21 @@ ml kb list [-o table|json]
 ml kb page list [--kb NAME_OR_ID] [--page N] [--page-size N] [-o table|json]
 ml kb search QUERY [--kb NAME_OR_ID] [--limit N] [-o table|json]
 ml kb page show SLUG [--kb NAME_OR_ID] [-o text|json]
+ml kb file list [--kb NAME_OR_ID] [--page N | --all] [--page-size N] [-o table|json]
+ml kb file download KNOWLEDGE_ID --kb NAME_OR_ID [--file LOCAL_PATH]
 ```
 
 ### 参数与选项
 
 `--kb` 接受可见库的名称或 ID。省略时使用默认库，仅有一个可见库时可自动选择。页码从 1 开始，每页默认 20 条、最多 50 条。搜索默认返回 5 条、最多 20 条。通过 `-o json` 获取结构化结果。
 
+`file list` 默认从第 1 页开始，每页最多扫描 50 个知识条目，默认 20 个。加 `--all` 可自动翻页，不能同时指定 `--page`；保留同名文件的独立条目。`file download` 必须指定 `--kb` 和列表中的知识条目 ID，可用 `--file` 指定保存路径，父目录须已存在。
+
 ### 说明
 
 打包启用知识库后，在当前终端或 DSH 会话中绑定受支持环境、登录并选中业务即可申请查询。账号授权、环境禁令和准入规则仍然生效。普通员工读取正式库；匹配调试名单的环境和账号还可以读取灰度库。两者均仅能查看已发布页。目录表格显示页码、每页条数和总条数，目录与搜索表格保留完整 slug 供复制。查询记录进入审计。候选窗口已满时可细化关键词。页面正文最多预览 64 KiB，截断时显示提示与来源。
+
+文件列表和下载分别需要按环境、账号和知识库授予的权限。列表仅显示有原文件的条目，包含完整的知识条目 ID、文件名、目录、字节数和北京时间更新时间。分页时，某一页可能没有文件，表格提示或 JSON 的 `has_more` 为真时可继续翻页；全量 JSON 返回文件数组 `items`。下载默认以原文件名保存到当前目录，同名自动加序号，成功后显示实际路径和字节数。网关可限制单个文件的大小。
 
 ### 示例
 
@@ -1946,4 +1955,6 @@ ml kb list
 ml kb page list --kb KB_ID --page 1
 ml kb search "训练超时" --kb KB_ID -o json
 ml kb page show concept/rag --kb KB_ID
+ml kb file list --kb KB_ID --all -o json
+ml kb file download KNOWLEDGE_ID --kb KB_ID --file REPORT.xlsx
 ```

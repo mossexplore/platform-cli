@@ -21,19 +21,23 @@ def test_gateway_vector():
         assert kb_ticket.issue(settings, expected['username'], expected['environment'], expected['action']) == expected
 
 
-@pytest.mark.parametrize('ban', ['ml kb', 'ml kb page show'])
-def test_ticket_and_audit_follow_command_policy(system, ban):
+@pytest.mark.parametrize('command,action', [
+    ('ml kb page show', 'kb_page_show'),
+    ('ml kb file list', 'kb_file_list'),
+    ('ml kb file download', 'kb_file_download'),
+])
+@pytest.mark.parametrize('parent_ban', [True, False])
+def test_ticket_and_audit_follow_command_policy(system, command, action, parent_ban):
     app, client, _ = system
     config = app.state.settings
     config.kb_ticket_ak, config.kb_ticket_sk = 'test', 's' * 32
-    command = 'ml kb page show'
     allowed = check(client, command=command, full_command=command + ' token=hidden').json()
     ticket = allowed['kb_ticket']
-    assert allowed['allowed'] and ticket['action'] == 'kb_page_show'
+    assert allowed['allowed'] and ticket['action'] == action
     with app.state.sessions() as db:
         log = db.scalars(select(CallLog)).one()
         assert json.loads(log.version_decision)['kb_ticket_id'] == ticket['ticket_id']
         assert 'hidden' not in log.full_command
-    assert save(app, client, login(client), [ban]).status_code == 303
+    assert save(app, client, login(client), ['ml kb' if parent_ban else command]).status_code == 303
     denied = check(client, command=command).json()
     assert denied['reason'] == 'COMMAND_DISABLED' and 'kb_ticket' not in denied

@@ -65,6 +65,14 @@ func main() {
 	if e != nil {
 		log.Fatal(e)
 	}
+	fileList, e := weknora.ParseFileGrants(os.Getenv("KB_FILE_LIST_GRANTS"))
+	if e != nil {
+		log.Fatal("invalid KB_FILE_LIST_GRANTS: ", e)
+	}
+	fileDownload, e := weknora.ParseFileGrants(os.Getenv("KB_FILE_DOWNLOAD_GRANTS"))
+	if e != nil {
+		log.Fatal("invalid KB_FILE_DOWNLOAD_GRANTS: ", e)
+	}
 	keys, e := auth.Keys(os.Getenv("KB_TICKET_KEYS"))
 	if e != nil {
 		log.Fatal(e)
@@ -73,6 +81,8 @@ func main() {
 	trusted := networks("KB_GATEWAY_TRUSTED_PROXY_CIDRS", "")
 	timeout := time.Duration(integer("KB_GATEWAY_TIMEOUT_SECONDS", 10, 60)) * time.Second
 	c := &weknora.Client{Base: base.String(), Key: key, Visibility: vis, HTTP: &http.Client{Transport: &http.Transport{}, Timeout: timeout, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}, MaxBytes: int64(integer("KB_GATEWAY_MAX_UPSTREAM_BYTES", 8<<20, 64<<20)), Preview: integer("KB_GATEWAY_MAX_PAGE_CONTENT_BYTES", 65536, 1<<20)}
+	c.FileList, c.FileDownload = fileList, fileDownload
+	c.MaxFileBytes = int64(integer("KB_GATEWAY_MAX_FILE_BYTES", 64<<20, 512<<20))
 	h := server.New(c, keys, nets, setting("KB_GATEWAY_AUDIT_DIR", "/var/log/kb-gateway"), integer("KB_GATEWAY_RATE_LIMIT_RPS", 20, 10000), integer("KB_GATEWAY_RATE_LIMIT_BURST", 40, 10000))
 	h.TrustedProxies = trusted
 	srv := &http.Server{Addr: setting("KB_GATEWAY_LISTEN_ADDR", ":8087"), Handler: h, ReadHeaderTimeout: 5 * time.Second, WriteTimeout: 2*timeout + 5*time.Second, IdleTimeout: time.Minute}

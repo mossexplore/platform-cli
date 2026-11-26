@@ -17,7 +17,7 @@ import (
 func newKB(options Options, load loadConfig, cfg localstate.KnowledgeBase) *cobra.Command {
 	root := &cobra.Command{Use: "kb", Short: "查询共享 Wiki 知识库"}
 	pages := &cobra.Command{Use: "page", Short: "浏览 Wiki 页面"}
-	root.AddCommand(pages)
+	root.AddCommand(pages, newKBFiles(options, load, cfg))
 	for _, spec := range []struct {
 		use, route, short string
 		parent            *cobra.Command
@@ -71,7 +71,7 @@ func newKB(options Options, load loadConfig, cfg localstate.KnowledgeBase) *cobr
 			}
 			command := strings.TrimPrefix(cmd.CommandPath(), "ml ")
 			session := platform.Session{Paths: paths, Config: c, CLIVersion: options.Version, Stderr: cmd.ErrOrStderr()}
-			raw, e := session.ReadKB(cmd.Context(), command, strings.ReplaceAll(command, " ", "_"), route, accessAuditCommand(options.Args), q)
+			raw, e := session.ReadKB(cmd.Context(), command, route, accessAuditCommand(options.Args), q)
 			if e != nil {
 				return e
 			}

@@ -84,7 +84,9 @@ def test_packaged_kb_matches_build_configuration(tmp_path):
         assert (package / "references/kb.md").exists() == enabled
         assert ("skills/wiserec-platform/references/kb.md" in manifest) == enabled
         assert ("references/kb.md" in (package / "SKILL.md").read_text()) == enabled
-        assert ("ml kb search" in (package / "references/commands.md").read_text()) == enabled
+        commands = (package / "references/commands.md").read_text()
+        for command in ("ml kb search", "ml kb file list", "ml kb file download"):
+            assert (command in commands) == enabled
 
 
 def test_crlf_checkout_stages_identical_skill_bytes(tmp_path):

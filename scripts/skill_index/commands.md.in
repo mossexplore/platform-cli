@@ -153,4 +153,6 @@ WiseRec 和 MLOps 均支持 `train` 和 `feature-task` 命令，`algorithm` 仅�
 | `ml kb page list --kb KB_ID` | 浏览已发布页面 | {{confirm}} | 只读 |
 | `ml kb search QUERY --kb KB_ID` | 按字面关键词搜索 | {{confirm}} | 只读 |
 | `ml kb page show SLUG --kb KB_ID` | 读取有界预览与来源 | {{confirm}} | 只读 |
+| `ml kb file list [--kb KB_ID] [--all] [-o json]` | 分页或全量列出获授权知识库的原文件 | {{confirm}} | 只读，记录准入及查询审计 |
+| `ml kb file download KNOWLEDGE_ID --kb KB_ID [--file PATH]` | 下载获授权知识库的原文件 | {{confirm}} | 写入本地文件，同名自动加序号，记录下载审计 |
 <!-- KB_END -->
