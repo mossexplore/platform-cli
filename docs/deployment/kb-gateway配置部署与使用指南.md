@@ -61,7 +61,7 @@ ml kb ... (Go CLI 1.1.2+)
    openssl rand -hex 32
    ```
 
-2. 编辑权限服务挂载的 `/opt/cli-access-config/service.env`（不要修改镜像内文件），追加以下两项（参考 [service.env.example](../access-service/docker/service.env.example)）：
+2. 编辑权限服务挂载的 `/opt/cli-access-config/service.env`（不要修改镜像内文件），追加以下两项（参考 [service.env.example](../../access-service/docker/service.env.example)）：
 
    ```dotenv
    # 共享 Wiki 短期票据签发配置（须与 kb-gateway 的 KB_TICKET_KEYS 保持一致）
@@ -81,7 +81,7 @@ ml kb ... (Go CLI 1.1.2+)
 
 ## 3. `kb-gateway` 环境变量配置详解
 
-配置模板位于 [kb-gateway/kb-gateway.env.example](../kb-gateway/kb-gateway.env.example)。以下是当前代码（`cmd/kb-gateway/main.go`、`internal/auth/ticket.go`、`internal/weknora/visibility.go`）支持的**全部 15 个环境变量**及校验规则：
+配置模板位于 [kb-gateway/kb-gateway.env.example](../../kb-gateway/kb-gateway.env.example)。以下是当前代码（`cmd/kb-gateway/main.go`、`internal/auth/ticket.go`、`internal/weknora/visibility.go`）支持的**全部 15 个环境变量**及校验规则：
 
 | 环境变量 | 必填 | 默认值 | 格式与范围校验 | 说明 |
 | --- | --- | --- | --- | --- |
@@ -258,7 +258,7 @@ server {
 ```
 
 > [!NOTE]
-> **证书信任链提示**：根据 [cli-go/internal/platform/kb.go](../cli-go/internal/platform/kb.go) 的实现，CLI 访问 `kb-gateway` 时与 `access-service` 共用 `access_control` 的 CA 配置（`ca_source`、`ca_file`、`use_env_proxy`）。若打包配置使用 `ca_source: "custom"`，请确保 `ca_file` 中的 PEM 证书合集同时包含两个 HTTPS 服务所需的根/中间证书链。
+> **证书信任链提示**：根据 [cli-go/internal/platform/kb.go](../../cli-go/internal/platform/kb.go) 的实现，CLI 访问 `kb-gateway` 时与 `access-service` 共用 `access_control` 的 CA 配置（`ca_source`、`ca_file`、`use_env_proxy`）。若打包配置使用 `ca_source: "custom"`，请确保 `ca_file` 中的 PEM 证书合集同时包含两个 HTTPS 服务所需的根/中间证书链。
 
 ---
 
@@ -266,7 +266,7 @@ server {
 
 ### 5.1 打包期配置（锁定网关地址）
 
-网关地址在编译打包期嵌入 `ml.exe`，运行期不允许本机文件改写。参考 [cli-go/config.example.json](../cli-go/config.example.json) 准备正式打包配置：
+网关地址在编译打包期嵌入 `ml.exe`，运行期不允许本机文件改写。参考 [cli-go/config.example.json](../../cli-go/config.example.json) 准备正式打包配置：
 
 ```json
 {

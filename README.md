@@ -12,7 +12,7 @@
 > **平台依赖与运行前提**
 > - 本项目为 **WiseRec 平台**配套客户端与治理套件，使用业务命令前需具备可访问的 WiseRec 平台环境与账号。
 > - `ml login` 默认通过浏览器完成登录；Windows 交互式登录依赖 **Microsoft Edge**（或按环境配置使用服务端登录方式）。
-> - 若暂未接入真实平台，可使用仓库内 `devtools/mock-platform` 搭配 `access-service` 体验合成业务数据，详见 [CLI 演示环境使用指南](docs/CLI演示环境使用指南.md)。
+> - 若暂未接入真实平台，可使用仓库内 `devtools/mock-platform` 搭配 `access-service` 体验合成业务数据，详见 [CLI 演示环境使用指南](docs/guides/CLI演示环境使用指南.md)。
 
 ---
 
@@ -76,7 +76,7 @@ ml context
 ml access status
 ```
 
-更多命令参数与完整示例请参阅 [WiseRec CLI 使用手册](docs/WiseRec%20CLI%20使用手册.md)。
+更多命令参数与完整示例请参阅 [WiseRec CLI 使用手册](docs/guides/WiseRec%20CLI%20使用手册.md)。
 
 ---
 
@@ -89,11 +89,11 @@ ml access status
 | **WiseRec CLI（Go）** | `cli-go/` | `1.1.2` | 当前维护的命令行工具（`ml`），提供 Windows x64 便携 ZIP 和每用户 MSI | [构建与安装](cli-go/README.md) |
 | **WiseRec CLI（Python，已废弃）** | `cli-python/` | `1.0.9.6` | 只读历史实现 | [历史安装文档](cli-python/scripts/windows/INSTALL.md) |
 | **知识库只读网关** | `kb-gateway/` | `0.1.0` | 校验动作票据并按正式库与灰度库名单读取已发布 Wiki 页面 | [配置与调试](kb-gateway/README.md) |
-| **权限管理系统** | `access-service/` | `1.1.2` | 授权、版本准入与审计管理台 | [README](access-service/README.md) · [Docker 部署指南](docs/权限管理系统Docker安装部署与调试指南.md) |
+| **权限管理系统** | `access-service/` | `1.1.2` | 授权、版本准入与审计管理台 | [README](access-service/README.md) · [Docker 部署指南](docs/deployment/权限管理系统Docker安装部署与调试指南.md) |
 | **Agent 服务** | `agent-service/` | `1.0.9.1` | AI Agent 集成与部署工具 | [README](agent-service/README.md) · [配置示例](agent-service/config.example.json) |
 | **权限通知助手** | `permission-notifier/` | `1.0.9.1` | 权限申请桌面通知客户端 | [README](permission-notifier/README.md) |
 
-> 维护者更新 `versions.toml` 后，需运行 `python scripts/sync_versions.py` 同步派生文件，并通过 `python scripts/sync_versions.py --check` 校验一致性，详见 [版本号管理说明](docs/版本号管理说明.md)。
+> 维护者更新 `versions.toml` 后，需运行 `python scripts/sync_versions.py` 同步派生文件，并通过 `python scripts/sync_versions.py --check` 校验一致性，详见 [版本号管理说明](docs/maintenance/版本号管理说明.md)。
 
 ---
 
@@ -110,22 +110,24 @@ ml access status
 `access-service` 提供离线容器镜像与标准化 Docker 部署方案，默认搭配外部 **MySQL** 运行。当前源码要求数据库结构版本为 **Schema 15**。
 
 - **1.1.1 下载**：从 [v1.1.1 Release](https://github.com/mossexplore/platform-cli/releases/tag/v1.1.1) 获取 Go CLI 的 Windows x64 MSI 和 ZIP、权限系统和 DSH 遥测网关的 Linux amd64 镜像。历史附件可在对应 Release 下载。
-- **首次部署**：下载权限系统镜像后，按 [权限管理系统 Docker 安装部署与调试指南](docs/权限管理系统Docker安装部署与调试指南.md) 完成建库、初始化与启动。
+- **首次部署**：下载权限系统镜像后，按 [权限管理系统 Docker 安装部署与调试指南](docs/deployment/权限管理系统Docker安装部署与调试指南.md) 完成建库、初始化与启动。
 - **已有环境升级**：根据目标产物选择适用的迁移要求，先停写备份并显式迁移，再切换服务。详见 [权限服务源码及数据库结构说明](access-service/README.md)。
-- **运维与发布**：参见 [Linux 部署与运维手册](docs/权限管理系统Linux部署与运维手册.md) 与 [Docker 部署与发布指南](docs/权限管理系统Docker部署与发布指南.md)。
+- **运维与发布**：参见 [Linux 部署与运维手册](docs/deployment/权限管理系统Linux部署与运维手册.md) 与 [Docker 部署与发布指南](docs/deployment/权限管理系统Docker部署与发布指南.md)。
 
 ---
 
 ## 文档索引
 
+按用途浏览全部文档，见 [WiseRec 文档索引](docs/README.md)。
+
 - **用户与开发文档**
-  - [WiseRec CLI 使用手册](docs/WiseRec%20CLI%20使用手册.md)
-  - [CLI 使用与维护说明](docs/CLI使用与维护说明.md)
+  - [WiseRec CLI 使用手册](docs/guides/WiseRec%20CLI%20使用手册.md)
+  - [CLI 使用与维护说明](docs/guides/CLI使用与维护说明.md)
   - [Jupyter 本地开发指南](docs/Jupyter本地开发指南.md)
-  - [CLI 演示环境使用指南](docs/CLI演示环境使用指南.md)
+  - [CLI 演示环境使用指南](docs/guides/CLI演示环境使用指南.md)
 - **版本与发布说明**
-  - [版本号管理说明](docs/版本号管理说明.md)
-  - 近期变更：[共享 Wiki 源码变更](docs/RELEASE_NOTES_1.1.2.md) · [1.1.1](docs/RELEASE_NOTES_1.1.1.md) · [1.0.9.6](docs/RELEASE_NOTES_1.0.9.6.md) · [1.0.9.5](docs/RELEASE_NOTES_1.0.9.5.md)
+  - [版本号管理说明](docs/maintenance/版本号管理说明.md)
+  - 近期变更：[共享 Wiki 源码变更](docs/releases/RELEASE_NOTES_1.1.2.md) · [1.1.1](docs/releases/RELEASE_NOTES_1.1.1.md) · [1.0.9.6](docs/releases/RELEASE_NOTES_1.0.9.6.md) · [1.0.9.5](docs/releases/RELEASE_NOTES_1.0.9.5.md)
 
 ---
 

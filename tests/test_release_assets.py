@@ -27,14 +27,14 @@ def assemble(tmp_path, *, wrong_revision=False, extra_file=False, leak=False, le
     shutil.copyfile(ROOT / 'cli-python/scripts/check-cli-package.py', tmp_path / cli_checker)
     files = {
         'access-service/VERSION': VERSION,
-        f'docs/ACCESS_RELEASE_NOTES_{VERSION}.md': 'access notes',
-        'docs/环境禁止命令开发与迁移说明.md': 'migration notes',
-        f'docs/RELEASE_NOTES_{VERSION}.md': 'release notes fixture',
-        'docs/权限管理系统Docker离线导入与运行.md': 'image readme',
+        f'docs/releases/ACCESS_RELEASE_NOTES_{VERSION}.md': '[access notes](../upgrades/环境禁止命令开发与迁移说明.md)',
+        'docs/upgrades/环境禁止命令开发与迁移说明.md': 'migration notes',
+        f'docs/releases/RELEASE_NOTES_{VERSION}.md': 'release notes fixture',
+        'docs/deployment/权限管理系统Docker离线导入与运行.md': 'image readme',
         'access-service/docker/service.env.example': 'placeholder',
-        'docs/权限管理系统Docker安装部署与调试指南.md': 'runbook',
-        f'docs/权限管理系统结构12升级至{VERSION}指南.md': 'upgrade',
-        'docs/WiseRec CLI 使用手册.md': 'commands',
+        'docs/deployment/权限管理系统Docker安装部署与调试指南.md': 'runbook',
+        f'docs/upgrades/权限管理系统结构12升级至{VERSION}指南.md': 'upgrade',
+        'docs/guides/WiseRec CLI 使用手册.md': 'commands',
         cli_install: 'install',
         'permission-notifier/README.md': 'assistant install',
         'permission-notifier/pyproject.toml': f'[project]\nversion="{VERSION}"',
@@ -43,6 +43,8 @@ def assemble(tmp_path, *, wrong_revision=False, extra_file=False, leak=False, le
         'permission-notifier/scripts/install.ps1': 'installer',
     }
     for name, value in files.items():
+        if legacy_layout and name.startswith('docs/'):
+            name = f'docs/{Path(name).name}'
         p = tmp_path / name
         p.parent.mkdir(parents=True, exist_ok=True)
         p.write_text(value)
@@ -80,7 +82,7 @@ def assemble(tmp_path, *, wrong_revision=False, extra_file=False, leak=False, le
             entry = tarfile.TarInfo(name)
             entry.size = len(content)
             archive.addfile(entry, io.BytesIO(content))
-    (out / 'RELEASE_NOTES.md').write_text('access notes')
+    (out / 'RELEASE_NOTES.md').write_text('[access notes](Migration-notes.md)')
     (out / 'Migration-notes.md').write_text('migration notes')
     (out / 'README.md').write_text('image readme')
     (out / 'service.env.example').write_text('placeholder')
@@ -183,7 +185,7 @@ def test_go_suite_checks_artifact_inventory_and_image_identity(tmp_path, monkeyp
         'image_file': access_file, 'image_id': access_id, 'platform': 'linux/amd64',
     }
     (access / 'manifest.json').write_text(json.dumps(metadata))
-    readme = (ROOT / 'docs/权限管理系统Docker离线导入与运行.md').read_text()
+    readme = (ROOT / 'docs/deployment/权限管理系统Docker离线导入与运行.md').read_text()
     for key, value in metadata.items():
         readme = readme.replace('{{' + key + '}}', value)
     (access / 'README.md').write_text(readme)
@@ -208,7 +210,7 @@ def test_go_suite_checks_artifact_inventory_and_image_identity(tmp_path, monkeyp
     draft = {
         'draft': True, 'prerelease': False, 'tag_name': 'v' + version, 'target_commitish': revision,
         'name': f'v{version} — Go CLI、权限管理系统与 DSH 遥测网关',
-        'body': (ROOT / f'docs/RELEASE_NOTES_{version}.md').read_text(),
+        'body': (ROOT / f'docs/releases/RELEASE_NOTES_{version}.md').read_text(),
         'assets': [{'name': p.name, 'size': p.stat().st_size,
                     'digest': 'sha256:' + module['sha256'](p)} for p in access.iterdir()],
     }

@@ -387,7 +387,7 @@ cmd.Flags().BoolP("all-business", "A", false, "在全部租户中查询（需超
    - 发布说明与测试记录中须如实区分“已完成本地单测”与“已完成真实管理台联调验收”，未完成真实联调的接口不得宣称已全量验证。
 
 ### 6.4 文档与 Skill 同步
-1. 更新 `docs/WiseRec CLI 使用手册.md`：在对应 10 个列表命令章节的“参数与选项”“说明”“示例”中补充 `--all-business` / `-A` 说明与使用前提（不写入版本信息）。
+1. 更新 `docs/guides/WiseRec CLI 使用手册.md`：在对应 10 个列表命令章节的“参数与选项”“说明”“示例”中补充 `--all-business` / `-A` 说明与使用前提（不写入版本信息）。
 2. 检查并更新 `skill/` 下相关指引及 `scripts/skill_index/commands.md.in`，执行：
    ```bash
    python scripts/sync_skill_index.py

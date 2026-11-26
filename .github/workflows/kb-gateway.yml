@@ -54,7 +54,7 @@ jobs:
           archive="wiserec-kb-gateway-$VERSION-linux-amd64.tar.gz"
           dir="$RUNNER_TEMP/offline-kb-gateway"
           mkdir "$dir"
-          cp kb-gateway/kb-gateway.env.example docs/kb-gateway配置部署与使用指南.md "$dir/"
+          cp kb-gateway/kb-gateway.env.example docs/deployment/kb-gateway配置部署与使用指南.md "$dir/"
           cd "$dir"
           id=$(docker image inspect --format '{{.Id}}' "$image")
           docker save "$image" | gzip -n > "$archive"

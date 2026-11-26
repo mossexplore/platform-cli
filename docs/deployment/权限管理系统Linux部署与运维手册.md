@@ -518,7 +518,7 @@ CLI 所在机器 → 权限域名/Nginx:443 → 127.0.0.1:8008 权限服务 → 
 | 健康检查 | 两种方式均为 `curl --noproxy '*' http://127.0.0.1:8008/cli-permission/healthz` | 同左 |
 | 业务授权记录 | 管理台“CLI 调用日志” | 同左 |
 
-相关资料：[服务说明](../access-service/README.md)、[包内快速开始](../access-service/QUICKSTART.md)、[WiseRec CLI 使用手册](WiseRec%20CLI%20使用手册.md)。本手册根据代码核对，目标 Linux、MySQL 与 Nginx 的实际可用性仍需按上述步骤在部署环境验收。
+相关资料：[服务说明](../../access-service/README.md)、[包内快速开始](../../access-service/QUICKSTART.md)、[WiseRec CLI 使用手册](../guides/WiseRec%20CLI%20使用手册.md)。本手册根据代码核对，目标 Linux、MySQL 与 Nginx 的实际可用性仍需按上述步骤在部署环境验收。
 
 ## 13. 完整命令日志与分页更新
 
@@ -529,6 +529,6 @@ CLI 所在机器 → 权限域名/Nginx:443 → 127.0.0.1:8008 权限服务 → 
 
 ## 用户申请与审批
 
-用户申请入口为 `/cli-permission/apply`，填写 W3 账号（如 `l00123456`）和姓名。管理员在“权限申请”菜单核对或修正信息，再确认环境授权。默认选择所有启用环境，新授权默认长期有效。详细规则见 [权限服务说明](../access-service/README.md#用户申请与管理员审批)。
+用户申请入口为 `/cli-permission/apply`，填写 W3 账号（如 `l00123456`）和姓名。管理员在“权限申请”菜单核对或修正信息，再确认环境授权。默认选择所有启用环境，新授权默认长期有效。详细规则见 [权限服务说明](../../access-service/README.md#用户申请与管理员审批)。
 
 本功能需要结构版本 7。先备份并停止旧服务，再运行 `bash manage.sh migrate`，最后启动新服务。使用 Nginx 时同步更新示例中的专属查询链接日志排除配置。

@@ -128,7 +128,7 @@ ml auth ping tick --json
 
 ## 7. 实现时同步的文档与 Skill
 
-- `docs/WiseRec CLI 使用手册.md` 更新命令树、`auth ping` 章节及环境切换相关说明，明确终端与 DSH 的启停条件、插件依赖、状态含义和示例。维持“命令格式 / 参数与选项 / 说明 / 示例”结构，版本写在发布材料。
+- `docs/guides/WiseRec CLI 使用手册.md` 更新命令树、`auth ping` 章节及环境切换相关说明，明确终端与 DSH 的启停条件、插件依赖、状态含义和示例。维持“命令格式 / 参数与选项 / 说明 / 示例”结构，版本写在发布材料。
 - 同步 `skill/wiserec-platform/SKILL.md` 和 `references/session.md`，清理 DSH 旧 worker 和滑动登记说明。`tick` 标注为插件接口，Agent 不应把它当作业务命令调用，也不手工构造宿主会话标识。更新 `scripts/skill_index/commands.md.in` 后运行生成与 `--check`。
 - README、CLI 安装说明和相应分发说明记录离线包入口、兼容性探测、安装及卸载后的行为。实现时检查实际 `ml tree` 各层级说明的末尾标点、版本同步及打包元数据一致性。
 

@@ -234,7 +234,7 @@ OpenCode 的正式 skill 安装到 `~/.agents/skills/wiserec-platform`，`/ml` �
 
 历史安装若使用过其他自定义 OpenCode 配置目录，需在该目录重新运行安装程序才能清理对应旧副本。
 
-Go 用户可双击 MSI 或通过 `msiexec` 安装。若 Skill 安装失败，按提示手动安装，仍可继续使用 CLI。安装后重新打开终端和 Agent，即可使用 `ml` 和 `/ml`。Go 使用 EXE 内置的部署配置，当前环境保存在 `%APPDATA%\\ml-go-preview\\config.json`。Go 业务命令需要在线权限校验。便携 ZIP 解压后可用 `.\\ml.exe` 或绝对路径运行，也可以把解压目录加入当前终端的 PATH。详见 [Go Windows 安装说明](../cli-go/README.md)。
+Go 用户可双击 MSI 或通过 `msiexec` 安装。若 Skill 安装失败，按提示手动安装，仍可继续使用 CLI。安装后重新打开终端和 Agent，即可使用 `ml` 和 `/ml`。Go 使用 EXE 内置的部署配置，当前环境保存在 `%APPDATA%\\ml-go-preview\\config.json`。Go 业务命令需要在线权限校验。便携 ZIP 解压后可用 `.\\ml.exe` 或绝对路径运行，也可以把解压目录加入当前终端的 PATH。详见 [Go Windows 安装说明](../../cli-go/README.md)。
 
 Python 客户端需要 Python 运行环境。浏览器登录需要 Microsoft Edge。首次使用依次选择环境、登录、选择业务。
 

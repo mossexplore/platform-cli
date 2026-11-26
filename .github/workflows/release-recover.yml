@@ -58,7 +58,7 @@ jobs:
           assert release['isDraft'] and release['targetCommitish'] == sha
           # Preserve corrected assembly code and release notes before checking out original source.
           pathlib.Path('/tmp/prepare-assets.py').write_bytes(pathlib.Path('scripts/releasing/prepare-assets.py').read_bytes())
-          pathlib.Path('/tmp/release-notes.md').write_bytes(pathlib.Path(f'docs/RELEASE_NOTES_{version}.md').read_bytes())
+          pathlib.Path('/tmp/release-notes.md').write_bytes(pathlib.Path(f'docs/releases/RELEASE_NOTES_{version}.md').read_bytes())
           with open(os.environ['GITHUB_OUTPUT'], 'a') as f:
               f.write(f'sha={sha}\nversion={version}\ncli_version={cli_version}\n')
           PY

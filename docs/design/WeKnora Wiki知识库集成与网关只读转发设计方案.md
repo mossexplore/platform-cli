@@ -4,7 +4,7 @@
 
 ### 1.1 业务背景
 
-当前已在 Linux `amd64` 宿主机通过 `docker run` 部署 **WeKnora `v0.9.0`**（参见 [WeKnora Docker部署指南](WeKnora%20Docker部署指南.md)）。结合内网环境与既有系统现状，形成以下核心前提：
+当前已在 Linux `amd64` 宿主机通过 `docker run` 部署 **WeKnora `v0.9.0`**（参见 [WeKnora Docker部署指南](../deployment/WeKnora%20Docker部署指南.md)）。结合内网环境与既有系统现状，形成以下核心前提：
 
 1. **采用 Wiki 知识库模式**：当前内网暂无可用的 Embedding 模型，知识库新建时启用 **Wiki 知识库**索引策略（对应 WeKnora `v0.9.0` 的 `indexing_strategy.wiki_enabled`），将原始文档蒸馏为结构化、带溯源（`source_refs`）与词条关联的 Markdown 页面。
 2. **管理员与普通用户职责分离**：管理员通过 WeKnora Web 控制台上传和维护文档，通过与普通员工相同的 ml.exe 和 DSH 验证灰度库的只读效果；普通员工及 DeepSeek Harness（DSH）仅需要**只读查阅共享知识库**的能力。
@@ -369,13 +369,13 @@ ml
 
 ### 6.2 `AGENTS.md` 强制同步清单（实施阶段必做）
 
-- **用户手册同步**：同步更新 `docs/WiseRec CLI 使用手册.md` 的命令树与 `kb` 章节（严格遵守“命令格式 / 参数与选项 / 说明 / 示例”四小节规范，注明“需已绑定环境、已登录且已选业务；任一受支持环境可用仍受该环境的账号授权、命令禁令与版本准入约束；受打包配置开关控制”，**绝不写入版本号或发布信息**）。
+- **用户手册同步**：同步更新 `docs/guides/WiseRec CLI 使用手册.md` 的命令树与 `kb` 章节（严格遵守“命令格式 / 参数与选项 / 说明 / 示例”四小节规范，注明“需已绑定环境、已登录且已选业务；任一受支持环境可用仍受该环境的账号授权、命令禁令与版本准入约束；受打包配置开关控制”，**绝不写入版本号或发布信息**）。
 - **版本递增、交付清单与上线顺序**：
   - 在根目录 `versions.toml` 的 `[components]` 中：
     - 新增独立组件 `kb_gateway = "0.1.0"`（同步至 `kb-gateway/cmd/kb-gateway/version.go`）；
     - 因 `access-service` 新增签票与服务端自脱敏能力，同步递增 `components.access`（并交付新 `linux/amd64` 镜像及 `service.env` 新增 `KB_TICKET_AK`/`KB_TICKET_SK` 配置说明）；
     - 合入 `ml kb` 时按规范将 `components.cli_go` 补丁号加 `1`；
-  - 运行 `python scripts/sync_versions.py` 与 `python scripts/sync_versions.py --check`，同步更新版本测试、`README.md` 及目标版本的 `docs/RELEASE_NOTES_<版本>.md`；
+  - 运行 `python scripts/sync_versions.py` 与 `python scripts/sync_versions.py --check`，同步更新版本测试、`README.md` 及目标版本的 `docs/releases/RELEASE_NOTES_<版本>.md`；
   - **严格上线顺序**：① 在 WeKnora 后台签发仅含 `retrieve` 权限、限定共享库的 Scoped API Key → ② **先升级 `access-service` 镜像并配置 `KB_TICKET_AK`/`KB_TICKET_SK`** → ③ 再部署 `kb-gateway`（显式配置 `WEKNORA_ALLOWED_KB_IDS` 与 `65532` 属主日志卷）→ ④ 最后发布并启用 `knowledge_base.enable: true` 的 CLI 包。
 
 ---
