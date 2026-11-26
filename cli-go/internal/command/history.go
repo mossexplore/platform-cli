@@ -72,6 +72,9 @@ func newHistory(options Options) *cobra.Command {
 				break
 			}
 		}
+		if agentMode(cmd) {
+			return agentResult(cmd, output.AgentList(filtered, "limited", 0, 0, nil))
+		}
 		if *format == "json" {
 			return output.JSON(cmd.OutOrStdout(), filtered)
 		}
@@ -111,6 +114,9 @@ func newHistory(options Options) *cobra.Command {
 			selected[row.Key] = true
 		}
 		if len(selected) == 0 {
+			if agentMode(cmd) {
+				return agentResult(cmd, map[string]int{"deleted": 0})
+			}
 			fmt.Fprintln(cmd.ErrOrStderr(), "[成功] 已清理 0 条历史记录")
 			return nil
 		}
@@ -128,6 +134,9 @@ func newHistory(options Options) *cobra.Command {
 			if err != nil {
 				return err
 			}
+		}
+		if agentMode(cmd) {
+			return agentResult(cmd, map[string]any{"deleted": count, "confirmed": approved})
 		}
 		_, err = fmt.Fprintf(cmd.ErrOrStderr(), "[成功] 已清理 %d 条历史记录\n", count)
 		return err

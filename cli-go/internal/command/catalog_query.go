@@ -161,6 +161,9 @@ func (q catalogQuery) render(out io.Writer, record platform.Record, raw json.Raw
 		value = catalogValue
 	}
 	if q.items == "" {
+		if output.IsAgent(out) && len(q.fields) > 0 {
+			return output.JSON(out, agentRecord(record, columnKeys(q.fields)...))
+		}
 		if format == "json" {
 			if q.preserve {
 				return output.JSON(out, raw)
@@ -206,6 +209,13 @@ func (q catalogQuery) render(out io.Writer, record platform.Record, raw json.Raw
 				return errors.New("响应分页信息无效")
 			}
 		}
+	}
+	if output.IsAgent(out) {
+		mode := "paged"
+		if !q.paged {
+			mode = "fixedFirstPage"
+		}
+		return output.JSON(out, output.AgentList(agentCatalogRows(q, items, allBusiness), mode, page, size, total))
 	}
 	if format == "json" {
 		if q.preserve {

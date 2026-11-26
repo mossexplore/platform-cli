@@ -40,6 +40,9 @@ func authorized(options Options, load loadConfig, run func(*cobra.Command, []str
 		if cmd.Flags().Lookup("output") != nil && (cmd.Flags().Changed("output") || textOutput) {
 			format, _ = cmd.Flags().GetString("output")
 		}
+		if agentMode(cmd) {
+			format = "json"
+		}
 		format = strings.ToLower(format)
 		if cmd.Flags().Lookup("output") != nil && format != "json" && (format != "table" || textOutput) && (format != "text" || !textOutput) {
 			if textOutput {

@@ -47,7 +47,7 @@ func newFeatureTask(options Options, load loadConfig) *cobra.Command {
 		if record.Object("taskInfo") == nil {
 			return errors.New("特征任务详情缺少有效的 taskInfo")
 		}
-		if format == "json" {
+		if format == "json" && !agentMode(cmd) {
 			return output.JSON(cmd.OutOrStdout(), record)
 		}
 		return renderFeatureTask(cmd.OutOrStdout(), record)
@@ -119,6 +119,13 @@ func newFeatureLogs(options Options, load loadConfig) *cobra.Command {
 		if err != nil {
 			return err
 		}
+		if agentMode(cmd) {
+			logs, err := responseRecords(record, "logs")
+			if err != nil {
+				return err
+			}
+			return agentResult(cmd, map[string]any{"logs": logs})
+		}
 		if strings.EqualFold(*format, "json") {
 			return output.JSON(cmd.OutOrStdout(), payload)
 		}
@@ -159,6 +166,10 @@ func renderFeatureTask(out io.Writer, result platform.Record) error {
 		{"超时时间(s)", "cronTimeOut"}, {"输出归档", "autoArchive"}, {"入口脚本", "startScript"}, {"算法", "algorithmName"},
 		{"算法版本", "algorithmVersion"}, {"执行引擎", "trainEngine"}, {"创建者", "createUser"}, {"创建时间", "createTime"},
 		{"DMQ Topic名称", "dmq"}, {"基线/共享", ""}, {"来源", "source"}}
+	if output.IsAgent(out) {
+		r := agentRecord(info, columnKeys(cols, "taskId", "dataSets", "featureSetRefInfos", "params", "trainTaskCron", "customizeConfig")...)
+		return output.JSON(out, map[string]any{"taskInfo": r, "algorithmInfo": agentRecord(algorithm, "algorithmName", "algorithmVersion", "algorithmId")})
+	}
 	fields := output.Fields{}
 	for _, field := range cols {
 		value := catalogValue(info, field.key)

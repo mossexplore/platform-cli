@@ -29,6 +29,11 @@
 │ --output     -o      TEXT        [default:   │
 │                                  text]       │
 │ --studio-id          TEXT                    │
+│ --agent                          输出适合    │
+│                                  Agent       │
+│                                  的紧凑      │
+│                                  JSON（ML_A… │
+│                                  可设为默认… │
 │ --help                           Show this   │
 │                                  message and │
 │                                  exit.       │

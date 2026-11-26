@@ -35,6 +35,9 @@ func addCompletionOptions(root *cobra.Command) {
 		if err != nil {
 			return err
 		}
+		if agentMode(cmd) {
+			return agentResult(cmd, map[string]string{"shell": shell, "file": path})
+		}
 		_, err = fmt.Fprintf(cmd.OutOrStdout(), "%s completion installed in %s\nCompletion will take effect once you restart the terminal\n", shell, path)
 		return err
 	}

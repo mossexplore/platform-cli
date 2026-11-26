@@ -95,6 +95,13 @@ func newOfflineList(options Options, load loadConfig, trial bool) *cobra.Command
 		if err != nil {
 			return err
 		}
+		if agentMode(cmd) {
+			v := output.AgentList(agentRows(items, columns, "experimentId", "projectId"), "paged", *page, *pageSize, nil)
+			if raw := result["total"]; len(raw) > 0 && string(raw) != "null" {
+				v["total"] = raw
+			}
+			return agentResult(cmd, v)
+		}
 		if format == "json" {
 			filtered := make([]platform.Record, 0, len(items))
 			for _, item := range items {
@@ -184,6 +191,9 @@ func newOfflineClone(options Options, load loadConfig) *cobra.Command {
 		}
 		approved, err := approve(cmd, "确认克隆？")
 		if !approved || err != nil {
+			if err == nil && agentMode(cmd) {
+				return agentResult(cmd, map[string]string{"status": "cancelled"})
+			}
 			fmt.Fprintln(cmd.ErrOrStderr(), "已取消克隆")
 			return err
 		}

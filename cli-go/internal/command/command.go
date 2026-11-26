@@ -42,11 +42,16 @@ func Run(ctx context.Context, options Options) (code int) {
 	}
 	root := newRoot(options)
 	var invocation *historyInvocation
-	root.PersistentPreRun = func(cmd *cobra.Command, _ []string) {
+	root.PersistentPreRunE = func(cmd *cobra.Command, args []string) error {
+		if err := setupAgent(cmd, args); err != nil {
+			return err
+		}
 		invocation = startHistory(cmd, options)
+		return nil
 	}
 	defer func() { invocation.finish(code, options) }()
-	if err := root.ExecuteContext(ctx); err != nil {
+	executed, err := root.ExecuteContextC(ctx)
+	if err != nil {
 		if errors.Is(err, context.Canceled) || errors.Is(ctx.Err(), context.Canceled) {
 			fmt.Fprintln(options.Stderr, "[提示] 已取消操作")
 			return 130
@@ -58,15 +63,15 @@ func Run(ctx context.Context, options Options) (code int) {
 		fmt.Fprintln(options.Stderr, "[错误]", err)
 		var denial *platform.VersionDenial
 		if errors.As(err, &denial) && denial.Code == "CLI_VERSION_TOO_OLD" {
-			cmd, _, findErr := root.Find(options.Args)
-			if findErr == nil {
+			cmd := executed
+			if cmd != nil {
 				format := ""
 				if cmd.Flags().Changed("output") {
 					format, _ = cmd.Flags().GetString("output")
 				}
 				jsonOutput, _ := cmd.Flags().GetBool("json")
 				noInput, _ := cmd.Flags().GetBool("no-input")
-				if !jsonOutput && !noInput && !strings.EqualFold(format, "json") {
+				if !agentRequested(cmd) && !jsonOutput && !noInput && !strings.EqualFold(format, "json") {
 					updater.Offer(ctx, cmd.InOrStdin(), options.Stdout, options.Stderr, options.Paths, format, denial)
 				}
 			}
@@ -86,6 +91,7 @@ func newRoot(options Options) *cobra.Command {
 		Version: options.Version, SilenceErrors: true, SilenceUsage: true,
 		DisableSuggestions: true,
 	}
+	root.PersistentFlags().Bool("agent", false, "输出适合 Agent 的紧凑 JSON（ML_AGENT=1 可设为默认）")
 	root.CompletionOptions.DisableDefaultCmd = true
 	root.SetHelpFunc(showHelp)
 	addCompletionOptions(root)
@@ -204,10 +210,14 @@ func newRoot(options Options) *cobra.Command {
 				{Key: "权限角色", Value: result.AdminRole},
 				{Key: "businessId", Value: loginValue(result.BusinessID)},
 			}
+			if showSecrets && agentMode(cmd) {
+				cookie, csrf := result.Secrets()
+				fields = append(fields, output.Field{Key: "cookie", Value: cookie}, output.Field{Key: "csrftoken", Value: csrf})
+			}
 			if err := fields.Table(cmd.OutOrStdout()); err != nil {
 				return err
 			}
-			if showSecrets {
+			if showSecrets && !agentMode(cmd) {
 				if err := result.PrintSecrets(cmd.OutOrStdout()); err != nil {
 					return err
 				}
@@ -236,6 +246,7 @@ func newRoot(options Options) *cobra.Command {
 
 // Only discovery and Wiki commands need the optional local Wiki settings.
 func needsKBCommands(args []string) bool {
+	args = withoutLeadingAgent(args)
 	if len(args) == 0 {
 		return true
 	}

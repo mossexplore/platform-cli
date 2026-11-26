@@ -10,47 +10,63 @@ import (
 	"unicode"
 
 	"github.com/mossexplore/platform-cli/cli-go/internal/localstate"
+	"github.com/mossexplore/platform-cli/cli-go/internal/output"
 	"github.com/spf13/cobra"
 )
 
 type branch struct {
-	label    string
-	children []branch
+	Name         string   `json:"name"`
+	Summary      string   `json:"summary"`
+	Availability string   `json:"availability,omitempty"`
+	AllBusiness  bool     `json:"allBusiness,omitempty"`
+	Children     []branch `json:"children,omitempty"`
 }
 
 func writeTree(out io.Writer, root *cobra.Command, paths localstate.Paths, cfg localstate.Config, all bool) error {
+	textOut := out
+	if output.IsAgent(out) {
+		textOut = io.Discard
+	}
 	profile, err := cfg.RequireProfile()
 	if err != nil {
 		if !all {
 			return errors.New("当前会话尚未绑定环境，请先执行 ml env use <环境名>，或运行 ml tree --all 查看全部命令")
 		}
-		fmt.Fprintln(out, "当前环境：未绑定（会话模式）")
-		if _, err := fmt.Fprintln(out, "ml  WiseRec 命令行工具"); err != nil {
+		fmt.Fprintln(textOut, "当前环境：未绑定（会话模式）")
+		if _, err := fmt.Fprintln(textOut, "ml  WiseRec 命令行工具"); err != nil {
 			return err
 		}
-		return printBranches(out, "", treeBranches(root, "", "", nil, true, false))
+		nodes := treeBranches(root, "", "", nil, true, false)
+		if output.IsAgent(out) {
+			return output.JSON(out, map[string]any{"environment": nil, "commands": nodes})
+		}
+		return printBranches(out, "", nodes)
 	}
-	fmt.Fprintf(out, "当前环境：%s · 管理台类型：%s\n", profile.Name, profile.PlatformType)
+	fmt.Fprintf(textOut, "当前环境：%s · 管理台类型：%s\n", profile.Name, profile.PlatformType)
 	creds, err := paths.LoadCredentials(profile, time.Now())
 	showAllBusiness := err == nil && creds.HasAdminFlags() && creds.CanQueryAllBusiness()
 	if showAllBusiness {
-		fmt.Fprintf(out, "当前账号权限：%s · 标记“支持 -A”的列表命令可使用 --all-business / -A 查全租户\n", creds.AdminRoleLabel())
+		fmt.Fprintf(textOut, "当前账号权限：%s · 标记“支持 -A”的列表命令可使用 --all-business / -A 查全租户\n", creds.AdminRoleLabel())
 	}
 	if !all {
-		fmt.Fprintln(out, "仅展示当前环境支持的命令；查看全部命令：ml tree --all")
+		fmt.Fprintln(textOut, "仅展示当前环境支持的命令；查看全部命令：ml tree --all")
 	}
 	rules := append([]string(nil), profile.Policy.Deny...)
 	if !cfg.Access.Active() || cfg.Access.URL == "" {
-		fmt.Fprintln(out, "Go 业务命令要求在线权限校验")
+		fmt.Fprintln(textOut, "Go 业务命令要求在线权限校验")
 	} else if policy := paths.Policy(cfg.Access, profile); policy != nil {
 		rules = append(rules, policy.Deny...)
 	} else {
-		fmt.Fprintln(out, "服务端环境策略尚未同步，执行时将实时检查")
+		fmt.Fprintln(textOut, "服务端环境策略尚未同步，执行时将实时检查")
 	}
-	if _, err := fmt.Fprintln(out, "ml  WiseRec 命令行工具"); err != nil {
+	if _, err := fmt.Fprintln(textOut, "ml  WiseRec 命令行工具"); err != nil {
 		return err
 	}
-	return printBranches(out, "", treeBranches(root, "", profile.PlatformType, rules, all, showAllBusiness))
+	nodes := treeBranches(root, "", profile.PlatformType, rules, all, showAllBusiness)
+	if output.IsAgent(out) {
+		return output.JSON(out, map[string]any{"environment": profile.Name, "platform": profile.PlatformType, "commands": nodes})
+	}
+	return printBranches(out, "", nodes)
 }
 
 func treeBranches(cmd *cobra.Command, path, platformType string, rules []string, all, showAllBusiness bool) []branch {
@@ -77,15 +93,15 @@ func treeBranches(cmd *cobra.Command, path, platformType string, rules []string,
 		if !child.Runnable() && len(children) == 0 {
 			continue
 		}
-		label := child.Name() + "  " + treeSummary(child.Short)
+		node := branch{Name: child.Name(), Summary: treeSummary(child.Short), Children: children}
 		if unsupported {
-			label += "  [不支持]"
+			node.Availability = "unsupported"
 		} else if blocked {
-			label += "  [当前环境禁用]"
+			node.Availability = "disabled"
 		} else if showAllBusiness && child.Flags().Lookup(allBusinessFlag) != nil {
-			label += "  支持 -A"
+			node.AllBusiness = true
 		}
-		branches = append(branches, branch{label: label, children: children})
+		branches = append(branches, node)
 	}
 	return branches
 }
@@ -96,10 +112,21 @@ func printBranches(out io.Writer, indent string, branches []branch) error {
 		if index == len(branches)-1 {
 			stem, next = "└── ", "    "
 		}
-		if _, err := fmt.Fprintln(out, indent+stem+node.label); err != nil {
+		label := node.Name + "  " + node.Summary
+		switch node.Availability {
+		case "unsupported":
+			label += "  [不支持]"
+		case "disabled":
+			label += "  [当前环境禁用]"
+		default:
+			if node.AllBusiness {
+				label += "  支持 -A"
+			}
+		}
+		if _, err := fmt.Fprintln(out, indent+stem+label); err != nil {
 			return err
 		}
-		if err := printBranches(out, indent+next, node.children); err != nil {
+		if err := printBranches(out, indent+next, node.Children); err != nil {
 			return err
 		}
 	}

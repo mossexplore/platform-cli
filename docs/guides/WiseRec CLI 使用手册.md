@@ -203,6 +203,35 @@ ml tree
 ml train history logs download --help
 ```
 
+## Agent 精简输出
+
+### 命令格式
+
+```text
+ml --agent COMMAND [ARGS]
+ml COMMAND [ARGS] --agent
+```
+
+### 参数与选项
+
+`--agent` 启用精简输出，也可由宿主设置 `ML_AGENT=1`。显式传入 `-o`、`--output` 或 `--json` 时，使用该命令指定的格式。显式启用 `--agent` 与这些格式选项同传会以退出码 2 报错。`--agent=false` 可覆盖环境变量。向 `jupyter exec` 传程序参数时，把 CLI 选项放在 `--` 之前。
+
+### 说明
+
+业务命令向标准输出写单行 JSON，进度与诊断写入标准错误。仍需满足该命令原有的平台、登录、业务选择和确认条件。帮助、版本、Shell 补全脚本、宿主保活协议与交互终端使用各自原有格式。批量操作同时检查退出码与逐项结果。
+
+列表的 `returnedCount` 是本次返回数，`total` 是接口提供的匹配总数。`pagination` 为 `paged` 时可翻页，`fixedFirstPage` 表示仅能查询首页，`limited` 表示受条数上限约束，`unpaged` 表示无分页。文件列表提供 `hasMore` 或 `has_more` 时以该值核对结果范围。数值和状态保留源单位和代码，时间按北京时间展示。训练记录的 `runningTime`、`queueTime` 单位为分钟，`waitTime` 为秒。数据集描述超过 256 个字符时，`_truncated.description` 给出原长度，可用相同筛选和页码加 `-o json` 获取全文。
+
+### 示例
+
+```bash
+ml dataset list --name DATASET_NAME --page 1 --agent
+ml --agent service host list SERVICE_ID
+ml train history list TASK_ID --latest-flag all --agent
+```
+
+分布式作业从目标角色的 `roleJobInfo` 条目读取 `roleJobId` 和 `plogReady`；普通作业从记录本身读取 `plogReady`。
+
 ## 2. 安装与首次使用
 
 ### 2.1 命令格式
@@ -338,7 +367,7 @@ ml auth ping tick --json
 
 `ml login` 和 `ml auth status` 显示当前账号的权限角色。旧登录信息尚未记录角色时显示“未获取”，首次跨租户查询时可自动补全。
 
-登录前须在 `config.json` 中为当前环境配置非空的 `alias`。提示“正在登录【环境别名】”，交互终端用单行旋转提示展示当前阶段，不显示百分比；非交互输出只显示简短静态提示。登录时隐藏浏览器驱动的 Warning 输出及部分 Edge 版本的地址空间兼容性日志，登录失败等错误仍正常显示。 CLI 启动的专用 Edge 会尝试隐藏“还原页面”提示。若仍看到提示，可关闭提示并继续登录。成功后显示环境别名、账号、中文名、部门和当前选中的 `businessId`，缺失信息显示“未获取”。用户信息以表格展示。每次运行 `ml login`，优先恢复同一账号在同一环境和平台下仍有效的上次业务选择。`ml logout` 清除登录状态，保留上次业务选择。没有有效选择时，使用 Edge 缓存中的 `ai-businessId`。缓存中也没有该 ID 时，取 `ai-userInfo` 中 `roles.scopePermissions` 的第一个键作为租户 ID。无法唯一匹配业务时，可用 `ml business list` 查看候选，再运行 `ml business TENANT_ID` 选择。需要申请权限时，按额外提示操作。环境名称不回退显示 `name`，Cookie 和 CSRF Token 仅在显式指定 `--show-secrets` 时显示。
+登录前须在 `config.json` 中为当前环境配置非空的 `alias`。提示“正在登录【环境别名】”，交互终端用单行旋转提示展示当前阶段，不显示百分比；非交互输出只显示简短静态提示。登录时隐藏浏览器驱动的 Warning 输出及部分 Edge 版本的地址空间兼容性日志，登录失败等错误仍正常显示。 CLI 启动的专用 Edge 会尝试隐藏“还原页面”提示。若仍看到提示，可关闭提示并继续登录。成功后显示环境别名、账号、中文名、部门和当前选中的 `businessId`，缺失信息显示“未获取”。用户信息默认以表格展示。每次运行 `ml login`，优先恢复同一账号在同一环境和平台下仍有效的上次业务选择。`ml logout` 清除登录状态，保留上次业务选择。没有有效选择时，使用 Edge 缓存中的 `ai-businessId`。缓存中也没有该 ID 时，取 `ai-userInfo` 中 `roles.scopePermissions` 的第一个键作为租户 ID。无法唯一匹配业务时，可用 `ml business list` 查看候选，再运行 `ml business TENANT_ID` 选择。需要申请权限时，按额外提示操作。环境名称不回退显示 `name`，Cookie 和 CSRF Token 仅在显式指定 `--show-secrets` 时显示。
 
 登录取得当前账号后，会查询该账号是否拥有任意环境的有效 CLI 授权。若没有，按提示打开配置的权限服务地址下的 `/apply` 申请权限；地址无法打开时，将 `*.hwcloudtest.cn` 加入代理排除。账号、环境、授权均启用且授权未过期才算有效，申请通过前不会自动启动保活。
 
@@ -581,7 +610,7 @@ Go CLI 的项目列表支持 `--all-business` / `-A`，默认查询当前业务�
 
 ### 9.3 说明
 
-训练看板仅支持 WiseRec。全租户查询返回当前环境中的项目，表格显示所属业务编码。服务端未提供总数时，JSON 的 `count` 表示本页条数。
+训练看板仅支持 WiseRec。全租户查询返回当前环境中的项目，表格显示所属业务编码。服务端未提供总数时，`-o json` 的 `count` 表示本页条数。
 
 建议按“项目 → 项目空间 → 实验”的顺序取得所需 ID，再查询特性、环境、指标和配置。`inspect` 汇总实验信息，其中特性只展示第一页；需要更多特性时使用 `feature list` 翻页。各类 ID 不可混用。
 

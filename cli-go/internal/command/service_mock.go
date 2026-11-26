@@ -205,7 +205,17 @@ func renderServiceMock(cmd *cobra.Command, raw json.RawMessage, result platform.
 	out := cmd.OutOrStdout()
 	cols := []recordColumn{{"主机名称", "hostName"}, {"机器规格", "scope"}, {"站点", "domain"},
 		{"结果码", "retCode"}, {"结果报文", "mockResponse"}, {"耗时(ms)", "cost"}}
-	if format == "json" {
+	if agentMode(cmd) {
+		rows := agentRows(nodes, cols)
+		for i, node := range nodes {
+			if raw, ok := node["mockResponse"]; ok {
+				rows[i]["mockResponse"] = raw
+			}
+		}
+		if err := agentResult(cmd, map[string]any{"nodeList": rows}); err != nil {
+			return err
+		}
+	} else if format == "json" {
 		var envelope platform.Record
 		if err := json.Unmarshal(raw, &envelope); err != nil {
 			return err

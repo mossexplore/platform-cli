@@ -101,9 +101,15 @@ func newServiceLogs(options Options, load loadConfig) *cobra.Command {
 			}
 		}
 		if *list {
+			if agentMode(cmd) {
+				return agentResult(cmd, output.AgentList(agentRows(files, nil, "fileName", "fileSize", "updateTime"), "unpaged", 0, 0, nil))
+			}
 			return output.Table(cmd.OutOrStdout(), []string{"编号", "文件名称", "大小", "修改时间"}, rows)
 		}
 		if len(files) == 0 && *file == "" {
+			if agentMode(cmd) {
+				return agentResult(cmd, map[string]string{"content": ""})
+			}
 			_, err := fmt.Fprintln(cmd.ErrOrStderr(), "暂无日志文件")
 			return err
 		}
@@ -126,6 +132,9 @@ func newServiceLogs(options Options, load loadConfig) *cobra.Command {
 		var content *string
 		if json.Unmarshal(data.Object("data")["content"], &content) != nil || content == nil {
 			return errors.New("日志响应缺少有效的 content")
+		}
+		if agentMode(cmd) {
+			return agentResult(cmd, map[string]string{"fileName": name, "content": *content})
 		}
 		_, err = io.WriteString(cmd.OutOrStdout(), *content)
 		return err

@@ -90,6 +90,9 @@ func newDeployModel(options Options, load loadConfig) *cobra.Command {
 		}
 		approved, err := approve(cmd, "确认提交以上部署配置？")
 		if !approved || err != nil {
+			if err == nil && agentMode(cmd) {
+				return agentResult(cmd, map[string]string{"status": "cancelled"})
+			}
 			fmt.Fprintln(cmd.ErrOrStderr(), "已取消部署")
 			return err
 		}
@@ -104,7 +107,11 @@ func newDeployModel(options Options, load loadConfig) *cobra.Command {
 		}
 		result := envelope.Object("result")
 		if format == "json" {
-			if err := output.JSON(cmd.OutOrStdout(), response); err != nil {
+			var value any = response
+			if agentMode(cmd) {
+				value = result
+			}
+			if err := output.JSON(cmd.OutOrStdout(), value); err != nil {
 				return err
 			}
 		} else if *code == 0 {

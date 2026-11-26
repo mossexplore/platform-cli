@@ -1,5 +1,7 @@
 # 数据集、特征任务与特征集
 
+使用 `ml dataset list --name DATASET_NAME --agent` 获取本页数据集 ID；跨租户查询按每条记录的 `businessId` 区分同名数据集。
+
 - 从特征任务定位上游数据时，先用 `ml feature-task detail TASK_ID -o json` 查关联信息。详情可能只给出名称或引用。缺少 ID 时，在当前环境支持的列表中按名称查找并核对，或请用户提供 ID。
 - 质量监控宽表查询（`ml quality wide-featureset`）与特征集配置查询（`ml featureset wide`）为不同入口，ID 与筛选字段不混用。
 

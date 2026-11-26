@@ -98,9 +98,7 @@ func newSampleList(options Options, load loadConfig) *cobra.Command {
 		if err != nil {
 			return err
 		}
-		if format == "json" {
-			return output.JSON(cmd.OutOrStdout(), map[string]any{"source": *source, "page": *page, "pageSize": *size, "total": total, "items": items})
-		}
+
 		sourceName := "任务管理（新）"
 		cols := []recordColumn{{"任务ID", "taskId"}, {"任务名称", "taskName"}, {"任务类型", "taskSubCategoryCn"},
 			{"创建者", "createBy"}, {"修改者", "updateBy"}, {"创建时间", "createTime"}, {"开始执行时间", "latestRunTime"},
@@ -109,6 +107,14 @@ func newSampleList(options Options, load loadConfig) *cobra.Command {
 			sourceName = "任务管理（旧）"
 			cols = []recordColumn{{"任务ID", "taskId"}, {"任务名称", "taskName"}, {"任务类型", "category"}, {"创建者", "createUser"},
 				{"修改者", "updateUser"}, {"最近修改时间", "updateTime"}, {"描述", "description"}}
+		}
+		if agentMode(cmd) {
+			v := output.AgentList(agentRows(items, cols, "taskState", "taskStatus", "taskSubCategory"), "paged", *page, *size, &total)
+			v["source"] = *source
+			return agentResult(cmd, v)
+		}
+		if format == "json" {
+			return output.JSON(cmd.OutOrStdout(), map[string]any{"source": *source, "page": *page, "pageSize": *size, "total": total, "items": items})
 		}
 		fmt.Fprintln(cmd.OutOrStdout(), "来源："+sourceName)
 		err = renderRecordTable(cmd.OutOrStdout(), cols, items, sampleTaskValue)
@@ -203,6 +209,15 @@ func newSampleExecution(options Options, load loadConfig, periods bool) *cobra.C
 		total, err := sampleCount(result["count"])
 		if err != nil {
 			return err
+		}
+		if agentMode(cmd) {
+			keys := strings.Fields("jobId algorithmName status fileSize periodDate runningTime latestFlag checkTime createTime statusTime")
+			if periods {
+				keys = []string{"period", "state"}
+			}
+			v := output.AgentList(agentRows(items, nil, keys...), "paged", *page, *size, &total)
+			v["taskId"] = args[0]
+			return agentResult(cmd, v)
 		}
 		if format == "json" {
 			return output.JSON(cmd.OutOrStdout(), map[string]any{"taskId": args[0], "page": *page, "pageSize": *size, "total": total, "items": items})

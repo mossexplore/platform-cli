@@ -93,6 +93,15 @@ func newAssembly(options Options, load loadConfig, kind, label string) *cobra.Co
 				return errors.New("sampleDefinitionList 包含无效条目")
 			}
 		}
+		if agentMode(cmd) {
+			v := output.AgentList(agentRows(items, nil, "definitionId", "definitionName", "outputTable", "latestCycle", "latestRatio"), "unpaged", 0, 0, nil)
+			if id := result.Text("featureSetId"); id != "" {
+				v["featureSetId"] = id
+			} else {
+				v["featureSetId"] = set
+			}
+			return agentResult(cmd, v)
+		}
 		if format == "json" {
 			data := map[string]any{"items": items, "count": len(items)}
 			if id := result["featureSetId"]; len(id) != 0 {

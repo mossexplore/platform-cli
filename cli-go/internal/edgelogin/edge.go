@@ -253,6 +253,8 @@ func effectivePort(address *url.URL) string {
 	return "80"
 }
 
+func (s Summary) Secrets() (string, string) { return s.cookie, s.csrfToken }
+
 func (s Summary) PrintSecrets(out io.Writer) error {
 	_, err := fmt.Fprintf(out, "cookie: %s\ncsrftoken: %s\n", s.cookie, s.csrfToken)
 	return err

@@ -24,7 +24,8 @@ func TestJupyterExecUsesDedicatedKernelAndCleansIt(t *testing.T) {
 		if r.URL.Path == "/cli-permission/api/v1/access/check" {
 			body := assertAccess(t, w, r, "ml jupyter exec")
 			want := "ml jupyter exec -o json -- python -c " + quoteCommandArg(script) + " " + quoteCommandArg("")
-			if body["full_command"] != want {
+			agentWant := strings.Replace(want, "-o json", "--agent", 1)
+			if body["full_command"] != want && body["full_command"] != agentWant {
 				t.Errorf("unexpected full command: %q", body["full_command"])
 			}
 			return
@@ -110,6 +111,11 @@ func TestJupyterExecUsesDedicatedKernelAndCleansIt(t *testing.T) {
 		created.Load() != 1 || deleted.Load() != 1 || executed.Load() != 1 {
 		t.Fatalf("unexpected execution: %d\n%s\n%s", code, out, stderr)
 	}
+	agent := compactResult(t, paths, "jupyter", "exec", "--agent", "--", "python", "-c", script, "")
+	if agent["status"] != "SUCCEEDED" || agent["stdout"] != "测试\n" || agent["exit_code"] != float64(0) || created.Load() != 2 || executed.Load() != 2 || deleted.Load() != 2 {
+		t.Fatal(agent, created.Load(), executed.Load(), deleted.Load())
+	}
+
 }
 
 func TestJupyterFileDeletionRejectsNonemptyDirectory(t *testing.T) {

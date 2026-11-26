@@ -31,6 +31,11 @@ func newBusiness(options Options, load loadConfig) *cobra.Command {
 			return err
 		}
 		out, sel := cmd.OutOrStdout(), entry.Selected
+		if agentMode(cmd) {
+			v := output.AgentList(entry.Catalog, "unpaged", 0, 0, nil)
+			v["selected"] = sel
+			return agentResult(cmd, v)
+		}
 		for _, department := range entry.Catalog {
 			fmt.Fprintf(out, "部门: %s [%s]\n", labelOrID(department.Name, department.ID), department.ID)
 			for _, item := range department.Tenants {
@@ -82,6 +87,9 @@ func newBusiness(options Options, load loadConfig) *cobra.Command {
 				return err
 			}
 			if selection.TenantID == "" {
+				if agentMode(cmd) {
+					return agentResult(cmd, map[string]string{"status": "cancelled"})
+				}
 				_, err := fmt.Fprintln(cmd.ErrOrStderr(), "已取消业务切换")
 				return err
 			}
@@ -125,6 +133,9 @@ func newBusiness(options Options, load loadConfig) *cobra.Command {
 		if _, err := edgelogin.Refresh(cmd.Context(), paths, cfg, cmd.ErrOrStderr()); err != nil {
 			return err
 		}
+		if agentMode(cmd) {
+			return agentResult(cmd, map[string]string{"environment": cfg.Current, "status": "refreshed"})
+		}
 		_, err = fmt.Fprintln(cmd.ErrOrStderr(), "[成功] 当前环境的业务目录已刷新")
 		return err
 	}
@@ -160,6 +171,9 @@ func printBusiness(cmd *cobra.Command, entry localstate.BusinessEntry) error {
 		team, dimension = labelOrID(team, sel.TeamID), "team"
 	} else {
 		team = "-"
+	}
+	if agentMode(cmd) {
+		return agentResult(cmd, sel)
 	}
 	fields := output.Fields{{Key: "type（选择维度）", Value: dimension}, {Key: "department（部门）", Value: labelOrID(department, sel.DepartmentID)},
 		{Key: "tenant（租户）", Value: labelOrID(tenant, sel.TenantID)}, {Key: "team（团队）", Value: team}, {Key: "businessId", Value: sel.BusinessID}}
@@ -198,6 +212,9 @@ func selectInteractive(cmd *cobra.Command, catalog []localstate.Department, sear
 	}
 	input := bufio.NewReader(cmd.InOrStdin())
 	out, prompt := cmd.OutOrStdout(), cmd.ErrOrStderr()
+	if agentMode(cmd) {
+		out = prompt
+	}
 	read := func() (string, error) {
 		value, err := input.ReadString('\n')
 		if err == io.EOF && value == "" {

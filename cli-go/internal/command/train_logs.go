@@ -91,6 +91,9 @@ func runningTrainDownload(cmd *cobra.Command, api *platform.API, taskID, jobID, 
 		return steps.failure(err)
 	}
 	if len(indices) == 0 {
+		if agentMode(cmd) {
+			return agentResult(cmd, map[string]string{"status": "cancelled"})
+		}
 		steps.note("没有选择可下载的日志")
 		return nil
 	}

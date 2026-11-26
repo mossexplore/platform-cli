@@ -36,6 +36,9 @@ func (fields Fields) MarshalJSON() ([]byte, error) {
 }
 
 func (fields Fields) Table(out io.Writer) error {
+	if IsAgent(out) {
+		return JSON(out, fields)
+	}
 	rows := make([][]string, 0, len(fields))
 	for _, field := range fields {
 		rows = append(rows, []string{field.Key, field.Value})
@@ -46,7 +49,9 @@ func (fields Fields) Table(out io.Writer) error {
 func JSON(out io.Writer, value any) error {
 	encoder := json.NewEncoder(out)
 	encoder.SetEscapeHTML(false)
-	encoder.SetIndent("", "  ")
+	if !IsAgent(out) {
+		encoder.SetIndent("", "  ")
+	}
 	return encoder.Encode(value)
 }
 

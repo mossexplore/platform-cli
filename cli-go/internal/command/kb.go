@@ -88,6 +88,40 @@ type kbItem struct {
 }
 
 func writeKBResult(cmd *cobra.Command, route, format string, raw json.RawMessage) error {
+	if agentMode(cmd) && route != "page" {
+		var parsed struct {
+			KBID   string `json:"kb_id"`
+			KBName string `json:"kb_name"`
+			Items  []platform.Record
+			Page   int
+			Size   int `json:"page_size"`
+			Total  *int
+			Window *bool `json:"candidate_window_exhausted"`
+		}
+		if err := json.Unmarshal(raw, &parsed); err != nil {
+			return err
+		}
+		if parsed.Items == nil {
+			return errors.New("知识库响应缺少有效的 items")
+		}
+		mode := "unpaged"
+		if route == "pages" {
+			mode = "paged"
+		} else if route == "search" {
+			mode = "limited"
+		}
+		v := output.AgentList(agentRows(parsed.Items, nil, "id", "name", "description", "slug", "title", "summary", "updated_at", "kb_id", "source_refs", "score"), mode, parsed.Page, parsed.Size, parsed.Total)
+		if parsed.KBID != "" {
+			v["kb_id"] = parsed.KBID
+		}
+		if parsed.KBName != "" {
+			v["kb_name"] = parsed.KBName
+		}
+		if parsed.Window != nil {
+			v["candidate_window_exhausted"] = *parsed.Window
+		}
+		return agentResult(cmd, v)
+	}
 	if format == "json" {
 		return output.JSON(cmd.OutOrStdout(), raw)
 	}

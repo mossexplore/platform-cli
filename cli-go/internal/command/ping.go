@@ -28,16 +28,25 @@ func newPing(options Options, load loadConfig) *cobra.Command {
 			return err
 		}
 		if !cfg.PingEnabled() {
+			if agentMode(cmd) {
+				return agentResult(cmd, map[string]string{"status": "disabled"})
+			}
 			_, err := fmt.Fprintln(cmd.ErrOrStderr(), "自动保活已在配置中关闭")
 			return err
 		}
 		if paths.Session.Mode != localstate.SessionModeDSH && !canStartPing(cmd, paths) {
+			if agentMode(cmd) {
+				return agentResult(cmd, map[string]string{"status": "skipped", "reason": "nonInteractive"})
+			}
 			_, err := fmt.Fprintln(cmd.ErrOrStderr(), "当前不是交互式终端，未启动自动保活")
 			return err
 		}
 		message, err := keepalive.Start(cmd.Context(), paths, cfg, options.Version, false)
 		if err != nil {
 			return err
+		}
+		if agentMode(cmd) {
+			return agentResult(cmd, map[string]string{"environment": cfg.Current, "message": message})
 		}
 		if message != "" {
 			fmt.Fprintln(cmd.ErrOrStderr(), message)
@@ -56,6 +65,9 @@ func newPing(options Options, load loadConfig) *cobra.Command {
 		}
 		if err := keepalive.Stop(paths, profile.Name); err != nil {
 			return err
+		}
+		if agentMode(cmd) {
+			return agentResult(cmd, map[string]string{"environment": profile.Name, "status": "stopped"})
 		}
 		_, err = fmt.Fprintln(cmd.ErrOrStderr(), "[成功] 当前环境的自动保活已停止")
 		return err
@@ -103,6 +115,9 @@ func newPing(options Options, load loadConfig) *cobra.Command {
 				state = "等待有效业务上下文"
 			}
 			next = pingTime(nextPingTime(entry, interval))
+		}
+		if agentMode(cmd) {
+			return agentResult(cmd, map[string]any{"environment": profile.Name, "enabled": cfg.PingEnabled(), "running": running, "status": entry.Status, "pid": entry.WorkerPID, "owners": len(entry.Owner), "intervalMinutes": cfg.Auth.PingMinutes, "lastAttempt": pingTime(entry.LastAttempt), "lastConfirmed": pingTime(entry.LastConfirmed), "next": next, "requestId": entry.RequestID, "success": entry.Success, "failure": entry.Failure, "error": entry.Error})
 		}
 		fields := output.Fields{{Key: "环境", Value: profile.Name}, {Key: "自动保活", Value: enabled},
 			{Key: "状态", Value: state}, {Key: "进程 ID", Value: pid}, {Key: "保活终端数", Value: strconv.Itoa(len(entry.Owner))},

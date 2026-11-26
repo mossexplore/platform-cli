@@ -39,6 +39,22 @@ func newJupyterFiles(options Options, load loadConfig) *cobra.Command {
 				return err
 			}
 			convertJupyterDates(decoded)
+			if agentMode(cmd) {
+				if cmd.Name() == "list" {
+					model, ok := decoded.(map[string]any)
+					if !ok {
+						return errors.New("无效目录响应")
+					}
+					items, ok := model["content"].([]any)
+					if !ok {
+						return errors.New("缺少目录内容")
+					}
+					v := output.AgentList(items, "unpaged", 0, 0, nil)
+					v["path"] = model["path"]
+					return agentResult(cmd, v)
+				}
+				return agentResult(cmd, decoded)
+			}
 			if format == "json" {
 				return output.JSON(cmd.OutOrStdout(), client.Result(decoded))
 			}

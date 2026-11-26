@@ -1,5 +1,7 @@
 # Web Studio 与 Jupyter
 
+使用 `ml jupyter files read REMOTE_PATH --agent` 可从 `content` 读取请求行范围内的正文。执行命令时将 `--agent` 放在传给远端程序的 `--` 之前；同时检查退出码与执行状态。
+
 本节所有写入和执行均受 [SKILL.md](../SKILL.md) 的禁止改码规则约束。只处理已授权的非代码文件，或执行已确认不会改码的既有程序与 Notebook；无法确认副作用时停止。
 
 ## 选择入口

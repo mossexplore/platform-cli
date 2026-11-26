@@ -44,7 +44,7 @@ func newJupyterExec(options Options, load loadConfig) *cobra.Command {
 			return err
 		}
 		value := any(result)
-		if format == "json" {
+		if format == "json" && !agentMode(cmd) {
 			value = client.Result(result)
 		}
 		if err := output.JSON(cmd.OutOrStdout(), value); err != nil {

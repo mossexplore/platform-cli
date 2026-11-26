@@ -11,6 +11,25 @@ import (
 )
 
 func renderTrainDetail(out io.Writer, data platform.Record, format string) error {
+	if output.IsAgent(out) {
+		r := agentRecord(data, "taskId", "name", "businessId", "createTime", "updateTime")
+		info := data.Object("taskInfo")
+		rInfo := agentRecord(info, strings.Fields("taskId taskName teamId category source distFramework subScene scope trainEngine createUser dmq expireDate samples quoteModels algorithmId")...)
+		sections := map[string]string{
+			"baseInfo":    "trainMode",
+			"parameter":   "startScript algorithmConfig customizeConfig",
+			"resource":    "acceptQueue imageSpecificInfo infraSize",
+			"environment": "region imagePackageId algorithmName algorithmVersion",
+			"taskConfig":  "cronTimeOut scheduling isSensitive autoArchive maxHistoryNum maxQueueTime maxRetryTimes",
+		}
+		for section, keys := range sections {
+			if child := info.Object(section); child != nil {
+				_ = rInfo.Put(section, agentRecord(child, strings.Fields(keys)...))
+			}
+		}
+		_ = r.Put("taskInfo", rInfo)
+		return output.JSON(out, r)
+	}
 	if format == "json" {
 		return output.JSON(out, data)
 	}

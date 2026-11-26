@@ -64,6 +64,9 @@ func newEnv(options Options, load loadConfig) *cobra.Command {
 			_, err := fmt.Fprintln(cmd.ErrOrStderr(), "[提示] 暂无可展示环境")
 			return err
 		}
+		if agentMode(cmd) {
+			return agentResult(cmd, output.AgentList(rows, "unpaged", 0, 0, nil))
+		}
 		return renderEnvironmentList(cmd, selected, rows, currentRow)
 	}
 	show := &cobra.Command{Use: "show", Short: "显示当前环境", Args: positional(0)}
@@ -87,6 +90,9 @@ func newEnv(options Options, load loadConfig) *cobra.Command {
 		fields := output.Fields{{Key: "name", Value: profile.Name}, {Key: "platform_type", Value: profile.PlatformType},
 			{Key: "api_endpoint", Value: profile.PublicEndpoint()}, {Key: "base_url", Value: profile.Origin()},
 			{Key: "output_format", Value: profile.Output}, {Key: "verify_ssl", Value: tls}}
+		if agentMode(cmd) {
+			return agentResult(cmd, map[string]any{"name": profile.Name, "platform_type": profile.PlatformType, "api_endpoint": profile.PublicEndpoint(), "base_url": profile.Origin(), "output_format": profile.Output, "verify_ssl": tls == "True"})
+		}
 		return fields.Table(cmd.OutOrStdout())
 	}
 	use := &cobra.Command{Use: "use NAME", Short: "切换当前环境", Args: positional(1)}
@@ -112,6 +118,12 @@ func newEnv(options Options, load loadConfig) *cobra.Command {
 		}
 		cfg.Current = profile.Name
 		fmt.Fprintln(cmd.ErrOrStderr(), "[成功] 当前环境已切换为: "+profile.Name)
+		finish := func() error {
+			if agentMode(cmd) {
+				return agentResult(cmd, map[string]string{"environment": profile.Name})
+			}
+			return nil
+		}
 		if paths.IsSessionIsolated() {
 			if creds, err := paths.CredentialsFor(profile); err == nil {
 				if _, err := paths.SelectedBusiness(creds); err != nil {
@@ -119,7 +131,7 @@ func newEnv(options Options, load loadConfig) *cobra.Command {
 				}
 			}
 			if paths.Session.Mode == localstate.SessionModeDSH {
-				return nil
+				return finish()
 			}
 			if prevCurrent == profile.Name {
 				prevCurrent = ""
@@ -133,13 +145,13 @@ func newEnv(options Options, load loadConfig) *cobra.Command {
 			case message != "":
 				fmt.Fprintln(cmd.ErrOrStderr(), message)
 			}
-			return nil
+			return finish()
 		}
 		if prevCurrent != "" && prevCurrent != profile.Name && fromTerminal(cmd) {
 			_ = keepalive.DetachTerminal(paths, prevCurrent)
 		}
 		startAutoPing(cmd, paths, cfg, options.Version, true)
-		return nil
+		return finish()
 	}
 	env.AddCommand(list, show, use)
 	return env
@@ -205,11 +217,17 @@ func newAccess(options Options, load loadConfig) *cobra.Command {
 			fmt.Fprintf(cmd.ErrOrStderr(), "CLI 版本：%s\n配置文件：%s\n证书来源：%s\n", options.Version, paths.Config(), cfg.Access.CASource)
 		}
 		if !cfg.Access.Active() {
+			if agentMode(cmd) {
+				return agentResult(cmd, map[string]bool{"enabled": false})
+			}
 			_, err = fmt.Fprintln(cmd.ErrOrStderr(), "已关闭在线权限检查。")
 			return err
 		}
 		return authorized(options, func() (localstate.Paths, localstate.Config, error) { return paths, cfg, nil },
 			func(cmd *cobra.Command, _ []string, _ *platform.API, _ string) error {
+				if agentMode(cmd) {
+					return agentResult(cmd, map[string]bool{"authorized": true})
+				}
 				_, err := fmt.Fprintln(cmd.OutOrStdout(), "当前账号已获当前环境访问授权。")
 				return err
 			})(cmd, args)

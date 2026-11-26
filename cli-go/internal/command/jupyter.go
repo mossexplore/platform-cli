@@ -31,7 +31,9 @@ func newJupyter(options Options, load loadConfig) *cobra.Command {
 		if json.Unmarshal(payload, &specs) != nil || specs.Specs == nil {
 			return errors.New("Jupyter kernelspecs 响应无效")
 		}
-		fmt.Fprintln(cmd.OutOrStdout(), "Kernel 接口：通过")
+		if !agentMode(cmd) {
+			fmt.Fprintln(cmd.OutOrStdout(), "Kernel 接口：通过")
+		}
 		items, err := jupyterTerminals(cmd, client)
 		if err != nil {
 			return err
@@ -41,6 +43,9 @@ func newJupyter(options Options, load loadConfig) *cobra.Command {
 			names = append(names, name)
 		}
 		sort.Strings(names)
+		if agentMode(cmd) {
+			return agentResult(cmd, map[string]any{"kernels": names, "terminalCount": len(items), "authenticated": true})
+		}
 		fmt.Fprintln(cmd.OutOrStdout(), "Jupyter HTTP 认证成功；businessid 已携带")
 		fmt.Fprintln(cmd.OutOrStdout(), "可用 Kernel："+strings.Join(names, ", "))
 		fmt.Fprintf(cmd.OutOrStdout(), "Terminal 接口可用，现有终端 %d 个\n", len(items))
@@ -54,6 +59,9 @@ func newJupyter(options Options, load loadConfig) *cobra.Command {
 		items, err := jupyterTerminals(cmd, client)
 		if err != nil {
 			return err
+		}
+		if agentMode(cmd) {
+			return agentResult(cmd, output.AgentList(agentRows(items, nil, "name", "last_activity"), "unpaged", 0, 0, nil))
 		}
 		rows := make([][]string, 0, len(items))
 		for _, item := range items {
@@ -69,6 +77,9 @@ func newJupyter(options Options, load loadConfig) *cobra.Command {
 		}
 		if _, err := client.JSON(cmd.Context(), http.MethodDelete, "api/terminals/"+url.PathEscape(args[0]), nil, nil); err != nil {
 			return err
+		}
+		if agentMode(cmd) {
+			return agentResult(cmd, map[string]string{"name": args[0], "status": "closed"})
 		}
 		_, err := fmt.Fprintln(cmd.ErrOrStderr(), "[成功] 已关闭远程终端："+args[0])
 		return err

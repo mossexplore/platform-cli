@@ -94,7 +94,11 @@ func newResourceDetail(options Options, load loadConfig) *cobra.Command {
 		}
 		out := cmd.OutOrStdout()
 		if format == "json" {
-			if err := output.JSON(out, map[string]json.RawMessage{"resourceTemplate": data, "frameworkPackage": frameworkData}); err != nil {
+			value := any(map[string]json.RawMessage{"resourceTemplate": data, "frameworkPackage": frameworkData})
+			if agentMode(cmd) {
+				value = map[string]any{"resourceTemplate": record, "framework": frameworkText}
+			}
+			if err := output.JSON(out, value); err != nil {
 				return err
 			}
 		} else {
@@ -215,7 +219,14 @@ func newDeploymentDetail(options Options, load loadConfig) *cobra.Command {
 			entries = append(entries, entry)
 		}
 		if format == "json" {
-			if err := output.JSON(out, map[string]any{"deploymentTemplate": payload, "resourceTemplates": entries}); err != nil {
+			value := map[string]any{"deploymentTemplate": payload, "resourceTemplates": entries}
+			if agentMode(cmd) {
+				value["deploymentTemplate"] = template
+				for _, entry := range entries {
+					delete(entry, "response")
+				}
+			}
+			if err := output.JSON(out, value); err != nil {
 				return err
 			}
 		} else if err := renderDeploymentTemplate(cmd, template, matches, linkedErrors); err != nil {

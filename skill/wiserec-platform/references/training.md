@@ -1,5 +1,7 @@
 # 训练任务、样本任务、离线实验、算法仓与训练看板
 
+使用 `ml train history list TASK_ID --agent` 时，普通作业检查记录的 `plogReady`，分布式作业检查所选 `roleJobInfo` 条目的 `plogReady` 和完整 `roleJobId`。
+
 以下命令的列表和查询均支持 `-o json`，具体筛选和分页参数查 `--help`。
 
 ## 下载训练执行记录日志

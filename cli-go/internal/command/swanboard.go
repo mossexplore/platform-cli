@@ -80,6 +80,15 @@ func newSwanBoard(options Options, load loadConfig) *cobra.Command {
 		if err != nil {
 			return err
 		}
+		if agentMode(cmd) {
+			v := output.AgentList(agentRows(items, nil, "experimentId", "name", "createTime"), "fixedFirstPage", 0, 0, nil)
+			for key, source := range map[string]string{"pageIndex": "pageNum", "pageSize": "pageSize", "total": "total"} {
+				if raw := data[source]; len(raw) > 0 && string(raw) != "null" {
+					v[key] = raw
+				}
+			}
+			return agentResult(cmd, v)
+		}
 		if format == "json" {
 			total := any(data["total"])
 			if len(data["total"]) == 0 {
@@ -129,6 +138,18 @@ func newSwanBoard(options Options, load loadConfig) *cobra.Command {
 		data, err := swanConfig(cmd, api, args[0])
 		if err != nil {
 			return err
+		}
+		if agentMode(cmd) {
+			keys := make([]string, 0, len(data))
+			for key := range data {
+				keys = append(keys, key)
+			}
+			sort.Strings(keys)
+			items := make([]map[string]any, 0, len(keys))
+			for _, key := range keys {
+				items = append(items, map[string]any{"name": key, "config": data[key]})
+			}
+			return agentResult(cmd, output.AgentList(items, "unpaged", 0, 0, nil))
 		}
 		if format == "json" {
 			return output.JSON(cmd.OutOrStdout(), data)
@@ -244,6 +265,17 @@ func showSwanPage(out io.Writer, record platform.Record, format string, page, si
 		return err
 	}
 	if format == "json" {
+		if output.IsAgent(out) {
+			mode := "paged"
+			if size == 0 {
+				mode = "unpaged"
+			}
+			v := output.AgentList(agentRows(items, columns), mode, page, size, nil)
+			if raw := record["count"]; len(raw) > 0 && string(raw) != "null" {
+				v["total"] = raw
+			}
+			return output.JSON(out, v)
+		}
 		return output.JSON(out, result)
 	}
 	return renderRecordTable(out, columns, items, catalogValue)

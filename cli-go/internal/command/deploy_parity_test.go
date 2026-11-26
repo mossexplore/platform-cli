@@ -60,4 +60,13 @@ func TestModelDeployDryRunBuildsPayloadWithoutPublishing(t *testing.T) {
 		payload.Data.Health["alarmWiseEyeScope"] != "scope" || len(payload.Data.Blocks) != 1 || payload.Data.Blocks[0].Image != "image" {
 		t.Fatalf("unexpected dry run: %d %s %s", code, out, stderr)
 	}
+	preview := compactResult(t, paths, "model", "deploy", "model-1", "--template", "template-1", "--dry-run", "--agent")
+	if preview["data"] == nil || publishes.Load() != 0 {
+		t.Fatal("agent preview published", preview)
+	}
+	result := compactResult(t, paths, "model", "deploy", "model-1", "--template", "template-1", "--yes", "--agent")
+	if result["code"] != float64(0) || publishes.Load() != 1 {
+		t.Fatal("agent submission", result, publishes.Load())
+	}
+
 }

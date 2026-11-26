@@ -52,6 +52,9 @@ func newAlgorithm(options Options, load loadConfig) *cobra.Command {
 		if err != nil {
 			return err
 		}
+		if agentMode(cmd) {
+			return agentResult(cmd, map[string]any{"file": target, "bytes": size})
+		}
 		_, err = fmt.Fprintf(cmd.ErrOrStderr(), "[成功] 算法仓已下载：%s（%d 字节）\n", target, size)
 		return err
 	})
@@ -69,6 +72,9 @@ func newAlgorithm(options Options, load loadConfig) *cobra.Command {
 		fmt.Fprintf(cmd.ErrOrStderr(), "源算法仓：%s；新名称：%s；新版本：%s\n", args[0], *name, *version)
 		ok, err := approve(cmd, "确认克隆算法仓？")
 		if !ok || err != nil {
+			if err == nil && agentMode(cmd) {
+				return agentResult(cmd, map[string]string{"status": "cancelled"})
+			}
 			fmt.Fprintln(cmd.ErrOrStderr(), "已取消克隆")
 			return err
 		}
@@ -82,6 +88,9 @@ func newAlgorithm(options Options, load loadConfig) *cobra.Command {
 			return err
 		}
 		fmt.Fprintln(cmd.ErrOrStderr(), "[成功] 克隆算法仓成功")
+		if agentMode(cmd) {
+			return agentResult(cmd, map[string]string{"id": result.Object("data").Text("id"), "sourceId": args[0]})
+		}
 		if id := result.Object("data").Text("id"); id != "" {
 			fmt.Fprintln(cmd.OutOrStdout(), "新算法仓 ID："+id)
 		}

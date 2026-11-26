@@ -70,6 +70,19 @@ func newDatasetFiles(options Options, load loadConfig) *cobra.Command {
 		if *more {
 			fmt.Fprintln(cmd.ErrOrStderr(), "[警告] 当前结果不完整，接口分页规则尚未提供")
 		}
+		if agentMode(cmd) {
+			items := agentRows(files, nil, "name", "path", "size", "dir", "lastModifyDate")
+			for i := range items {
+				_ = items[i].Put("fullPath", rows[i][4])
+			}
+			mode := "unpaged"
+			if *more {
+				mode = "limited"
+			}
+			v := output.AgentList(items, mode, 0, 0, nil)
+			v["currentDir"], v["hasMore"] = directory, *more
+			return agentResult(cmd, v)
+		}
 		if format == "json" {
 			return output.JSON(cmd.OutOrStdout(), map[string]any{"currentDir": directory, "response": payload})
 		}

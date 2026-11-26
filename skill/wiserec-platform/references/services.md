@@ -1,5 +1,7 @@
 # 服务与服务日志
 
+使用 `ml service host list SERVICE_ID --agent` 时，`fixedFirstPage` 表示只返回第一页；`returnedCount` 可小于 `total`。用同一条记录中的 `nodeName` 和 `clusterName` 查询 Pod 事件。
+
 ## 定位服务与主机
 
 用 `ml service --help` 在 `Commands` 面板找到子命令，再用对应子命令的 `--help` 核对用法、参数和必填项。服务 ID 示例需换成当前业务中实际查询到的 ID。

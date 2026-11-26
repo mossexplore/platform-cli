@@ -66,6 +66,13 @@ func newTrain(options Options, load loadConfig) *cobra.Command {
 		if err != nil {
 			return err
 		}
+		if agentMode(cmd) {
+			r := agentRecord(record, columnKeys(trainHistoryColumns, "taskId")...)
+			if err := agentHistory(record, r); err != nil {
+				return err
+			}
+			return agentResult(cmd, r)
+		}
 		return renderTrainHistoryDetail(cmd.OutOrStdout(), record, args[0], args[1], format)
 	})
 	outputFlag(historyDetail)
@@ -88,6 +95,17 @@ func trainListCommand(use, short string, argsCount int, options Options, load lo
 		if err != nil {
 			return err
 		}
+		if agentMode(cmd) {
+			rows := agentRows(result.Items, allBusinessColumns(cols, allBusinessRequested(cmd)))
+			if cmd.Parent().Name() == "history" {
+				for i, r := range result.Items {
+					if err := agentHistory(r, rows[i]); err != nil {
+						return err
+					}
+				}
+			}
+			return agentResult(cmd, output.AgentList(rows, "paged", result.PageIndex, result.PageSize, &result.Count))
+		}
 		if format == "json" {
 			return output.JSON(cmd.OutOrStdout(), result)
 		}
@@ -102,6 +120,9 @@ func newTrainStart(options Options, load loadConfig) *cobra.Command {
 		jobID, err := api.StartTrain(cmd.Context(), args[0])
 		if err != nil {
 			return err
+		}
+		if agentMode(cmd) {
+			return agentResult(cmd, map[string]string{"taskId": args[0], "jobId": jobID})
 		}
 		if jobID == "" {
 			_, err = fmt.Fprintln(cmd.ErrOrStderr(), "[警告] 训练任务执行成功，但接口未返回有效 jobId，请查询执行记录确认。")
@@ -124,11 +145,17 @@ func newTrainDelete(options Options, load loadConfig) *cobra.Command {
 		fmt.Fprintf(cmd.ErrOrStderr(), "待删除训练任务：%s · %s（团队 %s）\n", task.Text("taskName"), args[0], loginValue(task.Text("teamId")))
 		ok, err := approve(cmd, "确认软删除此任务？")
 		if !ok || err != nil {
+			if err == nil && agentMode(cmd) {
+				return agentResult(cmd, map[string]string{"status": "cancelled"})
+			}
 			fmt.Fprintln(cmd.ErrOrStderr(), "已取消操作")
 			return err
 		}
 		if err := api.DeleteTrain(cmd.Context(), task); err != nil {
 			return err
+		}
+		if agentMode(cmd) {
+			return agentResult(cmd, map[string]string{"taskId": args[0], "status": "deleted"})
 		}
 		_, err = fmt.Fprintln(cmd.ErrOrStderr(), "[成功] 删除训练任务"+args[0]+"成功")
 		return err
@@ -155,15 +182,26 @@ func newTrainCancel(options Options, load loadConfig) *cobra.Command {
 		fmt.Fprintf(cmd.ErrOrStderr(), "训练任务 %s 有 %d 个执行实例待取消。\n", args[0], len(items))
 		ok, err := approve(cmd, "确认逐个取消全部执行实例？")
 		if !ok || err != nil {
+			if err == nil && agentMode(cmd) {
+				return agentResult(cmd, map[string]string{"status": "cancelled"})
+			}
 			fmt.Fprintln(cmd.ErrOrStderr(), "已取消操作")
 			return err
 		}
 		failed := 0
+		var outcomes []map[string]any
 		for _, item := range items {
 			if err := ctx.Err(); err != nil {
 				return err
 			}
 			description, err := api.CancelTrainInstance(ctx, args[0], item)
+			if agentMode(cmd) {
+				itemResult := map[string]any{"jobId": item.Text("jobId"), "cancelled": err == nil}
+				if err != nil {
+					itemResult["error"] = err.Error()
+				}
+				outcomes = append(outcomes, itemResult)
+			}
 			if err != nil {
 				failed++
 				fmt.Fprintf(cmd.ErrOrStderr(), "[错误] 取消训练任务%s的执行实例%s失败：%s\n", args[0], item.Text("jobId"), err)
@@ -175,6 +213,11 @@ func newTrainCancel(options Options, load loadConfig) *cobra.Command {
 			}
 		}
 		summary := fmt.Sprintf("取消完成：成功 %d 个，失败 %d 个。", len(items)-failed, failed)
+		if agentMode(cmd) {
+			if err := agentResult(cmd, map[string]any{"succeeded": len(items) - failed, "failed": failed, "items": outcomes}); err != nil {
+				return err
+			}
+		}
 		if failed > 0 {
 			return errors.New(summary)
 		}
@@ -205,6 +248,9 @@ func newTrainClone(options Options, load loadConfig) *cobra.Command {
 		fmt.Fprintf(cmd.ErrOrStderr(), "克隆为：%s（源任务：%s）\n", *name, args[0])
 		ok, err := approve(cmd, "确认克隆？")
 		if !ok || err != nil {
+			if err == nil && agentMode(cmd) {
+				return agentResult(cmd, map[string]string{"status": "cancelled"})
+			}
 			fmt.Fprintln(cmd.ErrOrStderr(), "已取消克隆")
 			return err
 		}
@@ -217,6 +263,9 @@ func newTrainClone(options Options, load loadConfig) *cobra.Command {
 			return err
 		}
 		fmt.Fprintln(cmd.ErrOrStderr(), "[成功] 克隆训练任务"+args[0]+"成功")
+		if agentMode(cmd) {
+			return agentResult(cmd, map[string]string{"sourceTaskId": args[0], "taskId": id})
+		}
 		if id != "" {
 			_, err = fmt.Fprintln(cmd.OutOrStdout(), "新任务 ID："+id)
 		}
@@ -232,6 +281,9 @@ func newTrainUpdate(options Options, load loadConfig) *cobra.Command {
 	cmd.RunE = authorized(options, load, func(cmd *cobra.Command, args []string, api *platform.API, _ string) error {
 		if err := api.UpdateTrainConfig(cmd.Context(), args[0], *config); err != nil {
 			return err
+		}
+		if agentMode(cmd) {
+			return agentResult(cmd, map[string]string{"taskId": args[0], "status": "updated"})
 		}
 		_, err := fmt.Fprintln(cmd.ErrOrStderr(), "[成功] 更新训练任务自定义参数成功！")
 		return err
@@ -252,6 +304,9 @@ func newTrainExport(options Options, load loadConfig) *cobra.Command {
 		path, size, err := api.ExportTrain(cmd.Context(), args[0], *file)
 		if err != nil {
 			return err
+		}
+		if agentMode(cmd) {
+			return agentResult(cmd, map[string]any{"file": path, "bytes": size})
 		}
 		_, err = fmt.Fprintf(cmd.ErrOrStderr(), "[成功] 训练任务配置已下载：%s（%d 字节）\n", path, size)
 		return err

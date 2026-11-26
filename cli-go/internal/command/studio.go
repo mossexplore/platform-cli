@@ -58,11 +58,15 @@ func newStudio(options Options, load loadConfig) *cobra.Command {
 				return errors.New("Web Studio 列表包含无效记录")
 			}
 		}
+
+		cols := []recordColumn{{"envId", "envId"}, {"名称", "labelName"}, {"集群类型", "clusterType"}, {"资源规格", "imageSpecific"},
+			{"状态", "status"}, {"创建者", "operator"}, {"修改者", "modifier"}, {"启动时间", "accessTime"}}
+		if agentMode(cmd) {
+			return agentResult(cmd, output.AgentList(agentRows(items, allBusinessColumns(cols, allBusinessRequested(cmd))), "paged", *page, *size, count))
+		}
 		if strings.EqualFold(*format, "json") {
 			return output.JSON(cmd.OutOrStdout(), payload)
 		}
-		cols := []recordColumn{{"envId", "envId"}, {"名称", "labelName"}, {"集群类型", "clusterType"}, {"资源规格", "imageSpecific"},
-			{"状态", "status"}, {"创建者", "operator"}, {"修改者", "modifier"}, {"启动时间", "accessTime"}}
 		err = renderRecordTable(cmd.OutOrStdout(), allBusinessColumns(cols, allBusinessRequested(cmd)), items, func(item platform.Record, key string) string {
 			if key == "accessTime" {
 				return dateText(item[key])
@@ -84,6 +88,9 @@ func newStudio(options Options, load loadConfig) *cobra.Command {
 		}
 		if err := jupyter.StudioLogin(cmd.Context(), api, paths, cfg, args[0]); err != nil {
 			return err
+		}
+		if agentMode(cmd) {
+			return agentResult(cmd, map[string]string{"envId": args[0], "status": "loggedIn"})
 		}
 		_, err = fmt.Fprintln(cmd.ErrOrStderr(), "[成功] Web Studio 登录成功，默认实例："+args[0])
 		return err
@@ -115,6 +122,9 @@ func newStudio(options Options, load loadConfig) *cobra.Command {
 			}
 			if _, err := platform.Result(payload, chinese+" Web Studio", false); err != nil {
 				return err
+			}
+			if agentMode(cmd) {
+				return agentResult(cmd, map[string]string{"envId": args[0], "action": action, "status": "accepted"})
 			}
 			_, err = fmt.Fprintf(cmd.ErrOrStderr(), "[成功] Web Studio %s成功：%s\n", chinese, args[0])
 			return err

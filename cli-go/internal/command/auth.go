@@ -73,6 +73,14 @@ func newAuth(options Options, load loadConfig) (*cobra.Command, *cobra.Command) 
 			{Key: "expires_at", Value: expires.In(beijing).Format("2006-01-02 15:04:05")},
 			{Key: "timezone", Value: "Asia/Shanghai"},
 		}
+		if agentMode(cmd) {
+			v := map[string]any{}
+			for _, f := range fields {
+				v[f.Key] = f.Value
+			}
+			v["remaining_minutes"] = remaining
+			return agentResult(cmd, v)
+		}
 		return fields.Table(cmd.OutOrStdout())
 	}
 	auth.AddCommand(status, newPing(options, load))
@@ -105,6 +113,9 @@ func newAuth(options Options, load loadConfig) (*cobra.Command, *cobra.Command) 
 		target := profile.Name
 		if *all {
 			target = "所有环境"
+		}
+		if agentMode(cmd) {
+			return agentResult(cmd, map[string]any{"target": target, "forgetBrowser": *forget, "status": "loggedOut"})
 		}
 		fmt.Fprintf(cmd.ErrOrStderr(), "[成功] 已清除 %s 的本地认证信息\n", target)
 		if *forget {

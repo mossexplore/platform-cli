@@ -40,6 +40,24 @@ func newKBFiles(options Options, load loadConfig, cfg localstate.KnowledgeBase) 
 		if err != nil {
 			return err
 		}
+		if agentMode(cmd) {
+			for i, item := range result.Items {
+				if item.Updated != "" {
+					raw, _ := json.Marshal(item.Updated)
+					result.Items[i].Updated = dateText(raw)
+				}
+			}
+			mode := "paged"
+			if *all {
+				mode = "unpaged"
+			}
+			v := output.AgentList(result.Items, mode, result.Page, result.Size, nil)
+			v["kb_id"], v["kb_name"] = result.ID, result.Name
+			if result.HasMore != nil {
+				v["has_more"] = *result.HasMore
+			}
+			return agentResult(cmd, v)
+		}
 		if *format == "json" {
 			return output.JSON(cmd.OutOrStdout(), result)
 		}
@@ -81,6 +99,9 @@ func newKBFiles(options Options, load loadConfig, cfg localstate.KnowledgeBase) 
 		path, size, err := session.DownloadKBFile(cmd.Context(), accessAuditCommand(options.Args), query, *file)
 		if err != nil {
 			return err
+		}
+		if agentMode(cmd) {
+			return agentResult(cmd, map[string]any{"file": path, "bytes": size})
 		}
 		_, err = fmt.Fprintf(cmd.OutOrStdout(), "已保存到 %s（%d 字节）\n", path, size)
 		return err

@@ -39,6 +39,11 @@ func newModel(options Options, load loadConfig) *cobra.Command {
 		if err != nil {
 			return err
 		}
+		if agentMode(cmd) {
+			r := agentRecord(record, columnKeys(cols)...)
+			_ = r.Put("modelId", args[0])
+			return agentResult(cmd, r)
+		}
 		if format == "json" {
 			return output.JSON(cmd.OutOrStdout(), payload)
 		}
@@ -83,6 +88,9 @@ func newModelSource(options Options, load loadConfig) *cobra.Command {
 		if err != nil {
 			return err
 		}
+		if agentMode(cmd) && !*train {
+			return agentResult(cmd, agentRecord(source, strings.Fields("modelName modelVersion sourceId jobId sensitive businessId status createTime description source bucketName")...))
+		}
 		if format == "json" && !*train {
 			return output.JSON(out, json.RawMessage(rawSource))
 		}
@@ -101,6 +109,9 @@ func newModelSource(options Options, load loadConfig) *cobra.Command {
 				return errors.New("训练任务响应缺少有效的 result.jobHistoryDetail")
 			}
 			if format == "json" {
+				if agentMode(cmd) {
+					return agentResult(cmd, agentRecord(task, strings.Fields("jobId taskId taskName businessId jobType image imageSpecificInfo maxHistoryNum")...))
+				}
 				return output.JSON(out, json.RawMessage(raw))
 			}
 		}
