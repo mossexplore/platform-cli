@@ -39,6 +39,10 @@ jobs:
       - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
           node-version: '22'
+      - uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5 # v5.5.0
+        with:
+          go-version-file: cli-go/go.mod
+          cache-dependency-path: cli-go/go.sum
       - name: Check component version sources
         run: python scripts/sync_versions.py --check
       - name: Validate version and publication source
@@ -49,11 +53,7 @@ jobs:
           OWNER: ${{ github.repository_owner }}
         run: |
           python - <<'PY'
-          import os, pathlib, re, tomllib
-          cli_version = tomllib.loads(pathlib.Path('cli-python/pyproject.toml').read_text())['project']['version']
-          cli = pathlib.Path('cli-python/src/wiserec_cli/__init__.py').read_text()
-          assert f'__version__ = "{cli_version}"' in cli
-          assert re.fullmatch(r'\d+\.\d+\.\d+(?:\.\d+)?', cli_version)
+          import os, pathlib, re
           version = pathlib.Path('access-service/VERSION').read_text().strip()
           assert re.fullmatch(r'\d+\.\d+\.\d+(?:\.\d+)?', version)
           event, ref = os.environ['EVENT'], os.environ['REF']
@@ -61,17 +61,21 @@ jobs:
           image = 'ghcr.io/' + os.environ['OWNER'].lower() + '/cli-access'
           candidate = image + ':candidate-' + os.environ['GITHUB_RUN_ID'] + '-' + os.environ['GITHUB_RUN_ATTEMPT']
           with open(os.environ['GITHUB_OUTPUT'], 'a') as out:
-              out.write(f'version={version}\ncli_version={cli_version}\nimage={image}\ncandidate={candidate}\npublish={str(publish).lower()}\n')
+              out.write(f'version={version}\nimage={image}\ncandidate={candidate}\npublish={str(publish).lower()}\n')
           PY
-      - name: Prepare CI example configuration
-        run: python -c "from shutil import copyfile; copyfile('cli-python/config.example.json', 'cli-python/config.json')"
-      - name: Install test dependencies
-        run: python -m pip install -e ./cli-python -r access-service/requirements.lock pytest "setuptools>=68" wheel
-      - name: CLI tests
+      - name: Install access service test dependencies
+        run: python -m pip install -r access-service/requirements.lock pytest "setuptools>=68" wheel
+      - name: Go CLI tests and vet
+        working-directory: cli-go
+        run: |
+          go test ./...
+          go vet ./...
+      - name: Component version and offline export tests
+        run: python -m pytest tests/test_component_versions.py tests/test_offline_export.py -q
+      - name: Go CLI and access service admission contract
         env:
-          # Typer forces ANSI output on GitHub; help assertions require plain text.
-          _TYPER_FORCE_DISABLE_TERMINAL: "1"
-        run: python -m pytest cli-python/tests tests -q
+          PYTHONPATH: access-service:access-service/tests
+        run: python -m pytest access-service/ci/test_go_contract.py -q
       - name: Access service tests
         working-directory: access-service
         run: python -m pytest tests -q
@@ -135,7 +139,7 @@ jobs:
             echo '### Tested Linux amd64 image'
             echo "Image: \`$IMAGE@$DIGEST\`"
             echo "Commit: \`$GITHUB_SHA\`; permission service version: \`$VERSION\`"
-            echo 'Tests: CLI + access service + timezones + MySQL image smoke/restart.'
+            echo 'Tests: Go CLI + admission contract + access service + timezones + MySQL image smoke/restart.'
             echo 'Set CLI_ACCESS_IMAGE to the digest above; production is not deployed automatically.'
           } >> "$GITHUB_STEP_SUMMARY"
       - name: Export tested image for offline servers
