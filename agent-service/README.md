@@ -4,7 +4,7 @@
 
 **本次交付尚未完成真实环境验收**：没有模型、MySQL、平台或 access-service 配置。自动化测试使用可注入的 HTTP 测试桩与 SQLite；生产启动路径必须连接 MySQL 和真实模型，不会回退为演示数据。Windows 与真实 Edge 登录需按下方验收清单验证。
 
-当前源码版本为 **1.0.9.1**，由根目录 `versions.toml` 的 `components.agent` 维护；`agent-service/pyproject.toml` 和 `app/_version.py` 由脚本同步。运行时只读取自身包内版本，不读取 CLI 版本作为页面版本。修改方法见 [版本号管理说明](../docs/版本号管理说明.md)。
+当前源码版本为 **1.0.9.1**，由根目录 `versions.toml` 的 `components.agent` 维护；`agent-service/pyproject.toml` 和 `app/_version.py` 由脚本同步。运行时只读取自身包内版本，不读取 CLI 版本作为页面版本。修改方法见 [版本号管理说明](../docs/maintenance/版本号管理说明.md)。
 
 本次补齐 CLI 质量监控中宽表特征集的特征装配、标签装配样本定义及特征列表查询，继续通过服务端权限检查并使用当前业务上下文。
 
@@ -86,7 +86,7 @@ bash scripts/start.sh
 
 ## 能力与边界
 
-90 个业务工具覆盖当前 80 个 CLI 业务叶子命令，另有 1 个发现工具。覆盖查询、克隆、训练任务管理、部署、文件、Web Studio/Jupyter 执行及终端；25 个有副作用工具需要网页确认具体参数，之后仍检查权限。完整覆盖表、配置、使用与操作边界见 [Agent 全量 CLI 业务工具设计与使用指南](../docs/Agent全量CLI业务工具设计与使用指南.md)。
+90 个业务工具覆盖当前 80 个 CLI 业务叶子命令，另有 1 个发现工具。覆盖查询、克隆、训练任务管理、部署、文件、Web Studio/Jupyter 执行及终端；25 个有副作用工具需要网页确认具体参数，之后仍检查权限。完整覆盖表、配置、使用与操作边界见 [Agent 全量 CLI 业务工具设计与使用指南](../docs/design/Agent全量CLI业务工具设计与使用指南.md)。
 
 新增质量监控领域 `quality`：`list_quality_features` 对应 `ml quality feature list`，`list_quality_wide_featuresets` 对应 `ml quality wide-featureset list`。可用“质量监控”“特征质量”“空值率”“时效性”或精确工具名发现。默认第 1 页、每页 10 条，每页不超过 100 且受 `runtime.max_page_size` 限制；特征值类型和指标类型接受中文或英文枚举，英文忽略大小写。结果复用 CLI 原始 JSON 列表结构，两个工具均为只读，不新增网页确认。
 
@@ -224,6 +224,6 @@ MySQL DDL有隐式提交：中断后可能已建偏好表但仍为版本1，再�
 
 每次用户消息创建独立加载集合，跨用户和跨轮次不共享。发现只读取静态目录，不授予平台访问权限；业务查询仍沿用现有逐请求权限检查。未知搜索会返回领域目录，工具发现和已有业务调用共同受总预算限制。
 
-runtime 新增可选配置 `max_discovery_calls`（默认 4）和 `max_loaded_tools`（默认 16，不含发现入口）；旧配置无需修改。没有新增 CLI 命令或数据库结构；新增的 Agent 写工具使用网页确认。详细行为、限制及验证入口见 [Agent 工具渐进式加载说明](../docs/Agent工具渐进式加载说明.md)。
+runtime 新增可选配置 `max_discovery_calls`（默认 4）和 `max_loaded_tools`（默认 16，不含发现入口）；旧配置无需修改。没有新增 CLI 命令或数据库结构；新增的 Agent 写工具使用网页确认。详细行为、限制及验证入口见 [Agent 工具渐进式加载说明](../docs/guides/Agent工具渐进式加载说明.md)。
 
-本次业务扩展的完整用例与执行结果见 [Agent CLI 业务能力测试记录](../docs/AgentCLI业务能力测试记录.md)。
+本次业务扩展的完整用例与执行结果见 [Agent CLI 业务能力测试记录](../docs/testing/AgentCLI业务能力测试记录.md)。

@@ -15,8 +15,8 @@
 3. **响应示例完整性**：用户提供的响应体可能仅展示部分数据，其他无关数据可能已省略。不得将示例视为完整响应结构，也不得因示例未展示某字段而假定实际接口不存在该字段。
 4. **首列 ID 展示**：若第一列展示 ID，该列宽度必须固定为 `36`，不得换行、截断或省略 ID；其他长字段优先换行，以便用户完整复制第一列的 ID。
 5. **接口地址来源**：用户给出的请求 URL 若包含 `xxx` 占位符，`xxx` 必须取自 `config.json` 中的 `api_endpoint` 值，不得硬编码为其他地址。
-6. **使用手册同步**：若新增或修改 CLI 命令，必须同步更新 `docs/WiseRec CLI 使用手册.md`，检查并更新命令树及对应命令的用途、使用前提、参数与选项、调用示例和输出说明。
-7. **新增命令版本递增**：若新增 Go CLI 命令，将 `versions.toml` 的 `components.cli_go` 补丁号加 `1`，运行版本同步脚本生成 `cli-go/cmd/ml/version.go`，并更新相关版本测试及 README、发布说明。一次变更包含多个新增命令时统一递增一次。打包后确认安装包元数据与 `ml --version` 一致。`docs/WiseRec CLI 使用手册.md` 不得写入版本信息。
+6. **使用手册同步**：若新增或修改 CLI 命令，必须同步更新 `docs/guides/WiseRec CLI 使用手册.md`，检查并更新命令树及对应命令的用途、使用前提、参数与选项、调用示例和输出说明。
+7. **新增命令版本递增**：若新增 Go CLI 命令，将 `versions.toml` 的 `components.cli_go` 补丁号加 `1`，运行版本同步脚本生成 `cli-go/cmd/ml/version.go`，并更新相关版本测试及 README、发布说明。一次变更包含多个新增命令时统一递增一次。打包后确认安装包元数据与 `ml --version` 一致。`docs/guides/WiseRec CLI 使用手册.md` 不得写入版本信息。
 
 8. **命令树说明格式**：`ml tree` 输出中，每个命令及命令分组的说明结尾均不得出现任何标点符号；说明正文中的必要标点保留。末尾括注应改写为完整的补充说明，不能仅删除右括号而留下残缺文本。新增命令或修改说明后，必须检查实际命令树输出，确保所有层级遵守此规则。
 
@@ -27,11 +27,11 @@
 - Go CLI、权限管理系统、Agent、权限通知助手的版本由根目录 `versions.toml` 人工维护，各组件独立递增。
 - 修改版本后运行 `python scripts/sync_versions.py`，再运行 `python scripts/sync_versions.py --check`；派生的 `project.version`、`__version__`、`VERSION` 与 `_version.py` 必须一起提交，不分别手改。
 - 各产品运行时读取自身包内版本，不使用其他产品版本替代。Agent 的已验证 CLI 搭配版本单独记录在 `compatibility.agent_cli`。
-- 不因源文件版本更新宣称已正式发布；正式交付继续遵守原发布门禁。具体来源与打包规则见 `docs/版本号管理说明.md`。
+- 不因源文件版本更新宣称已正式发布；正式交付继续遵守原发布门禁。具体来源与打包规则见 `docs/maintenance/版本号管理说明.md`。
 
 ## 用户使用手册强制规范
 
-`docs/WiseRec CLI 使用手册.md` 是面向用户的命令使用手册，后续新增和修改必须遵守：
+`docs/guides/WiseRec CLI 使用手册.md` 是面向用户的命令使用手册，后续新增和修改必须遵守：
 
 1. **不得包含版本信息**：不写 CLI、安装包、镜像或依赖的版本号、当前版本、历史版本、发布状态、变更历史或升级说明。版本与发布信息放在 README 或独立发布说明中，不得因新增命令或发布流程重新写回手册。
 2. **每章统一四类内容**：每个章节按顺序且仅包含“命令格式”“参数与选项”“说明”“示例”四个小节。命令树、首次使用、文件操作和执行命令同样遵守；无独立参数时简述“无需参数”，不得新增“实现原理”“验证结果”“发布说明”等小节。
@@ -56,7 +56,7 @@ v1.0.3.1 数据看板曾因 MySQL 聚合结果包含 `Decimal`，在模板的 `c
 
 ## 权限管理系统升级指南强制规范
 
-后续新建或修改权限管理系统升级指南，必须以 [权限管理系统1.0.3.7升级至1.0.5.7指南](docs/权限管理系统1.0.3.7升级至1.0.5.7指南.md) 为格式和 Docker 命令基准：
+后续新建或修改权限管理系统升级指南，必须以 [权限管理系统1.0.3.7升级至1.0.5.7指南](docs/upgrades/权限管理系统1.0.3.7升级至1.0.5.7指南.md) 为格式和 Docker 命令基准：
 
 1. **统一部署方式与章节顺序**：采用 Linux x86_64、外部 MySQL、`docker run`、容器名 `cli-access`、配置目录 `/opt/cli-access-config` 的已验证方式。按“核对现状与结构 → 演练、下载与校验 → 维护窗口与最终备份 → 迁移或切换目标版本 → 验收与放行 → 回滚”组织，不擅自改为 Docker Compose 或省略完整启动命令。
 2. **Docker 命令保持一致**：导入、镜像 ID/revision 检查、`docker stop --time 30 cli-access`、旧容器 rename、后台启动、健康检查和日志命令必须与基准指南一致。仅替换实际旧版、目标版、镜像附件及旧容器备份名称。完整保留后台启动的 restart、只读目录挂载、端口、read-only、tmpfs、cap-drop、security-opt、日志驱动及日志轮转参数；不得自行新增、删除或改变参数值。实际部署的网络和 TLS 差异应说明沿用原配置，不以另一套命令替代基准。
@@ -88,12 +88,12 @@ v1.0.3.1 数据看板曾因 MySQL 聚合结果包含 `Decimal`，在模板的 `c
 
 ### 3. 文档必须先于构建完成
 
-- 新建 `docs/RELEASE_NOTES_<版本>.md`，说明相较上一正式版本的能力、下载附件与平台要求、使用前提、升级影响、验证范围和未验证限制。不得把跳过的真实业务/Jupyter 联调写成已验证。
-- 同步 `README.md`、`access-service/README.md` 中的当前版本和下载入口；同步 `docs/WiseRec CLI 使用手册.md` 中的命令名称、参数、配置要求和示例，手册不得写入版本信息。保留历史发布说明，不批量改写历史版本含义。
+- 新建 `docs/releases/RELEASE_NOTES_<版本>.md`，说明相较上一正式版本的能力、下载附件与平台要求、使用前提、升级影响、验证范围和未验证限制。不得把跳过的真实业务/Jupyter 联调写成已验证。
+- 同步 `README.md`、`access-service/README.md` 中的当前版本和下载入口；同步 `docs/guides/WiseRec CLI 使用手册.md` 中的命令名称、参数、配置要求和示例，手册不得写入版本信息。保留历史发布说明，不批量改写历史版本含义。
 - 更新以下部署资料，避免结构版本、示例镜像标签和迁移要求互相矛盾：
-  - `docs/权限管理系统Docker安装部署与调试指南.md`（Release 的 `Docker-runbook.md` 来源）；
-  - `docs/权限管理系统Docker离线导入与运行.md`（镜像附件 `README.md` 的生成模板）；
-  - `docs/权限管理系统Docker部署与发布指南.md`；
+  - `docs/deployment/权限管理系统Docker安装部署与调试指南.md`（Release 的 `Docker-runbook.md` 来源）；
+  - `docs/deployment/权限管理系统Docker离线导入与运行.md`（镜像附件 `README.md` 的生成模板）；
+  - `docs/deployment/权限管理系统Docker部署与发布指南.md`；
   - 涉及升级时，提供独立的“旧版本升级至新版本指南”，并加入正式附件和校验清单。
 - 数据库升级结论必须比较旧版及目标版迁移代码、实际 schema 版本要求，不能只根据应用版本号推断。明确备份恢复演练、停写后的最终备份、单进程显式迁移、数据核对、验收放行和回滚条件。
 - 保留原配置与外部数据库，不指导用户覆盖真实 service.env 或重新创建已有管理员。停止服务、最终备份、执行迁移必须分成清晰步骤，禁止可直接整段复制而跳过备份的命令序列。
@@ -172,7 +172,7 @@ gh run list --workflow release.yml --limit 5 --json databaseId,headSha,status,co
 仅在用户已授权正式发布且以上门禁全部通过后执行发布。将下面变量替换为已核对值；命令中的说明文件必须存在：
 
 ```bash
-gh release edit "v$RELEASE_VERSION" --draft=false --prerelease=false --latest   --title "$RELEASE_TITLE" --notes-file "docs/RELEASE_NOTES_${RELEASE_VERSION}.md"
+gh release edit "v$RELEASE_VERSION" --draft=false --prerelease=false --latest   --title "$RELEASE_TITLE" --notes-file "docs/releases/RELEASE_NOTES_${RELEASE_VERSION}.md"
 gh release view "v$RELEASE_VERSION" --json isDraft,isPrerelease,publishedAt,url,targetCommitish,assets
 ```
 

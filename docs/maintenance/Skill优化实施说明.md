@@ -1,6 +1,6 @@
 # Skill 优化实施说明
 
-实施日期：2026-11-11。依据：[Skill 目录评审与优化建议 V2](Skill目录评审与优化建议V2.md)。
+实施日期：2026-11-11。依据：[Skill 目录评审与优化建议 V2](../design/Skill目录评审与优化建议V2.md)。
 
 本次完成正式 skill 的规则整理、禁止改码约束、已知文档错误修正、实验版归档，以及命令索引和资源来源的维护支持。V2 第 7 章涉及的具体 harness 接入、权限策略、生产环境识别和模型评测事项暂不实施。原评审稿保留，不改写其中记录的评审基线。
 
@@ -14,7 +14,7 @@ CLI 版本仍为 `1.0.9.4`，未触发新增命令的版本递增要求。本次
 
 ### 2.1 将禁止修改代码置于顶层
 
-[SKILL.md](../skill/wiserec-platform/SKILL.md) 新增“必须遵守”，优先声明以下约束：
+[SKILL.md](../../skill/wiserec-platform/SKILL.md) 新增“必须遵守”，优先声明以下约束：
 
 - 不创建、改写、替换、删除或打补丁修改 CLI、已安装程序、依赖、业务代码、脚本和 Notebook 代码单元。
 - 不通过 shell、临时脚本、Jupyter 文件操作或远端执行、Notebook、委托其他 Agent 等方式间接改码。
@@ -28,7 +28,7 @@ CLI 版本仍为 `1.0.9.4`，未触发新增命令的版本递增要求。本次
 
 正文按“必须遵守 → 首次确认与上下文复用 → 调用与结果 → 按任务读取参考”组织。写前重新核对环境、账号、业务和目标 ID，`product` 环境确认、超时后先查状态、非交互参数、凭据保护及北京时间展示要求均保留。
 
-[`/ml` 入口](../skill/commands/ml.md) 改为加载正式 skill、传递用户需求、无需求时按正文处理和加载失败时停止。不再复制完整的预检清单和命令能力列表，也不改变现有入口的加载机制。
+[`/ml` 入口](../../skill/commands/ml.md) 改为加载正式 skill、传递用户需求、无需求时按正文处理和加载失败时停止。不再复制完整的预检清单和命令能力列表，也不改变现有入口的加载机制。
 
 | 文件 | 修改前字符数 | 修改后字符数 |
 | --- | --- | --- |
@@ -47,16 +47,16 @@ CLI 版本仍为 `1.0.9.4`，未触发新增命令的版本递增要求。本次
 
 | 文件 | 修改内容 |
 | --- | --- |
-| [session.md](../skill/wiserec-platform/references/session.md) | 明确 `context` 的中文 JSON 键与 `auth status.profile` 的对应关系；说明 `auth status` 当前没有 JSON 选项；取消按 OpenCode 名称猜测 shell 的优先级；乱码处理改为出现问题时核对接收端编码，不固定给每条命令加前缀；缺失能力或程序缺陷不得改码解决 |
-| [commands.md](../skill/wiserec-platform/references/commands.md) | 删除“日志编号必须由用户在交互终端选择”的错误总述；说明使用 `--select`；从确认列移走编号选择说明，保留归档和本地文件副作用；明确 JSON 输出例外 |
-| [training.md](../skill/wiserec-platform/references/training.md) | 将日志选择描述统一为 `--select` 非交互参数，保留编号顺序、部分失败与下载摘要检查；自定义参数仅用于非代码业务参数，不传入改码程序 |
-| [README.md](../skill/wiserec-platform/README.md) | 修正共享 skill 安装路径、`OPENCODE_CONFIG_DIR` 影响范围及历史目录清理范围；明确替换失败不恢复旧资源；将重复的会话说明改为引用正式正文 |
+| [session.md](../../skill/wiserec-platform/references/session.md) | 明确 `context` 的中文 JSON 键与 `auth status.profile` 的对应关系；说明 `auth status` 当前没有 JSON 选项；取消按 OpenCode 名称猜测 shell 的优先级；乱码处理改为出现问题时核对接收端编码，不固定给每条命令加前缀；缺失能力或程序缺陷不得改码解决 |
+| [commands.md](../../skill/wiserec-platform/references/commands.md) | 删除“日志编号必须由用户在交互终端选择”的错误总述；说明使用 `--select`；从确认列移走编号选择说明，保留归档和本地文件副作用；明确 JSON 输出例外 |
+| [training.md](../../skill/wiserec-platform/references/training.md) | 将日志选择描述统一为 `--select` 非交互参数，保留编号顺序、部分失败与下载摘要检查；自定义参数仅用于非代码业务参数，不传入改码程序 |
+| [README.md](../../skill/wiserec-platform/README.md) | 修正共享 skill 安装路径、`OPENCODE_CONFIG_DIR` 影响范围及历史目录清理范围；明确替换失败不恢复旧资源；将重复的会话说明改为引用正式正文 |
 
 保留未涉及本次冲突修正的业务字段、原始单位、分页、服务与部署参考。没有按未经验证的模型效果假设大幅删减专项资料。
 
 ### 2.5 清除 Jupyter 参考中的改码引导
 
-[jupyter.md](../skill/wiserec-platform/references/jupyter.md) 原有“编写脚本上传后执行”和覆盖 `main.py` 的示例与新禁令冲突，本次已调整：
+[jupyter.md](../../skill/wiserec-platform/references/jupyter.md) 原有“编写脚本上传后执行”和覆盖 `main.py` 的示例与新禁令冲突，本次已调整：
 
 - 多步任务使用已有 CLI 命令逐步执行，不生成或上传新脚本。
 - 文件写入示例改为非代码的 `report.txt`，覆盖前必须核对文件内容和路径。
@@ -70,9 +70,9 @@ CLI 版本仍为 `1.0.9.4`，未触发新增命令的版本递增要求。本次
 
 | 对象 | 实际处理 |
 | --- | --- |
-| [skill-lab/README.md](../skill-lab/README.md) | 新增归档说明，记录日期、来源提交、已知 25 行校验漂移和停止维护范围 |
-| [历史详细版 SKILL.md](../skill-lab/wiserec-platform-detailed/SKILL.md) | 增加历史资料提示；其余正文保留原样，不将历史说明改造成当前操作文档 |
-| [历史 `/ml-lab`](../skill-lab/commands/ml-lab.md) | 从 `skill/commands/` 移至 `skill-lab/commands/`，内容按字节保留 |
+| [skill-lab/README.md](../../skill-lab/README.md) | 新增归档说明，记录日期、来源提交、已知 25 行校验漂移和停止维护范围 |
+| [历史详细版 SKILL.md](../../skill-lab/wiserec-platform-detailed/SKILL.md) | 增加历史资料提示；其余正文保留原样，不将历史说明改造成当前操作文档 |
+| [历史 `/ml-lab`](../../skill-lab/commands/ml-lab.md) | 从 `skill/commands/` 移至 `skill-lab/commands/`，内容按字节保留 |
 | 正式测试与构建 | 移除“详细版必须作为活跃源文件存在”的依赖；正式构建测试不再复制真实实验版目录 |
 | 分发与安装器 | 保留 Wheel/sdist 排除保护和安装器对存量详细版及 `/ml-lab` 的清理逻辑 |
 
@@ -82,7 +82,7 @@ CLI 版本仍为 `1.0.9.4`，未触发新增命令的版本递增要求。本次
 
 ### 4.1 命令索引部分生成
 
-新增 [sync_skill_index.py](../scripts/sync_skill_index.py) 和 [人工语义模板](../scripts/skill_index/commands.md.in)。维护者修改模板后运行：
+新增 [sync_skill_index.py](../../scripts/sync_skill_index.py) 和 [人工语义模板](../../scripts/skill_index/commands.md.in)。维护者修改模板后运行：
 
 ```bash
 python scripts/sync_skill_index.py
@@ -93,18 +93,18 @@ python scripts/sync_skill_index.py --check
 
 用途、示例值、副作用、JSON 语义和条件确认仍需人工核对。脚本不是所有参考文件的语法解析器，也不验证全部参数值、条件分支或权限策略，不能以生成检查代替行为测试。
 
-新增 [索引测试](../tests/test_skill_index.py)，覆盖当前生成物、选项删除、新命令缺项、简写解析和确认能力漂移；该测试随现有 `pytest tests` 执行。
+新增 [索引测试](../../tests/test_skill_index.py)，覆盖当前生成物、选项删除、新命令缺项、简写解析和确认能力漂移；该测试随现有 `pytest tests` 执行。
 
 ### 4.2 构建时记录来源
 
-[setup.py](../cli-python/setup.py) 在构建后的 `SKILL.md` metadata 中加入：
+[setup.py](../../cli-python/setup.py) 在构建后的 `SKILL.md` metadata 中加入：
 
 - `source_cli_version`：从 `versions.toml` 读取的 CLI 版本。
 - `source_sha256`：构建前正式入口、正文和参考文件的路径与文件摘要形成的稳定内容摘要。
 
 源文件不手工写入版本。最终 manifest 校验的是写入 metadata 后的真实分发字节；其单文件哈希与来源摘要用途不同，不能混用。资源仍按现有清单安装，没有新增安装目标或更改权限规则。
 
-[打包测试](../tests/test_package_build.py) 验证来源字段、摘要、最终 manifest、未被构建改写的源文件，以及 sdist 重建和隔离目录安装后的内容。Wheel 的 METADATA、包内版本和实际 CLI `--version` 一致。
+[打包测试](../../cli-python/tests/test_package_build.py) 验证来源字段、摘要、最终 manifest、未被构建改写的源文件，以及 sdist 重建和隔离目录安装后的内容。Wheel 的 METADATA、包内版本和实际 CLI `--version` 一致。
 
 ## 5. 暂缓项与未变更范围
 

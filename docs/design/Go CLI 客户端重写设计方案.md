@@ -12,7 +12,7 @@
 
 ## 2. 兼容基线
 
-以实际命令注册、现有测试和 [CLI 使用手册](WiseRec%20CLI%20使用手册.md) 为基准。当前 WiseRec 有 106 个公开叶子命令，MLOps 有 77 个。命令组、全局选项和带默认动作的组不计入叶子命令数量，但行为仍纳入兼容契约。
+以实际命令注册、现有测试和 [CLI 使用手册](../guides/WiseRec%20CLI%20使用手册.md) 为基准。当前 WiseRec 有 106 个公开叶子命令，MLOps 有 77 个。命令组、全局选项和带默认动作的组不计入叶子命令数量，但行为仍纳入兼容契约。
 
 | 类别 | WiseRec | MLOps | 实现范围 |
 | --- | ---: | ---: | --- |
@@ -24,7 +24,7 @@
 | Web Studio 与 Jupyter | 22 | 22 | `webstudio` 5 个，`jupyter` 17 个 |
 | **合计** | **106** | **77** | MLOps 按显式平台支持表开放 |
 
-MLOps 的 `train list` 继续调用现有 MLOps 列表接口 `/ai/backend/mtp/traintask/queryList`，沿用页大小上限 200。WiseRec 使用 `/ai/backend/modelDev/modelTrain/list`。MLOps 不开放 `algorithm`、`mtp`、`offline`、`sample-task`、`featureset` 和 `quality`。两平台可复用的业务流程共用实现，平台专用协议集中在对应适配器。平台能力从现有 [适配注册表](../cli-python/src/wiserec_cli/adapters/registry.py) 提取。
+MLOps 的 `train list` 继续调用现有 MLOps 列表接口 `/ai/backend/mtp/traintask/queryList`，沿用页大小上限 200。WiseRec 使用 `/ai/backend/modelDev/modelTrain/list`。MLOps 不开放 `algorithm`、`mtp`、`offline`、`sample-task`、`featureset` 和 `quality`。两平台可复用的业务流程共用实现，平台专用协议集中在对应适配器。平台能力从现有 [适配注册表](../../cli-python/src/wiserec_cli/adapters/registry.py) 提取。
 
 迁移期间形成一份逐命令兼容清单。每个叶子命令记录完整路径、管理台支持情况、参数位置与别名、默认值、必要前置、请求或本地文件副作用、确认与重试条件、输出样例、退出码和验收用例。单独纳入 `ml history` 默认动作、`--help`、`--version`、`--no-history`、完成脚本和 `--` 后的原样参数等兼容项。新旧行为有分歧时，先通过测试和真实样例确认，再决定沿用或记录为待批准的差异。
 
@@ -55,13 +55,13 @@ Cobra 和面向 Chromium DevTools Protocol 的 Go 库 `chromedp` 为候选。按
 - 只在现有协议允许时重试认证或只读请求。部署、启动、取消、软删除、上传及服务试调等操作的重放条件逐条对照。请求已发出而结果未知时报告不确定状态，沿用现有查询核验和分项失败约定。权限、平台、浏览器和下载使用各自的超时及取消条件。
 - 签名下载与业务会话使用分开的 HTTP 客户端。按既有地址校验规则处理签名地址和跳转，平台凭据仅在其授权目标范围内使用。保留下载路径、父目录要求、重名行为和中断后清理语义。
 
-实现依据为 [公共运行时](../cli-python/src/wiserec_cli/runtime.py)、[平台客户端](../cli-python/src/wiserec_cli/client.py)、[权限校验](../cli-python/src/wiserec_cli/access.py) 和 [客户端元数据](../cli-python/src/wiserec_cli/client_metadata.py)。
+实现依据为 [公共运行时](../../cli-python/src/wiserec_cli/runtime.py)、[平台客户端](../../cli-python/src/wiserec_cli/client.py)、[权限校验](../../cli-python/src/wiserec_cli/access.py) 和 [客户端元数据](../../cli-python/src/wiserec_cli/client_metadata.py)。
 
 ## 5. 登录、凭据与同机状态
 
 ### 5.1 Edge 登录可行性先行
 
-当前 Python 实现使用 Playwright 启动 CLI 专用的 Edge profile，用户完成登录，CLI 根据平台用户信息确认身份，并刷新业务目录。Go 试点考虑通过 CDP 实现等价流程。浏览器进程由本次 CLI 调用管理，调试通道限于本机，优先验证更小暴露面的连接方式。区分用户主动取消、平台登录超时、Edge 缺失、专用 profile 被占用和企业策略拦截。验证码、企业 SSO 及其他交互由用户在 Edge 中完成。 [现有登录实现](../cli-python/src/wiserec_cli/auth.py) · [Microsoft Edge 调试策略](https://learn.microsoft.com/en-us/deployedge/microsoft-edge-policies/remotedebuggingallowed)
+当前 Python 实现使用 Playwright 启动 CLI 专用的 Edge profile，用户完成登录，CLI 根据平台用户信息确认身份，并刷新业务目录。Go 试点考虑通过 CDP 实现等价流程。浏览器进程由本次 CLI 调用管理，调试通道限于本机，优先验证更小暴露面的连接方式。区分用户主动取消、平台登录超时、Edge 缺失、专用 profile 被占用和企业策略拦截。验证码、企业 SSO 及其他交互由用户在 Edge 中完成。 [现有登录实现](../../cli-python/src/wiserec_cli/auth.py) · [Microsoft Edge 调试策略](https://learn.microsoft.com/en-us/deployedge/microsoft-edge-policies/remotedebuggingallowed)
 
 Windows 受管环境必须实际验证首次登录、重复登录、过期刷新、`business refresh`、退出重登和两种管理台的业务目录。保留专用 profile 与配置目录的边界，新旧客户端的并行验证使用隔离的测试目录，不共用日常登录缓存。若企业策略阻止候选路线，记录失败场景和影响范围，维持 Python 版使用，提交认证方案供用户决定。不会把带 Python 辅助程序的原型作为 Go 正式替换版。
 
@@ -81,7 +81,7 @@ Windows 受管环境必须实际验证首次登录、重复登录、过期刷新
 
 建议单次命令在开始处理业务时取得当前环境、账号和选择，并在多请求流程内维持该目标。执行写入前复核上下文和授权。用户已确认的目标发生变化时停止提交并重新确认。该处理属于并发边界上的兼容细化，需在设计审核中确认。同一状态文件的写入须通过跨进程锁和原子替换防止丢更新，认证刷新与退出使用状态版本或等价的条件校验，避免旧请求重写新凭据。验证共享状态时包括多个终端和多个 Agent 会话。
 
-保活延续非 TTY 不自动启动、终端归属检查、手动停止及账号/环境绑定。建议通过同一个 `ml.exe` 启动内部 worker，内部入口不作为公开业务命令。升级、回滚与退出仅处理能校验归属的 CLI 进程。 [状态与配置](../cli-python/src/wiserec_cli/config.py) · [凭据存储](../cli-python/src/wiserec_cli/credentials.py) · [业务目录](../cli-python/src/wiserec_cli/business.py) · [保活](../cli-python/src/wiserec_cli/ping.py)
+保活延续非 TTY 不自动启动、终端归属检查、手动停止及账号/环境绑定。建议通过同一个 `ml.exe` 启动内部 worker，内部入口不作为公开业务命令。升级、回滚与退出仅处理能校验归属的 CLI 进程。 [状态与配置](../../cli-python/src/wiserec_cli/config.py) · [凭据存储](../../cli-python/src/wiserec_cli/credentials.py) · [业务目录](../../cli-python/src/wiserec_cli/business.py) · [保活](../../cli-python/src/wiserec_cli/ping.py)
 
 ## 6. 操作行为与 Jupyter
 
@@ -112,7 +112,7 @@ Jupyter 通道以 [Jupyter 消息规范](https://jupyter-client.readthedocs.io/e
 4. 发行包优先验证目标 Windows 的企业软件策略、完整性校验和必要的签名方式。清单记录 CLI 版本、构建提交、平台、工具链、文件哈希与依赖信息。检查没有 Python/Go 源文件、真实业务配置、私钥或凭据。Skill、许可和安装说明作为可读资源随包提供。
 5. 版本规则继续以 `versions.toml` 为来源。构建时由该来源生成或注入真实 CLI 版本，并验证二进制、兼容协议请求和发行元数据。Go 客户端试点不改其他产品版本、不会把现有 Agent 的已验证 Python 搭配自动改成 Go 搭配。
 
-现有 [正式工作流](../.github/workflows/release.yml) 强制多个组件版本相同，并使用 Python Wheel 构建和校验 Windows 交付物。Go 试点可通过独立的本地或 CLI 专项构建验证产物。到正式交付阶段，需先决定如何将 Go 客户端纳入仓库规定的正式发布门禁。改合同和附件范围需要单独确认，现有多组件发布流程可继续运行。开发在本地 `codex/go-cli` 推进，按 [仓库规则](../AGENTS.md) 只向 `main` 推送。正式替换须另行确认，不把试点 ZIP 当作正式安装包。
+现有 [正式工作流](../../.github/workflows/release.yml) 强制多个组件版本相同，并使用 Python Wheel 构建和校验 Windows 交付物。Go 试点可通过独立的本地或 CLI 专项构建验证产物。到正式交付阶段，需先决定如何将 Go 客户端纳入仓库规定的正式发布门禁。改合同和附件范围需要单独确认，现有多组件发布流程可继续运行。开发在本地 `codex/go-cli` 推进，按 [仓库规则](../../AGENTS.md) 只向 `main` 推送。正式替换须另行确认，不把试点 ZIP 当作正式安装包。
 
 ## 9. 测试方法与验收
 

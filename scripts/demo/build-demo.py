@@ -43,7 +43,7 @@ def main():
                     '--find-links', wheels, *list(wheels.glob('*.whl')))
         for filename in ('install-demo.py', 'start-demo.cmd', 'manage-demo.cmd', 'start-demo.sh', 'manage-demo.sh'):
             shutil.copyfile(repo/'scripts/demo'/filename, root/filename)
-        shutil.copyfile(repo/'docs/CLI演示环境使用指南.md', root/'README.md')
+        shutil.copyfile(repo/'docs/guides/CLI演示环境使用指南.md', root/'README.md')
         manifest = {'cli_version': version, 'offline': args.offline,
                     'python': sys.version.split()[0], 'platform': sys.platform, 'architecture': platform.machine(),
                     'files': {p.relative_to(root).as_posix(): hashlib.sha256(p.read_bytes()).hexdigest()

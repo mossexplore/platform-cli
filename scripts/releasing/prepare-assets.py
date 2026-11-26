@@ -86,10 +86,18 @@ manifest['validation'] = [
     'Windows CLI upgrade from published 1.0.7.10; selected environment preserved on upgrade and reinstall',
 ]
 (out / 'manifest.json').write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + '\n')
-shutil.copyfile('docs/权限管理系统Docker安装部署与调试指南.md', out / 'Docker-runbook.md')
-shutil.copyfile(f'docs/权限管理系统结构12升级至{version}指南.md', out / f'Docker-upgrade-{version}.md')
+
+
+def document_path(category, name):
+    # The recovery workflow runs this script against the original source checkout.
+    path = Path('docs') / category / name
+    return path if path.is_file() else Path('docs') / name
+
+
+shutil.copyfile(document_path('deployment', '权限管理系统Docker安装部署与调试指南.md'), out / 'Docker-runbook.md')
+shutil.copyfile(document_path('upgrades', f'权限管理系统结构12升级至{version}指南.md'), out / f'Docker-upgrade-{version}.md')
 shutil.copyfile(cli_install_doc, out / 'CLI-install.md')
-shutil.copyfile('docs/WiseRec CLI 使用手册.md', out / 'CLI-reference.md')
+shutil.copyfile(document_path('guides', 'WiseRec CLI 使用手册.md'), out / 'CLI-reference.md')
 expected = {wheel.name, assistant.name, *(a.name for a in archives), manifest['image_file'],
             'manifest.json', 'SHA256SUMS', 'README.md', 'service.env.example', 'CLI-install.md',
             'RELEASE_NOTES.md', 'Migration-notes.md', 'CLI-reference.md', 'Notifier-install.md', 'Docker-runbook.md', f'Docker-upgrade-{version}.md'}

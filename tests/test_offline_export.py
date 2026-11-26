@@ -3,19 +3,26 @@ import json
 from pathlib import Path
 import subprocess
 
+import pytest
+
 ROOT = Path(__file__).parents[1]
 
 
-def test_export_uses_exact_revision_and_includes_chinese_upgrade_guide(tmp_path, monkeypatch):
+@pytest.mark.parametrize('categorized', [False, True])
+def test_export_uses_exact_revision_and_includes_chinese_upgrade_guide(tmp_path, monkeypatch, categorized):
     revision = 'a' * 40
     version = '1.0.9.1'
+    deployment = 'docs/deployment' if categorized else 'docs'
+    upgrades = 'docs/upgrades' if categorized else 'docs'
+    releases = 'docs/releases' if categorized else 'docs'
+    migration_link = '../upgrades/' if categorized else ''
     sources = {
         'access-service/docker/service.env.example': 'example only',
-        'docs/权限管理系统Docker离线导入与运行.md': '{{image_tag}} {{image_revision}}',
-        'docs/权限管理系统Docker安装部署与调试指南.md': 'cli-access:1.0.9.1 权限管理系统结构12升级至1.0.9.1指南.md',
-        'docs/权限管理系统结构12升级至1.0.9.1指南.md': 'cli-access:1.0.9.1 cli-access-1.0.9.1-linux-amd64.tar.gz',
-        'docs/ACCESS_RELEASE_NOTES_1.0.9.1.md': '环境禁止命令开发与迁移说明.md',
-        'docs/环境禁止命令开发与迁移说明.md': 'schema 12 to 13',
+        f'{deployment}/权限管理系统Docker离线导入与运行.md': '{{image_tag}} {{image_revision}}',
+        f'{deployment}/权限管理系统Docker安装部署与调试指南.md': 'cli-access:1.0.9.1 权限管理系统结构12升级至1.0.9.1指南.md',
+        f'{upgrades}/权限管理系统结构12升级至1.0.9.1指南.md': 'cli-access:1.0.9.1 cli-access-1.0.9.1-linux-amd64.tar.gz',
+        f'{releases}/ACCESS_RELEASE_NOTES_1.0.9.1.md': migration_link + '环境禁止命令开发与迁移说明.md',
+        f'{upgrades}/环境禁止命令开发与迁移说明.md': 'schema 12 to 13',
     }
     calls = []
 

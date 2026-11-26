@@ -83,13 +83,13 @@ def verify_cli(zip_path, msi_path, version, check_msi):
 def documents(version):
     return {
         'CLI-install.md': Path('cli-go/README.md'),
-        'CLI-reference.md': Path('docs/WiseRec CLI 使用手册.md'),
-        'Docker-runbook.md': Path('docs/权限管理系统Docker安装部署与调试指南.md'),
-        f'Docker-upgrade-{version}.md': Path(f'docs/权限管理系统结构13升级至{version}指南.md'),
+        'CLI-reference.md': Path('docs/guides/WiseRec CLI 使用手册.md'),
+        'Docker-runbook.md': Path('docs/deployment/权限管理系统Docker安装部署与调试指南.md'),
+        f'Docker-upgrade-{version}.md': Path(f'docs/upgrades/权限管理系统结构13升级至{version}指南.md'),
         'Gateway-runbook.md': Path('telemetry-gateway/README.md'),
         'gateway.env.example': Path('telemetry-gateway/gateway.env.example'),
         'service.env.example': Path('access-service/docker/service.env.example'),
-        'RELEASE_NOTES.md': Path(f'docs/RELEASE_NOTES_{version}.md'),
+        'RELEASE_NOTES.md': Path(f'docs/releases/RELEASE_NOTES_{version}.md'),
     }
 
 
@@ -128,7 +128,7 @@ def verify(directory, version, revision, digest, gateway_id, release=None, check
                 assert asset['digest'] == 'sha256:' + sha256(path)
     for name, source in docs.items():
         assert (directory / name).read_bytes() == source.read_bytes(), name
-    readme = Path('docs/权限管理系统Docker离线导入与运行.md').read_text()
+    readme = Path('docs/deployment/权限管理系统Docker离线导入与运行.md').read_text()
     for key, value in manifest.items():
         if isinstance(value, str):
             readme = readme.replace('{{' + key + '}}', value)

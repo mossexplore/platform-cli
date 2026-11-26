@@ -244,7 +244,7 @@ GATEWAY_RATE_LIMIT_BURST=40
 docker build --platform linux/amd64 -t wiserec-telemetry-gateway:0.1.1 telemetry-gateway
 ```
 
-镜像使用 [Dockerfile](../telemetry-gateway/Dockerfile) 编译静态二进制并以非 root 用户运行。
+镜像使用 [Dockerfile](../../telemetry-gateway/Dockerfile) 编译静态二进制并以非 root 用户运行。
 
 ### 5.2 部署方式
 
@@ -339,7 +339,7 @@ curl -i http://127.0.0.1:8088/api/public/traces
 
 ### 6.2 安装、运行时停用与回退
 
-复用[现有保活插件的本地 Bundle 安装方式](../dsh-plugin/wiserec-cli/README.md)。
+复用[现有保活插件的本地 Bundle 安装方式](../../dsh-plugin/wiserec-cli/README.md)。
 
 1. **安装**。员工在 DSH Desktop 的「插件 → 添加插件」选择并启用本地 `dsh-wiserec-cli-<版本>.tgz`。如收到 Windows ZIP，先解压取得同一个 Bundle。插件独立于 Go CLI MSI 分发，DSH 的已安装插件列表只新增 WiseRec 一项。需要重启时，完全退出桌面端及系统托盘后重新打开。
 2. **自动配置**。启用完整包时，DSH 加载 Bundle 自带的补丁，WiseRec 使用已写入的网关地址及宿主提供的官方遥测库。员工无需安装或配置官方遥测组件、修改 Profile、填写地址或登录 Langfuse。

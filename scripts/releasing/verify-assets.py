@@ -23,7 +23,7 @@ def verify(directory, release, version, revision, digest):
     }
     assert release['draft'] and not release['prerelease']
     assert release['tag_name'] == 'v' + version and release['target_commitish'] == revision
-    assert release['body'].strip() == Path(f'docs/RELEASE_NOTES_{version}.md').read_text().strip()
+    assert release['body'].strip() == Path(f'docs/releases/RELEASE_NOTES_{version}.md').read_text().strip()
     assert {a['name'] for a in release['assets']} == expected
     assert {p.name for p in directory.iterdir()} == expected
     checksums = {}
@@ -84,19 +84,20 @@ def verify(directory, release, version, revision, digest):
             assert content == (Path('permission-notifier') / name).read_bytes()
     docs = {
         'CLI-install.md': 'cli-python/scripts/windows/INSTALL.md',
-        'CLI-reference.md': 'docs/WiseRec CLI 使用手册.md',
+        'CLI-reference.md': 'docs/guides/WiseRec CLI 使用手册.md',
         'Notifier-install.md': 'permission-notifier/README.md',
-        'Docker-runbook.md': 'docs/权限管理系统Docker安装部署与调试指南.md',
-        f'Docker-upgrade-{version}.md': f'docs/权限管理系统结构12升级至{version}指南.md',
-        'Migration-notes.md': 'docs/环境禁止命令开发与迁移说明.md',
+        'Docker-runbook.md': 'docs/deployment/权限管理系统Docker安装部署与调试指南.md',
+        f'Docker-upgrade-{version}.md': f'docs/upgrades/权限管理系统结构12升级至{version}指南.md',
+        'Migration-notes.md': 'docs/upgrades/环境禁止命令开发与迁移说明.md',
         'service.env.example': 'access-service/docker/service.env.example',
     }
     for name, source in docs.items():
         assert (directory / name).read_bytes() == Path(source).read_bytes(), name
-    notes = Path(f'docs/ACCESS_RELEASE_NOTES_{version}.md').read_text().replace('环境禁止命令开发与迁移说明.md', 'Migration-notes.md')
+    notes = Path(f'docs/releases/ACCESS_RELEASE_NOTES_{version}.md').read_text()
+    notes = notes.replace('../upgrades/环境禁止命令开发与迁移说明.md', 'Migration-notes.md')
     assert (directory / 'RELEASE_NOTES.md').read_text() == notes
     assert manifest.get('documents_source_revision', revision) == revision
-    template = Path('docs/权限管理系统Docker离线导入与运行.md').read_text()
+    template = Path('docs/deployment/权限管理系统Docker离线导入与运行.md').read_text()
     for key, value in manifest.items():
         if isinstance(value, str):
             template = template.replace('{{' + key + '}}', value)

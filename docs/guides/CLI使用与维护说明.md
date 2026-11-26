@@ -161,7 +161,7 @@ ml business refresh                 # 重开 Edge 重新读取目录
 
 管理员通过独立 Web 服务管理人员、环境授权、有效期及调用审计。CLI 的权限校验默认开启，在执行业务命令前检查当前账号与环境授权；未配置权限服务地址、拒绝或服务故障都会阻止该次业务调用。确需关闭时显式配置 `access_control.enable: false`。客户端校验不替代平台后端鉴权，也不负责创建平台本身的租户权限。
 
-服务使用 MySQL，支持 Docker 离线部署，详见 [Docker 部署速查](权限管理系统Docker安装部署与调试指南.md)。部署后在 CLI 配置中合并以下字段，保留其他设置：
+服务使用 MySQL，支持 Docker 离线部署，详见 [Docker 部署速查](../deployment/权限管理系统Docker安装部署与调试指南.md)。部署后在 CLI 配置中合并以下字段，保留其他设置：
 
 ```json
 {
@@ -294,7 +294,7 @@ ml jupyter terminal open
 | `offline experiment trial list` | `--page` `--page-size` `--name` `--type` `--creator` `--updater` `--ai-module` |
 | `offline experiment clone` | `--name`（必填）`--yes/-y` `--dry-run` |
 
-> 完整的逐命令参数说明见 [docs/WiseRec CLI 使用手册.md](WiseRec%20CLI%20使用手册.md)。
+> 完整的逐命令参数说明见 [docs/guides/WiseRec CLI 使用手册.md](WiseRec%20CLI%20使用手册.md)。
 
 ---
 
@@ -588,7 +588,7 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass `
 
 升级：解压新包再次运行 `install.cmd`；CLI 程序会升级，登录缓存与 Edge Profile 保留。
 
-> 详细步骤、常见问题与包源优先级见 [cli-python/scripts/windows/INSTALL.md](../cli-python/scripts/windows/INSTALL.md)。
+> 详细步骤、常见问题与包源优先级见 [cli-python/scripts/windows/INSTALL.md](../../cli-python/scripts/windows/INSTALL.md)。
 
 ---
 
@@ -652,12 +652,12 @@ ml business show
 
 ## 参见
 
-- [docs/WiseRec CLI 使用手册.md](WiseRec%20CLI%20使用手册.md) — 每个命令、参数、配置项与退出行为的完整参考
-- [docs/REQUIREMENTS_DESIGN_SPEC.md](REQUIREMENTS_DESIGN_SPEC.md) — 功能设计与实现细节规格
-- [cli-python/scripts/windows/INSTALL.md](../cli-python/scripts/windows/INSTALL.md) — Windows 安装器详细说明
+- [docs/guides/WiseRec CLI 使用手册.md](WiseRec%20CLI%20使用手册.md) — 每个命令、参数、配置项与退出行为的完整参考
+- [docs/design/REQUIREMENTS_DESIGN_SPEC.md](../design/REQUIREMENTS_DESIGN_SPEC.md) — 功能设计与实现细节规格
+- [cli-python/scripts/windows/INSTALL.md](../../cli-python/scripts/windows/INSTALL.md) — Windows 安装器详细说明
 
 ---
 
 ## 许可证
 
-本项目基于 [MIT 许可证](../LICENSE) 开源，详见 [LICENSE](../LICENSE)。
+本项目基于 [MIT 许可证](../../LICENSE) 开源，详见 [LICENSE](../../LICENSE)。

@@ -514,7 +514,7 @@ sequenceDiagram
    - 本次不新增 CLI 命令；若 `scripts/skill_index/commands.md.in` 中有涉及 `context` / `env` / `business` 的上下文说明调整，须运行 `python scripts/sync_skill_index.py` 与 `python scripts/sync_skill_index.py --check`。
 
 ### 6.2 使用手册与版本约束
-- **`docs/WiseRec CLI 使用手册.md`**：
+- **`docs/guides/WiseRec CLI 使用手册.md`**：
   - 仅在 `context`、`env`、`business` 及“首次使用”相关章节的“说明”小节补充多会话隔离与 `ML_SESSION_ID` / DeepSeek Harness 自动隔离说明；
   - 严格遵守手册四类小节规范，**不写入任何版本号、发布状态或实现细节**。
 - **版本号管理**：
@@ -563,4 +563,4 @@ sequenceDiagram
 | **阶段 1：核心状态层** | 实现 `SessionScope`、会话文件读写、TTL 清理与 `Paths` 会话感知 | 新增 `cli-go/internal/localstate/session.go`、`session_test.go`；修改 `config.go`、`config_seed.go`、`business.go`、`selection.go`、`login.go` |
 | **阶段 2：平台与保活层** | 改造 `Authorize` / `checkTarget` 与 `keepalive` 环境变量剥离 | 修改 `cli-go/internal/platform/session.go`、`cli-go/internal/keepalive/worker.go`、`cli-go/cmd/ml/main.go` |
 | **阶段 3：命令与输出层** | 改造 `context`、`env`、`business`、`auth`、`tree`、`history` 放行与展示逻辑 | 修改 `cli-go/internal/command/{command,environment,business,auth,tree,history}.go` 及配套单测 |
-| **阶段 4：Skill 与文档同步** | 更新 Skill 多会话指南、手册与自测回归 | 修改 `skill/wiserec-platform/SKILL.md`、`skill/wiserec-platform/references/session.md`、`docs/WiseRec CLI 使用手册.md` |
+| **阶段 4：Skill 与文档同步** | 更新 Skill 多会话指南、手册与自测回归 | 修改 `skill/wiserec-platform/SKILL.md`、`skill/wiserec-platform/references/session.md`、`docs/guides/WiseRec CLI 使用手册.md` |
