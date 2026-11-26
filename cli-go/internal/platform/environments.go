@@ -16,16 +16,21 @@ var ErrNoAccess = errors.New("当前账号尚无有效的 CLI 环境授权")
 
 func (s Session) EnvironmentStatuses(ctx context.Context, audit string) (map[string]string, error) {
 	cfg := s.Config
+	credentials := s.Paths.EnvironmentCredentials(cfg.Profiles)
+	username := credentials[cfg.Current].Username
+	if username == "" {
+		for _, creds := range credentials {
+			if username != "" && username != creds.Username {
+				return nil, errors.New("已保存多个登录账号，请使用 ml env use 选择已登录的环境后查询授权")
+			}
+			username = creds.Username
+		}
+	}
+	if username == "" {
+		return nil, nil
+	}
 	if !cfg.Access.Active() || cfg.Access.URL == "" {
 		return nil, errors.New("权限检查未配置，无法查询环境授权状态")
-	}
-	profile, err := cfg.RequireProfile()
-	if err != nil {
-		return nil, errors.New("当前会话尚未绑定环境，无法查询实时环境授权状态，请先执行 ml env use <环境名>")
-	}
-	current, err := s.Paths.CredentialsFor(profile)
-	if err != nil {
-		return nil, errors.New("当前环境尚无登录账号，请先执行 ml login 查询 CLI 权限")
 	}
 	type target struct {
 		Name        string `json:"environment"`
@@ -36,15 +41,13 @@ func (s Session) EnvironmentStatuses(ctx context.Context, audit string) (map[str
 	}
 	targets := []target{}
 	expected := map[string]target{}
-	owners := map[string]string{}
 	expired := map[string]bool{}
 	businessID := ""
 	for _, profile := range cfg.Profiles {
-		creds, err := s.Paths.CredentialsFor(profile)
-		if err != nil {
+		creds := credentials[profile.Name]
+		if creds.Username != username {
 			continue
 		}
-		owners[profile.Name] = creds.Username
 		expires, err := creds.Expiry()
 		if err != nil {
 			continue
@@ -54,7 +57,7 @@ func (s Session) EnvironmentStatuses(ctx context.Context, audit string) (map[str
 			continue
 		}
 		id, err := s.Paths.SelectedBusiness(creds)
-		if err != nil || creds.Username != current.Username {
+		if err != nil {
 			continue
 		}
 		check := target{Name: profile.Name, Username: creds.Username, Origin: profile.Origin(), BusinessID: id, FullCommand: audit}
@@ -79,7 +82,7 @@ func (s Session) EnvironmentStatuses(ctx context.Context, audit string) (map[str
 	if !strings.HasSuffix(base, "/cli-permission") {
 		base += "/cli-permission"
 	}
-	req := map[string]any{"username": current.Username, "environments": targets}
+	req := map[string]any{"username": username, "environments": targets}
 	status, payload, err := requestJSON(ctx, client, http.MethodPost, base+"/api/v1/access/environments", req, headers, "权限服务")
 	if err != nil {
 		return nil, err
@@ -96,7 +99,7 @@ func (s Session) EnvironmentStatuses(ctx context.Context, audit string) (map[str
 			Result json.RawMessage `json:"result"`
 		} `json:"environments"`
 	}
-	if json.Unmarshal(payload, &response) != nil || response.HasAccess == nil || response.Username != current.Username || response.Environments == nil {
+	if json.Unmarshal(payload, &response) != nil || response.HasAccess == nil || response.Username != username || response.Environments == nil {
 		return nil, errors.New("批量环境权限查询响应格式或账号不匹配")
 	}
 	if !*response.HasAccess {
@@ -147,7 +150,7 @@ func (s Session) EnvironmentStatuses(ctx context.Context, audit string) (map[str
 		switch {
 		case grants[profile.Name] != profile.Origin() || checked && !decision:
 			statuses[profile.Name] = "未授权"
-		case owners[profile.Name] == current.Username && expired[profile.Name]:
+		case expired[profile.Name]:
 			statuses[profile.Name] = "登录已过期"
 		case checked:
 			statuses[profile.Name] = "登录使用中"

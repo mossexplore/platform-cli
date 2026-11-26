@@ -62,10 +62,12 @@ python --version
 
 ```powershell
 if (-not (Test-Path .\config.json)) {
-    Copy-Item ..\cli-python\config.example.json .\config.json
+    Copy-Item .\config.example.json .\config.json
 }
 notepad .\config.json
 ```
+
+在打包用的 `config.json` 顶层用 `default_visible_environments` 配置允许所有人查看的环境标识，例如 `["dev"]`。标识须取自 `profiles[].name`。缺省或为空时，`ml env list` 只在实时查询确认授权后列出环境。
 
 保存配置后，在资源管理器中双击 `cli-go\build.cmd`。它会读取同目录的 `config.json`，生成 ZIP 和 MSI。窗口会实时显示资源准备、配置校验、Go 编译、WiX 打包和 ZIP 压缩的步骤及工具输出，完成后显示产物路径或失败原因。每次构建在 `cli-go\dist\` 下创建新的输出目录。如果之前已把离线模块缓存解压到 `cli-go\dist\go-module-cache`，双击脚本会默认复用它。
 

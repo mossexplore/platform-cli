@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"slices"
 	"strings"
 
 	"github.com/mossexplore/platform-cli/cli-go/internal/keepalive"
@@ -15,7 +16,7 @@ import (
 
 func newEnv(options Options, load loadConfig) *cobra.Command {
 	env := &cobra.Command{Use: "env", Short: "管理运行环境"}
-	list := &cobra.Command{Use: "list", Short: "列出已授权及授权状态未知的环境", Args: positional(0)}
+	list := &cobra.Command{Use: "list", Short: "列出默认可见和已授权的环境", Args: positional(0)}
 	format := list.Flags().StringP("output", "o", "table", "输出格式为 table 或 json")
 	list.RunE = func(cmd *cobra.Command, _ []string) error {
 		selected := strings.ToLower(*format)
@@ -35,11 +36,16 @@ func newEnv(options Options, load loadConfig) *cobra.Command {
 		currentRow := -1
 		for _, profile := range cfg.Profiles {
 			state := statuses[profile.Name]
-			if state == "未授权" || errors.Is(accessErr, platform.ErrNoAccess) {
+			if (state == "" || state == "未授权") && !slices.Contains(cfg.DefaultVisibleEnvironments, profile.Name) {
 				continue
 			}
-			if state == "" {
+			switch {
+			case errors.Is(accessErr, platform.ErrNoAccess):
+				state = "未授权"
+			case accessErr != nil:
 				state = "授权状态未知"
+			case state == "":
+				state = "默认可见"
 			}
 			marker := ""
 			if cfg.Current == profile.Name {
@@ -55,7 +61,7 @@ func newEnv(options Options, load loadConfig) *cobra.Command {
 				{Key: "管理台地址", Value: profile.PublicEndpoint()}, {Key: "状态", Value: state}})
 		}
 		if len(rows) == 0 && selected == "table" {
-			_, err := fmt.Fprintln(cmd.ErrOrStderr(), "[提示] 暂无已授权环境")
+			_, err := fmt.Fprintln(cmd.ErrOrStderr(), "[提示] 暂无可展示环境")
 			return err
 		}
 		return renderEnvironmentList(cmd, selected, rows, currentRow)

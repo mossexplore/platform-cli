@@ -69,9 +69,10 @@ func (p Paths) ConfigRelative(filename string) string {
 }
 
 type Config struct {
-	Current  string    `json:"current"`
-	Profiles []Profile `json:"profiles"`
-	API      struct {
+	Current                    string    `json:"current"`
+	Profiles                   []Profile `json:"profiles"`
+	DefaultVisibleEnvironments []string  `json:"default_visible_environments"`
+	API                        struct {
 		TimeoutMS int   `json:"timeout"`
 		VerifyTLS *bool `json:"verify_ssl"`
 	} `json:"api"`
@@ -184,6 +185,13 @@ func (c *Config) validate() error {
 	}
 	if !seen[c.Current] {
 		return errors.New("profiles 中不存在 current 指定的环境")
+	}
+	visible := make(map[string]bool)
+	for _, name := range c.DefaultVisibleEnvironments {
+		if !seen[name] || visible[name] {
+			return fmt.Errorf("default_visible_environments 中的环境标识 %q 不存在或重复", name)
+		}
+		visible[name] = true
 	}
 	if c.API.TimeoutMS <= 0 || int64(c.API.TimeoutMS) > int64((1<<63-1)/time.Millisecond) {
 		return errors.New("api.timeout 超出有效范围")

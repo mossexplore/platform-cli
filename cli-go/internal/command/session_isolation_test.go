@@ -53,6 +53,7 @@ func multiEnvFixture(t *testing.T, endpoint, accessURL string) localstate.Paths 
 	dir := t.TempDir()
 	raw := fmt.Sprintf(`{
 		"current":"dev",
+		"default_visible_environments":["dev"],
 		"profiles":[
 			{"name":"dev","alias":"开发环境","api_endpoint":%q,"platform_type":"wiserec","output_format":"table"},
 			{"name":"uat","alias":"测试环境","api_endpoint":%q,"platform_type":"mlops","output_format":"table"}
@@ -158,7 +159,6 @@ func TestDSHSessionCommandMatrixAndFailClosed(t *testing.T) {
 	if _, err := base.LoadOrInitializeConfig(); err != nil {
 		t.Fatal(err)
 	}
-	saveSharedEnvState(t, base, "dev", "https://preview.example.test", "alice")
 
 	// 1. DSH_SHELL=1 without DSH_SESSION_ID must fail closed on every state command.
 	broken := base.WithSession(localstate.DetectSessionScope(func(key string) (string, bool) {
@@ -181,9 +181,9 @@ func TestDSHSessionCommandMatrixAndFailClosed(t *testing.T) {
 		!strings.Contains(out, "dsh-sess-1") || !strings.Contains(out, "未绑定") {
 		t.Fatalf("unbound context: code=%d out=%s stderr=%s", code, out, stderr)
 	}
-	code, out, _ = run(t, sess, "env", "list", "-o", "json")
-	if code != 0 || !strings.Contains(out, `"dev"`) || !strings.Contains(out, `"uat"`) {
-		t.Fatalf("unbound env list: code=%d out=%s", code, out)
+	code, out, stderr = run(t, sess, "env", "list", "-o", "json")
+	if code != 0 || !strings.Contains(out, `"dev"`) || strings.Contains(out, `"uat"`) || stderr != "" {
+		t.Fatalf("unbound env list: code=%d out=%s stderr=%s", code, out, stderr)
 	}
 	code, out, stderr = run(t, sess, "tree", "--all")
 	if code != 0 || stderr != "" || !strings.Contains(out, "当前环境：未绑定（会话模式）") {
@@ -197,6 +197,7 @@ func TestDSHSessionCommandMatrixAndFailClosed(t *testing.T) {
 	}
 
 	// 3. Bind env only: allow env show, auth status, business list, tree; reject business show & user info.
+	saveSharedEnvState(t, base, "dev", "https://preview.example.test", "alice")
 	code, _, stderr = run(t, sess, "env", "use", "dev")
 	if code != 0 || !strings.Contains(stderr, "尚未选择业务") {
 		t.Fatalf("env use dev: code=%d stderr=%s", code, stderr)

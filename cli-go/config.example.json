@@ -1,5 +1,6 @@
 {
   "current": "dev",
+  "default_visible_environments": ["dev"],
   "api": {
     "timeout": 30000,
     "retry_times": 3,

@@ -32,6 +32,24 @@ func (p Paths) CredentialsFor(profile Profile) (Credentials, error) {
 	if err := readJSON(p.Credentials(), &file); err != nil {
 		return Credentials{}, err
 	}
+	return file.forProfile(profile)
+}
+
+func (p Paths) EnvironmentCredentials(profiles []Profile) map[string]Credentials {
+	var file credentialFile
+	if err := readJSON(p.Credentials(), &file); err != nil {
+		return nil
+	}
+	credentials := make(map[string]Credentials)
+	for _, profile := range profiles {
+		if creds, err := file.forProfile(profile); err == nil {
+			credentials[profile.Name] = creds
+		}
+	}
+	return credentials
+}
+
+func (file credentialFile) forProfile(profile Profile) (Credentials, error) {
 	creds, exists := file.Profiles[profile.Name]
 	if !exists {
 		return Credentials{}, errors.New("当前环境缺少可用的预览登录缓存")
