@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"net/url"
 	"os"
@@ -72,7 +73,7 @@ func run(ctx context.Context, paths localstate.Paths, cfg localstate.Config, pro
 		chromedp.Flag("remote-debugging-address", "127.0.0.1"),
 		chromedp.Flag("no-first-run", true), chromedp.Flag("no-default-browser-check", true))
 	defer stopAllocator()
-	browser, closeBrowser := chromedp.NewContext(allocator)
+	browser, closeBrowser := chromedp.NewContext(allocator, chromedp.WithErrorf(browserErrorLogger(log.Printf)))
 	defer closeBrowser()
 	userInfoURL := profile.Origin() + "/ai/user/info"
 	attempt := &userInfoRequest{url: userInfoURL}
@@ -131,6 +132,20 @@ func run(ctx context.Context, paths localstate.Paths, cfg localstate.Config, pro
 		Environment: environment, Username: creds.Username, ChineseName: session.identity.ChineseName,
 		Department: session.identity.Department, BusinessID: id, AdminRole: creds.AdminRoleLabel(), cookie: creds.Cookie, csrfToken: creds.CSRFToken,
 	}, nil
+}
+
+func browserErrorLogger(logf func(string, ...any)) func(string, ...any) {
+	return func(format string, args ...any) {
+		// Login does not consume Network.responseReceivedExtraInfo. Older Edge
+		// builds can report Private for its resourceIPAddressSpace field.
+		const legacyAddressSpaceError = ` into Go network.IPAddressSpace within "/resourceIPAddressSpace": unknown IPAddressSpace value: Private`
+		if format == "could not unmarshal event: %v" && len(args) == 1 {
+			if err, ok := args[0].(error); ok && strings.HasSuffix(err.Error(), legacyAddressSpaceError) {
+				return
+			}
+		}
+		logf("ERROR: "+format, args...)
+	}
 }
 
 func installedEdge() (string, error) {

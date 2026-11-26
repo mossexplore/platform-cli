@@ -1,11 +1,47 @@
 package edgelogin
 
 import (
+	"errors"
 	"fmt"
 	"testing"
 
+	"github.com/chromedp/cdproto"
 	"github.com/chromedp/cdproto/network"
+	"github.com/chromedp/chromedp"
 )
+
+func TestBrowserErrorLoggerSuppressesLegacyAddressSpaceEvent(t *testing.T) {
+	var logged []string
+	logError := browserErrorLogger(func(format string, args ...any) {
+		logged = append(logged, fmt.Sprintf(format, args...))
+	})
+	const eventError = "could not unmarshal event: %v"
+	decodeEvent := func(addressSpace string) error {
+		t.Helper()
+		_, err := cdproto.UnmarshalMessage(&cdproto.Message{
+			Method: cdproto.EventNetworkResponseReceivedExtraInfo,
+			Params: []byte(fmt.Sprintf(`{"resourceIPAddressSpace":%q}`, addressSpace)),
+		}, chromedp.DefaultUnmarshalOptions)
+		if err == nil {
+			t.Fatalf("expected a decode error for %q", addressSpace)
+		}
+		return err
+	}
+	legacyError := decodeEvent("Private")
+	logError(eventError, legacyError)
+	logError(eventError, errors.New(`json: unable to unmarshal JSON string into Go network.IPAddressSpace within "/resourceIPAddressSpace": unknown IPAddressSpace value: Private`))
+	if len(logged) != 0 {
+		t.Fatalf("logged the known compatibility error: %v", logged)
+	}
+
+	otherError := decodeEvent("Unexpected")
+	logError(eventError, otherError)
+	logError("could not unmarshal response: %v", legacyError)
+	if len(logged) != 2 || logged[0] != "ERROR: could not unmarshal event: "+otherError.Error() ||
+		logged[1] != "ERROR: could not unmarshal response: "+legacyError.Error() {
+		t.Fatalf("unexpected diagnostics: %v", logged)
+	}
+}
 
 func TestAcceptSameOriginCompletedUserInfo(t *testing.T) {
 	const endpoint = "https://preview.example.test/ai/user/info"
