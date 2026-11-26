@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/mossexplore/platform-cli/cli-go/internal/output"
 	"github.com/mossexplore/platform-cli/cli-go/internal/platform"
@@ -99,7 +100,13 @@ func trainListCommand(use, short string, argsCount int, options Options, load lo
 			columns := allBusinessColumns(cols, allBusinessRequested(cmd))
 			rows := agentRows(result.Items, columns)
 			fields := agentFields(columns, nil)
-			if cmd.Parent().Name() == "history" {
+			switch cmd.Parent().Name() {
+			case "instance":
+				now := time.Now()
+				for i, r := range result.Items {
+					fillAgentRunningTime(r, rows[i], now)
+				}
+			case "history":
 				fields["jobType"] = "作业类型"
 				fields["plogReady"] = "普通作业的 plog 是否已就绪"
 				fields["roleJobInfo"] = "分布式角色列表"

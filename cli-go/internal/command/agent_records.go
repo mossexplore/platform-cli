@@ -1,19 +1,26 @@
 package command
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
+	"slices"
 	"strings"
 	"time"
 
 	"github.com/mossexplore/platform-cli/cli-go/internal/platform"
 )
 
+func hasAgentValue(raw json.RawMessage) bool {
+	raw = bytes.TrimSpace(raw)
+	return len(raw) != 0 && string(raw) != "null" && string(raw) != `""`
+}
+
 func agentRecord(record platform.Record, keys ...string) platform.Record {
 	result := platform.Record{}
 	for _, key := range keys {
 		raw := record[key]
-		if len(raw) == 0 || string(raw) == "null" || string(raw) == `""` {
+		if key == "" || !hasAgentValue(raw) {
 			continue
 		}
 		switch key {
@@ -38,6 +45,9 @@ func agentRecord(record platform.Record, keys ...string) platform.Record {
 func agentFields(columns []recordColumn, extra map[string]string) map[string]string {
 	fields := make(map[string]string, len(columns)+len(extra))
 	for _, col := range columns {
+		if col.key == "" {
+			continue
+		}
 		label := col.title
 		switch col.key {
 		case "fileSize", "pkgSize":
@@ -72,15 +82,24 @@ func agentRows(records []platform.Record, columns []recordColumn, extra ...strin
 	return rows
 }
 
+func fillAgentRunningTime(item, row platform.Record, now time.Time) {
+	if item.Text("status") != "RUNNING" || hasAgentValue(row["runningTime"]) {
+		return
+	}
+	if started, ok := recordTime(item["createTime"]); ok && !started.After(now) {
+		_ = row.Put("runningTime", int64(now.Sub(started)/time.Minute))
+	}
+}
+
 func agentHistory(record platform.Record, projected platform.Record) error {
-	if raw := record["jobType"]; len(raw) > 0 {
+	if raw := record["jobType"]; hasAgentValue(raw) {
 		projected["jobType"] = raw
 	}
 	if record.Text("jobType") != "dps-train" {
 		return projected.Put("plogReady", platform.HasPlog(record))
 	}
 	roles := []platform.Record{}
-	if raw := record["roleJobInfo"]; len(raw) > 0 && string(raw) != "null" {
+	if raw := bytes.TrimSpace(record["roleJobInfo"]); len(raw) > 0 && string(raw) != "null" {
 		if err := json.Unmarshal(raw, &roles); err != nil {
 			return err
 		}
@@ -97,7 +116,11 @@ func agentHistory(record platform.Record, projected platform.Record) error {
 
 func agentCatalogProjection(q catalogQuery, records []platform.Record, all bool) ([]platform.Record, map[string]string) {
 	extra := map[string]string{}
+	columns := q.columns
 	if strings.HasSuffix(q.route, "rtcContainer/queryDetail") {
+		columns = slices.DeleteFunc(slices.Clone(columns), func(col recordColumn) bool {
+			return col.key == "image" || col.key == "resourceSpec" || col.key == "framework"
+		})
 		extra = map[string]string{
 			"imageName": "镜像名称", "imageVersion": "镜像版本",
 			"wiseEyeName": "组件名称", "wiseEyeVersion": "组件版本",
@@ -112,8 +135,8 @@ func agentCatalogProjection(q catalogQuery, records []platform.Record, all bool)
 	for key := range extra {
 		keys = append(keys, key)
 	}
-	rows := agentRows(records, q.columns, keys...)
-	fields := agentFields(q.columns, extra)
+	rows := agentRows(records, columns, keys...)
+	fields := agentFields(columns, extra)
 	if q.route == datasetPrefix+"queryList" {
 		fields["_truncated"] = "截断字段的原始长度"
 		fields["_truncated.description"] = "描述截断前的字符数"

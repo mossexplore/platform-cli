@@ -203,37 +203,6 @@ ml tree
 ml train history logs download --help
 ```
 
-## Agent 精简输出
-
-### 命令格式
-
-```text
-ml --agent COMMAND [ARGS]
-ml COMMAND [ARGS] --agent
-```
-
-### 参数与选项
-
-`--agent` 启用精简输出，也可由宿主设置 `ML_AGENT=1`。显式传入 `-o`、`--output` 或 `--json` 时，使用该命令指定的格式。显式启用 `--agent` 与这些格式选项同传会以退出码 2 报错。`--agent=false` 可覆盖环境变量。向 `jupyter exec` 传程序参数时，把 CLI 选项放在 `--` 之前。
-
-### 说明
-
-业务命令向标准输出写单行 JSON，进度与诊断写入标准错误。仍需满足该命令原有的平台、登录、业务选择和确认条件。帮助、版本、Shell 补全脚本、宿主保活协议与交互终端使用各自原有格式。批量操作同时检查退出码与逐项结果。
-
-Agent 列表在顶层提供一次 `fields` 字典，说明 `items` 的字段含义和适用单位。空列表也提供字典，嵌套字段用点号路径表示，例如 `roleJobInfo.plogReady`。
-
-列表的 `returnedCount` 是本次返回数，`total` 是接口提供的匹配总数。`pagination` 为 `paged` 时可翻页，`fixedFirstPage` 表示仅能查询首页。训练看板实验列表的接口未报告容量时，`pageSize` 为 `null`。`limited` 表示受条数上限约束，`unpaged` 表示无分页。文件列表提供 `hasMore` 或 `has_more` 时以该值核对结果范围。数值和状态保留源单位和代码，时间按北京时间展示。训练记录的 `runningTime`、`queueTime` 单位为分钟，`waitTime` 为秒。数据集描述超过 256 个字符时，`_truncated.description` 给出原长度，可用相同筛选和页码加 `-o json` 获取全文。
-
-### 示例
-
-```bash
-ml dataset list --name DATASET_NAME --page 1 --agent
-ml --agent service host list SERVICE_ID
-ml train history list TASK_ID --latest-flag all --agent
-```
-
-分布式作业从目标角色的 `roleJobInfo` 条目读取 `roleJobId` 和 `plogReady`；普通作业从记录本身读取 `plogReady`。
-
 ## 2. 安装与首次使用
 
 ### 2.1 命令格式
@@ -298,6 +267,8 @@ ml train list
 ```text
 ml [OPTIONS] COMMAND [ARGS]...
 ml tree
+ml --agent COMMAND [ARGS]
+ml COMMAND [ARGS] --agent
 ```
 
 ### 3.2 参数与选项
@@ -309,10 +280,21 @@ ml tree
 | `--install-completion` | 为当前用户的 shell 安装补全，重新打开终端后生效 |
 | `ml tree` | 显示当前环境支持的命令；`--all` 查看全部命令，无需登录或选择业务 |
 | `--output` / `-o` | 部分查询命令支持 `table` 或 `json`，以对应命令帮助为准 |
+| `--agent` | 启用 Agent 精简输出 |
+
+`--agent` 启用精简输出，也可由宿主设置 `ML_AGENT=1`。显式传入 `-o`、`--output` 或 `--json` 时，使用该命令指定的格式。显式启用 `--agent` 与这些格式选项同传会以退出码 2 报错。`--agent=false` 可覆盖环境变量。向 `jupyter exec` 传程序参数时，把 CLI 选项放在 `--` 之前。
 
 ### 3.3 说明
 
 不传命令时显示帮助。`ml tree` 无需登录；各级 `--help` 无需登录或联网。帮助先显示 `Usage` 和命令说明，再按需展示 `Arguments`、`Options` 和 `Commands` 面板。必填项标有 `*` 和 `[required]`，默认值标为 `[default: …]`。终端较窄时，内容会换行。带 `--output` 的命令可切换输出格式，以命令帮助为准。
+
+业务命令向标准输出写单行 JSON，进度与诊断写入标准错误。仍需满足该命令原有的平台、登录、业务选择和确认条件。帮助、版本、Shell 补全脚本、宿主保活协议与交互终端使用各自原有格式。批量操作同时检查退出码与逐项结果。
+
+Agent 列表在顶层提供一次 `fields` 字典，说明 `items` 的字段含义和适用单位。空列表也提供字典，嵌套字段用点号路径表示，例如 `roleJobInfo.plogReady`。
+
+列表的 `returnedCount` 是本次返回数，`total` 是接口提供的匹配总数。`pagination` 为 `paged` 时可翻页，`fixedFirstPage` 表示仅能查询首页。训练看板实验列表的接口未报告容量时，`pageSize` 为 `null`。`limited` 表示受条数上限约束，`unpaged` 表示无分页。`unpaged` 和 `limited` 省略页码和容量。文件列表提供 `hasMore` 或 `has_more` 时以该值核对结果范围。数值和状态保留源单位和代码，时间按北京时间展示。训练记录的 `runningTime`、`queueTime` 单位为分钟，`waitTime` 为秒。数据集描述超过 256 个字符时，`_truncated.description` 给出原长度，可用相同筛选和页码加 `-o json` 获取全文。
+
+分布式作业从目标角色的 `roleJobInfo` 条目读取 `roleJobId` 和 `plogReady`；普通作业从记录本身读取 `plogReady`。
 
 表格中的时间按北京时间显示，格式为 `YYYY-MM-DD HH:mm:ss`，不额外打印时区提示行。
 
@@ -332,6 +314,9 @@ ml tree
 ml train --help
 ml train list --help
 ml train list -o json
+ml dataset list --name DATASET_NAME --page 1 --agent
+ml --agent service host list SERVICE_ID
+ml train history list TASK_ID --latest-flag all --agent
 ```
 
 ## 4. 登录与退出
@@ -721,7 +706,7 @@ WiseRec 和 MLOps 的 `history list` 表格的最后三列依次是“执行时�
 
 `instance list` 表格将 `RUNNING` 显示为黄色“执行中”，将 `QUEUE` 显示为蓝色“排队中”。交互终端中，文字前的同色圆圈顺时针旋转约 1 秒，然后自动停止并返回，表格保留本次查询的结果。重定向时只输出一次表格，JSON 保留原始状态值。
 
-`instance list` 表格末尾也依次显示“执行时长”“排队时长”和“配额等待时间”。执行时长按开始时间到查询时刻的整分钟数计算，例如 125 分钟显示为 `2h5min`。排队时长和配额等待时间沿用执行记录的换算规则。
+`instance list` 表格末尾也依次显示“执行时长”“排队时长”和“配额等待时间”。执行时长按开始时间到查询时刻的整分钟数计算，例如 125 分钟显示为 `2h5min`。排队时长和配额等待时间沿用执行记录的换算规则。 Agent 模式保留接口返回的 `runningTime`。运行中的实例缺少该值时，CLI 根据有效的开始时间补算整分钟数。
 
 `cancel` 取消查询到的执行实例；`delete` 软删除任务；`clone` 创建副本；`config update` 更新自定义参数。操作结果不明时先查询状态。
 

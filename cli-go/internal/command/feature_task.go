@@ -168,7 +168,11 @@ func renderFeatureTask(out io.Writer, result platform.Record) error {
 		{"DMQ Topic名称", "dmq"}, {"基线/共享", ""}, {"来源", "source"}}
 	if output.IsAgent(out) {
 		r := agentRecord(info, columnKeys(cols, "taskId", "dataSets", "featureSetRefInfos", "params", "trainTaskCron", "customizeConfig")...)
-		return output.JSON(out, map[string]any{"taskInfo": r, "algorithmInfo": agentRecord(algorithm, "algorithmName", "algorithmVersion", "algorithmId")})
+		result := map[string]any{"taskInfo": r}
+		if projected := agentRecord(algorithm, "algorithmName", "algorithmVersion", "algorithmId"); len(projected) > 0 {
+			result["algorithmInfo"] = projected
+		}
+		return output.JSON(out, result)
 	}
 	fields := output.Fields{}
 	for _, field := range cols {

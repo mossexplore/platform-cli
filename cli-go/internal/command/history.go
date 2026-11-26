@@ -74,7 +74,7 @@ func newHistory(options Options) *cobra.Command {
 		}
 		if agentMode(cmd) {
 			return agentResult(cmd, output.AgentList(filtered, map[string]string{
-				"_key": "记录键", "time": "执行时间",
+				"time":       "执行时间",
 				"started_at": "开始时间（Unix 秒）", "finished_at": "结束时间（Unix 秒）",
 				"duration_ms": "耗时（毫秒）", "command": "命令",
 				"env": "执行前环境", "env_after": "执行后环境",

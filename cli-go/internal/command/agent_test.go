@@ -10,6 +10,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 	"unicode"
 	"unicode/utf8"
 
@@ -178,7 +179,7 @@ func TestAgentQueryWorkflow(t *testing.T) {
 	}{
 		{"dataset list --page 2", fmt.Sprintf(`{"result":{"code":0,"totalSize":21,"data":[{"dataSetId":"ds","description":%q,"fileSize":0,"modifyTime":"2026-09-08T06:54:36.000+00:00","ignored":"noise"}]}}`, desc), "paged", float64(21)},
 		{"service host list svc", string(hostPage), "fixedFirstPage", float64(23)},
-		{"service deployment list svc", `{"result":{"code":0,"data":[]}}`, "fixedFirstPage", nil},
+		{"service deployment list svc", `{"result":{"code":0,"data":[{"blockId":"b1","imageName":"repo","imageVersion":"tag","cpuLimit":0,"image":"unused","resourceSpec":"unused","framework":"unused"}]}}`, "fixedFirstPage", nil},
 		{"train history list task", `{"result":{"code":0,"count":1,"jobs":[{"jobId":"job","jobType":"dps-train","roleJobInfo":[{"roleJobId":"a","sysParam":"{\"plogUploadSuccess\":\"1\"}"},{"roleJobId":"b","sysParam":"{}"}]}]}}`, "paged", float64(1)},
 	} {
 		t.Run(tc.args, func(t *testing.T) {
@@ -216,6 +217,20 @@ func TestAgentQueryWorkflow(t *testing.T) {
 					if row["nodeName"] != fmt.Sprintf("pod-%d", i) || row["clusterName"] != "cluster" || row["health_status"] != float64(0) {
 						t.Fatal(row)
 					}
+				}
+			case strings.HasPrefix(tc.args, "service deployment"):
+				row := items[0].(map[string]any)
+				for _, key := range []string{"image", "resourceSpec", "framework"} {
+					if _, ok := fields[key]; ok {
+						t.Errorf("virtual field %s in dictionary", key)
+					}
+					if _, ok := row[key]; ok {
+						t.Errorf("virtual field %s in row", key)
+					}
+				}
+				if row["imageName"] != "repo" || row["imageVersion"] != "tag" || row["cpuLimit"] != float64(0) ||
+					fields["imageName"] == nil || fields["cpuLimit"] == nil {
+					t.Fatal(v)
 				}
 			case strings.HasPrefix(tc.args, "dataset"):
 				r := items[0].(map[string]any)
@@ -316,6 +331,50 @@ func TestAgentListCommandSchemas(t *testing.T) {
 			fields, described := v["fields"].(map[string]any)
 			if !ok || !described || len(fields) == 0 || len(items) != 0 || v["returnedCount"] != float64(0) || v["pagination"] != tc.mode {
 				t.Fatal(v)
+			}
+		})
+	}
+}
+
+func TestAgentProjectionOptionalValues(t *testing.T) {
+	record := platform.Record{
+		"jobType":     json.RawMessage(" \t null \n"),
+		"description": json.RawMessage(` "" `),
+		"disabled":    json.RawMessage(`false`),
+		"zero":        json.RawMessage(`0`),
+		"empty":       json.RawMessage(`[]`),
+		"":            json.RawMessage(`"unused"`),
+	}
+	row := agentRecord(record, "", "jobType", "description", "disabled", "zero", "empty")
+	if err := agentHistory(record, row); err != nil {
+		t.Fatal(err)
+	}
+	if len(row) != 4 || string(row["disabled"]) != "false" || string(row["zero"]) != "0" ||
+		string(row["empty"]) != "[]" || string(row["plogReady"]) != "false" {
+		t.Fatal(row)
+	}
+}
+
+func TestAgentRunningTime(t *testing.T) {
+	now := time.Date(2026, 9, 8, 7, 0, 0, 0, time.UTC)
+	for _, tc := range []struct{ name, input, want string }{
+		{"ISO start", `{"status":"RUNNING","createTime":"2026-09-08T14:55:10+08:00"}`, "4"},
+		{"milliseconds", fmt.Sprintf(`{"status":"RUNNING","createTime":%d,"runningTime":null}`, now.Add(-time.Minute).UnixMilli()), "1"},
+		{"reported zero", `{"status":"RUNNING","createTime":"2026-09-08T06:00:00Z","runningTime":0}`, "0"},
+		{"queued", `{"status":"QUEUE","createTime":"2026-09-08T06:00:00Z"}`, ""},
+		{"ended", `{"status":"COMPLETED","createTime":"2026-09-08T06:00:00Z"}`, ""},
+		{"future", `{"status":"RUNNING","createTime":"2026-09-08T08:00:00Z"}`, ""},
+		{"invalid start", `{"status":"RUNNING","createTime":"unknown"}`, ""},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			var item platform.Record
+			if err := json.Unmarshal([]byte(tc.input), &item); err != nil {
+				t.Fatal(err)
+			}
+			row := agentRecord(item, "runningTime")
+			fillAgentRunningTime(item, row, now)
+			if got := string(row["runningTime"]); got != tc.want {
+				t.Fatalf("runningTime %q, want %q", got, tc.want)
 			}
 		})
 	}

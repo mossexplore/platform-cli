@@ -12,7 +12,7 @@
 - **可选参数**：默认下载普通日志，`--type plog` 仅在记录已有 plog（`sysParam.plogUploadSuccess=1`）时下载，无 plog 直接报错且不触发归档。`--directory DIR` 指定已存在的保存目录，默认当前目录。`-o json` 输出结果摘要。
 - **下载结果**：成功时报告保存路径。普通日志未就绪时，命令会提交归档并以退出码 1 返回；普通训练顶层 `status` 为 `not_ready`，分布式训练顶层 `status` 为 `failed` 且 `items[].status` 为 `not_ready`，均表示已触发归档，稍后重跑同一命令，勿误判为下载异常。提示“该job无分布式角色，无日志可下载”时，报告该作业没有可下载的角色日志。
 
-取执行实例归档日志时，可用 `ml train instance list TASK_ID -o json` 查运行或排队实例，再用 `ml train instance logs download` 按编号下载。
+`ml train instance list TASK_ID --agent` 的 `runningTime` 单位为分钟。运行中的实例缺少该值时，CLI 根据开始时间补算。取执行实例归档日志时，可用 `ml train instance list TASK_ID -o json` 查运行或排队实例，再用 `ml train instance logs download` 按编号下载。
 
 ## 训练看板（MTP Swanboard）
 

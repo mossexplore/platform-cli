@@ -18,7 +18,7 @@ func AgentList[T any](items []T, fields map[string]string, mode string, page, si
 		items = []T{}
 	}
 	result := map[string]any{"pagination": mode, "returnedCount": len(items), "items": items, "fields": fields}
-	if page > 0 && size > 0 {
+	if (mode == "paged" || mode == "fixedFirstPage") && page > 0 && size > 0 {
 		result["pageIndex"], result["pageSize"] = page, size
 	}
 	if total != nil {

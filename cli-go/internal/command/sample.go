@@ -109,10 +109,14 @@ func newSampleList(options Options, load loadConfig) *cobra.Command {
 				{"修改者", "updateUser"}, {"最近修改时间", "updateTime"}, {"描述", "description"}}
 		}
 		if agentMode(cmd) {
-			v := output.AgentList(agentRows(items, cols, "taskState", "taskStatus", "taskSubCategory"), agentFields(cols, map[string]string{
-				"taskState": "任务状态", "taskStatus": "任务状态",
-				"taskSubCategory": "任务子类别",
-			}), "paged", *page, *size, &total)
+			keys := []string{"taskStatus"}
+			extra := map[string]string{"taskStatus": "任务状态"}
+			if !legacy {
+				keys = append(keys, "taskState", "taskSubCategory")
+				extra["taskState"] = "任务状态"
+				extra["taskSubCategory"] = "任务子类别"
+			}
+			v := output.AgentList(agentRows(items, cols, keys...), agentFields(cols, extra), "paged", *page, *size, &total)
 			v["source"] = *source
 			return agentResult(cmd, v)
 		}

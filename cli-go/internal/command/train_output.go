@@ -59,18 +59,25 @@ func fieldText(raw json.RawMessage) string {
 }
 
 func dateText(raw json.RawMessage) string {
+	if date, ok := recordTime(raw); ok {
+		return date.In(beijing).Format("2006-01-02 15:04:05")
+	}
+	return fieldText(raw)
+}
+
+func recordTime(raw json.RawMessage) (time.Time, bool) {
 	value := fieldText(raw)
 	if millis, err := strconv.ParseFloat(value, 64); err == nil && !math.IsInf(millis, 0) && !math.IsNaN(millis) {
-		return time.UnixMilli(int64(millis)).In(beijing).Format("2006-01-02 15:04:05")
+		return time.UnixMilli(int64(millis)), true
 	}
 	value = strings.Replace(value, " ", "T", 1)
 	if date, err := time.Parse(time.RFC3339Nano, value); err == nil {
-		return date.In(beijing).Format("2006-01-02 15:04:05")
+		return date, true
 	}
 	if date, err := time.ParseInLocation("2006-01-02T15:04:05", value, beijing); err == nil {
-		return date.Format("2006-01-02 15:04:05")
+		return date, true
 	}
-	return fieldText(raw)
+	return time.Time{}, false
 }
 
 func trainValue(record platform.Record, key string) string {
