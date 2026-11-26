@@ -58,6 +58,7 @@ Windows Git Bash 可用 `cygpath -u` 转换 `LOCALAPPDATA` 后拼接安装路径
 - **未选业务**：用 `ml business list` 取得当前环境的候选，按用户明确的选择运行 `ml business use TENANT_ID`，也可使用 `ml business use --tenant TENANT_ID` 或 `ml business TENANT_ID`。需要指定团队或部门时，运行 `ml business use --tenant TENANT_ID [--team TEAM_ID] [--department DEPARTMENT_ID]`。按命令结果更新当前业务，必要时用 `ml business show` 核对。业务 ID 不从其他环境复制。
 - **业务目录缺失或失效**：`ml business refresh` 会打开 Edge 刷新目录，同样预留至少 10 分钟，刷新后重新核对选择。
 - **Edge 兼容性日志**：旧版 CLI 若输出 `unknown IPAddressSpace value: Private`，以命令最终结果判断登录或刷新是否成功。失败时查看末尾错误和退出状态。
+- **Edge 提示还原页面**：CLI 启动的专用 Edge 会尝试隐藏提示。若仍看到提示，用户可关闭提示并继续登录或刷新。
 - **权限调用日志**：排查授权请求时，在权限管理系统的「完整命令」核对选项、参数和顺序。Go 客户端上报全部参数值，包括敏感值与内联脚本；本地历史仍脱敏。报告日志时只摘录排查所需的内容。
 - **退出登录**：`ml logout` 仅在用户要求或排障需要时运行。退出会清除登录状态，保留上次业务选择。
 

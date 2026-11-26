@@ -71,10 +71,19 @@ func run(ctx context.Context, paths localstate.Paths, cfg localstate.Config, pro
 	allocator, stopAllocator := chromedp.NewExecAllocator(timeout,
 		chromedp.ExecPath(executable), chromedp.UserDataDir(browserDir),
 		chromedp.Flag("remote-debugging-address", "127.0.0.1"),
+		chromedp.Flag("hide-crash-restore-bubble", true),
 		chromedp.Flag("no-first-run", true), chromedp.Flag("no-default-browser-check", true))
 	defer stopAllocator()
 	browser, closeBrowser := chromedp.NewContext(allocator, chromedp.WithErrorf(browserErrorLogger(log.Printf)))
 	defer closeBrowser()
+	defer func() {
+		if browser.Err() == nil && chromedp.FromContext(browser).Browser != nil {
+			// Let Edge save its profile before the allocator terminates the process.
+			shutdown, cancelShutdown := context.WithTimeout(browser, 3*time.Second)
+			defer cancelShutdown()
+			_ = chromedp.Cancel(shutdown)
+		}
+	}()
 	userInfoURL := profile.Origin() + "/ai/user/info"
 	attempt := &userInfoRequest{url: userInfoURL}
 	chromedp.ListenTarget(browser, attempt.observe)
