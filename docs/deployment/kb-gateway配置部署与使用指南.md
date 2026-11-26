@@ -81,7 +81,7 @@ ml kb ... (Go CLI 1.1.2+)
 
 ## 3. `kb-gateway` 环境变量配置详解
 
-配置模板位于 [kb-gateway/kb-gateway.env.example](../../kb-gateway/kb-gateway.env.example)。以下是当前代码（`cmd/kb-gateway/main.go`、`internal/auth/ticket.go`、`internal/weknora/visibility.go`）支持的**全部 15 个环境变量**及校验规则：
+配置模板位于 [kb-gateway/kb-gateway.env.example](../../kb-gateway/kb-gateway.env.example)。下表列出网关支持的全部环境变量及校验规则。
 
 | 环境变量 | 必填 | 默认值 | 格式与范围校验 | 说明 |
 | --- | --- | --- | --- | --- |
@@ -90,7 +90,9 @@ ml kb ... (Go CLI 1.1.2+)
 | `WEKNORA_API_KEY` | **是** | 无 | 非空字符串 | WeKnora 最小权限 `retrieve` Scoped API Key |
 | `WEKNORA_ALLOWED_KB_IDS` | 推荐必填 | 空 | 逗号分隔，每项匹配 `^[A-Za-z0-9_-]+$`；**禁止 `*`**，不得与自身或灰度库重复 | 对所有通过准入的员工可见的正式共享知识库 ID 列表 |
 | `WEKNORA_PREVIEW_KB_IDS` | 否 | 空 | 同上，不得与 `WEKNORA_ALLOWED_KB_IDS` 有交集 | 仅对内部调试人员可见的灰度知识库 ID 列表；留空则关闭灰度 |
-| `KB_PREVIEW_USERS` | 否 | 空 | 逗号分隔，严格为 **`环境:账号`**（如 `test:alice,prod:bob`），区分大小写，账号中不得含 `:` | 允许访问灰度库的调试身份名单；需与 `WEKNORA_PREVIEW_KB_IDS` 配合生效 |
+| `KB_PREVIEW_USERS` | 否 | 空 | 逗号分隔的 `环境:账号`，区分大小写，两项均可单独填写 `*` | 控制哪些身份可访问 `WEKNORA_PREVIEW_KB_IDS` 中的灰度库 |
+| `KB_FILE_LIST_GRANTS` | 否 | 空 | 逗号分隔的 `环境:账号:知识库ID`，环境和账号均可单独填写 `*` | 查询原文件列表的授权 |
+| `KB_FILE_DOWNLOAD_GRANTS` | 否 | 空 | 同列表授权 | 下载原文件的授权 |
 | `KB_TICKET_KEYS` | **是** | 无 | 逗号分隔多组 `ak:sk`（如 `k1:sk1,k2:sk2`）；`ak` 匹配 `^[A-Za-z0-9_-]{1,64}$`、`sk` 长度 `>= 32`、不得重复 `ak` | 与 `access-service` 共享的验签密钥集，支持多组并存以实现平滑轮换 |
 | `KB_GATEWAY_ALLOWED_CIDRS` | 否 | `127.0.0.0/8,::1/128` | 逗号分隔 CIDR 前缀 | 允许连接网关的直连来源网段（经反代接入时填反代 IP/网段）；未命中返回 `403 SOURCE_DENIED` |
 | `KB_GATEWAY_TRUSTED_PROXY_CIDRS` | 否 | 空 | 逗号分隔 CIDR 前缀 | **仅填写会强制覆写 `X-Real-IP` 的可信反代网段**；留空时按 TCP 对端 IP 限流和审计，防止客户端伪造 `X-Real-IP` |
@@ -98,36 +100,88 @@ ml kb ... (Go CLI 1.1.2+)
 | `KB_GATEWAY_TIMEOUT_SECONDS` | 否 | `10` | 整数 `1`–`60` | 单次请求上游 WeKnora 的超时秒数（服务端 `WriteTimeout` 自动设为 `2 * timeout + 5s`） |
 | `KB_GATEWAY_MAX_UPSTREAM_BYTES` | 否 | `8388608`（8 MiB） | 整数 `1`–`67108864`（64 MiB） | 上游单次响应读取上限；超限返回 `502 UPSTREAM_RESPONSE_TOO_LARGE` |
 | `KB_GATEWAY_MAX_PAGE_CONTENT_BYTES` | 否 | `65536`（64 KiB） | 整数 `1`–`1048576`（1 MiB） | 单篇 Wiki 页面正文的 UTF-8 安全边界预览上限；超长截断并置 `truncated: true` |
+| `KB_GATEWAY_MAX_FILE_BYTES` | 否 | `67108864`（64 MiB） | 整数 `1`–`536870912`（512 MiB） | 单个原始文件的下载上限，超限返回 `413 FILE_TOO_LARGE` |
 | `KB_GATEWAY_RATE_LIMIT_RPS` | 否 | `20` | 整数 `1`–`10000` | 单客户端 IP 令牌桶稳态速率（请求/秒） |
 | `KB_GATEWAY_RATE_LIMIT_BURST` | 否 | `40` | 整数 `1`–`10000` | 单客户端 IP 令牌桶突发容量（内存最多追踪 4096 个活跃 IP 桶，每分钟清理过期桶） |
 
 ### 生产环境 `/opt/wiserec-kb-gateway/kb-gateway.env` 示例
 
 ```dotenv
+# 网关容器内的 HTTP 监听地址。:8087 表示监听所有容器网卡的 8087 端口。
+# 调整端口时，同时修改 docker run 的端口映射和反代的转发地址。
 KB_GATEWAY_LISTEN_ADDR=:8087
 
+# WeKnora 后端地址。网关与 WeKnora 在同一 Docker 网络时，可填容器名和端口。
+# 以 http:// 或 https:// 开头，只填写主机和可选端口，末尾不要加 /。
 WEKNORA_BASE_URL=http://weknora-app:8080
+
+# 必填。填写 WeKnora 签发的 Scoped API Key，启用 retrieve 权限并限定在计划开放的库。
+# 如需提供原文件下载，在实际部署的 WeKnora 上确认该 Key 具有下载权限。
 WEKNORA_API_KEY=替换为WeKnora最小权限retrieve_API_Key
 
+# 正式库名单。所有通过准入的账号都能看到这些库。多个库 ID 用英文逗号分隔。
+# 将 kb_public_01 替换为实际库 ID。库 ID 必须逐个列出，且不能与灰度库名单重叠。
 WEKNORA_ALLOWED_KB_IDS=kb_public_01
+
+# 灰度库名单。多个库 ID 用英文逗号分隔。留空时不开放灰度库。
+# 填写后，确保 WeKnora Key 覆盖这些库，并通过下方的身份名单指定可访问人员。
 WEKNORA_PREVIEW_KB_IDS=
+
+# 灰度库身份名单。按 环境:账号 填写，多条用英文逗号分隔。留空时没有灰度授权。
+# 取 ml auth status 的 profile 和 username，区分大小写。test:* 匹配 test 环境所有已准入账号。
+# *:alice 匹配各获准环境中的 alice，*:* 匹配所有已准入的环境和账号。
 KB_PREVIEW_USERS=
+
+# 查询原文件列表的授权。按 环境:账号:知识库ID 填写，多条用英文逗号分隔。
+# 例如 test:alice:kb_public_01 或 *:*:kb_public_01。环境和账号可填 *，库 ID 填具体值。
+# 留空时关闭文件列表。目标库仍需在该账号可见的正式库或灰度库名单中。
 KB_FILE_LIST_GRANTS=
+
+# 下载原文件的授权。格式与文件列表一致，两项分别配置。
+# 例如 *:alice:kb_public_01，允许 alice 在各获准环境下载该库文件。留空时关闭下载。
 KB_FILE_DOWNLOAD_GRANTS=
 
+# 必填。按 AK:SK 填写与权限服务的 KB_TICKET_AK 和 KB_TICKET_SK 一致的值。
+# AK 长 1–64 字符，可用字母、数字、下划线和连字符。SK 至少 32 字节。
+# 密钥轮换期间可用英文逗号分隔多组 AK:SK，每组使用不同的 AK。
 KB_TICKET_KEYS=kb-prod-v1:替换为与access-service一致的32字节以上随机SK
 
-# 若 Nginx 与网关在同一宿主机并通过 127.0.0.1:8087 转发：
+# 允许直接连接网关的来源网段，填写网关容器实际看到的 TCP 对端地址。
+# 示例仅允许回环来源。若反代经内网或 Docker 转发，以容器实际看到的来源为准。
+# 多个 CIDR 用英文逗号分隔。来源不在名单时返回 403 SOURCE_DENIED。
 KB_GATEWAY_ALLOWED_CIDRS=127.0.0.0/8,::1/128
+
+# 可信反代网段。只填写由你控制、且会覆写 X-Real-IP 的反代来源 CIDR。
+# 示例信任回环来源。实际反代经内网连接时使用对应的反代地址。
+# 留空时，网关使用 TCP 对端地址做限流和审计。
 KB_GATEWAY_TRUSTED_PROXY_CIDRS=127.0.0.1/32,::1/128
 
+# 审计日志在容器内的目录。绑定挂载宿主机日志目录，并确保容器 UID 65532 可写。
+# 日志按北京时间每天生成一个 JSONL 文件。目录不可写时请求会被拒绝。
 KB_GATEWAY_AUDIT_DIR=/var/log/kb-gateway
 
+# 单次上游 HTTP 请求的超时秒数，范围 1–60，包括读取响应。
+# 大文件下载时同时核对反代和 CLI 的超时，整条链路受最先到期的超时限制。
 KB_GATEWAY_TIMEOUT_SECONDS=10
+
+# 单次上游 JSON 响应的大小上限，单位字节。8388608 为 8 MiB，最高可配置 64 MiB。
+# 超限返回 502 UPSTREAM_RESPONSE_TOO_LARGE。原文件下载由下方的文件上限控制。
 KB_GATEWAY_MAX_UPSTREAM_BYTES=8388608
+
+# 单篇 Wiki 正文的预览上限，单位字节。65536 为 64 KiB，最高可配置 1 MiB。
+# 正文超限时按完整 UTF-8 字符截断，响应会标明已截断。
 KB_GATEWAY_MAX_PAGE_CONTENT_BYTES=65536
+
+# 单个原始文件的下载上限，单位字节。67108864 为 64 MiB，最高可配置 512 MiB。
+# 文件超限时返回 413 FILE_TOO_LARGE。
 KB_GATEWAY_MAX_FILE_BYTES=67108864
+
+# 限流令牌按每个客户端 IP 每秒补充的数量，范围 1–10000。
+# 默认每个 IP 每秒补充 20 个请求额度，额度用尽时返回 429 RATE_LIMITED。
 KB_GATEWAY_RATE_LIMIT_RPS=20
+
+# 限流桶可积攒的最大请求额度，范围 1–10000。
+# 默认最多积攒 40 个额度，允许短时间连续请求。额度按上方设置的速率恢复。
 KB_GATEWAY_RATE_LIMIT_BURST=40
 ```
 
@@ -350,6 +404,8 @@ server {
    KB_PREVIEW_USERS=test:alice
    ```
 
+   若要让 `test` 环境所有通过准入的账号访问灰度库，填写 `KB_PREVIEW_USERS=test:*`。填写 `KB_PREVIEW_USERS=*:alice` 时，`alice` 在所有获准环境都可访问灰度库。填写 `KB_PREVIEW_USERS=*:*` 可向所有通过准入的环境和账号开放灰度库。此配置适用于灰度库名单中的全部库，文件操作仍需匹配各自的文件授权。
+
 2. **使用更新后的 env 文件重建网关容器**（保留原日志卷与网络）：
 
    ```bash
@@ -469,6 +525,30 @@ server {
 
 ## 原始文件查询和下载
 
-原始文件功能需要包含本次改动的 Go CLI 1.1.2 构建、权限服务 1.1.3 和网关 0.1.1。旧的 Go CLI 1.1.2 安装包只有原有 Wiki 命令。保留既有库名单和签票配置，设置 `KB_FILE_LIST_GRANTS` 与 `KB_FILE_DOWNLOAD_GRANTS`，分别填写 `环境:账号:知识库ID`，多个授权以逗号分隔。留空时对应操作关闭。网关配置更新后按上文重建容器。角色和 Scoped Key 必须符合实际 WeKnora 部署版本的源文件访问要求；本链路复用客户端声明身份，仅用于非涉密文件。
+原始文件功能需要包含本次改动的 Go CLI 1.1.2 构建、权限服务 1.1.3 和网关 0.1.1。旧的 Go CLI 1.1.2 安装包只有原有 Wiki 命令。角色和 Scoped Key 必须符合实际 WeKnora 部署版本的源文件访问要求。本链路复用客户端声明身份，仅用于非涉密文件。
+
+在 `/opt/wiserec-kb-gateway/kb-gateway.env` 中配置文件授权。每条授权格式为 `环境:账号:知识库ID`，多条用英文逗号分隔。在目标环境执行 `ml login` 后，用 `ml auth status` 确认前两项。
+
+- **环境**填写 WiseRec CLI 当前绑定的平台环境标识，即 `ml auth status` 的 `profile`，对应 `ml env list` 的「环境标识」列。例如 `test`。
+- **账号**填写在该环境通过 `ml login` 登录的平台用户名，即 `ml auth status` 的 `username`。例如 `alice`。
+- **知识库 ID**填写 WeKnora 中目标知识库的 ID。例如 `kb_public_01`。目标库仍需满足现有正式库或灰度库名单。
+
+环境和账号区分大小写。用单独的 `*` 匹配任意环境或任意账号。支持 `test:*`、`*:alice` 和 `*:*`，知识库 ID 始终填写具体值。
+
+例如，假设 `kb_public_01` 已在正式库名单中。在 `test` 环境给 `alice` 和 `bob` 开放文件列表，仅给 `alice` 开放下载。
+
+```dotenv
+KB_FILE_LIST_GRANTS=test:alice:kb_public_01,test:bob:kb_public_01
+KB_FILE_DOWNLOAD_GRANTS=test:alice:kb_public_01
+```
+
+`alice` 可以查询并下载该库的文件，`bob` 只能查询文件名。若要让所有通过 WiseRec 准入且能访问该库的账号在任意获准环境执行两项操作，可改为：
+
+```dotenv
+KB_FILE_LIST_GRANTS=*:*:kb_public_01
+KB_FILE_DOWNLOAD_GRANTS=*:*:kb_public_01
+```
+
+若要关闭所有下载，保留列表授权并将 `KB_FILE_DOWNLOAD_GRANTS=` 留空。保存后按上文使用更新后的 env 文件重建网关容器。
 
 验收时查询 `ml kb file list --kb KB_ID --all -o json`，再用 `ml kb file download KNOWLEDGE_ID --kb KB_ID --file REPORT.xlsx` 保存测试原文件，核对哈希。检查仅获列表授权和跨库 ID 的下载拒绝，并核对审计记录。单文件上限由 `KB_GATEWAY_MAX_FILE_BYTES` 控制，默认 64 MiB；同时核对反代和下载超时。

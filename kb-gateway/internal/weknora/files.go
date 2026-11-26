@@ -33,7 +33,7 @@ func (c *Client) fileLibrary(ctx context.Context, env, user, name string, grants
 	}
 	var visible []library
 	for _, k := range libraries {
-		if c.Visibility.allows(k.ID, env, user) && grants[[3]string{env, user, k.ID}] {
+		if c.Visibility.allows(k.ID, env, user) && grants.allows(k.ID, env, user) {
 			visible = append(visible, k)
 		}
 	}

@@ -50,7 +50,7 @@ func TestFileGrantsAndDownload(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	list, err := weknora.ParseFileGrants(alice + "one,test:bob:one")
+	list, err := weknora.ParseFileGrants("*:*:one")
 	if err != nil {
 		t.Fatal(err)
 	}
