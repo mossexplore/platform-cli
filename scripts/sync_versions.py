@@ -15,9 +15,9 @@ def read_versions(root):
         data = tomllib.load(source)
     versions = data['components']
     required = {'cli', 'cli_go', 'access', 'agent', 'notifier'}
-    optional = {'dsh_plugin', 'telemetry_gateway'}
+    optional = {'dsh_plugin', 'telemetry_gateway', 'kb_gateway'}
     if not required <= versions.keys() or versions.keys() - required - optional:
-        raise ValueError('components 必须包含 cli、cli_go、access、agent、notifier，可选 dsh_plugin、telemetry_gateway')
+        raise ValueError('components 必须包含 cli、cli_go、access、agent、notifier，可选 dsh_plugin、telemetry_gateway、kb_gateway')
     for key in optional & versions.keys():
         if not re.fullmatch(r'(?:0|[1-9][0-9]*)(?:\.(?:0|[1-9][0-9]*)){2}', str(versions[key])):
             raise ValueError(f'{key} 版本必须是三段数字 SemVer')
@@ -81,6 +81,8 @@ def sync(root, check=False):
         files[root / 'cli-go/cmd/ml/version.go'] = go_version_source(versions['cli_go'])
     if (root / 'telemetry-gateway/go.mod').is_file():
         files[root / 'telemetry-gateway/cmd/gateway/version.go'] = go_version_source(versions['telemetry_gateway'])
+    if (root / 'kb-gateway/go.mod').is_file():
+        files[root / 'kb-gateway/cmd/kb-gateway/version.go'] = go_version_source(versions['kb_gateway'])
     plugin = root / 'dsh-plugin/wiserec-cli/package.json'
     if plugin.is_file():
         if 'dsh_plugin' not in versions:

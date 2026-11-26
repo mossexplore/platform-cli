@@ -19,11 +19,12 @@ import (
 )
 
 type Options struct {
-	Args    []string
-	Version string
-	Stdout  io.Writer
-	Stderr  io.Writer
-	Paths   func() (localstate.Paths, error)
+	Args       []string
+	Version    string
+	Stdout     io.Writer
+	Stderr     io.Writer
+	Paths      func() (localstate.Paths, error)
+	KBSettings func() (localstate.KnowledgeBase, error)
 }
 
 type usageError struct{ error }
@@ -31,6 +32,13 @@ type usageError struct{ error }
 func Run(ctx context.Context, options Options) (code int) {
 	if options.Paths == nil {
 		options.Paths = localstate.DefaultPaths
+		options.KBSettings = func() (localstate.KnowledgeBase, error) {
+			paths, err := localstate.DefaultPaths()
+			if err != nil {
+				return localstate.KnowledgeBase{}, err
+			}
+			return paths.KBSettings()
+		}
 	}
 	root := newRoot(options)
 	var invocation *historyInvocation
@@ -217,7 +225,26 @@ func newRoot(options Options) *cobra.Command {
 	root.AddCommand(newDataset(options, config), newFeatureSet(options, config), newFeatureTask(options, config), newModel(options, config))
 	root.AddCommand(newService(options, config), newQuality(options, config), newStudio(options, config), newJupyter(options, config))
 	root.AddCommand(newTemplateGroup(options, config, false), newTemplateGroup(options, config, true), newSwanBoard(options, config), newAlgorithm(options, config), newOffline(options, config), newSample(options, config))
+	if options.KBSettings != nil && needsKBCommands(options.Args) {
+		// Execution reports malformed overrides; the packaged command stays discoverable.
+		if kb, _ := options.KBSettings(); kb.Enable {
+			root.AddCommand(newKB(options, config, kb))
+		}
+	}
 	return root
+}
+
+// Only discovery and Wiki commands need the optional local Wiki settings.
+func needsKBCommands(args []string) bool {
+	if len(args) == 0 {
+		return true
+	}
+	switch args[0] {
+	case "kb", "tree", "help", "--help", "-h", "__complete", "__completeNoDesc", "completion":
+		return true
+	default:
+		return false
+	}
 }
 
 func contextBusiness(paths localstate.Paths, cfg localstate.Config) (business, tenant, login string) {

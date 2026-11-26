@@ -83,7 +83,8 @@ type Config struct {
 	Browser struct {
 		LoginTimeoutMS int `json:"login_timeout"`
 	} `json:"browser"`
-	Access Access `json:"access_control"`
+	Knowledge KnowledgeBase `json:"knowledge_base"`
+	Access    Access        `json:"access_control"`
 }
 
 type Profile struct {
@@ -195,6 +196,9 @@ func (c *Config) validate() error {
 	}
 	if c.Browser.LoginTimeoutMS <= 0 || int64(c.Browser.LoginTimeoutMS) > int64((1<<63-1)/time.Millisecond) {
 		return errors.New("browser.login_timeout 超出有效范围")
+	}
+	if err := c.Knowledge.validate(c.Access.URL); err != nil {
+		return err
 	}
 	return c.Access.validate()
 }

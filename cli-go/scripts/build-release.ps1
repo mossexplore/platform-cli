@@ -33,7 +33,23 @@ New-Item -ItemType Directory -Path $work -Force | Out-Null
 $published = [System.Collections.Generic.List[string]]::new()
 try {
     Write-Verbose 'Preparing the Agent Skill files and package metadata'
-    $arguments = @((Join-Path $installer 'stage.py'), $work)
+    $moduleDirectory = Split-Path $PSScriptRoot
+    $repository = Split-Path $moduleDirectory
+    if (-not $ConfigPath) {
+        $candidates = @(
+            (Join-Path $moduleDirectory 'config.json'),
+            (Join-Path $repository 'cli-python/config.json'),
+            (Join-Path $repository 'config.json')
+        )
+        $ConfigPath = $candidates | Where-Object { Test-Path -LiteralPath $_ -PathType Leaf } | Select-Object -First 1
+    }
+    if (-not $ConfigPath) {
+        throw 'Missing build config.json. Supply -ConfigPath or prepare cli-go/config.json.'
+    }
+    $snapshot = Join-Path $work 'build-config.json'
+    Copy-Item -LiteralPath $ConfigPath -Destination $snapshot
+    $ConfigPath = $snapshot
+    $arguments = @((Join-Path $installer 'stage.py'), $work, '--config', $ConfigPath)
     if (-not $PortableOnly) { $arguments += '--msi' }
     $metadata = & $Python @arguments
     if ($LASTEXITCODE -ne 0) { throw 'Preparing package inputs failed.' }

@@ -8,6 +8,12 @@
 
 ```text
 ml                                              WiseRec 命令行工具
+├── kb                                          查询共享 Wiki 知识库
+│   ├── list                                    列出可见知识库
+│   ├── search                                  按关键词检索已发布页面
+│   └── page                                    浏览 Wiki 页面
+│       ├── list                                浏览知识库页面目录
+│       └── show                                查看 Wiki 页面预览及来源
 ├── context                                     查看运行上下文
 ├── login                                       登录平台
 ├── logout                                      退出登录
@@ -1908,4 +1914,32 @@ ml quality wide-featureset label-assemble feature list --set-id SET_ID --definit
 ```bash
 ml quality wide-featureset feature-assemble feature list --set-id SET_ID --definition-id DEFINITION_ID
 ml quality wide-featureset label-assemble feature list --set-id SET_ID --definition-id DEFINITION_ID --page 2 --page-size 100 -o json
+```
+
+## 共享 Wiki 知识库
+
+### 命令格式
+
+```text
+ml kb list [-o table|json]
+ml kb page list [--kb NAME_OR_ID] [--page N] [--page-size N] [-o table|json]
+ml kb search QUERY [--kb NAME_OR_ID] [--limit N] [-o table|json]
+ml kb page show SLUG [--kb NAME_OR_ID] [-o text|json]
+```
+
+### 参数与选项
+
+`--kb` 接受可见库的名称或 ID。省略时使用默认库，仅有一个可见库时可自动选择。页码从 1 开始，每页默认 20 条、最多 50 条。搜索默认返回 5 条、最多 20 条。通过 `-o json` 获取结构化结果。
+
+### 说明
+
+打包启用知识库后，在当前终端或 DSH 会话中绑定受支持环境、登录并选中业务即可申请查询。账号授权、环境禁令和准入规则仍然生效。普通员工读取正式库；匹配调试名单的环境和账号还可以读取灰度库。两者均仅能查看已发布页。目录表格显示页码、每页条数和总条数，目录与搜索表格保留完整 slug 供复制。查询记录进入审计。候选窗口已满时可细化关键词。页面正文最多预览 64 KiB，截断时显示提示与来源。
+
+### 示例
+
+```shell
+ml kb list
+ml kb page list --kb KB_ID --page 1
+ml kb search "训练超时" --kb KB_ID -o json
+ml kb page show concept/rag --kb KB_ID
 ```

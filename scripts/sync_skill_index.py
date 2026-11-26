@@ -38,6 +38,15 @@ def go_cli_tree(contract_path=CONTRACT):
     business = root.commands.get("business")
     if isinstance(business, click.Group):
         business.params.append(click.Argument(["tenant_id"]))
+    kb = click.Group('kb')
+    pages = click.Group('page')
+    root.add_command(kb)
+    kb.add_command(pages)
+    for group, name, flags in ((kb, 'list', []), (kb, 'search', ['--kb', '--limit']),
+                               (pages, 'list', ['--kb', '--page', '--page-size']),
+                               (pages, 'show', ['--kb'])):
+        group.add_command(click.Command(name, params=[click.Option([flag]) for flag in flags]
+                                        + [click.Option(['--output', '-o'])]))
     return root
 
 

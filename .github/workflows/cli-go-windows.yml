@@ -9,9 +9,9 @@ on:
         default: false
   push:
     branches: [main]
-    paths: ['cli-go/**', 'skill/**', 'versions.toml', 'scripts/stage_skill_resources.py', 'scripts/sync_versions.py', '.github/workflows/cli-go-windows.yml']
+    paths: ['cli-go/**', 'kb-gateway/**', 'skill/**', 'versions.toml', 'scripts/stage_skill_resources.py', 'scripts/sync_versions.py', '.github/workflows/cli-go-windows.yml']
   pull_request:
-    paths: ['cli-go/**', 'skill/**', 'versions.toml', 'scripts/stage_skill_resources.py', 'scripts/sync_versions.py', '.github/workflows/cli-go-windows.yml']
+    paths: ['cli-go/**', 'kb-gateway/**', 'skill/**', 'versions.toml', 'scripts/stage_skill_resources.py', 'scripts/sync_versions.py', '.github/workflows/cli-go-windows.yml']
 
 permissions:
   contents: read
@@ -38,6 +38,9 @@ jobs:
           go test ./...
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           go vet ./...
+      - name: Verify shared Wiki gateway
+        working-directory: kb-gateway
+        run: go test ./...
       - name: Set up WiX and build through the double-click launcher
         working-directory: cli-go
         shell: pwsh
@@ -53,6 +56,19 @@ jobs:
           $output = @(Get-ChildItem -LiteralPath ./dist -Directory)
           if ($output.Count -ne 1) { throw 'Expected one build output directory' }
           "WISEREC_GO_PACKAGES=cli-go/dist/$($output[0].Name)" >> $env:GITHUB_ENV
+      - name: Check optional Wiki portable package
+        working-directory: cli-go
+        shell: pwsh
+        run: |
+          $work = Join-Path $env:RUNNER_TEMP 'go-kb-package'
+          ./scripts/build-release.ps1 -ConfigPath ./config.example.json -OutputDirectory $work -PortableOnly
+          $zip = Get-ChildItem -LiteralPath $work -Filter '*.zip'
+          $expanded = Join-Path $work 'expanded'
+          Expand-Archive -LiteralPath $zip.FullName -DestinationPath $expanded
+          $exe = Get-ChildItem -LiteralPath $expanded -Filter ml.exe -Recurse
+          $helpText = & $exe.FullName kb search --help
+          if ($LASTEXITCODE -ne 0 -or ($helpText -join ' ') -notmatch 'ml kb search') { throw 'Missing Wiki command' }
+          if (-not (Test-Path (Join-Path $exe.DirectoryName 'agent/skills/wiserec-platform/references/kb.md'))) { throw 'Missing Wiki Skill' }
       - name: Rebuild the same version for MSI replacement verification
         working-directory: cli-go
         shell: pwsh

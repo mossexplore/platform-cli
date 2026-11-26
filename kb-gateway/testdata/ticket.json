@@ -1,0 +1,10 @@
+{
+  "key": "0123456789abcdef0123456789abcdef",
+  "ak": "test",
+  "ticket_id": "12345678-1234-4abc-8def-123456789abc",
+  "username": "管理员 +/~",
+  "environment": "prod",
+  "action": "kb_search",
+  "exp": 1700000300,
+  "sig": "677b8ae5a89d0985dcacc67c350f08f26c0e8e7b0f03f7d4170dcc9532e4a396"
+}

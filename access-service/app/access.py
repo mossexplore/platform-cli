@@ -1,5 +1,6 @@
 import json
 import secrets
+from . import kb_ticket
 from fastapi import APIRouter, Header, Request, HTTPException
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
@@ -77,8 +78,17 @@ def recorded_check(body, request, businessid, source='client'):
         # trusted only under the documented gateway authentication contract.
         # MySQL DATETIME has second precision and may round fractional seconds
         # into the next second, outside the dashboard's current time window.
+        audit = body.full_command
+        if body.command in kb_ticket.ACTIONS:
+            audit = kb_ticket.audit_command(audit)
+            if result['allowed'] and source == 'client':
+                ticket = kb_ticket.issue(request.app.state.settings, body.username, body.environment,
+                                         kb_ticket.ACTIONS[body.command])
+                if ticket:
+                    result['kb_ticket'] = ticket
+                    decision = {**decision, 'kb_ticket_id': ticket['ticket_id']}
         db.add(CallLog(actor=body.username, created_at=now().replace(microsecond=0),
-            command=body.command, full_command=body.full_command, environment=body.environment, business_id=businessid,
+            command=body.command, full_command=audit, environment=body.environment, business_id=businessid,
             source_ip=(request.client.host if request.client else '')[:64],
             allowed=result['allowed'], reason=result.get('reason', 'ALLOWED'),
             cli_version=info['version'], version_source=info['source'], protocol_version=info['protocol'],

@@ -72,3 +72,36 @@ def test_slash_commands_load_separate_skills():
         content = (directory / f'{command}.md').read_text()
         assert f'先通过 skill 工具加载 `{skill}`' in content
         assert '$ARGUMENTS' in content
+
+
+def test_packaged_kb_matches_build_configuration(tmp_path):
+    root = SKILL_DIR.parents[1]
+    stage = runpy.run_path(str(root / "scripts/stage_skill_resources.py"))["stage_skill_resources"]
+    for enabled in (True, False):
+        resources = tmp_path / str(enabled)
+        manifest = stage(root, resources, "test", kb_enabled=enabled)
+        package = resources / "skills/wiserec-platform"
+        assert (package / "references/kb.md").exists() == enabled
+        assert ("skills/wiserec-platform/references/kb.md" in manifest) == enabled
+        assert ("references/kb.md" in (package / "SKILL.md").read_text()) == enabled
+        assert ("ml kb search" in (package / "references/commands.md").read_text()) == enabled
+
+
+def test_crlf_checkout_stages_identical_skill_bytes(tmp_path):
+    import shutil
+    import hashlib
+    import json
+
+    root = SKILL_DIR.parents[1]
+    stage = runpy.run_path(str(root / "scripts/stage_skill_resources.py"))["stage_skill_resources"]
+    checkout = tmp_path / "checkout"
+    shutil.copytree(root / "skill", checkout / "skill")
+    for doc in (checkout / "skill").rglob("*.md"):
+        doc.write_bytes(doc.read_text(encoding="utf-8").replace("\n", "\r\n").encode())
+    for enabled in (True, False):
+        target = tmp_path / f"crlf-{enabled}"
+        expected = stage(root, tmp_path / f"baseline-{enabled}", "test", enabled)
+        assert stage(checkout, target, "test", enabled) == expected
+        manifest = json.loads((target / "manifest.json").read_bytes())
+        assert manifest == {path: hashlib.sha256((target / path).read_bytes()).hexdigest()
+                            for path in expected}

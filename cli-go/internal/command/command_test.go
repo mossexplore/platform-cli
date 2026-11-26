@@ -241,7 +241,8 @@ func run(t *testing.T, paths localstate.Paths, args ...string) (int, string, str
 	var out, stderr bytes.Buffer
 	code := Run(context.Background(), Options{
 		Args: args, Version: "1.2.3", Stdout: &out, Stderr: &stderr,
-		Paths: func() (localstate.Paths, error) { return paths, nil },
+		Paths:      func() (localstate.Paths, error) { return paths, nil },
+		KBSettings: paths.KBSettings,
 	})
 	return code, out.String(), stderr.String()
 }

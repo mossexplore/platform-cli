@@ -62,6 +62,7 @@ func (s Session) requireAccess(ctx context.Context, metadata *invocation, profil
 		return err
 	}
 	var result struct {
+		Ticket      *KBTicket       `json:"kb_ticket"`
 		Reason      string          `json:"reason"`
 		Allowed     *bool           `json:"allowed"`
 		Username    string          `json:"username"`
@@ -91,6 +92,7 @@ func (s Session) requireAccess(ctx context.Context, metadata *invocation, profil
 	if result.Username != username || result.Environment != profile.Name {
 		return errors.New("权限服务返回的账号或环境与当前登录不一致")
 	}
+	metadata.ticket = result.Ticket
 	return nil
 }
 
@@ -100,6 +102,7 @@ type invocation struct {
 	version, id, installation string
 	stderr                    io.Writer
 	warned                    bool
+	ticket                    *KBTicket
 }
 
 func (i *invocation) headers(businessID string) http.Header {

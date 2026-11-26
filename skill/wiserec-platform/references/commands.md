@@ -145,3 +145,14 @@ WiseRec 和 MLOps 均支持 `train` 和 `feature-task` 命令，`algorithm` 仅�
 | `ml jupyter terminal list` | 列出远程终端 | | |
 | `ml jupyter terminal close NAME` | 关闭远程终端及其中进程，无确认 | | 高危（无内置确认）：结束远端进程 |
 | `ml jupyter terminal open` / `attach NAME` | 交互终端，**禁止使用** | | 禁止使用 |
+
+<!-- KB_START -->
+## 共享 Wiki
+
+| 命令 | 用途 | 确认 | 副作用 |
+| --- | --- | --- | --- |
+| `ml kb list` | 列出可见库 | | 只读，记录准入及查询审计 |
+| `ml kb page list --kb KB_ID` | 浏览已发布页面 | | 只读 |
+| `ml kb search QUERY --kb KB_ID` | 按字面关键词搜索 | | 只读 |
+| `ml kb page show SLUG --kb KB_ID` | 读取有界预览与来源 | | 只读 |
+<!-- KB_END -->

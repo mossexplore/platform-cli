@@ -57,7 +57,7 @@ func treeBranches(cmd *cobra.Command, path, platformType string, rules []string,
 	var branches []branch
 	commands := cmd.Commands()
 	if path == "" {
-		order := map[string]int{"context": 0, "login": 1, "logout": 2, "tree": 3, "history": 4, "auth": 5, "access": 6, "business": 7, "env": 8, "user": 9, "mtp": 11, "offline": 12, "train": 13, "sample-task": 14, "model": 15, "resource": 16, "deployment": 17, "algorithm": 18, "dataset": 19, "service": 20, "featureset": 21, "feature-task": 22, "quality": 23, "jupyter": 24, "webstudio": 25}
+		order := map[string]int{"kb": -1, "context": 0, "login": 1, "logout": 2, "tree": 3, "history": 4, "auth": 5, "access": 6, "business": 7, "env": 8, "user": 9, "mtp": 11, "offline": 12, "train": 13, "sample-task": 14, "model": 15, "resource": 16, "deployment": 17, "algorithm": 18, "dataset": 19, "service": 20, "featureset": 21, "feature-task": 22, "quality": 23, "jupyter": 24, "webstudio": 25}
 		commands = slices.Clone(commands)
 		slices.SortStableFunc(commands, func(left, right *cobra.Command) int {
 			return order[left.Name()] - order[right.Name()]
