@@ -1,0 +1,75 @@
+name: Build offline KB gateway image
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'kb-gateway/**'
+      - '.github/workflows/kb-gateway.yml'
+permissions:
+  contents: read
+jobs:
+  offline-image:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: kb-gateway/go.mod
+          cache: false
+      - name: Verify sources
+        run: |
+          python scripts/sync_versions.py --check
+          cd kb-gateway
+          go test -race ./...
+          go vet ./...
+      - name: Build and test image
+        id: build
+        shell: bash
+        run: |
+          version=$(python -c 'import tomllib; print(tomllib.load(open("versions.toml", "rb"))["components"]["kb_gateway"])')
+          image="wiserec-kb-gateway:$version"
+          docker build --platform linux/amd64 --label "org.opencontainers.image.revision=$GITHUB_SHA" \
+            --label "org.opencontainers.image.version=$version" -t "$image" kb-gateway
+          test "$(docker run --rm "$image" --version)" = "$version"
+          logs="$RUNNER_TEMP/kb-logs"
+          sudo install -d -o 65532 -g 65532 -m 0750 "$logs"
+          container=$(docker run -d --read-only -p 127.0.0.1:8087:8087 \
+            --mount "type=bind,source=$logs,target=/var/log/kb-gateway" \
+            -e WEKNORA_BASE_URL=http://127.0.0.1:9 -e WEKNORA_API_KEY=fixture \
+            -e KB_TICKET_KEYS=ci:0123456789abcdef0123456789abcdef \
+            -e KB_GATEWAY_ALLOWED_CIDRS=0.0.0.0/0 "$image")
+          trap 'docker rm -f "$container" >/dev/null' EXIT
+          curl -fsS --retry 8 --retry-connrefused http://127.0.0.1:8087/health | jq -e '.status == "ok"'
+          test "$(curl -sS -o /dev/null -w '%{http_code}' http://127.0.0.1:8087/v1/kb/list)" = 401
+          sudo grep -Rq INVALID_TICKET "$logs"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+      - name: Export, reload and verify archive
+        shell: bash
+        env:
+          VERSION: ${{ steps.build.outputs.version }}
+        run: |
+          image="wiserec-kb-gateway:$VERSION"
+          archive="wiserec-kb-gateway-$VERSION-linux-amd64.tar.gz"
+          dir="$RUNNER_TEMP/offline-kb-gateway"
+          mkdir "$dir"
+          cp kb-gateway/kb-gateway.env.example docs/kb-gateway配置部署与使用指南.md "$dir/"
+          cd "$dir"
+          id=$(docker image inspect --format '{{.Id}}' "$image")
+          docker save "$image" | gzip -n > "$archive"
+          sha256sum "$archive" > SHA256SUMS
+          sha256sum -c SHA256SUMS
+          docker image rm "$image"
+          docker load -i "$archive"
+          test "$(docker image inspect --format '{{.Id}}' "$image")" = "$id"
+          test "$(docker image inspect --format '{{.Os}}/{{.Architecture}}' "$image")" = linux/amd64
+          test "$(docker image inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$image")" = "$GITHUB_SHA"
+          test "$(docker run --rm "$image" --version)" = "$VERSION"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: wiserec-kb-gateway-${{ steps.build.outputs.version }}-linux-amd64
+          path: ${{ runner.temp }}/offline-kb-gateway/
+          compression-level: 0
+          retention-days: 30
+          if-no-files-found: error

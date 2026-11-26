@@ -132,7 +132,17 @@ KB_GATEWAY_RATE_LIMIT_BURST=40
 
 ## 4. 镜像构建、Docker 部署与 HTTPS 反代
 
-### 4.1 构建 Linux `amd64` 镜像
+### 4.1 下载或构建 Linux `amd64` 镜像
+
+打开 GitHub Actions 中的 [Build offline KB gateway image](https://github.com/mossexplore/platform-cli/actions/workflows/kb-gateway.yml)，选择目标提交的成功运行，从 Artifacts 下载离线包（保留 30 天）。如需重新构建，可在 main 上选择 Run workflow。解压下载的 ZIP，将其中的镜像归档、SHA256SUMS、配置模板及指南复制到主机同一目录，再执行：
+
+```bash
+sha256sum -c SHA256SUMS
+docker load -i wiserec-kb-gateway-0.1.0-linux-amd64.tar.gz
+docker run --rm wiserec-kb-gateway:0.1.0 --version
+```
+
+确认输出对应版本后继续 §4.2。使用离线包时，下文的 `kb-gateway/kb-gateway.env.example` 取自解压目录中的 `kb-gateway.env.example`。需要自行从源码构建时，使用以下方式。
 
 `kb-gateway` 使用纯标准库 Go（无外部依赖、无 CGO），基于 `gcr.io/distroless/static:nonroot` 构建，镜像体积通常小于 20 MB。
 
