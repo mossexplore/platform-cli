@@ -31,8 +31,8 @@ ml kb ... (Go CLI 1.1.2+)
 必须按以下顺序依次交付，避免 CLI 先于服务端上线导致无法获取票据或连接失败：
 
 1. **WeKnora 准备**：在 WeKnora 后台确认知识库已启用 Wiki、页面已发布，并签发最小权限只读 Scoped API Key。
-2. **升级 `access-service`**：升级至 `1.1.2+`（沿用 MySQL 结构 15，从 `1.1.1` 升级无需结构迁移），在 `service.env` 中配置 `KB_TICKET_AK` 与 `KB_TICKET_SK` 并重启。
-3. **部署 `kb-gateway` 与 HTTPS 反代**：构建镜像、授权日志目录给 UID `65532`、启动容器并配置前置 HTTPS 反向代理，完成健康检查与日志落盘验收。
+2. **升级 `access-service`**：从 [镜像下载](#41-下载或构建-linux-amd64-镜像) 获取权限服务 `1.1.3`，在 `service.env` 中配置 `KB_TICKET_AK` 与 `KB_TICKET_SK`，再用新镜像重建容器。从已使用 MySQL 结构 15 的 `1.1.2` 升级无需结构迁移。
+3. **部署 `kb-gateway` 与 HTTPS 反代**：从 [镜像下载](#41-下载或构建-linux-amd64-镜像) 获取网关 `0.1.1`，授权日志目录给 UID `65532`，启动容器并配置前置 HTTPS 反向代理，完成健康检查与日志落盘验收。
 4. **构建并分发 `cli-go`**：使用启用 `knowledge_base.enable: true` 且锁定真实 HTTPS 网关地址的配置文件打包 Windows x64 安装包（MSI / 便携 ZIP）并分发。
 
 > [!IMPORTANT]
@@ -191,7 +191,16 @@ KB_GATEWAY_RATE_LIMIT_BURST=40
 
 ### 4.1 下载或构建 Linux `amd64` 镜像
 
-打开 GitHub Actions 中的 [Build offline KB gateway image](https://github.com/mossexplore/platform-cli/actions/workflows/kb-gateway.yml)，选择目标提交的成功运行，从 Artifacts 下载离线包（保留 30 天）。如需重新构建，可在 main 上选择 Run workflow。解压下载的 ZIP，将其中的镜像归档、SHA256SUMS、配置模板及指南复制到主机同一目录，再执行：
+下列是本次部署使用的两个 GitHub Actions 离线包，均适用于 Linux `amd64`。请使用有仓库访问权限的 GitHub 账号登录后下载。
+
+| 组件 | 构建提交 | 解压后的 Docker 镜像归档 | 下载地址 |
+| --- | --- | --- | --- |
+| 权限服务 `1.1.3` | `a563417` | `cli-access-1.1.3-a563417c2e0a-linux-amd64.tar.gz` | [下载权限服务离线包](https://github.com/mossexplore/platform-cli/actions/runs/45791052281/artifacts/15102722708) |
+| 知识库网关 `0.1.1`（含环境和账号通配授权） | `f25ae6b` | `wiserec-kb-gateway-0.1.1-linux-amd64.tar.gz` | [下载知识库网关离线包](https://github.com/mossexplore/platform-cli/actions/runs/45794603616/artifacts/15104067671) |
+
+GitHub Actions 产物保留 30 天。下载链接到期后，可在对应工作流中构建目标版本，再从成功运行的 Artifacts 下载。[权限服务镜像工作流](https://github.com/mossexplore/platform-cli/actions/workflows/access-image.yml) · [知识库网关镜像工作流](https://github.com/mossexplore/platform-cli/actions/workflows/kb-gateway.yml)
+
+将两个 ZIP 分别解压到独立目录。权限服务按其离线包内的 `README.md` 核对校验和、导入镜像并继续部署。进入网关离线包的解压目录，执行以下命令。
 
 ```bash
 sha256sum -c SHA256SUMS
