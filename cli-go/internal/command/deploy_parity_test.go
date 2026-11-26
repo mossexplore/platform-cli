@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"sync/atomic"
 	"testing"
 
@@ -63,6 +64,10 @@ func TestModelDeployDryRunBuildsPayloadWithoutPublishing(t *testing.T) {
 	preview := compactResult(t, paths, "model", "deploy", "model-1", "--template", "template-1", "--dry-run", "--agent")
 	if preview["data"] == nil || publishes.Load() != 0 {
 		t.Fatal("agent preview published", preview)
+	}
+	code, out, stderr = run(t, paths, "model", "deploy", "model-1", "--template", "template-1", "--agent")
+	if code != 1 || out != "" || !strings.Contains(stderr, "必须指定 --yes") || publishes.Load() != 0 {
+		t.Fatal(code, out, stderr, publishes.Load())
 	}
 	result := compactResult(t, paths, "model", "deploy", "model-1", "--template", "template-1", "--yes", "--agent")
 	if result["code"] != float64(0) || publishes.Load() != 1 {

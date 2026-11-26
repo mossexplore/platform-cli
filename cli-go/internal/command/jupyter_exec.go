@@ -50,7 +50,11 @@ func newJupyterExec(options Options, load loadConfig) *cobra.Command {
 		if err := output.JSON(cmd.OutOrStdout(), value); err != nil {
 			return err
 		}
-		return executionStatus(result, true)
+		maxExitCode := 123
+		if agentMode(cmd) {
+			maxExitCode = 255
+		}
+		return executionStatus(result, maxExitCode)
 	})
 	cmd.RunE = func(cmd *cobra.Command, args []string) error {
 		err := run(cmd, args)
@@ -73,7 +77,7 @@ func validSeconds(value float64) bool {
 
 func seconds(value float64) time.Duration { return time.Duration(value * float64(time.Second)) }
 
-func executionStatus(summary map[string]any, useExitCode bool) error {
+func executionStatus(summary map[string]any, maxExitCode int) error {
 	status, _ := summary["status"].(string)
 	if raw, ok := summary["status"].(json.RawMessage); ok {
 		_ = json.Unmarshal(raw, &status)
@@ -89,7 +93,7 @@ func executionStatus(summary map[string]any, useExitCode bool) error {
 		return silentExit(2)
 	case "FAILED":
 		var code int
-		if raw, ok := summary["exit_code"].(json.RawMessage); useExitCode && ok && json.Unmarshal(raw, &code) == nil && code > 0 && code < 124 {
+		if raw, ok := summary["exit_code"].(json.RawMessage); ok && json.Unmarshal(raw, &code) == nil && code > 0 && code <= maxExitCode {
 			return silentExit(code)
 		}
 	}
@@ -169,7 +173,7 @@ func newJupyterNotebook(options Options, load loadConfig) *cobra.Command {
 				fmt.Fprintln(cmd.ErrOrStderr(), "[警告]", warning)
 			}
 		}
-		return executionStatus(result, false)
+		return executionStatus(result, 0)
 	})
 	group.AddCommand(run)
 	return group

@@ -79,7 +79,11 @@ func newDatasetFiles(options Options, load loadConfig) *cobra.Command {
 			if *more {
 				mode = "limited"
 			}
-			v := output.AgentList(items, mode, 0, 0, nil)
+			v := output.AgentList(items, map[string]string{
+				"name": "文件名", "path": "条目路径",
+				"size": "文件大小（字节）", "dir": "是否为目录",
+				"lastModifyDate": "更新时间", "fullPath": "数据集内完整路径",
+			}, mode, 0, 0, nil)
 			v["currentDir"], v["hasMore"] = directory, *more
 			return agentResult(cmd, v)
 		}
@@ -136,6 +140,12 @@ func newDatasetFiles(options Options, load loadConfig) *cobra.Command {
 		}
 		if _, err := platform.Result(payload, "追加文件", false); err != nil {
 			return err
+		}
+		if agentMode(cmd) {
+			return agentResult(cmd, map[string]string{
+				"status": "accepted", "dataSetId": args[0], "dataSetName": target,
+				"directory": directory, "fileName": filepath.Base(file),
+			})
 		}
 		if format == "json" {
 			return output.JSON(cmd.OutOrStdout(), payload)

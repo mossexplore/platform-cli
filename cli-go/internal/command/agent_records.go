@@ -35,6 +35,26 @@ func agentRecord(record platform.Record, keys ...string) platform.Record {
 	return result
 }
 
+func agentFields(columns []recordColumn, extra map[string]string) map[string]string {
+	fields := make(map[string]string, len(columns)+len(extra))
+	for _, col := range columns {
+		label := col.title
+		switch col.key {
+		case "fileSize", "pkgSize":
+			label += "（字节）"
+		case "runningTime", "queueTime":
+			label += "（分钟）"
+		case "waitTime":
+			label += "（秒）"
+		}
+		fields[col.key] = label
+	}
+	for key, label := range extra {
+		fields[key] = label
+	}
+	return fields
+}
+
 func columnKeys(columns []recordColumn, extra ...string) []string {
 	keys := make([]string, 0, len(columns)+len(extra))
 	for _, col := range columns {
@@ -75,16 +95,28 @@ func agentHistory(record platform.Record, projected platform.Record) error {
 	return projected.Put("roleJobInfo", rows)
 }
 
-func agentCatalogRows(q catalogQuery, records []platform.Record, all bool) []platform.Record {
-	var extra []string
-	if all {
-		extra = append(extra, "businessId")
-	}
+func agentCatalogProjection(q catalogQuery, records []platform.Record, all bool) ([]platform.Record, map[string]string) {
+	extra := map[string]string{}
 	if strings.HasSuffix(q.route, "rtcContainer/queryDetail") {
-		extra = append(extra, "imageName", "imageVersion", "wiseEyeName", "wiseEyeVersion", "cpuLimit", "memoryLimit", "gpuLimit", "npuLimit")
+		extra = map[string]string{
+			"imageName": "镜像名称", "imageVersion": "镜像版本",
+			"wiseEyeName": "组件名称", "wiseEyeVersion": "组件版本",
+			"cpuLimit": "CPU 上限", "memoryLimit": "内存上限",
+			"gpuLimit": "GPU 上限", "npuLimit": "NPU 上限",
+		}
 	}
-	rows := agentRows(records, q.columns, extra...)
+	if all {
+		extra["businessId"] = "业务 ID"
+	}
+	keys := make([]string, 0, len(extra))
+	for key := range extra {
+		keys = append(keys, key)
+	}
+	rows := agentRows(records, q.columns, keys...)
+	fields := agentFields(q.columns, extra)
 	if q.route == datasetPrefix+"queryList" {
+		fields["_truncated"] = "截断字段的原始长度"
+		fields["_truncated.description"] = "描述截断前的字符数"
 		for i, row := range rows {
 			runes := []rune(records[i].Text("description"))
 			if len(runes) > 256 {
@@ -93,5 +125,5 @@ func agentCatalogRows(q catalogQuery, records []platform.Record, all bool) []pla
 			}
 		}
 	}
-	return rows
+	return rows, fields
 }

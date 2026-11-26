@@ -87,6 +87,10 @@ func TestServiceMockAcceptsDocumentSamples(t *testing.T) {
 			if code != 0 || stderr != "" || !json.Valid([]byte(out)) || calls.Load() != 1 {
 				t.Fatalf("sample not sent exactly once (%d): %s\n%s", code, out, stderr)
 			}
+			result := compactResult(t, paths, append(args[:len(args)-2], "--agent")...)
+			if len(result["nodeList"].([]any)) != 1 || calls.Load() != 2 {
+				t.Fatal(result, calls.Load())
+			}
 		})
 	}
 }

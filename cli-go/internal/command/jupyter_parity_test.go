@@ -1,6 +1,8 @@
 package command
 
 import (
+	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -17,7 +19,8 @@ func TestJupyterExecUsesDedicatedKernelAndCleansIt(t *testing.T) {
 	script := "token = 'fixture-value'\nprint(token)"
 	paths := localstate.Paths{Dir: t.TempDir()}
 	t.Setenv("ML_JUPYTER_TOKEN", "fixture-jupyter")
-	var created, deleted, executed atomic.Int32
+	var created, deleted, executed, exitCode atomic.Int32
+	started := make(chan struct{}, 1)
 	upgrader := websocket.Upgrader{CheckOrigin: func(*http.Request) bool { return true }}
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assertBusinessHeader(t, r)
@@ -83,8 +86,20 @@ func TestJupyterExecUsesDedicatedKernelAndCleansIt(t *testing.T) {
 			send(parent, "kernel_info_reply", "shell", map[string]any{"language_info": map[string]string{"name": "python"}})
 			parent = recv("execute_request")
 			send("unrelated", "status", "iopub", map[string]string{"execution_state": "idle"})
+			status := "SUCCEEDED"
+			switch exitCode.Load() {
+			case -1:
+				status = "TIMED_OUT"
+			case -2:
+				started <- struct{}{}
+				_, _, _ = connect.ReadMessage()
+				return
+			case 0:
+			default:
+				status = "FAILED"
+			}
 			send(parent, "display_data", "iopub", map[string]any{"data": map[string]any{"application/vnd.wiserec.exec+json": map[string]any{
-				"status": "SUCCEEDED", "exit_code": 0, "stdout": "测试\n", "stderr": "",
+				"status": status, "exit_code": exitCode.Load(), "stdout": "测试\n", "stderr": "",
 			}}})
 			send(parent, "execute_reply", "shell", map[string]string{"status": "ok"})
 			send(parent, "status", "iopub", map[string]string{"execution_state": "idle"})
@@ -115,7 +130,44 @@ func TestJupyterExecUsesDedicatedKernelAndCleansIt(t *testing.T) {
 	if agent["status"] != "SUCCEEDED" || agent["stdout"] != "测试\n" || agent["exit_code"] != float64(0) || created.Load() != 2 || executed.Load() != 2 || deleted.Load() != 2 {
 		t.Fatal(agent, created.Load(), executed.Load(), deleted.Load())
 	}
-
+	for _, tc := range []struct {
+		remote, exit int
+		status       string
+	}{
+		{42, 42, "FAILED"}, {125, 125, "FAILED"}, {255, 255, "FAILED"},
+		{-1, 124, "TIMED_OUT"},
+	} {
+		exitCode.Store(int32(tc.remote))
+		code, out, stderr := run(t, paths, "jupyter", "exec", "--agent", "--", "python", "-c", script, "")
+		var result struct {
+			Status string `json:"status"`
+			Code   int    `json:"exit_code"`
+		}
+		if code != tc.exit || stderr != "" || json.Unmarshal([]byte(out), &result) != nil || result.Status != tc.status || result.Code != tc.remote {
+			t.Fatalf("want exit %d (%s); got %d %s %s", tc.exit, tc.status, code, out, stderr)
+		}
+	}
+	exitCode.Store(-2)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	go func() {
+		select {
+		case <-started:
+			cancel()
+		case <-ctx.Done():
+		}
+	}()
+	var stdout, diagnostic bytes.Buffer
+	code = Run(ctx, Options{
+		Args:    []string{"jupyter", "exec", "--agent", "--", "python", "-c", script, ""},
+		Version: "1.2.3", Stdout: &stdout, Stderr: &diagnostic,
+		Paths: func() (localstate.Paths, error) { return paths, nil },
+	})
+	var interrupted struct{ Status string }
+	if code != 130 || json.Unmarshal(stdout.Bytes(), &interrupted) != nil || interrupted.Status != "INTERRUPTED" ||
+		!strings.Contains(diagnostic.String(), "已取消操作") {
+		t.Fatal(code, stdout.String(), diagnostic.String())
+	}
 }
 
 func TestJupyterFileDeletionRejectsNonemptyDirectory(t *testing.T) {

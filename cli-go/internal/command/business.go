@@ -32,7 +32,14 @@ func newBusiness(options Options, load loadConfig) *cobra.Command {
 		}
 		out, sel := cmd.OutOrStdout(), entry.Selected
 		if agentMode(cmd) {
-			v := output.AgentList(entry.Catalog, "unpaged", 0, 0, nil)
+			v := output.AgentList(entry.Catalog, map[string]string{
+				"name": "部门名称", "id": "部门 ID",
+				"tenants": "租户列表", "tenants.name": "租户名称",
+				"tenants.id": "租户 ID", "tenants.teams": "团队列表",
+				"tenants.teams.name": "团队名称", "tenants.teams.id": "团队 ID",
+				"tenants.teams.key": "团队标识", "tenants.teams.status": "团队状态",
+				"tenants.teams.businessId": "业务 ID",
+			}, "unpaged", 0, 0, nil)
 			v["selected"] = sel
 			return agentResult(cmd, v)
 		}

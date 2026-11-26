@@ -61,7 +61,9 @@ func newJupyter(options Options, load loadConfig) *cobra.Command {
 			return err
 		}
 		if agentMode(cmd) {
-			return agentResult(cmd, output.AgentList(agentRows(items, nil, "name", "last_activity"), "unpaged", 0, 0, nil))
+			return agentResult(cmd, output.AgentList(agentRows(items, nil, "name", "last_activity"), map[string]string{
+				"name": "终端名称", "last_activity": "最后活动时间",
+			}, "unpaged", 0, 0, nil))
 		}
 		rows := make([][]string, 0, len(items))
 		for _, item := range items {

@@ -49,7 +49,29 @@ func newJupyterFiles(options Options, load loadConfig) *cobra.Command {
 					if !ok {
 						return errors.New("缺少目录内容")
 					}
-					v := output.AgentList(items, "unpaged", 0, 0, nil)
+					fields := map[string]string{
+						"name": "名称", "path": "远端路径",
+						"type": "条目类型", "writable": "是否可写",
+						"created": "创建时间", "last_modified": "更新时间",
+						"size": "文件大小（字节）", "mimetype": "MIME 类型",
+						"format": "内容格式", "hash": "内容哈希",
+						"hash_algorithm": "哈希算法",
+					}
+					rows := make([]map[string]any, 0, len(items))
+					for _, item := range items {
+						entry, ok := item.(map[string]any)
+						if !ok {
+							return errors.New("目录内容包含无效条目")
+						}
+						row := make(map[string]any)
+						for key := range fields {
+							if value, ok := entry[key]; ok {
+								row[key] = value
+							}
+						}
+						rows = append(rows, row)
+					}
+					v := output.AgentList(rows, fields, "unpaged", 0, 0, nil)
 					v["path"] = model["path"]
 					return agentResult(cmd, v)
 				}

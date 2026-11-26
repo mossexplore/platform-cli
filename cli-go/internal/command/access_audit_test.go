@@ -89,10 +89,12 @@ func TestOldVersionHidesUpgradeLinkWithoutPromptOrBusinessRequest(t *testing.T) 
 	paths := fixtureConfig(t, t.TempDir(), server.URL, server.URL, false, "mlops", "")
 	saveState(t, paths, server.URL)
 
-	code, out, stderr := run(t, paths, "user", "info", "-o", "json")
-	if code != 1 || out != "" || !strings.Contains(stderr, "[错误] WiseRec Go CLI 版本过低") ||
-		!strings.Contains(stderr, "最低要求：2.0.0") || !strings.Contains(stderr, "推荐版本：2.0.1") ||
-		strings.Contains(stderr, "升级说明") || strings.Contains(stderr, "https://example.test/upgrade.msi") || strings.Contains(stderr, "[y/N]") {
-		t.Fatalf("unexpected result: %d %q %q", code, out, stderr)
+	for _, flags := range [][]string{{"-o", "json"}, {"--agent"}} {
+		code, out, stderr := run(t, paths, append([]string{"user", "info"}, flags...)...)
+		if code != 1 || out != "" || !strings.Contains(stderr, "[错误] WiseRec Go CLI 版本过低") ||
+			!strings.Contains(stderr, "最低要求：2.0.0") || !strings.Contains(stderr, "推荐版本：2.0.1") ||
+			strings.Contains(stderr, "升级说明") || strings.Contains(stderr, "https://example.test/upgrade.msi") || strings.Contains(stderr, "[y/N]") {
+			t.Fatalf("unexpected result: %d %q %q", code, out, stderr)
+		}
 	}
 }

@@ -94,7 +94,11 @@ func newAssembly(options Options, load loadConfig, kind, label string) *cobra.Co
 			}
 		}
 		if agentMode(cmd) {
-			v := output.AgentList(agentRows(items, nil, "definitionId", "definitionName", "outputTable", "latestCycle", "latestRatio"), "unpaged", 0, 0, nil)
+			v := output.AgentList(agentRows(items, nil, "definitionId", "definitionName", "outputTable", "latestCycle", "latestRatio"), map[string]string{
+				"definitionId": "定义 ID", "definitionName": "定义名称",
+				"outputTable": "输出表", "latestCycle": "最新周期",
+				"latestRatio": "最新比例",
+			}, "unpaged", 0, 0, nil)
 			if id := result.Text("featureSetId"); id != "" {
 				v["featureSetId"] = id
 			} else {

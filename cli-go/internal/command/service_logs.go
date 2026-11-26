@@ -102,7 +102,10 @@ func newServiceLogs(options Options, load loadConfig) *cobra.Command {
 		}
 		if *list {
 			if agentMode(cmd) {
-				return agentResult(cmd, output.AgentList(agentRows(files, nil, "fileName", "fileSize", "updateTime"), "unpaged", 0, 0, nil))
+				return agentResult(cmd, output.AgentList(agentRows(files, nil, "fileName", "fileSize", "updateTime"), map[string]string{
+					"fileName": "日志文件名", "fileSize": "日志文件大小",
+					"updateTime": "更新时间",
+				}, "unpaged", 0, 0, nil))
 			}
 			return output.Table(cmd.OutOrStdout(), []string{"编号", "文件名称", "大小", "修改时间"}, rows)
 		}

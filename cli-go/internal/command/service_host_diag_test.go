@@ -19,7 +19,11 @@ func TestServiceHostPodEventTableAndJSON(t *testing.T) {
 				assertBusinessHeader(t, r)
 				switch path.Base(r.URL.Path) {
 				case "check":
-					assertAccess(t, w, r, "ml service host pod-event")
+					command, _ := readRequest(t, r)["command"].(string)
+					if command != "ml service host list" && command != "ml service host pod-event" {
+						t.Errorf("unexpected admission command: %s", command)
+					}
+					fmt.Fprint(w, `{"allowed":true,"username":"preview-user","environment":"preview"}`)
 				case "queryServiceHostList":
 					hostCalls.Add(1)
 					fmt.Fprint(w, `{"result":{"code":0,"count":1,"data":[{"nodeName":"test-fb49d6d85-q2mxh","clusterName":"test-mirror-npu-arm"}]}}`)
@@ -78,6 +82,16 @@ func TestServiceHostPodEventTableAndJSON(t *testing.T) {
 			code, out, stderr = run(t, paths, "service", "host", "pod-event", "svc-1", "-o", "json")
 			if code != 0 || stderr != "" || hostCalls.Load() != 1 || eventCalls.Load() != 2 || !json.Valid([]byte(out)) {
 				t.Fatalf("service-id pod-event json failed: code=%d hostCalls=%d eventCalls=%d stderr=%q out=%q", code, hostCalls.Load(), eventCalls.Load(), stderr, out)
+			}
+
+			list := compactResult(t, paths, "service", "host", "list", "svc-1", "--agent")
+			row := list["items"].([]any)[0].(map[string]any)
+			events := compactResult(t, paths, "service", "host", "pod-event", "--agent",
+				"--pod", row["nodeName"].(string), "--cluster-name", row["clusterName"].(string))
+			event := events["items"].([]any)[0].(map[string]any)
+			if hostCalls.Load() != 2 || eventCalls.Load() != 3 || event["count"] != float64(31411) ||
+				event["lastTimestamp"] != "2026-11-19 19:30:23" || events["fields"].(map[string]any)["count"] == nil {
+				t.Fatal(list, events, hostCalls.Load(), eventCalls.Load())
 			}
 		})
 	}

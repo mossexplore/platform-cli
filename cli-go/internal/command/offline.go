@@ -96,7 +96,9 @@ func newOfflineList(options Options, load loadConfig, trial bool) *cobra.Command
 			return err
 		}
 		if agentMode(cmd) {
-			v := output.AgentList(agentRows(items, columns, "experimentId", "projectId"), "paged", *page, *pageSize, nil)
+			v := output.AgentList(agentRows(items, columns, "experimentId", "projectId"), agentFields(columns, map[string]string{
+				"experimentId": "实验 ID", "projectId": "项目 ID",
+			}), "paged", *page, *pageSize, nil)
 			if raw := result["total"]; len(raw) > 0 && string(raw) != "null" {
 				v["total"] = raw
 			}

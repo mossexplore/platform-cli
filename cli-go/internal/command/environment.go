@@ -65,7 +65,11 @@ func newEnv(options Options, load loadConfig) *cobra.Command {
 			return err
 		}
 		if agentMode(cmd) {
-			return agentResult(cmd, output.AgentList(rows, "unpaged", 0, 0, nil))
+			return agentResult(cmd, output.AgentList(rows, map[string]string{
+				"当前在用环境": "星号表示当前环境", "环境标识": "环境标识",
+				"环境名": "环境名称", "管理台类型": "管理台类型",
+				"管理台地址": "管理台地址", "状态": "环境授权状态",
+			}, "unpaged", 0, 0, nil))
 		}
 		return renderEnvironmentList(cmd, selected, rows, currentRow)
 	}

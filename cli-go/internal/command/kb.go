@@ -110,7 +110,13 @@ func writeKBResult(cmd *cobra.Command, route, format string, raw json.RawMessage
 		} else if route == "search" {
 			mode = "limited"
 		}
-		v := output.AgentList(agentRows(parsed.Items, nil, "id", "name", "description", "slug", "title", "summary", "updated_at", "kb_id", "source_refs", "score"), mode, parsed.Page, parsed.Size, parsed.Total)
+		v := output.AgentList(agentRows(parsed.Items, nil, "id", "name", "description", "slug", "title", "summary", "updated_at", "kb_id", "source_refs", "score"), map[string]string{
+			"id": "知识库 ID", "name": "知识库名称",
+			"description": "说明", "slug": "页面标识",
+			"title": "标题", "summary": "摘要",
+			"updated_at": "更新时间", "kb_id": "所属知识库 ID",
+			"source_refs": "来源引用", "score": "搜索相关性分数",
+		}, mode, parsed.Page, parsed.Size, parsed.Total)
 		if parsed.KBID != "" {
 			v["kb_id"] = parsed.KBID
 		}

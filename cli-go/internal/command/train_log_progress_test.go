@@ -236,6 +236,21 @@ func TestInstanceLogDownloadReportsBatchSteps(t *testing.T) {
 		"开始处理第 1/2 条日志", "开始获取编号 1 的日志下载地址", "开始校验下载地址",
 		"开始处理第 2/2 条日志", "开始获取编号 2 的日志下载地址", "开始校验下载地址", "开始下载 日志", "日志下载完成")
 
+	agentDir := t.TempDir()
+	code, out, agentStderr := run(t, paths, "train", "instance", "logs", "download", "task", "job", "--select", "all", "--directory", agentDir, "--agent")
+	if code != 1 || strings.Count(out, "\n") != 1 || json.Unmarshal([]byte(out), &result) != nil ||
+		result.Failed != 1 || result.Succeeded != 1 || len(result.Items) != 2 || !strings.Contains(agentStderr, "日志下载完成") {
+		t.Fatal(code, out, agentStderr)
+	}
+	saved, err := os.ReadDir(agentDir)
+	if err != nil || len(saved) != 1 {
+		t.Fatal(saved, err)
+	}
+	content, err := os.ReadFile(filepath.Join(agentDir, saved[0].Name()))
+	if err != nil || string(content) != "test log" {
+		t.Fatal(string(content), err)
+	}
+
 	var table []string
 	for _, line := range strings.Split(stderr, "\n") {
 		cells := strings.FieldsFunc(line, func(r rune) bool { return r == '┃' || r == '│' })

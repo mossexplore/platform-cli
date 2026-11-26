@@ -96,15 +96,24 @@ func trainListCommand(use, short string, argsCount int, options Options, load lo
 			return err
 		}
 		if agentMode(cmd) {
-			rows := agentRows(result.Items, allBusinessColumns(cols, allBusinessRequested(cmd)))
+			columns := allBusinessColumns(cols, allBusinessRequested(cmd))
+			rows := agentRows(result.Items, columns)
+			fields := agentFields(columns, nil)
 			if cmd.Parent().Name() == "history" {
+				fields["jobType"] = "作业类型"
+				fields["plogReady"] = "普通作业的 plog 是否已就绪"
+				fields["roleJobInfo"] = "分布式角色列表"
+				fields["roleJobInfo.plogReady"] = "该角色的 plog 是否已就绪"
+				for _, col := range trainRoles {
+					fields["roleJobInfo."+col.key] = col.title
+				}
 				for i, r := range result.Items {
 					if err := agentHistory(r, rows[i]); err != nil {
 						return err
 					}
 				}
 			}
-			return agentResult(cmd, output.AgentList(rows, "paged", result.PageIndex, result.PageSize, &result.Count))
+			return agentResult(cmd, output.AgentList(rows, fields, "paged", result.PageIndex, result.PageSize, &result.Count))
 		}
 		if format == "json" {
 			return output.JSON(cmd.OutOrStdout(), result)

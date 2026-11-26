@@ -73,7 +73,16 @@ func newHistory(options Options) *cobra.Command {
 			}
 		}
 		if agentMode(cmd) {
-			return agentResult(cmd, output.AgentList(filtered, "limited", 0, 0, nil))
+			return agentResult(cmd, output.AgentList(filtered, map[string]string{
+				"_key": "记录键", "time": "执行时间",
+				"started_at": "开始时间（Unix 秒）", "finished_at": "结束时间（Unix 秒）",
+				"duration_ms": "耗时（毫秒）", "command": "命令",
+				"env": "执行前环境", "env_after": "执行后环境",
+				"config": "配置路径", "cwd": "工作目录",
+				"business_id": "业务 ID", "version": "CLI 版本",
+				"exit_code": "退出码", "status": "结果状态",
+				"redacted": "是否脱敏", "truncated": "是否截断",
+			}, "limited", 0, 0, nil))
 		}
 		if *format == "json" {
 			return output.JSON(cmd.OutOrStdout(), filtered)

@@ -52,6 +52,35 @@ func TestContextAndTree(t *testing.T) {
 		!strings.Contains(out, "├── login  ") || strings.Index(out, "├── login  ") >= strings.Index(out, "├── tree  ") {
 		t.Fatalf("full tree: %d %s %s", code, out, stderr)
 	}
+	for _, manager := range []string{"wiserec", "mlops"} {
+		paths := fixtureConfig(t, t.TempDir(), "https://preview.example.test", "https://permissions.example.test", true, manager, "")
+		full := compactResult(t, paths, "tree", "--all", "--agent")
+		filtered := compactResult(t, paths, "tree", "--agent")
+		code, plain, stderr := run(t, paths, "tree", "--all")
+		if code != 0 || stderr != "" || full["platform"] != manager || filtered["platform"] != manager {
+			t.Fatal(code, stderr, full["platform"], filtered["platform"])
+		}
+		var check func([]any)
+		check = func(nodes []any) {
+			for _, entry := range nodes {
+				node := entry.(map[string]any)
+				summary := node["summary"].(string)
+				if !strings.Contains(plain, summary) {
+					t.Errorf("%s: missing visible command %s", manager, summary)
+				}
+				if children, ok := node["children"].([]any); ok {
+					check(children)
+				}
+			}
+		}
+		check(full["commands"].([]any))
+		for _, node := range filtered["commands"].([]any) {
+			name := node.(map[string]any)["name"]
+			if name == "user" || (manager == "mlops" && name == "mtp") {
+				t.Errorf("unexpected visible branch %s on %s", name, manager)
+			}
+		}
+	}
 }
 
 func TestMEPRemovedFromCLI(t *testing.T) {

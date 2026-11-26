@@ -8,7 +8,7 @@ WiseRec 和 MLOps 均支持 `train` 和 `feature-task` 命令，`algorithm` 仅�
 
 标有 `-A` 的列表可用 `--all-business` 查询当前环境的全部租户。需已登录、已选业务并具备超级管理员或超级管理员只读权限。跨租户选项仅用于列表，查到其他租户的资源后应先核对业务编码。
 
-业务命令可用全局 `--agent` 获取紧凑 JSON。使用该模式时移除原示例中的 `-o json` 或 `--json`。宿主设置 `ML_AGENT=1` 时，显式格式优先，也可用 `--agent=false` 恢复原格式。检查退出码及逐项结果，尤其是部分成功的批量操作。
+业务命令可用全局 `--agent` 获取紧凑 JSON。列表的顶层 `fields` 说明 `items` 的字段含义和适用单位，空列表也会返回。使用该模式时移除原示例中的 `-o json` 或 `--json`。宿主设置 `ML_AGENT=1` 时，显式格式优先，也可用 `--agent=false` 恢复原格式。检查退出码及逐项结果，尤其是部分成功的批量操作。
 
 仅在命令 `--help` 声明支持时传 `-o json` 或 `--output json`（`context` 用 `--json`，特征集配置和 `webstudio show` 固定输出 JSON）。常见不支持 `-o/--output` 的命令：`env show`、`access status`、`auth status`、`auth ping status`、`business list/show`、`service host log-search`、`jupyter doctor`、`jupyter terminal list`、`train start/cancel/delete/clone`、`train config export/update`、`algorithm download/clone`。
 

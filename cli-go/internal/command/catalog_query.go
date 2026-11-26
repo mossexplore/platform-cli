@@ -215,7 +215,8 @@ func (q catalogQuery) render(out io.Writer, record platform.Record, raw json.Raw
 		if !q.paged {
 			mode = "fixedFirstPage"
 		}
-		return output.JSON(out, output.AgentList(agentCatalogRows(q, items, allBusiness), mode, page, size, total))
+		rows, fields := agentCatalogProjection(q, items, allBusiness)
+		return output.JSON(out, output.AgentList(rows, fields, mode, page, size, total))
 	}
 	if format == "json" {
 		if q.preserve {

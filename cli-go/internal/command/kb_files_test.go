@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -88,6 +89,12 @@ func TestKBFileCommands(t *testing.T) {
 		result.Items[0].ID != id || result.Items[1].Folder != "项目" || result.HasMore != nil {
 		t.Fatal(code, out, stderr)
 	}
+	first := compactResult(t, paths, "--agent", "kb", "file", "list", "--kb", "教学资料")
+	last := compactResult(t, paths, "kb", "file", "list", "--kb", "教学资料", "--agent")
+	if !reflect.DeepEqual(first, last) || first["has_more"] != true ||
+		first["fields"].(map[string]any)["file_size"] != "文件大小（字节）" {
+		t.Fatal(first, last)
+	}
 	t.Setenv("COLUMNS", "50")
 	code, out, stderr = run(t, paths, "kb", "file", "list", "--kb", "教学资料")
 	if code != 0 || !strings.Contains(out, id) || !strings.Contains(out, "知识库 ID library") || !strings.Contains(stderr, "下一页") {
@@ -103,6 +110,12 @@ func TestKBFileCommands(t *testing.T) {
 	original, _ := os.ReadFile(target)
 	if code != 0 || !strings.Contains(out, "report (1).xlsx") || err != nil || string(saved) != book || string(original) != "existing" {
 		t.Fatal(code, out, stderr, err)
+	}
+	agentTarget := filepath.Join(dir, "agent-report.xlsx")
+	agent := compactResult(t, paths, "kb", "file", "download", id, "--kb", "library", "--file", agentTarget, "--agent")
+	saved, err = os.ReadFile(agentTarget)
+	if err != nil || string(saved) != book || agent["bytes"] != float64(len(book)) || agent["file"] != agentTarget {
+		t.Fatal(agent, err)
 	}
 	interrupted.Store(true)
 	code, out, stderr = run(t, paths, args...)

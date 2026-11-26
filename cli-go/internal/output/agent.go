@@ -12,11 +12,12 @@ func IsAgent(w io.Writer) bool {
 	return ok
 }
 
-func AgentList[T any](items []T, mode string, page, size int, total *int) map[string]any {
+// AgentList describes row keys once, including when the result has no rows.
+func AgentList[T any](items []T, fields map[string]string, mode string, page, size int, total *int) map[string]any {
 	if items == nil {
 		items = []T{}
 	}
-	result := map[string]any{"pagination": mode, "returnedCount": len(items), "items": items}
+	result := map[string]any{"pagination": mode, "returnedCount": len(items), "items": items, "fields": fields}
 	if page > 0 && size > 0 {
 		result["pageIndex"], result["pageSize"] = page, size
 	}

@@ -21,6 +21,7 @@ import (
 type Options struct {
 	Args       []string
 	Version    string
+	Stdin      io.Reader
 	Stdout     io.Writer
 	Stderr     io.Writer
 	Paths      func() (localstate.Paths, error)
@@ -97,6 +98,7 @@ func newRoot(options Options) *cobra.Command {
 	addCompletionOptions(root)
 	root.SetVersionTemplate("ml {{.Version}}\n")
 	root.SetArgs(append([]string{}, options.Args...))
+	root.SetIn(options.Stdin)
 	root.SetOut(options.Stdout)
 	root.SetErr(options.Stderr)
 	root.SetFlagErrorFunc(func(_ *cobra.Command, err error) error {

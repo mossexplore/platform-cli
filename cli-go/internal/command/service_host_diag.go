@@ -63,7 +63,11 @@ func newServiceHostPodEvent(options Options, load loadConfig) *cobra.Command {
 		}
 		out := cmd.OutOrStdout()
 		if agentMode(cmd) {
-			return agentResult(cmd, output.AgentList(agentRows(events, nil, "type", "reason", "message", "lastTimestamp", "count"), "unpaged", 0, 0, nil))
+			return agentResult(cmd, output.AgentList(agentRows(events, nil, "type", "reason", "message", "lastTimestamp", "count"), map[string]string{
+				"type": "事件类型", "reason": "事件原因",
+				"message": "事件内容", "lastTimestamp": "最近发生时间",
+				"count": "发生次数",
+			}, "unpaged", 0, 0, nil))
 		}
 		if format == "json" {
 			return output.JSON(out, result)

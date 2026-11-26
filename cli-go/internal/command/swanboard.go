@@ -81,10 +81,23 @@ func newSwanBoard(options Options, load loadConfig) *cobra.Command {
 			return err
 		}
 		if agentMode(cmd) {
-			v := output.AgentList(agentRows(items, nil, "experimentId", "name", "createTime"), "fixedFirstPage", 0, 0, nil)
+			v := output.AgentList(agentRows(items, nil, "experimentId", "name", "createTime"), map[string]string{
+				"experimentId": "实验 ID", "name": "实验名称",
+				"createTime": "创建时间",
+			}, "fixedFirstPage", 0, 0, nil)
+			// This command only requests the first page. The API need not report its capacity.
+			v["pageIndex"], v["pageSize"] = 1, nil
 			for key, source := range map[string]string{"pageIndex": "pageNum", "pageSize": "pageSize", "total": "total"} {
-				if raw := data[source]; len(raw) > 0 && string(raw) != "null" {
-					v[key] = raw
+				raw := data[source]
+				if len(raw) == 0 || string(raw) == "null" {
+					continue
+				}
+				var value int
+				if err := json.Unmarshal(raw, &value); err != nil || value < 0 || (key == "pageIndex" && value != 1) {
+					return fmt.Errorf("看板实验列表响应的 %s 无效", source)
+				}
+				if key != "pageSize" || value > 0 {
+					v[key] = value
 				}
 			}
 			return agentResult(cmd, v)
@@ -149,7 +162,7 @@ func newSwanBoard(options Options, load loadConfig) *cobra.Command {
 			for _, key := range keys {
 				items = append(items, map[string]any{"name": key, "config": data[key]})
 			}
-			return agentResult(cmd, output.AgentList(items, "unpaged", 0, 0, nil))
+			return agentResult(cmd, output.AgentList(items, map[string]string{"name": "配置项", "config": "配置值"}, "unpaged", 0, 0, nil))
 		}
 		if format == "json" {
 			return output.JSON(cmd.OutOrStdout(), data)
@@ -270,7 +283,7 @@ func showSwanPage(out io.Writer, record platform.Record, format string, page, si
 			if size == 0 {
 				mode = "unpaged"
 			}
-			v := output.AgentList(agentRows(items, columns), mode, page, size, nil)
+			v := output.AgentList(agentRows(items, columns), agentFields(columns, nil), mode, page, size, nil)
 			if raw := record["count"]; len(raw) > 0 && string(raw) != "null" {
 				v["total"] = raw
 			}

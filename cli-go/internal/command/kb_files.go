@@ -51,7 +51,11 @@ func newKBFiles(options Options, load loadConfig, cfg localstate.KnowledgeBase) 
 			if *all {
 				mode = "unpaged"
 			}
-			v := output.AgentList(result.Items, mode, result.Page, result.Size, nil)
+			v := output.AgentList(result.Items, map[string]string{
+				"id": "知识条目 ID", "file_name": "文件名",
+				"folder_path": "目录", "file_size": "文件大小（字节）",
+				"updated_at": "更新时间",
+			}, mode, result.Page, result.Size, nil)
 			v["kb_id"], v["kb_name"] = result.ID, result.Name
 			if result.HasMore != nil {
 				v["has_more"] = *result.HasMore

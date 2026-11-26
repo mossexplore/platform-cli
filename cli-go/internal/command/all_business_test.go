@@ -35,7 +35,7 @@ func TestAllBusinessListRequests(t *testing.T) {
 			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				if strings.HasSuffix(r.URL.Path, "/access/check") {
 					body := assertAccess(t, w, r, "ml "+tc.command)
-					if body["full_command"] != "ml "+tc.command+" -A -o json" {
+					if full := body["full_command"]; full != "ml "+tc.command+" -A -o json" && full != "ml "+tc.command+" -A --agent" {
 						t.Errorf("audit command: %v", body["full_command"])
 					}
 					return
@@ -80,6 +80,12 @@ func TestAllBusinessListRequests(t *testing.T) {
 			}
 			if tc.command == "webstudio list" && !strings.Contains(out, "fixture-opaque") {
 				t.Fatalf("Web Studio changed a server field: %s", out)
+			}
+			agent := compactResult(t, paths, append(args, "-A", "--agent")...)
+			item := agent["items"].([]any)[0].(map[string]any)
+			if item["businessId"] != "other-tenant" || item["token"] != nil || requests.Load() != 2 ||
+				agent["fields"].(map[string]any)["businessId"] == nil {
+				t.Fatal(agent, requests.Load())
 			}
 		})
 	}

@@ -73,8 +73,27 @@ func TestAgentSelection(t *testing.T) {
 			t.Fatal("invalid command tree description", line)
 		}
 	}
-	if result := compactResult(t, paths, "auth", "ping", "tick", "--capabilities"); result["protocol"] == nil || result["budget_ms"] == nil {
-		t.Fatal(result)
+	for _, args := range [][]string{
+		{"context", "--json"}, {"auth", "ping", "tick", "--capabilities"}, {"auth", "ping", "tick", "--json"},
+		{"--version"}, {"--help"}, {"__complete", "train", ""},
+	} {
+		t.Run(strings.Join(args, " "), func(t *testing.T) {
+			const hostInput = `{"protocol":"dsh-keepalive-v1","action":"release","host_id":"fixture","session_id":"fixture-session"}`
+			invoke := func(enabled string) (int, string, string) {
+				t.Setenv("ML_AGENT", enabled)
+				var out, stderr bytes.Buffer
+				code := Run(context.Background(), Options{
+					Args: args, Version: "test", Stdin: strings.NewReader(hostInput), Stdout: &out, Stderr: &stderr,
+					Paths: func() (localstate.Paths, error) { return paths, nil }, KBSettings: paths.KBSettings,
+				})
+				return code, out.String(), stderr.String()
+			}
+			base, plain, baseErr := invoke("0")
+			code, agent, agentErr := invoke("1")
+			if base != 0 || code != base || agent != plain || agentErr != baseErr || plain == "" {
+				t.Fatalf("normal %d %q %q; agent %d %q %q", base, plain, baseErr, code, agent, agentErr)
+			}
+		})
 	}
 }
 
@@ -93,6 +112,10 @@ func TestAgentRegisteredInvocations(t *testing.T) {
 				// Exercise the runnable entry point as well as help. Stop at the
 				// configuration boundary so mutations, downloads and login cannot run.
 				if cmd == root || cmd.CommandPath() == "ml service" {
+					code, out, stderr = run(t, paths, args...)
+					if code != 0 || !strings.Contains(out, "--agent") || stderr != "" {
+						t.Fatal(args, code, out, stderr)
+					}
 					return
 				}
 				cmd.LocalNonPersistentFlags().VisitAll(func(flag *pflag.Flag) {
@@ -172,6 +195,14 @@ func TestAgentQueryWorkflow(t *testing.T) {
 			saveState(t, paths, server.URL)
 			v := compactResult(t, paths, append(strings.Fields(tc.args), "--agent")...)
 			items := v["items"].([]any)
+			fields := v["fields"].(map[string]any)
+			for _, row := range items {
+				for key := range row.(map[string]any) {
+					if fields[key] == nil {
+						t.Errorf("missing field description for %s", key)
+					}
+				}
+			}
 			if v["returnedCount"] != float64(len(items)) || v["pagination"] != tc.mode || v["total"] != tc.total {
 				t.Fatal(v)
 			}
@@ -282,7 +313,8 @@ func TestAgentListCommandSchemas(t *testing.T) {
 			saveState(t, paths, server.URL)
 			v := compactResult(t, paths, append([]string{"--agent"}, strings.Fields(tc.args)...)...)
 			items, ok := v["items"].([]any)
-			if !ok || len(items) != 0 || v["returnedCount"] != float64(0) || v["pagination"] != tc.mode {
+			fields, described := v["fields"].(map[string]any)
+			if !ok || !described || len(fields) == 0 || len(items) != 0 || v["returnedCount"] != float64(0) || v["pagination"] != tc.mode {
 				t.Fatal(v)
 			}
 		})

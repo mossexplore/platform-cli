@@ -62,7 +62,8 @@ func newStudio(options Options, load loadConfig) *cobra.Command {
 		cols := []recordColumn{{"envId", "envId"}, {"名称", "labelName"}, {"集群类型", "clusterType"}, {"资源规格", "imageSpecific"},
 			{"状态", "status"}, {"创建者", "operator"}, {"修改者", "modifier"}, {"启动时间", "accessTime"}}
 		if agentMode(cmd) {
-			return agentResult(cmd, output.AgentList(agentRows(items, allBusinessColumns(cols, allBusinessRequested(cmd))), "paged", *page, *size, count))
+			columns := allBusinessColumns(cols, allBusinessRequested(cmd))
+			return agentResult(cmd, output.AgentList(agentRows(items, columns), agentFields(columns, nil), "paged", *page, *size, count))
 		}
 		if strings.EqualFold(*format, "json") {
 			return output.JSON(cmd.OutOrStdout(), payload)

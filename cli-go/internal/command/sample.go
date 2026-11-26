@@ -109,7 +109,10 @@ func newSampleList(options Options, load loadConfig) *cobra.Command {
 				{"修改者", "updateUser"}, {"最近修改时间", "updateTime"}, {"描述", "description"}}
 		}
 		if agentMode(cmd) {
-			v := output.AgentList(agentRows(items, cols, "taskState", "taskStatus", "taskSubCategory"), "paged", *page, *size, &total)
+			v := output.AgentList(agentRows(items, cols, "taskState", "taskStatus", "taskSubCategory"), agentFields(cols, map[string]string{
+				"taskState": "任务状态", "taskStatus": "任务状态",
+				"taskSubCategory": "任务子类别",
+			}), "paged", *page, *size, &total)
 			v["source"] = *source
 			return agentResult(cmd, v)
 		}
@@ -212,10 +215,18 @@ func newSampleExecution(options Options, load loadConfig, periods bool) *cobra.C
 		}
 		if agentMode(cmd) {
 			keys := strings.Fields("jobId algorithmName status fileSize periodDate runningTime latestFlag checkTime createTime statusTime")
+			fields := map[string]string{
+				"jobId": "作业 ID", "algorithmName": "算法名称",
+				"status": "状态", "fileSize": "文件大小（字节）",
+				"periodDate": "周期", "runningTime": "执行时长（分钟）",
+				"latestFlag": "是否最新", "checkTime": "检查时间",
+				"createTime": "开始时间", "statusTime": "结束时间",
+			}
 			if periods {
+				fields = map[string]string{"period": "周期", "state": "状态"}
 				keys = []string{"period", "state"}
 			}
-			v := output.AgentList(agentRows(items, nil, keys...), "paged", *page, *size, &total)
+			v := output.AgentList(agentRows(items, nil, keys...), fields, "paged", *page, *size, &total)
 			v["taskId"] = args[0]
 			return agentResult(cmd, v)
 		}

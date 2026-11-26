@@ -36,7 +36,7 @@ func TestKBTreeAndLocalOverride(t *testing.T) {
 		if err != nil || cfg.URL != "https://kb.test" || cfg.Default != "example" {
 			t.Fatal(cfg, err)
 		}
-		for _, args := range [][]string{{"tree", "--all"}, {"--help"}} {
+		for _, args := range [][]string{{"tree", "--all"}, {"--help"}, {"--agent", "tree", "--all"}} {
 			code, out, stderr := run(t, p, args...)
 			if code != 0 || strings.Contains(out, "查询共享 Wiki 知识库") != enabled {
 				t.Fatalf("%v: %s %s", args, out, stderr)
