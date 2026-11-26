@@ -21,27 +21,27 @@
 先按 [session.md](session.md) 完成环境、认证和业务检查，然后：
 
 ```powershell
-ml webstudio show
-ml webstudio list --status online -o json
-ml webstudio list -A --status online
-ml webstudio login ENV_ID
-ml jupyter files list -o json
+ml webstudio show --agent
+ml webstudio list --status online --agent
+ml webstudio list -A --status online --agent
+ml webstudio login ENV_ID --agent
+ml jupyter files list --agent
 ```
 
-- `ml webstudio show` 显示当前环境、账号和业务绑定的默认实例及缓存状态，不代表实例实时状态；已有合适的默认实例时无需重复登录。
+- `ml webstudio show --agent` 显示当前环境、账号和业务绑定的默认实例及缓存状态，不代表实例实时状态；已有合适的默认实例时无需重复登录。
 - ENV_ID 必须来自用户指定或查询结果。`login` 重新建立并验证连接，并保存为默认实例；`--refresh` 强制重新获取凭据和会话。单次命令可用 `--studio-id ENV_ID` 临时指定实例。
-- 实例未运行时，经用户授权运行 `ml webstudio start ENV_ID`（接口可能约 15 秒才返回），再用 `ml webstudio list --env-id ENV_ID -o json` 确认状态。`stop` 可能中断运行中的 Notebook 或终端，先核对目标。start 和 stop 不改变默认实例。
-- `ml jupyter doctor` 同时检查 Kernel 与终端管理接口，它失败不一定代表文件接口不可用；文件任务直接用 `files list` 验证。
+- 实例未运行时，经用户授权运行 `ml webstudio start ENV_ID --agent`（接口可能约 15 秒才返回），再用 `ml webstudio list --env-id ENV_ID --agent` 确认状态。`stop` 可能中断运行中的 Notebook 或终端，先核对目标。start 和 stop 不改变默认实例。
+- `ml jupyter doctor --agent` 同时检查 Kernel 与终端管理接口，它失败不一定代表文件接口不可用；文件任务直接用 `files list` 验证。
 
 ## 远端路径
 
-- 路径相对 Jupyter 文件浏览器的根目录。先省略路径运行 `files list` 查看根目录，再使用返回条目的 `path`，不要假设存在 `projects`。
+- 路径相对 Jupyter 文件浏览器的根目录。先省略路径运行 `files list --agent` 查看根目录，再使用返回条目的 `path`，不要假设存在 `projects`。
 - 远端路径不能以 `/` 开头或包含 `..`，不能使用 Windows 本地路径。LOCAL 是本机文件，REMOTE 是远端文件，两者不可互换。
 - 不要用本地文件工具修改同名本地路径来冒充远端修改。
 
 ## 文件命令
 
-均支持 `--studio-id ENV_ID` 和 `-o text|json`，Agent 使用 `-o json`。
+均支持 `--studio-id ENV_ID`，Agent 默认使用 `--agent`（不要与 `-o` 同传）。
 
 | 命令（接在 `ml jupyter` 后） | 行为 |
 | --- | --- |
@@ -59,19 +59,19 @@ ml jupyter files list -o json
 - write、upload、download 默认不覆盖已有文件；覆盖非代码文件须加 `--overwrite` 且符合用户意图；不得覆盖代码。命令不递归处理目录，也不展开通配符。
 - 编辑已授权的远端非代码文件：先 read，确认内容与路径不是代码或用于改码的程序，在本地准备完整数据，用 `write --from-file --overwrite` 写回，再 read 核验。Windows 上优先 `--from-file`，避免 `--stdin` 的编码问题。避免与用户在浏览器中同时编辑同一文件。
 - read 和传输会把整个文件读入内存，不适合超大文件。
-- 成功 JSON 为 `{server_url, studio_id, business_id, result}`：目录子项在 `result.content`（数组），read 的正文也在 `result.content`（字符串）。失败退出 1 并返回 `{status: "FAILED", error: ...}`；参数错误退出 2，可能只有用法文本。
+- `--agent` 模式下：`files list` 返回带 `path`、`fields`、`items` 的紧凑列表 JSON；`files read` 及其他文件命令直接返回顶层对象（正文在 `content`）。失败退出 1 并返回 `{status: "FAILED", error: ...}`；参数错误退出 2，可能只有用法文本。
 
 ```powershell
-ml jupyter files list workspace -o json
-ml jupyter files write workspace/report.txt --from-file '.\report.txt' --overwrite -o json
-ml jupyter files read workspace/report.txt -o json
-ml jupyter files download workspace/data.csv '.\data.csv' -o json
+ml jupyter files list workspace --agent
+ml jupyter files write workspace/report.txt --from-file '.\report.txt' --overwrite --agent
+ml jupyter files read workspace/report.txt --agent
+ml jupyter files download workspace/data.csv '.\data.csv' --agent
 ```
 
 ## 非交互执行
 
 ```powershell
-ml jupyter exec --cwd workspace -o json -- sh -c 'pwd && ls -la'
+ml jupyter exec --cwd workspace --agent -- sh -c 'pwd && ls -la'
 ```
 
 - 远端须是 POSIX 系统且有 Python Kernel，本地 Windows 可以连接。每次调用使用独立 Kernel，不继承 Notebook 变量或上一次 exec 的 `cd`、`export`，每次都显式传 `--cwd`。程序按远端 PATH 查找，Kernel 可用不代表某个命令或虚拟环境可用。
@@ -80,12 +80,12 @@ ml jupyter exec --cwd workspace -o json -- sh -c 'pwd && ls -la'
 - 时限：`--startup-timeout`（Kernel 就绪，默认 60 秒）加 `--timeout`（程序执行，默认 60 秒）。执行工具的等待时限按两者之和再加至少 60 秒设置，具体参数名和单位以工具说明为准。
 - exec 结束或超时会清理同一进程组，不适合启动后台常驻服务。
 
-执行结果在 JSON 的 `result` 中：
+`--agent` 模式下执行结果字段直接位于顶层（`-o json` 包在 `result` 中）：
 
-| `result.status` | CLI 退出码 | 处理 |
+| `status` | CLI 退出码 | 处理 |
 | --- | --- | --- |
 | `SUCCEEDED` | 0 | 核对 stdout、stderr 和预期产物 |
-| `FAILED` | 原始退出码 1–123，其余为 1 | 查看 error、stderr 和 `exit_code`；仅可修正调用参数，需改码则停止交维护人员处理 |
+| `FAILED` | `--agent` 透传 1–255（`-o json` 透传 1–123），其余为 1 | 查看 error、stderr 和 `exit_code`；仅可修正调用参数，需改码则停止交维护人员处理 |
 | `TIMED_OUT` | 124 | 远端已终止进程组，仍需核对副作用 |
 | `LOST` | 2 | 结果未知，不当作参数错误，不自动重跑 |
 | `INTERRUPTED` | 130 | 本地中断，不能断言远端已停止 |
@@ -95,7 +95,7 @@ ml jupyter exec --cwd workspace -o json -- sh -c 'pwd && ls -la'
 ## Notebook
 
 ```powershell
-ml jupyter notebook run '.\analysis.ipynb' --download '.\results' -o json
+ml jupyter notebook run '.\analysis.ipynb' --download '.\results' --agent
 ```
 
 - 仅执行既有且已确认不修改代码的 `.ipynb`，不得新增或改写代码单元。CLI 上传并按顺序执行全部单元格，失败也保存部分结果；结果写入 `--download` 目录下每次新建的子目录（默认相对当前目录的 `results`）。

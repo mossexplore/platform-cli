@@ -6,9 +6,9 @@ WiseRec 和 MLOps 均支持 `train` 和 `feature-task` 命令，`algorithm` 仅�
 
 标有 `-A` 的列表可用 `--all-business` 查询当前环境的全部租户。需已登录、已选业务并具备超级管理员或超级管理员只读权限。跨租户选项仅用于列表，查到其他租户的资源后应先核对业务编码。
 
-业务命令可用全局 `--agent` 获取紧凑 JSON。列表的顶层 `fields` 说明 `items` 的字段含义和适用单位，空列表也会返回。使用该模式时移除原示例中的 `-o json` 或 `--json`。宿主设置 `ML_AGENT=1` 时，显式格式优先，也可用 `--agent=false` 恢复原格式。检查退出码及逐项结果，尤其是部分成功的批量操作。
+所有查询与业务命令**默认加全局 `--agent`** 获取紧凑精简 JSON（严禁与 `-o` / `--output` / `--json` 同传，否则以退出码 2 报错）。列表顶层 `fields` 说明 `items` 的字段含义和适用单位，空列表也会返回。宿主设置 `ML_AGENT=1` 时可省略 `--agent`，显式格式或 `--agent=false` 可覆盖。检查退出码及逐项结果，尤其是部分成功的批量操作。
 
-仅在命令 `--help` 声明支持时传 `-o json` 或 `--output json`（`context` 用 `--json`，特征集配置和 `webstudio show` 固定输出 JSON）。常见不支持 `-o/--output` 的命令：`env show`、`access status`、`auth status`、`auth ping status`、`business list/show`、`service host log-search`、`jupyter doctor`、`jupyter terminal list`、`train start/cancel/delete/clone`、`train config export/update`、`algorithm download/clone`。
+仅在明确需要完整原始响应（如未截断长描述）且命令 `--help` 声明支持时，去掉 `--agent` 改用 `-o json`（`context` 用 `--json`）。常见不支持 `-o/--output` 但支持 `--agent` 的命令：`env show`、`access status`、`auth status`、`auth ping status`、`business list/show`、`service host log-search`、`jupyter doctor`、`jupyter terminal list`、`train start/cancel/delete/clone`、`train config export/update`、`algorithm download/clone`。
 
 “确认”列为“是”表示 CLI 内置确认，可用 `--yes` 跳过提示。非交互调用在用户授权后传 `--yes`。**命令可能产生平台或远端副作用时，即使“确认”列为空，也须在执行前核对目标与用户授权，执行后核验结果。**
 
@@ -17,9 +17,9 @@ WiseRec 和 MLOps 均支持 `train` 和 `feature-task` 命令，`algorithm` 仅�
 | 命令 | 用途 | 确认 | 副作用 |
 | --- | --- | --- | --- |
 | `ml --version` | 查看实际调用的 CLI 版本 | {{confirm}} | |
-| `ml context [--json]` | 查看运行模式、环境、本地登录状态、租户及配置路径，无需登录 | {{confirm}} | |
+| `ml context` | 查看运行模式、环境、本地登录状态、租户及配置路径，无需登录 | {{confirm}} | |
 | `ml tree [--all]` | 查看当前环境可用命令，无需登录。加 `--all` 显示全部命令及限制标记 | {{confirm}} | |
-| `ml env list [-o json]` / `ml env show` | 列出默认可见和已授权的环境 / 查看当前环境 | {{confirm}} | |
+| `ml env list` / `ml env show` | 列出默认可见和已授权的环境 / 查看当前环境 | {{confirm}} | |
 | `ml env use NAME` | 切换当前环境；插件在后续调度读取新环境 | {{confirm}} | 本地配置或会话状态 |
 | `ml login` | 打开 Edge 登录，优先保留仍有效的上次业务选择，缺失时按页面缓存选业务；禁止 `--show-secrets` | {{confirm}} | 本地凭据和业务选择 |
 | `ml logout [--all] [--forget-browser]` | 清除当前或全部环境的认证，保留上次业务选择 | {{confirm}} | 本地凭据 |
@@ -31,7 +31,7 @@ WiseRec 和 MLOps 均支持 `train` 和 `feature-task` 命令，`algorithm` 仅�
 | `ml business TENANT_ID` / `ml business use TENANT_ID` / `ml business use --tenant ID` | 直接选择租户；`use` 可加 `--team ID` 或 `--department ID` | {{confirm}} | 本地配置 |
 | `ml business refresh` | 打开 Edge 刷新业务目录 | {{confirm}} | 本地配置 |
 | `ml user info` | 当前账号 | {{confirm}} | |
-| `ml history list [--limit COUNT] -o json` | 最近 20 条本地调用记录，可用 limit 扩大范围，不证明远端结果；设置 `ML_HISTORY=0` 可关闭自动记录 | {{confirm}} | |
+| `ml history list [--limit COUNT]` | 最近 20 条本地调用记录，可用 limit 扩大范围，不证明远端结果；设置 `ML_HISTORY=0` 可关闭自动记录 | {{confirm}} | |
 | `ml history clear [--env NAME] [--before TIME] --yes` | 删除本地调用记录 | {{confirm}} | 本地记录 |
 
 ## 训练与实验
@@ -54,13 +54,13 @@ WiseRec 和 MLOps 均支持 `train` 和 `feature-task` 命令，`algorithm` 仅�
 | `ml offline experiment trial list PROJECT_ID` | 实验下的 trial | {{confirm}} | |
 | `ml offline experiment clone PROJECT_ID --name NAME` | 克隆实验，可先 `--dry-run` | {{confirm}} | 创建实验 |
 | `ml train list` | 训练任务；列表支持 `-A`，支持 `--name 'NAME,NAME'` 精确查 | {{confirm}} | |
-| `ml train detail TASK_ID` | 查询训练任务详情，可用 `-o json` 获取完整详情 | {{confirm}} | |
+| `ml train detail TASK_ID` | 查询训练任务详情（默认加 `--agent`；需原始完整字段时改用 `-o json`） | {{confirm}} | |
 | `ml sample-task list` | 样本任务列表，默认旧任务管理；`--source new` 查询新版，支持分页、名称、创建者、修改者和重复 `--type` 筛选，`--status` 仅旧版可用 | {{confirm}} | |
-| `ml sample-task period list TASK_ID` | 新旧任务共用，四列网格展示编号、周期和状态，支持分页、北京时间范围及重复 `--state` | {{confirm}} | |
-| `ml sample-task execution list TASK_ID` | 新旧样本任务共用执行记录查询，无需 `--source`，支持分页、`--include-history` 和 `-o json` | {{confirm}} | |
-| `ml train instance list TASK_ID` | 分页查询执行实例，Agent 输出缺少运行中实例时长时按开始时间补算分钟数 | {{confirm}} | |
+| `ml sample-task period list TASK_ID` | 新旧任务共用，支持分页、北京时间范围及重复 `--state` | {{confirm}} | |
+| `ml sample-task execution list TASK_ID` | 新旧样本任务共用执行记录查询，无需 `--source`，支持分页与 `--include-history` | {{confirm}} | |
+| `ml train instance list TASK_ID` | 分页查询执行实例（`runningTime` 单位为分钟） | {{confirm}} | |
 | `ml train history list TASK_ID [--latest-flag true\|all]` | 分页查询执行记录；默认仅查最新实例，`all` 包含历史实例 | {{confirm}} | |
-| `ml train history detail TASK_ID JOB_ID [-o json]` | 在最新实例的执行记录中查询作业及分布式角色详情 | {{confirm}} | |
+| `ml train history detail TASK_ID JOB_ID` | 在最新实例的执行记录中查询作业及分布式角色详情 | {{confirm}} | |
 | `ml train history logs download TASK_ID JOB_ID [--type log\|plog] [--directory DIR] [--role-job-id ROLE_JOB_ID]` | 按任务和作业 ID 下载最新或历史实例的执行记录日志，普通日志未就绪时提交归档；仅分布式训练支持 `--role-job-id`（非交互必填，交互表格可按编号选角色） | {{confirm}} | 条件性写：平台日志归档及本地文件 |
 | `ml train instance logs download TASK_ID JOB_ID [--select SELECTION] [--directory DIR]` | 先请求归档，仅下载归档成功的日志，`--select` 传编号或 `all` | {{confirm}} | 写：平台归档及本地 ZIP 文件 |
 | `ml train start TASK_ID` | 立即启动任务 | {{confirm}} | 写（无内置确认）：启动作业 |
@@ -89,8 +89,8 @@ WiseRec 和 MLOps 均支持 `train` 和 `feature-task` 命令，`algorithm` 仅�
 | `ml service mock SERVICE_ID [--request-sample-file PATH] [--transmission-tag 0\|1]` | 使用文档或 JSON 文件样例测试服务，默认不调用透传接口 | {{confirm}} | 写（无内置确认）：调用一次服务 |
 | `ml service host list SERVICE_ID [--pod-ip IP]` | 主机视图，可按 Pod IP 筛选 | {{confirm}} | |
 | `ml service host mock SERVICE_ID --pod-ip POD_IP [--request-sample-file PATH] [--transmission-tag 0\|1]` | 先按 Pod IP 查询主机，再使用文档或文件样例测试 | {{confirm}} | 写（无内置确认）：调用一次服务 |
-| `ml service host pod-event [SERVICE_ID] [--pod POD_NAME] [--cluster-name CLUSTER_NAME] [--no-input] [-o table\|json]` | 查询指定主机的 Pod 事件，支持 `SERVICE_ID` 或 `--pod --cluster-name` 双模式 | {{confirm}} | |
-| `ml service host log-stdout [SERVICE_ID] [--pod POD_NAME] [-c CONTAINER] [--no-input] [-o text\|json]` | 查询指定主机的标准输出日志，默认 `appcontainer` 并动态校验容器列表 | {{confirm}} | |
+| `ml service host pod-event [SERVICE_ID] [--pod POD_NAME] [--cluster-name CLUSTER_NAME] [--no-input]` | 查询指定主机的 Pod 事件，支持 `SERVICE_ID` 或 `--pod --cluster-name` 双模式 | {{confirm}} | |
+| `ml service host log-stdout [SERVICE_ID] [--pod POD_NAME] [-c CONTAINER] [--no-input]` | 查询指定主机的标准输出日志，默认 `appcontainer` 并动态校验容器列表 | {{confirm}} | |
 | `ml service host log-search SERVICE_ID --no-input` | 检索指定主机的业务日志文件列表或正文 | {{confirm}} | |
 | `ml service deployment list SERVICE_ID` | 部署视图 | {{confirm}} | |
 
@@ -103,13 +103,13 @@ WiseRec 和 MLOps 均支持 `train` 和 `feature-task` 命令，`algorithm` 仅�
 | `ml dataset list` / `ml dataset detail DATASET_ID` | 数据集列表 / 详情；列表支持 `-A`，支持 `--name 'NAME,NAME'` 精确查 | {{confirm}} | |
 | `ml dataset files list DATASET_ID` | 数据集内部目录 | {{confirm}} | |
 | `ml dataset files upload DATASET_ID LOCAL_FILE` | 追加单个文件 | {{confirm}} | 写（无内置确认）：上传文件 |
-| `ml feature-task list` | 当前业务的特征任务列表，支持 `--name`（`--name 'NAME,NAME'` 精确查）、`--category`、`--create-user`、`--page`、`--page-size` 和 `-o json` | {{confirm}} | |
-| `ml feature-task detail TASK_ID` | 查询特征任务详情，支持 `-o json` | {{confirm}} | |
+| `ml feature-task list` | 当前业务的特征任务列表，支持 `--name`（`--name 'NAME,NAME'` 精确查）、`--category`、`--create-user`、`--page`、`--page-size` | {{confirm}} | |
+| `ml feature-task detail TASK_ID` | 查询特征任务详情 | {{confirm}} | |
 | `ml feature-task execution list TASK_ID` | 分页查询执行记录，支持 `--include-history` | {{confirm}} | |
-| `ml feature-task execution logs search JOB_ID` | 日志搜索，默认原样文本，可选 `-o json` | {{confirm}} | |
+| `ml feature-task execution logs search JOB_ID` | 日志搜索（加 `--agent` 返回紧凑 JSON，默认原样文本） | {{confirm}} | |
 | `ml featureset wide list` / `ml featureset model list` | 宽表 / 模型特征集 | {{confirm}} | |
 | `ml featureset wide config SET_ID` / `ml featureset model config SET_ID` | 特征集配置 | {{confirm}} | |
-| `ml featureset wide export SET_ID` / `ml featureset model export SET_ID` | 导出特征 CSV，重名自动编号；支持 `--lang zh_cn\|en_us`、`--file PATH`、`--output text\|json` | {{confirm}} | 本地文件 |
+| `ml featureset wide export SET_ID` / `ml featureset model export SET_ID` | 导出特征 CSV，重名自动编号；支持 `--lang zh_cn\|en_us`、`--file PATH` | {{confirm}} | 本地文件 |
 
 ## 质量监控报告
 
@@ -155,6 +155,6 @@ WiseRec 和 MLOps 均支持 `train` 和 `feature-task` 命令，`algorithm` 仅�
 | `ml kb page list --kb KB_ID` | 浏览已发布页面 | {{confirm}} | 只读 |
 | `ml kb search QUERY --kb KB_ID` | 按字面关键词搜索 | {{confirm}} | 只读 |
 | `ml kb page show SLUG --kb KB_ID` | 读取有界预览与来源 | {{confirm}} | 只读 |
-| `ml kb file list [--kb KB_ID] [--all] [-o json]` | 分页或全量列出获授权知识库的原文件 | {{confirm}} | 只读，记录准入及查询审计 |
+| `ml kb file list [--kb KB_ID] [--all]` | 分页或全量列出获授权知识库的原文件 | {{confirm}} | 只读，记录准入及查询审计 |
 | `ml kb file download KNOWLEDGE_ID --kb KB_ID [--file PATH]` | 下载获授权知识库的原文件 | {{confirm}} | 写入本地文件，同名自动加序号，记录下载审计 |
 <!-- KB_END -->

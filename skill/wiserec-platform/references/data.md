@@ -1,23 +1,25 @@
 # 数据集、特征任务与特征集
 
+以下查询与操作默认使用 `--agent` 获取紧凑精简 JSON（不要与 `-o json` 同传）；仅在需要完整原始响应（如被截断的超长数据集描述）时去掉 `--agent` 改用 `-o json`。
+
 使用 `ml dataset list --name DATASET_NAME --agent` 获取本页数据集 ID；跨租户查询按每条记录的 `businessId` 区分同名数据集。数据集文件上传的 Agent 输出包含受理状态 `accepted`、数据集标识、目标目录和文件名。用目录列表确认平台处理结果。
 
-- 从特征任务定位上游数据时，先用 `ml feature-task detail TASK_ID -o json` 查关联信息。详情可能只给出名称或引用。缺少 ID 时，在当前环境支持的列表中按名称查找并核对，或请用户提供 ID。
+- 从特征任务定位上游数据时，先用 `ml feature-task detail TASK_ID --agent` 查关联信息。详情可能只给出名称或引用。缺少 ID 时，在当前环境支持的列表中按名称查找并核对，或请用户提供 ID。
 - 质量监控宽表查询（`ml quality wide-featureset`）与特征集配置查询（`ml featureset wide`）为不同入口，ID 与筛选字段不混用。
 
 ## 数据集
 
 ```powershell
-ml dataset list --name 'DATASET_NAME,DATASET_NAME' -o json
-ml dataset list --name DATASET_NAME -o json
-ml dataset list -A --name DATASET_NAME
-ml dataset detail DATASET_ID -o json
-ml dataset files list DATASET_ID --dir / -o json
-ml dataset files upload DATASET_ID 'D:\data\sample.csv' --dir / -o json
+ml dataset list --name 'DATASET_NAME,DATASET_NAME' --agent
+ml dataset list --name DATASET_NAME --agent
+ml dataset list -A --name DATASET_NAME --agent
+ml dataset detail DATASET_ID --agent
+ml dataset files list DATASET_ID --dir / --agent
+ml dataset files upload DATASET_ID 'D:\data\sample.csv' --dir / --agent
 ```
 
 - 数据集内部路径与 Jupyter 路径无关：以 `/` 表示数据集根目录，用 `/` 分隔，不允许反斜杠及 `.`、`..` 路径段。
-- 目录 JSON 外层为 `currentDir` 与 `response`，条目在 `response.result.fileInfos.files`。`hasMore=true` 表示结果不完整，命令没有目录分页选项，不要自行构造参数。
+- `dataset files list --agent` 返回顶层 `currentDir`、`hasMore`、`fields` 与 `items`（含 `fullPath`）。`hasMore=true` 表示结果不完整，命令没有目录分页选项，不要自行构造参数。
 - 上传是追加单个文件，不会覆盖，也没有 `--overwrite`。仅支持 `.txt`、`.csv`、`.zip`、`.tar`、`.gz`、`.json`，大小不超过 2,000,000,000 字节；文件名须以英文字母或数字开头，只含英文字母、数字、下划线、短横线和点。
 - 上传默认网络超时 1800 秒，shell 工具 `timeout` 须大于该值。成功后重新 `files list` 核验；失败或超时不自动重传，先查远端是否已收到。
 
@@ -26,68 +28,68 @@ ml dataset files upload DATASET_ID 'D:\data\sample.csv' --dir / -o json
 WiseRec 和 MLOps 均支持特征任务列表、详情、执行记录及日志搜索。列表查询使用当前选中的业务。
 
 ```powershell
-ml feature-task list --name 'NAME,NAME' -o json
-ml feature-task list --name NAME --create-user USER --page 1 --page-size 10 -o json
-ml feature-task list --category train_fi -o json
-ml feature-task detail TASK_ID -o json
-ml feature-task execution list TASK_ID --page 1 --page-size 10 -o json
-ml feature-task execution list TASK_ID --include-history -o json
-ml feature-task execution logs search JOB_ID
-ml feature-task execution logs search JOB_ID --start-line 1 --end-line 2000 --keyword ERROR --keyword timeout --scope C --scope-lines 10 -o json
+ml feature-task list --name 'NAME,NAME' --agent
+ml feature-task list --name NAME --create-user USER --page 1 --page-size 10 --agent
+ml feature-task list --category train_fi --agent
+ml feature-task detail TASK_ID --agent
+ml feature-task execution list TASK_ID --page 1 --page-size 10 --agent
+ml feature-task execution list TASK_ID --include-history --agent
+ml feature-task execution logs search JOB_ID --agent
+ml feature-task execution logs search JOB_ID --start-line 1 --end-line 2000 --keyword ERROR --keyword timeout --scope C --scope-lines 10 --agent
 ```
 
 - 特征任务列表默认 `--category dpp-all`，第 1 页、每页 10 条；类型枚举见 `ml feature-task list --help`。该命令与 `ml sample-task list` 是不同的任务入口，不混用筛选参数。
-- 从 `ml feature-task list` 获取 `taskId`，再用 `ml feature-task detail TASK_ID` 查询算法、数据集、特征集引用或参数。无需提供团队 ID。表格中的创建时间为北京时间，`-o json` 保留详情响应 `result` 的原始字段。
-- 执行记录默认第 1 页、每页 10 条，不包含历史实例；使用 `--include-history` 包含历史实例。列表 JSON 为 `items`、`count`、`pageIndex`、`pageSize`。
+- 从 `ml feature-task list --agent` 获取 `taskId`，再用 `ml feature-task detail TASK_ID --agent` 查询算法、数据集、特征集引用或参数。无需提供团队 ID。时间已转为北京时间；需要完整原始 `result` 时改用 `-o json`。
+- 执行记录默认第 1 页、每页 10 条，不包含历史实例；使用 `--include-history` 包含历史实例。`--agent` 返回 `pagination`、`pageIndex`、`pageSize`、`returnedCount`、`total`、`fields`、`items`。
 - 日志查询使用执行记录中的 `jobId`，不能传任务 ID。默认行范围为 1 到 2000；起止行均为正整数，结束行不得小于起始行。
 - `--keyword` 可重复指定。`--scope A|B|C` 分别表示关键词后、前、前后；`--scope-lines` 为正整数范围行数。不需要的筛选项不传。
-- 日志默认原样输出文本，保留空格和换行；`-o json` 输出完整响应，日志正文位于 `result.logs[0].log`。日志可能包含凭据，只提取用户需要的内容。
+- 日志在 `--agent` 下返回紧凑 JSON `{"logs": [...]}`（正文在 `logs[0].log`）；不带 `--agent` 默认原样输出文本。日志可能包含凭据，只提取用户需要的内容。
 
 ## 特征集
 
 ```powershell
-ml featureset wide list --name NAME -o json
-ml featureset model list --name NAME -o json
-ml featureset wide config SET_ID
-ml featureset model config SET_ID
+ml featureset wide list --name NAME --agent
+ml featureset model list --name NAME --agent
+ml featureset wide config SET_ID --agent
+ml featureset model config SET_ID --agent
 ```
 
-`config` 固定输出 JSON，不加 `-o`。宽表特征集与模型特征集的 ID 不互换。
+`config` 固定输出 JSON（加 `--agent` 为紧凑单行并完整保留嵌套结构、空集合和 null），不加 `-o`。宽表特征集与模型特征集的 ID 不互换。
 
 ### 特征集 CSV 导出
 
 ```powershell
-ml featureset wide export SET_ID --lang zh_cn --file 'D:\data\wide.csv' -o json
-ml featureset model export SET_ID --lang en_us --file 'D:\data\model.csv' -o json
+ml featureset wide export SET_ID --lang zh_cn --file 'D:\data\wide.csv' --agent
+ml featureset model export SET_ID --lang en_us --file 'D:\data\model.csv' --agent
 ```
 
-`--lang` 支持 `zh_cn` 和 `en_us`，默认中文。`--file` 可省略；命令会生成保存路径，重名自动编号。默认输出文本摘要，`-o json` 输出导出结果；按返回的实际路径查找文件，不假定指定的文件名就是最终文件名。导出会写入本地文件。
+`--lang` 支持 `zh_cn` 和 `en_us`，默认中文。`--file` 可省略；命令会生成保存路径，重名自动编号。`--agent` 输出紧凑导出结果 JSON；按返回的实际路径查找文件，不假定指定的文件名就是最终文件名。导出会写入本地文件。
 
 普通和 gzip 压缩的 CSV 均可导出，保存时保留 BOM 和换行。接口返回 JSON 错误、登录页或空响应时，按错误提示核对权限、登录或服务端响应。
 
 ## 质量监控报告
 
 ```powershell
-ml quality feature list --name FEATURE_NAME --table-name TABLE_NAME -o json
-ml quality feature list --feature-value-type DISCRETE --indicator-type VECTOR --page 1 --page-size 100 -o json
-ml quality wide-featureset list --name SET_NAME --page 1 --page-size 10 -o json
+ml quality feature list --name FEATURE_NAME --table-name TABLE_NAME --agent
+ml quality feature list --feature-value-type DISCRETE --indicator-type VECTOR --page 1 --page-size 100 --agent
+ml quality wide-featureset list --name SET_NAME --page 1 --page-size 10 --agent
 ```
 
 - 对应质量监控报告的“特征列表”和“宽表特征集”，查询当前环境已选业务。宽表查询与 `ml featureset wide list` 的入口和列不同。
 - 默认第 1 页、每页 10 条；`--page` ≥ 1，`--page-size` 为 1～100，每次只取一页。名称、表名默认空字符串；两个类型筛选默认省略。
 - 特征值类型与指标类型独立筛选，均接受连续/CONTINUOUS、离散/DISCRETE、有序/ORDINAL、分类/CATEGORICAL、序列/SEQUENCE、长序列/LONG_SEQUENCE、向量/VECTOR，英文忽略大小写。
-- JSON 为 `items`、`count`、`pageIndex`、`pageSize`，保留记录的全部原始字段和值；分页优先采用响应值，缺失时采用请求值。表格显示中文类型、百分比空值率，特征周期保留原值，时效性不拼接单位；不要从表格反向重建原始数据。
+- `--agent` 返回 `pagination`、`pageIndex`、`pageSize`、`returnedCount`、`total`、`fields`、`items`，保留原始数值和类型；分页优先采用响应值，缺失时采用请求值。不要从表格反向重建原始数据。
 
 ### 宽表特征集装配查询
 
 ```powershell
-ml quality wide-featureset feature-assemble list --set-id SET_ID -o json
-ml quality wide-featureset label-assemble list --set-id SET_ID -o json
-ml quality wide-featureset feature-assemble feature list --set-id SET_ID --definition-id DEFINITION_ID --page 1 --page-size 10 -o json
-ml quality wide-featureset label-assemble feature list --set-id SET_ID --definition-id DEFINITION_ID --page 2 --page-size 100 -o json
+ml quality wide-featureset feature-assemble list --set-id SET_ID --agent
+ml quality wide-featureset label-assemble list --set-id SET_ID --agent
+ml quality wide-featureset feature-assemble feature list --set-id SET_ID --definition-id DEFINITION_ID --page 1 --page-size 10 --agent
+ml quality wide-featureset label-assemble feature list --set-id SET_ID --definition-id DEFINITION_ID --page 2 --page-size 100 --agent
 ```
 
-- 先用 `ml quality wide-featureset list` 定位特征集，再查询对应装配的样本定义，最后使用该分组下的样本定义 ID 查询特征。不传 `--type`，由命令分组决定装配类型。
-- 样本定义列表不分页，JSON 为 `items`、`count`，其中 `count` 仅为本次返回条数；响应包含 `featureSetId` 时保留。若返回 ID 与请求 ID 不同，先核对，不擅自推断两者可互换；后续查询显式传入经确认的 `--set-id`。
-- 装配特征列表默认第 1 页、每页 10 条，最大 100 条，每次只取一页；JSON 为 `items`、`count`、`pageIndex`、`pageSize`。请求必须同时指定特征集 ID 和样本定义 ID，不混用特征 ID。
-- JSON 输出保留原始数值和空值（表格模式会对装配比例取整展示，周期保留编码原值）。
+- 先用 `ml quality wide-featureset list --agent` 定位特征集，再查询对应装配的样本定义，最后使用该分组下的样本定义 ID 查询特征。不传 `--type`，由命令分组决定装配类型。
+- 样本定义列表不分页，`--agent` 返回 `pagination: "unpaged"`、`returnedCount`、`featureSetId`、`fields`、`items`。若返回 ID 与请求 ID 不同，先核对，不擅自推断两者可互换；后续查询显式传入经确认的 `--set-id`。
+- 装配特征列表默认第 1 页、每页 10 条，最大 100 条，每次只取一页。请求必须同时指定特征集 ID 和样本定义 ID，不混用特征 ID。
+- `--agent` 输出保留原始数值（表格模式会对装配比例取整展示，周期保留编码原值）。

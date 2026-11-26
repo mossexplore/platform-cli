@@ -2,23 +2,23 @@
 
 ## 首次确认与上下文复用
 
-当前聊天尚无已确认上下文时，先运行 `ml context --json` 核对实际配置路径。确认它是当前平台的标准用户配置（Windows 上为 `%APPDATA%\ml-go-preview\config.json`）后，再运行 `ml auth status`。
+当前聊天尚无已确认上下文时，先运行 `ml context --agent` 核对实际配置路径。确认它是当前平台的标准用户配置（Windows 上为 `%APPDATA%\ml-go-preview\config.json`）后，再运行 `ml auth status --agent`。
 
 ```powershell
-ml context --json
-ml auth status
+ml context --agent
+ml auth status --agent
 ```
 
-- `context` 无需登录，也不访问网络。用 `--json` 查看“上下文模式”“会话 ID”“当前环境”“当前业务”“登录状态”“当前租户”“CLI 版本”“CLI 路径”“配置路径”“会话文件”等。登录有效且已选业务时，“当前租户”提供租户名称，团队场景显示所属租户。只查看报告的路径，不读取配置、凭据、会话或业务文件。将“当前环境”与 `auth status` 的 `profile` 对照，无需另外运行 `ml --version`、`ml env show`。
-- **多会话自动隔离**：在 DeepSeek Harness（自动注入 `DSH_SHELL=1` 与 `DSH_SESSION_ID`）或设置了 `ML_SESSION_ID` 时，CLI 自动进入会话隔离模式，每个会话独立保存所选环境与租户/团队，互不覆盖全局配置或其他会话，但共享同一环境的登录凭据与业务目录。新会话默认“未绑定环境、未绑定业务”且绝不静默回退全局配置；若 `当前环境` 为 `未绑定`，先按用户要求执行 `ml env use NAME`（未指定时向用户确认，不猜测默认环境），再核对 `ml auth status` 并按需执行 `ml business TENANT_ID`，团队选择用 `ml business use --tenant TENANT_ID --team TEAM_ID`。严禁在命令中手工覆写 `DSH_SESSION_ID`、`DSH_SHELL` 或 `ML_SESSION_ID`。
-- `auth status` 默认输出表格，使用 `ml auth status --agent` 获取单行 JSON 和数值型剩余分钟数；不续期，显示 `profile`、`username`、`status`、`remaining_minutes`、`expires_at`、`role` 和 `businessId`。必须检查 `status=valid`，不能只看退出码；`profile` 应与 `context` 的环境一致。`businessId` 读取当前生效上下文的业务 ID（会话隔离模式读取当前会话绑定，普通终端读取全局 `selected.businessId`），可用于确认业务 ID；不使用其他来源或旧字段代替。全租户查询使用超级管理员或超级管理员只读角色，旧凭据的角色可以在首次跨租户查询时补全。
-- `remaining_minutes` 的开头数值是当前登录剩余分钟数。启用保活时，括号内显示运行状态；有可用的计划时间时显示下次预计保活时间（北京时间）。确认平台是否已续期，用 `ml auth ping status` 查看“上次平台确认成功”。
-- `businessId` 缺失、为空或为 `-` 时，先看 `context` 是否为“未绑定”，需要核对当前已选租户/团队名称时运行 `ml business show`。未选业务再进入选择流程，不在每次查询前列出全部业务。
+- `context` 无需登录，也不访问网络。用 `--agent` 获取单行紧凑 JSON，查看“上下文模式”“会话 ID”“当前环境”“当前业务”“登录状态”“当前租户”“CLI 版本”“CLI 路径”“配置路径”“会话文件”等。登录有效且已选业务时，“当前租户”提供租户名称，团队场景显示所属租户。只查看报告的路径，不读取配置、凭据、会话或业务文件。将“当前环境”与 `auth status` 的 `profile` 对照，无需另外运行 `ml --version`、`ml env show`。
+- **多会话自动隔离**：在 DeepSeek Harness（自动注入 `DSH_SHELL=1` 与 `DSH_SESSION_ID`）或设置了 `ML_SESSION_ID` 时，CLI 自动进入会话隔离模式，每个会话独立保存所选环境与租户/团队，互不覆盖全局配置或其他会话，但共享同一环境的登录凭据与业务目录。新会话默认“未绑定环境、未绑定业务”且绝不静默回退全局配置；若 `当前环境` 为 `未绑定`，先按用户要求执行 `ml env use NAME --agent`（未指定时向用户确认，不猜测默认环境），再核对 `ml auth status --agent` 并按需执行 `ml business TENANT_ID --agent`，团队选择用 `ml business use --tenant TENANT_ID --team TEAM_ID --agent`。严禁在命令中手工覆写 `DSH_SESSION_ID`、`DSH_SHELL` 或 `ML_SESSION_ID`。
+- `auth status` 默认输出表格，统一使用 `ml auth status --agent` 获取单行 JSON 和数值型剩余分钟数；不续期，显示 `profile`、`username`、`status`、`remaining_minutes`、`expires_at`、`role` 和 `businessId`。必须检查 `status=valid`，不能只看退出码；`profile` 应与 `context` 的环境一致。`businessId` 读取当前生效上下文的业务 ID（会话隔离模式读取当前会话绑定，普通终端读取全局 `selected.businessId`），可用于确认业务 ID；不使用其他来源或旧字段代替。全租户查询使用超级管理员或超级管理员只读角色，旧凭据的角色可以在首次跨租户查询时补全。
+- `remaining_minutes` 为当前登录剩余分钟数。确认平台是否已续期，用 `ml auth ping status --agent` 查看最近平台确认时间。
+- `businessId` 缺失、为空或为 `-` 时，先看 `context` 是否为“未绑定”，需要核对当前已选租户/团队名称时运行 `ml business show --agent`。未选业务再进入选择流程，不在每次查询前列出全部业务。
 - 在当前聊天内可复用已确认的 CLI 路径、配置来源和命令语法。会话隔离模式下与其他并行会话互不干扰；普通非隔离终端仍共用本地 CLI 状态，此时其他会话的切换可能改变生效环境或业务。
-- 用户要求切换到另一环境时，运行对应的 `ml env use NAME`，再用上述两条命令更新上下文。与已确认环境相同时不重复切换；未指定环境且当前已绑定时沿用当前环境，不擅自切换。若用户给的是显示名，用 `ml env list -o json` 匹配“环境名”，取唯一匹配行的“环境标识”用于切换。未找到或匹配多行时，请用户确认环境标识。开启自动保活时，目标环境未登录或登录过期会提示运行 `ml login`。
-- **Harness 自动保活**：安装并启用宿主保活插件后，插件只调度当前会话绑定的环境，前提是已登录并选定业务。`ml auth ping status` 显示插件报到时间及最近平台确认结果。同一环境有符合条件的 Harness 会话时，交互终端显示「DSH 托管，终端待命」并保留进程 ID。会话关闭、插件报到过期或失去保活资格后，符合条件的终端自动接手。使用 `ml auth ping stop` 停止当前环境的终端和插件保活；插件登记后用 `ml auth ping start` 恢复。如需对照单次确认，插件日志与状态输出使用相同的请求 ID。Agent 不调用插件接口 `tick --json`。
+- 用户要求切换到另一环境时，运行对应的 `ml env use NAME --agent`，再用上述两条命令更新上下文。与已确认环境相同时不重复切换；未指定环境且当前已绑定时沿用当前环境，不擅自切换。若用户给的是显示名，用 `ml env list --agent` 从 `items` 中匹配“环境名”，取唯一匹配行的“环境标识”用于切换。未找到或匹配多行时，请用户确认环境标识。开启自动保活时，目标环境未登录或登录过期会提示运行 `ml login`。
+- **Harness 自动保活**：安装并启用宿主保活插件后，插件只调度当前会话绑定的环境，前提是已登录并选定业务。`ml auth ping status --agent` 显示插件报到时间及最近平台确认结果。同一环境有符合条件的 Harness 会话时，交互终端显示「DSH 托管，终端待命」并保留进程 ID。会话关闭、插件报到过期或失去保活资格后，符合条件的终端自动接手。使用 `ml auth ping stop --agent` 停止当前环境的终端和插件保活；插件登记后用 `ml auth ping start --agent` 恢复。如需对照单次确认，插件日志与状态输出使用相同的请求 ID。Agent 不调用插件接口 `tick --json`。
 - **Harness 会话行标识**：绿色表示保活正常，红色表示 WiseRec 登录过期，黄色表示暂未确认，灰色表示待检查或暂停等状态。悬浮会话行可查看最近检查时间和已知的环境。切换环境或重新登录后，以后续检查为准。
-- `ml env list` 默认输出表格，在支持彩色输出的终端中，表头以加粗青色显示，带星号的当前环境整行以加粗绿色显示。加 `-o json` 返回环境数组，无可展示环境时返回 `[]`。未保存账号或权限查询失败时，两种格式都只显示打包配置指定的默认可见环境。查询成功后还会列出该账号获授权的环境。优先查询当前环境的账号；当前环境没有账号时，可查询其他环境保存的唯一账号。默认可见只表示允许查看该环境的信息，执行环境中的业务命令仍需登录并获得相应权限。管理台类型显示为「搜推广工程平台」或「WiseMLOps平台」。
+- `ml env list --agent` 返回带 `fields` 与 `items` 的紧凑 JSON，无可展示环境时 `items` 为 `[]`。未保存账号或权限查询失败时，只显示打包配置指定的默认可见环境。查询成功后还会列出该账号获授权的环境。优先查询当前环境的账号；当前环境没有账号时，可查询其他环境保存的唯一账号。默认可见只表示允许查看该环境的信息，执行环境中的业务命令仍需登录并获得相应权限。管理台类型显示为「搜推广工程平台」或「WiseMLOps平台」。
 - 核对当前平台标准用户配置路径：Windows 为 `%APPDATA%\ml-go-preview\config.json`，macOS 为 `~/Library/Application Support/ml-go-preview/config.json`，Linux 为 `${XDG_CONFIG_HOME:-~/.config}/ml-go-preview/config.json`。首次加载内置配置时会初始化环境选择。若 `context` 报错或路径不符，停止后续操作并告知用户。
 
 ## 何时重新检查
@@ -28,11 +28,11 @@ ml auth status
 | 用户未指定租户或团队的普通查询 | 按 CLI 当前选择执行，汇报时以能核实的实际业务为准 |
 | 用户指定租户或团队 | 先用 `ml business show` 核对。当前选择不匹配时，按用户明确要求切换或请用户确认 |
 | 登录、退出、切换账号或业务 | 按对应命令结果更新上下文；必要时只补查认证或业务 |
-| 切换环境、CLI 路径或配置来源，上下文丢失 | 重新运行 `context --json` 与 `auth status` |
-| 长任务前、长时间中断后无法确认认证状态 | 只查 `auth status`；长任务核对剩余时间是否足够，不重查版本和业务列表 |
+| 切换环境、CLI 路径或配置来源，上下文丢失 | 重新运行 `ml context --agent` 与 `ml auth status --agent` |
+| 长任务前、长时间中断后无法确认认证状态 | 只查 `ml auth status --agent`；长任务核对剩余时间是否足够，不重查版本和业务列表 |
 | 认证、业务或权限失败 | 进入下方对应处理，不重新执行完整检查清单 |
 | 不熟悉的命令、用法错误、文档不一致 | 查该命令 `--help`；涉及安装或版本异常再查版本和路径 |
-| 提交写操作前 | 重新用 `context --json` 与 `auth status` 核对上下文模式、会话 ID、环境、账号和业务，并核对目标 ID。业务与已确认目标不一致时，停止提交并重新确认 |
+| 提交写操作前 | 重新用 `ml context --agent` 与 `ml auth status --agent` 核对上下文模式、会话 ID、环境、账号和业务，并核对目标 ID。业务与已确认目标不一致时，停止提交并重新确认 |
 
 聊天记录只保留本聊天的操作上下文。当前业务以 CLI 生效状态为准，其他会话或终端的切换可能使旧记录失效。CLI 每次业务调用仍执行认证、业务选择和权限检查。
 
@@ -47,7 +47,7 @@ ml auth status
 Windows Git Bash 可用 `cygpath -u` 转换 `LOCALAPPDATA` 后拼接安装路径。PowerShell 中可直接调用默认安装路径：
 
 ```powershell
-& "$env:LOCALAPPDATA\Programs\WiseRecCLIGo\ml.exe" context --json
+& "$env:LOCALAPPDATA\Programs\WiseRecCLIGo\ml.exe" context --agent
 ```
 
 确认配置路径后，用同一个 `ml.exe` 执行 `auth status` 和后续命令。在不同 shell 调用之间复用已确认的绝对路径。WSL 中请切换到 Windows shell 使用这套安装。
@@ -82,7 +82,7 @@ Windows Git Bash 可用 `cygpath -u` 转换 `LOCALAPPDATA` 后拼接安装路径
 | `安装包中缺少 config.json` 或内置配置无效 | 在报错的 Agent 终端运行 `Get-Command ml` 和 `ml --version`，核对实际调用的 CLI。若该安装缺少包内配置，用完整安装包重新安装 |
 | 认证过期或缺失 | 请用户登录后复查 |
 | 当前会话尚未绑定环境 | 确认用户目标环境后执行 `ml env use NAME`，再核对认证与业务 |
-| `ml env use` 报“本地状态正在使用”并返回非零退出码 | 在同一个会话运行 `ml context --json`；仍在原环境时稍后重试 |
+| `ml env use` 报“本地状态正在使用”并返回非零退出码 | 在同一个会话运行 `ml context --agent`；仍在原环境时稍后重试 |
 | “插件尚未登记”或“插件调度已过期” | 检查宿主是否安装并启用保活插件，恢复当前会话。运行 `ml auth ping status` 核对插件报到与平台确认 |
 | “自动保活未能确认启动” | 在交互终端用 `ml auth ping status` 核对进程状态；显示“未运行”且环境已登录、业务已绑定时使用 `ml auth ping start` |
 | 当前会话在环境下尚未选择业务或业务绑定已失效 | 用 `ml business list` 核对候选，按用户选择执行 `ml business TENANT_ID` 或 `ml business use --tenant TENANT_ID --team TEAM_ID` |
