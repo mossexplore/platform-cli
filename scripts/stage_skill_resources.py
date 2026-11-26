@@ -5,7 +5,7 @@ import json
 import re
 
 
-def stage_skill_resources(repository, resources, cli_version, kb_enabled=False):
+def stage_skill_resources(repository, resources, cli_version, kb_enabled=None):
     directory = repository / "skill/wiserec-platform"
     prefix = "skills/wiserec-platform/"
     sources = [
@@ -19,6 +19,10 @@ def stage_skill_resources(repository, resources, cli_version, kb_enabled=False):
         sources.append((addon / "references/kb.md", prefix + "references/kb.md"))
     contents = {}
     for source, relative in sources:
+        if kb_enabled is None:
+            # Legacy wheel/sdist callers attest the unmodified repository files.
+            contents[relative] = source.read_bytes()
+            continue
         text = source.read_text(encoding="utf-8")
         if relative == prefix + "references/commands.md":
             pattern = r"<!-- KB_START -->\n(.*?)<!-- KB_END -->\n?"
@@ -38,7 +42,7 @@ def stage_skill_resources(repository, resources, cli_version, kb_enabled=False):
         target = resources / relative
         target.parent.mkdir(parents=True, exist_ok=True)
         if source.name == "SKILL.md":
-            text = contents[relative].decode("utf-8")
+            text = contents[relative].decode("utf-8").replace("\r\n", "\n")
             if text.count("\nmetadata:\n") != 1:
                 raise ValueError("Formal skill needs exactly one metadata mapping")
             text = text.replace("\nmetadata:\n", "\nmetadata:\n"
