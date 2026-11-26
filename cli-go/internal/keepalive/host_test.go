@@ -29,6 +29,9 @@ func mustTick(t *testing.T, f keepaliveFixture, host, session, action, want stri
 func TestHostUsesExplicitSessionAndSharesTerminalThrottle(t *testing.T) {
 	businesses := make(chan string, 4)
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get("Cookie") == "" || r.Header.Get("ai-request-source") != "wiserec-cli" {
+			t.Error("platform probe is missing its Cookie or source header")
+		}
 		businesses <- r.Header.Get("businessid")
 		acceptProbe(w)
 	}))

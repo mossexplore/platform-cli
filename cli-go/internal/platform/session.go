@@ -94,10 +94,17 @@ func (a *API) endpoint(path string, query url.Values) (string, error) {
 func (a *API) headers() http.Header {
 	headers := a.metadata.headers(a.businessID)
 	headers.Set("ai-businessId", a.businessID)
-	headers.Set("Cookie", a.credentials.Cookie)
+	setPlatformCookie(headers, a.credentials.Cookie)
 	headers.Set("csrftoken", a.credentials.CSRFToken)
 	headers.Set("Referer", a.profile.PublicEndpoint())
 	return headers
+}
+
+func setPlatformCookie(headers http.Header, cookie string) {
+	headers.Set("Cookie", cookie)
+	if cookie != "" {
+		headers.Set("ai-request-source", "wiserec-cli")
+	}
 }
 
 func (a *API) JSON(ctx context.Context, method, path string, query url.Values, body any) (json.RawMessage, error) {

@@ -117,6 +117,9 @@ func TestMEPRequestBoundaries(t *testing.T) {
 			if r.Header.Get("Cookie") != "" || r.Header.Get("csrftoken") != "" {
 				t.Error("access service received browser credentials")
 			}
+			if r.Header.Get("ai-request-source") != "" {
+				t.Error("access service received the platform source header")
+			}
 			if body["environment"] != "preview" || body["username"] != "preview-user" ||
 				body["platform_origin"] != serverOrigin || body["command"] != "ml mep config get" ||
 				body["full_command"] != wantAudit {
@@ -125,7 +128,8 @@ func TestMEPRequestBoundaries(t *testing.T) {
 			accessID, accessRequestID = r.Header.Get("X-CLI-Invocation-ID"), r.Header.Get("X-Request-ID")
 			fmt.Fprintln(w, accessReply)
 		case "/ai/backend/mep/config/queryConfig":
-			if body["key"] != "test-key" || r.Header.Get("Cookie") != "fixture=local" ||
+			if len(body) != 1 || body["key"] != "test-key" || r.Header.Get("Cookie") != "fixture=local" ||
+				r.Header.Get("ai-request-source") != "wiserec-cli" ||
 				r.Header.Get("csrftoken") != "test-csrf" || r.Header.Get("ai-businessId") != "business-real" {
 				t.Error("incorrect platform request")
 			}

@@ -29,7 +29,7 @@ func (s Session) Probe(ctx context.Context, creds localstate.Credentials, busine
 	request.Header = metadata.headers(business)
 	request.Header.Set("X-Request-ID", requestID)
 	request.Header.Set("ai-businessId", business)
-	request.Header.Set("Cookie", creds.Cookie)
+	setPlatformCookie(request.Header, creds.Cookie)
 	request.Header.Set("csrftoken", creds.CSRFToken)
 	request.Header.Set("Referer", profile.PublicEndpoint())
 	request.Header.Set("Content-Type", "application/json")
