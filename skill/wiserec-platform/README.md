@@ -6,7 +6,7 @@
 
 Windows MSI 安装包先安装 CLI，再安装 `wiserec-platform` Skill 和 `/ml`。Skill 安装失败时，交互安装会提示手动安装，CLI 仍可使用。可按 [Windows 安装说明](../../cli-go/README.md) 运行 MSI 修复，重试安装 Skill。实验版已停止维护，仅在仓库 `skill-lab/` 保存历史资料，不再提供活跃的 `/ml-lab` 入口。
 
-- 正式 skill 安装到 `~/.agents/skills/wiserec-platform` 和 `~/.cac/skills/wiserec-platform`。`/ml` 位于当前 OpenCode 配置目录的 `commands/ml.md` 和 `~/.cac/commands/ml.md`。OpenCode 配置目录默认 `~/.config/opencode`，`OPENCODE_CONFIG_DIR` 只改变该配置目录，不改变共享 skill 或 CAC 路径。
+- Go CLI MSI 将 Skill 安装到 `~/.agents/skills/wiserec-platform` 和 `~/.cac/skills/wiserec-platform`。`/ml` 快捷命令写入 `~/.config/opencode/commands/ml.md` 和 `~/.cac/commands/ml.md`。安装使用固定目录，无需设置 `OPENCODE_CONFIG_DIR`。Skill 写入与快捷命令注册独立执行。
 - 每次安装替换上述正式资源；成功后清理相应管理目录中的历史详细版、`ml-lab.md` 和当前 OpenCode 配置目录中的旧正式 skill。历史上使用过的其他配置目录不会被遍历。其他资源保留。
 - 安装先校验资源，预校验失败保留旧文件；替换阶段失败会清理残留，不恢复已删除的旧资源。请修复问题后重跑安装程序，不把此行为视为自动回滚。
 - 项目目录或兼容目录中的同名副本需自行移除，以免 OpenCode 加载旧副本。

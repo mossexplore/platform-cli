@@ -11,130 +11,73 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-
-	"golang.org/x/sys/windows/registry"
 )
 
 //go:embed agent-resources.zip.in
 var agentArchive []byte
 
-const openCodeRegistryKey = `Software\WiseRec\CLIGo`
-const openCodeRegistryValue = "OpenCodeDirectory"
-
-func manageAgentResources(savedPath string, install bool) error {
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return err
+func manageSkills(home string, install bool) error {
+	agents, cac := filepath.Join(home, ".agents"), filepath.Join(home, ".cac")
+	failures := manageAgentResources("skills/", []string{agents, cac}, install)
+	if !install || failures != nil {
+		return failures
 	}
-	openCode, pathErr := resolveOpenCodePath(home, savedPath, install)
+	for _, root := range []string{agents, cac, openCodeRoot(home)} {
+		failures = errors.Join(failures,
+			removeAgentFile(filepath.Join(root, "skills", "wiserec-platform-detailed", "SKILL.md")))
+	}
+	// The shared Skill supersedes the old entry in the default OpenCode directory.
+	return errors.Join(failures,
+		removeAgentFile(filepath.Join(openCodeRoot(home), "skills", "wiserec-platform", "SKILL.md")))
+}
+
+func manageShortcuts(home string, install bool) error {
+	agents, cac, openCode := filepath.Join(home, ".agents"), filepath.Join(home, ".cac"), openCodeRoot(home)
+	failures := manageAgentResources("commands/", []string{openCode, cac}, install)
+	if !install || failures != nil {
+		return failures
+	}
+	for _, root := range []string{agents, cac, openCode} {
+		failures = errors.Join(failures, removeAgentFile(filepath.Join(root, "commands", "ml-lab.md")))
+	}
+	return failures
+}
+
+func openCodeRoot(home string) string {
+	return filepath.Join(home, ".config", "opencode")
+}
+
+func manageAgentResources(prefix string, roots []string, install bool) error {
 	archive, err := zip.NewReader(bytes.NewReader(agentArchive), int64(len(agentArchive)))
 	if err != nil {
 		return err
 	}
-	agents, cac := filepath.Join(home, ".agents"), filepath.Join(home, ".cac")
-	failures := pathErr
+	var failures error
 	for _, resource := range archive.File {
-		if !fs.ValidPath(resource.Name) || strings.Contains(resource.Name, `\`) || resource.FileInfo().IsDir() {
-			return fmt.Errorf("无效的 Skill 资源路径 %q", resource.Name)
+		if !strings.HasPrefix(resource.Name, prefix) {
+			continue
 		}
-		roots := []string{agents, cac}
-		if strings.HasPrefix(resource.Name, "commands/") {
-			roots = []string{cac}
-			if openCode != "" {
-				roots = append(roots, openCode)
-			}
+		if !fs.ValidPath(resource.Name) || strings.Contains(resource.Name, `\`) || resource.FileInfo().IsDir() {
+			failures = errors.Join(failures, fmt.Errorf("无效的安装资源路径 %q", resource.Name))
+			continue
 		}
 		for _, root := range roots {
 			path := filepath.Join(root, filepath.FromSlash(resource.Name))
 			if install {
-				err = installAgentFile(resource, path)
-			} else {
-				err = removeAgentFile(path)
-				// Only remove empty directories under the managed Skill, never the shared roots.
-				skillDir := filepath.Join(root, "skills", "wiserec-platform")
-				for dir := filepath.Dir(path); dir == skillDir || strings.HasPrefix(dir, skillDir+`\`); dir = filepath.Dir(dir) {
-					_ = os.Remove(dir)
+				if err := installAgentFile(resource, path); err != nil {
+					failures = errors.Join(failures, fmt.Errorf("无法写入 %s：%w", filepath.Dir(path), err))
 				}
+				continue
 			}
-			failures = errors.Join(failures, err)
+			failures = errors.Join(failures, removeAgentFile(path))
+			// Only remove empty directories in the managed Skill, never the shared roots.
+			skillDir := filepath.Join(root, "skills", "wiserec-platform")
+			for dir := filepath.Dir(path); dir == skillDir || strings.HasPrefix(dir, skillDir+`\`); dir = filepath.Dir(dir) {
+				_ = os.Remove(dir)
+			}
 		}
 	}
-	if !install {
-		return errors.Join(failures, forgetOpenCodePath())
-	}
-	if openCode != "" {
-		// Remember the location even on partial writes so repair and uninstall can find them.
-		failures = errors.Join(failures, rememberOpenCodePath(openCode))
-	}
-	if failures != nil {
-		return failures
-	}
-	for _, root := range []string{agents, cac, openCode} {
-		failures = errors.Join(failures,
-			removeAgentFile(filepath.Join(root, "commands", "ml-lab.md")),
-			removeAgentFile(filepath.Join(root, "skills", "wiserec-platform-detailed", "SKILL.md")))
-	}
-	return errors.Join(failures, removeAgentFile(filepath.Join(openCode, "skills", "wiserec-platform", "SKILL.md")))
-}
-
-func resolveOpenCodePath(home, savedPath string, install bool) (string, error) {
-	if savedPath == "" && !install {
-		return "", nil
-	}
-	path := savedPath
-	if path == "" {
-		path = os.Getenv("OPENCODE_CONFIG_DIR")
-		key, err := registry.OpenKey(registry.CURRENT_USER, "Environment", registry.QUERY_VALUE)
-		if err == nil {
-			userPath, kind, err := key.GetStringValue("OPENCODE_CONFIG_DIR")
-			_ = key.Close()
-			if err == nil && userPath != "" {
-				path = userPath
-				if kind == registry.EXPAND_SZ {
-					path, err = registry.ExpandString(path)
-					if err != nil {
-						return "", err
-					}
-				}
-			} else if err != nil && !errors.Is(err, registry.ErrNotExist) {
-				return "", err
-			}
-		} else if !errors.Is(err, registry.ErrNotExist) {
-			return "", err
-		}
-	}
-	if path == "" {
-		path = filepath.Join(home, ".config", "opencode")
-	}
-	if !filepath.IsAbs(path) || strings.ContainsAny(path[len(filepath.VolumeName(path)):], "<>:\"|?*") {
-		return "", fmt.Errorf("OpenCode 配置目录无效：%q", path)
-	}
-	return filepath.Clean(path), nil
-}
-
-func rememberOpenCodePath(path string) error {
-	key, err := registry.OpenKey(registry.CURRENT_USER, openCodeRegistryKey, registry.SET_VALUE)
-	if err != nil {
-		return err
-	}
-	defer key.Close()
-	return key.SetStringValue(openCodeRegistryValue, path)
-}
-
-func forgetOpenCodePath() error {
-	key, err := registry.OpenKey(registry.CURRENT_USER, openCodeRegistryKey, registry.SET_VALUE)
-	if errors.Is(err, registry.ErrNotExist) {
-		return nil
-	}
-	if err != nil {
-		return err
-	}
-	defer key.Close()
-	err = key.DeleteValue(openCodeRegistryValue)
-	if errors.Is(err, registry.ErrNotExist) {
-		return nil
-	}
-	return err
+	return failures
 }
 
 func installAgentFile(resource *zip.File, target string) error {
@@ -167,7 +110,7 @@ func removeAgentFile(path string) error {
 		return err
 	}
 	if info.IsDir() {
-		return fmt.Errorf("Skill 文件路径被目录占用：%s", path)
+		return fmt.Errorf("文件路径被目录占用：%s", path)
 	}
 	return os.Remove(path)
 }

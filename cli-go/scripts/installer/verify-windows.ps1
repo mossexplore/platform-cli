@@ -267,8 +267,9 @@ foreach ($package in @($baseline, $replacement, $upgrade)) {
     }
     $phaseQuery = 'SELECT `Description` FROM `ActionText` WHERE `Action` = '
     if ((Get-MsiValues $package ($phaseQuery + "'InstallFiles'")) -cne '正在安装 CLI…' -or
-        (Get-MsiValues $package ($phaseQuery + "'InstallAgentResources'")) -cne '正在安装 Skill 和快捷命令…') {
-        throw 'MSI must describe the CLI and Skill installation phases.'
+        (Get-MsiValues $package ($phaseQuery + "'InstallSkills'")) -cne '正在安装 Skill…' -or
+        (Get-MsiValues $package ($phaseQuery + "'InstallShortcuts'")) -cne '正在注册 /ml 快捷命令…') {
+        throw 'MSI must describe the CLI, Skill and shortcut installation phases.'
     }
     $sameVersion = 'SELECT `Text` FROM `Control` WHERE `Dialog_` = ''ConfirmSameVersionReplacement'' AND `Control` = ''Warning'''
     $approvalEvent = 'SELECT `Argument` FROM `ControlEvent` WHERE `Dialog_` = ''ConfirmSameVersionReplacement'' AND `Control_` = ''Replace'' AND `Event` = ''[WISECLI_REPLACE_SAME_VERSION]'' AND `Ordering` = 1'
@@ -306,7 +307,7 @@ if ((& (Join-Path $portable 'ml.exe') --version) -ne "ml $currentVersion") { thr
 $homeDir = [Environment]::GetFolderPath('UserProfile')
 $agents = Join-Path $homeDir '.agents'
 $cac = Join-Path $homeDir '.cac'
-$openCode = Join-Path $Work 'custom OpenCode'
+$openCode = Join-Path $homeDir '.config/opencode'
 $installedExe = Join-Path $env:LOCALAPPDATA 'Programs/WiseRecCLIGo/ml.exe'
 $goConfig = Join-Path $env:APPDATA 'ml-go-preview\config.json'
 $pythonConfig = Join-Path $env:APPDATA 'ml/config.json'
@@ -328,7 +329,6 @@ try {
     Set-Content -LiteralPath $pythonCredentials -Value 'legacy login fixture'
     Set-Content -LiteralPath (Join-Path $openCode 'commands/unrelated.md') -Value 'keep'
     Set-Content -LiteralPath (Join-Path $openCode 'commands/ml-lab.md') -Value 'old entry'
-    [Environment]::SetEnvironmentVariable('OPENCODE_CONFIG_DIR', $openCode, 'User')
     $pathWithConflict = "$otherPath;$conflict;$savePath"
     [Environment]::SetEnvironmentVariable('Path', $pathWithConflict, 'User')
 
@@ -347,20 +347,27 @@ try {
         throw 'MSI did not restore the previous PATH on rollback'
     }
 
-    # Block only the shortcut, leaving the CLI's installation location writable.
-    # Exercise the forward-slash spelling of a valid custom path as well.
-    [Environment]::SetEnvironmentVariable('OPENCODE_CONFIG_DIR', $openCode.Replace('\', '//'), 'User')
-    $blockedSkillPath = Join-Path $openCode 'commands/ml.md'
-    New-Item -ItemType Directory -Path $blockedSkillPath | Out-Null
-    $log = Invoke-Msi '/i' $baseline 'install-with-skill-failure'
+    # A legacy environment override is ignored and preserved. Block the default shortcut only.
+    $invalidOpenCode = $Work.Replace('\', '//') + '//invalid<OpenCode'
+    [Environment]::SetEnvironmentVariable('OPENCODE_CONFIG_DIR', $invalidOpenCode, 'User')
+    $blockedShortcut = Join-Path $openCode 'commands/ml.md'
+    New-Item -ItemType Directory -Path $blockedShortcut | Out-Null
+    $log = Invoke-Msi '/i' $baseline 'install-with-shortcut-failure'
     $installedMsi = $baseline
-    if (-not (Select-String -LiteralPath $log -SimpleMatch 'CustomAction InstallAgentResources returned actual error code 1') -or
-        -not (Test-Path -LiteralPath $blockedSkillPath -PathType Container) -or
-        (& $installedExe --version) -ne "ml $currentVersion") {
-        throw 'Skill failure must leave the CLI installed and preserve the conflicting directory.'
+    Refresh-Path
+    if (-not (Select-String -LiteralPath $log -SimpleMatch 'CustomAction InstallShortcuts returned actual error code 1') -or
+        (Select-String -LiteralPath $log -SimpleMatch 'CustomAction InstallSkills returned actual error code 1') -or
+        -not (Test-Path -LiteralPath $blockedShortcut -PathType Container) -or
+        (Get-Command ml -ErrorAction Stop).Source -ne $installedExe -or (ml --version) -ne "ml $currentVersion" -or
+        [Environment]::GetEnvironmentVariable('OPENCODE_CONFIG_DIR', 'User') -cne $invalidOpenCode) {
+        throw 'Shortcut failure must leave the CLI and Skill installed, preserving the conflict and the environment.'
     }
-    Remove-Item -LiteralPath $blockedSkillPath
-    Invoke-Msi '/fa' $baseline 'repair-skill-failure' | Out-Null
+    foreach ($path in @((Join-Path $agents 'skills/wiserec-platform/SKILL.md'),
+        (Join-Path $cac 'skills/wiserec-platform/SKILL.md'), (Join-Path $cac 'commands/ml.md'))) {
+        if (-not (Test-Path -LiteralPath $path -PathType Leaf)) { throw "Shortcut failure prevented installation of $path" }
+    }
+    Remove-Item -LiteralPath $blockedShortcut
+    Invoke-Msi '/fa' $baseline 'repair-shortcut-failure' | Out-Null
     if (Select-String -LiteralPath $log -SimpleMatch 'Doing action: InstallationComplete') {
         throw 'Silent MSI ran the interactive success notification'
     }
@@ -427,10 +434,12 @@ try {
     Assert-Installed $portableReplacement
 
     Set-Content -LiteralPath (Join-Path (Split-Path $installedExe) 'config.template.json') -Value 'old template'
-    [Environment]::SetEnvironmentVariable('OPENCODE_CONFIG_DIR', (Join-Path $Work 'different OpenCode'), 'User')
+    $customOpenCode = Join-Path $Work 'different OpenCode'
+    [Environment]::SetEnvironmentVariable('OPENCODE_CONFIG_DIR', $customOpenCode, 'User')
     Invoke-AutomaticUpgradeFixture $upgrade $installedExe $upgradeVersion
     $installedMsi = $upgrade
     Assert-Installed $portableUpgrade
+    if (Test-Path -LiteralPath $customOpenCode) { throw 'Upgrade wrote to a custom OpenCode directory' }
     if ((Get-FileHash $goConfig).Hash -ne $configDigest) { throw 'Upgrade replaced the user configuration' }
     Invoke-Msi '/i' $baseline 'downgrade' 1603 | Out-Null
     Assert-Installed $portableUpgrade
@@ -453,32 +462,27 @@ try {
         throw 'Uninstall changed user configuration or unrelated resources'
     }
 
+    # Block one Skill file. Both shortcut locations and the other Skill copy still install.
     [Environment]::SetEnvironmentVariable('OPENCODE_CONFIG_DIR', $null, 'User')
-    $openCode = Join-Path $homeDir '.config/opencode'
-    Invoke-Msi '/i' $baseline 'reinstall-default-opencode' | Out-Null
-    $installedMsi = $baseline
-    Assert-Installed $portable
-    Invoke-Msi '/x' $baseline 'uninstall-default-opencode' | Out-Null
-    $installedMsi = $null
-
-    # An invalid optional path must not reach MSI directory costing or roll back the CLI.
-    $invalidOpenCode = $Work.Replace('\', '//') + '//invalid<OpenCode'
-    [Environment]::SetEnvironmentVariable('OPENCODE_CONFIG_DIR', $invalidOpenCode, 'User')
-    $log = Invoke-Msi '/i' $baseline 'install-with-invalid-opencode-path'
+    $blockedSkillPath = Join-Path $agents 'skills/wiserec-platform/SKILL.md'
+    New-Item -ItemType Directory -Path $blockedSkillPath -Force | Out-Null
+    $log = Invoke-Msi '/i' $baseline 'install-with-skill-failure'
     $installedMsi = $baseline
     Refresh-Path
-    if (-not (Select-String -LiteralPath $log -SimpleMatch 'CustomAction InstallAgentResources returned actual error code 1') -or
+    if (-not (Select-String -LiteralPath $log -SimpleMatch 'CustomAction InstallSkills returned actual error code 1') -or
+        (Select-String -LiteralPath $log -SimpleMatch 'CustomAction InstallShortcuts returned actual error code 1') -or
+        -not (Test-Path -LiteralPath $blockedSkillPath -PathType Container) -or
         (Get-Command ml -ErrorAction Stop).Source -ne $installedExe -or (ml --version) -ne "ml $currentVersion") {
-        throw 'An invalid OpenCode path must warn while keeping the CLI available on PATH.'
+        throw 'Skill failure must leave the CLI and shortcuts available and preserve the conflicting directory.'
     }
-    foreach ($path in @((Join-Path $agents 'skills/wiserec-platform/SKILL.md'),
-        (Join-Path $cac 'skills/wiserec-platform/SKILL.md'), (Join-Path $cac 'commands/ml.md'))) {
-        if (-not (Test-Path -LiteralPath $path -PathType Leaf)) { throw "Invalid OpenCode path prevented installation of $path" }
+    foreach ($path in @((Join-Path $openCode 'commands/ml.md'), (Join-Path $cac 'commands/ml.md'),
+        (Join-Path $cac 'skills/wiserec-platform/SKILL.md'))) {
+        if (-not (Test-Path -LiteralPath $path -PathType Leaf)) { throw "Skill failure prevented installation of $path" }
     }
-    [Environment]::SetEnvironmentVariable('OPENCODE_CONFIG_DIR', $null, 'User')
-    Invoke-Msi '/fa' $baseline 'repair-invalid-opencode-path' | Out-Null
+    Remove-Item -LiteralPath $blockedSkillPath
+    Invoke-Msi '/fa' $baseline 'repair-skill-failure' | Out-Null
     Assert-Installed $portable
-    Invoke-Msi '/x' $baseline 'uninstall-repaired-opencode-path' | Out-Null
+    Invoke-Msi '/x' $baseline 'uninstall-repaired-skill' | Out-Null
     $installedMsi = $null
 
     if ($PreviousPackages) {

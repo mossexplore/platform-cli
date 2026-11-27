@@ -39,13 +39,6 @@
       </Directory>
     </StandardDirectory>
 
-    <!-- Capture the previous location before an upgrade removes the old MSI.
-         This plain property is never used as an MSI directory. -->
-    <Property Id="SAVEDOPENCODEPATH" Secure="yes">
-      <RegistrySearch Id="FindInstalledOpenCode" Root="HKCU" Key="Software\WiseRec\CLIGo"
-                      Name="OpenCodeDirectory" Type="raw" />
-    </Property>
-
     <Binary Id="InstallerHelper" SourceFile="$(var.Work)\msi-helper.exe" />
     <CustomAction Id="RestorePreviousMlPath" BinaryRef="InstallerHelper" Execute="rollback" Impersonate="yes" Return="ignore"
                   ExeCommand="rollback &quot;[LocalAppDataFolder]WiseRecCLI-PATH-[ProductCode].json&quot;" />
@@ -55,20 +48,26 @@
                   ExeCommand="apply &quot;[INSTALLFOLDER].&quot; &quot;[LocalAppDataFolder]WiseRecCLI-PATH-[ProductCode].json&quot;" />
     <CustomAction Id="FinishMlPathSwitch" BinaryRef="InstallerHelper" Execute="commit" Impersonate="yes" Return="ignore"
                   ExeCommand="commit &quot;[LocalAppDataFolder]WiseRecCLI-PATH-[ProductCode].json&quot;" />
-    <CustomAction Id="InstallAgentResources" BinaryRef="InstallerHelper" Return="ignore"
-                  ExeCommand="install-agent &quot;[SAVEDOPENCODEPATH].&quot; &quot;[UILevel]&quot;" />
-    <CustomAction Id="RemoveAgentResources" BinaryRef="InstallerHelper" Return="ignore"
-                  ExeCommand="remove-agent &quot;[SAVEDOPENCODEPATH].&quot;" />
+    <CustomAction Id="InstallSkills" BinaryRef="InstallerHelper" Return="ignore"
+                  ExeCommand="install-skills &quot;[UILevel]&quot;" />
+    <CustomAction Id="InstallShortcuts" BinaryRef="InstallerHelper" Return="ignore"
+                  ExeCommand="install-shortcuts &quot;[UILevel]&quot;" />
+    <CustomAction Id="RemoveSkills" BinaryRef="InstallerHelper" Return="ignore" ExeCommand="remove-skills" />
+    <CustomAction Id="RemoveShortcuts" BinaryRef="InstallerHelper" Return="ignore" ExeCommand="remove-shortcuts" />
     <InstallExecuteSequence>
       <Custom Action="CheckForExistingMl" Before="ProcessComponents" Condition="NOT Installed" />
       <!-- Roll back the user PATH edit before MSI reverses its own PATH registration. -->
       <Custom Action="RestorePreviousMlPath" After="WriteEnvironmentStrings" Condition="NOT Installed" />
       <Custom Action="ApplyMlPathSwitch" After="RestorePreviousMlPath" Condition="NOT Installed" />
       <Custom Action="FinishMlPathSwitch" After="ApplyMlPathSwitch" Condition="NOT Installed" />
-      <!-- Agent resources are optional. Run after the CLI transaction commits. -->
-      <Custom Action="InstallAgentResources" After="InstallFinalize"
+      <!-- Each optional stage runs after the CLI transaction commits. -->
+      <Custom Action="InstallSkills" After="InstallFinalize"
               Condition="NOT (REMOVE ~= &quot;ALL&quot;) AND (NOT Installed OR REINSTALL)" />
-      <Custom Action="RemoveAgentResources" After="InstallAgentResources"
+      <Custom Action="InstallShortcuts" After="InstallSkills"
+              Condition="NOT (REMOVE ~= &quot;ALL&quot;) AND (NOT Installed OR REINSTALL)" />
+      <Custom Action="RemoveSkills" After="InstallShortcuts"
+              Condition="REMOVE ~= &quot;ALL&quot; AND NOT UPGRADINGPRODUCTCODE" />
+      <Custom Action="RemoveShortcuts" After="RemoveSkills"
               Condition="REMOVE ~= &quot;ALL&quot; AND NOT UPGRADINGPRODUCTCODE" />
     </InstallExecuteSequence>
 
@@ -79,7 +78,8 @@
       <ProgressText Action="CheckForExistingMl" Message="正在检查现有 CLI 和 PATH…" />
       <ProgressText Action="InstallFiles" Message="正在安装 CLI…" />
       <ProgressText Action="WriteEnvironmentStrings" Message="正在配置 CLI 命令…" />
-      <ProgressText Action="InstallAgentResources" Message="正在安装 Skill 和快捷命令…" />
+      <ProgressText Action="InstallSkills" Message="正在安装 Skill…" />
+      <ProgressText Action="InstallShortcuts" Message="正在注册 /ml 快捷命令…" />
       <Dialog Id="Installing" Width="300" Height="105" Title="WiseRec CLI" Modeless="yes">
         <Control Id="Cancel" Type="PushButton" X="232" Y="75" Width="56" Height="17"
                  Default="yes" Cancel="yes" EnableCondition="UILevel = 5" Text="取消">

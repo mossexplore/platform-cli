@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"os"
 	"strconv"
-	"strings"
 
 	"golang.org/x/sys/windows"
 )
@@ -24,17 +23,14 @@ func main() {
 		err = restorePath(os.Args[2])
 	case len(os.Args) == 3 && os.Args[1] == "commit":
 		err = removePathJournal(os.Args[2])
-	case len(os.Args) == 4 && os.Args[1] == "install-agent":
-		if err := manageAgentResources(strings.TrimSuffix(os.Args[2], "."), true); err != nil {
-			fmt.Fprintln(os.Stderr, err)
-			uiLevel, _ := strconv.Atoi(os.Args[3])
-			if uiLevel >= 4 {
-				showMessage("Skill 未安装成功，请手动安装。CLI 已安装，可继续使用。", windows.MB_ICONWARNING)
-			}
-			os.Exit(1)
-		}
-	case len(os.Args) == 3 && os.Args[1] == "remove-agent":
-		err = manageAgentResources(strings.TrimSuffix(os.Args[2], "."), false)
+	case len(os.Args) == 3 && os.Args[1] == "install-skills":
+		err = runOptionalInstall("Skill 安装失败", os.Args[2], manageSkills)
+	case len(os.Args) == 3 && os.Args[1] == "install-shortcuts":
+		err = runOptionalInstall("/ml 命令注册失败", os.Args[2], manageShortcuts)
+	case len(os.Args) == 2 && os.Args[1] == "remove-skills":
+		err = runAgentAction(manageSkills, false)
+	case len(os.Args) == 2 && os.Args[1] == "remove-shortcuts":
+		err = runAgentAction(manageShortcuts, false)
 	default:
 		err = errors.New("Invalid MSI helper arguments.")
 	}
@@ -45,6 +41,26 @@ func main() {
 		}
 		os.Exit(1)
 	}
+}
+
+func runAgentAction(manage func(string, bool) error, install bool) error {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return err
+	}
+	return manage(home, install)
+}
+
+func runOptionalInstall(label, ui string, manage func(string, bool) error) error {
+	err := runAgentAction(manage, true)
+	if err == nil {
+		return nil
+	}
+	err = fmt.Errorf("%s：%w", label, err)
+	if level, _ := strconv.Atoi(ui); level >= 4 {
+		showMessage(fmt.Sprintf("%v\n\nCLI 已安装，可继续使用。", err), windows.MB_ICONWARNING)
+	}
+	return err
 }
 
 func showMessage(message string, icon uint32) {

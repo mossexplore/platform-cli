@@ -231,7 +231,7 @@ ml business use
 
 Python 安装的 OpenCode/codeagent 集成分两个阶段：先安装并验证 CLI，再安装正式 skill `wiserec-platform` 和 `/ml` 快捷入口。不安装 `skill-lab` 详细版。第二阶段失败时 CLI 仍可使用，修复文件权限或占用问题后重新运行安装程序。
 
-OpenCode 的正式 skill 安装到 `~/.agents/skills/wiserec-platform`，`/ml` 位于当前 OpenCode 配置目录的 `commands/ml.md`；codeagent 使用 `~/.cac/skills/wiserec-platform` 和 `~/.cac/commands/ml.md`。`OPENCODE_CONFIG_DIR` 可指定 OpenCode 配置目录。Python 安装程序会更新正式 skill，并清理共享目录、当前 OpenCode 目录和 codeagent 目录中的历史 `wiserec-platform-detailed` 与 `commands/ml-lab.md`，其他资源保留。
+MSI 将 OpenCode 的 Skill 安装到 `~/.agents/skills/wiserec-platform`，将 `/ml` 快捷命令写入 `~/.config/opencode/commands/ml.md`。codeagent 使用 `~/.cac/skills/wiserec-platform` 和 `~/.cac/commands/ml.md`。安装无需设置 `OPENCODE_CONFIG_DIR`。遇到 Skill 写入或快捷命令注册警告时，仍可在终端使用 `ml`。
 
 完成后重新打开 Agent 会话，输入 `/ml 查询当前业务下的模型` 使用正式 skill；不带需求时可查看上下文和用法。直接通过 pip 安装 Wheel 不自动安装 Agent 资源，自动安装入口为官方 Windows 安装包。
 
