@@ -5,7 +5,7 @@
 ## 标准部署最短链路
 
 ```powershell
-ml model list --name 'MODEL_NAME,MODEL_NAME' --agent                                         # 1. 取 modelId
+ml model list --name MODEL_NAME --exact --agent                                              # 1. 取 modelId
 ml deployment template list --name TEMPLATE_NAME --agent                                     # 2. 取 deployTemplateId
 ml model deploy MODEL_ID --template DEPLOY_TEMPLATE_ID --dry-run --agent                     # 3. 预览核对
 ml model deploy MODEL_ID --template DEPLOY_TEMPLATE_ID --yes --agent                         # 4. 确认后提交（保留预览全部参数）

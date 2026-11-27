@@ -46,7 +46,7 @@
 | `ml offline experiment list [--name NAME] [--create-user USER] [--update-user USER] [--team-id ID] [--page N] [--page-size N]` | 离线实验；列表支持 `-A` | | |
 | `ml offline experiment trial list PROJECT_ID [--name NAME] [--type TYPE] [--creator USER] [--updater USER] [--page N] [--page-size N]` | 实验下的 trial | | |
 | `ml offline experiment clone PROJECT_ID --name NAME` | 克隆实验，可先 `--dry-run` | 是 | 创建实验 |
-| `ml train list [--name NAME] [--page N] [--page-size N]` | 训练任务；列表支持 `-A`，支持 `--name 'NAME,NAME'` 精确查，MLOps 每页最大 200 | | |
+| `ml train list [--name NAME] [--exact] [--page N] [--page-size N]` | 训练任务；列表支持 `-A`，`--exact` 精确查，MLOps 每页最大 200 | | |
 | `ml train detail TASK_ID` | 查询训练任务详情（默认加 `--agent`；需原始完整字段时改用 `-o json`） | | |
 | `ml sample-task list [--source legacy\|new] [--name NAME] [--creator USER] [--updater USER] [--type TYPE] [--status all\|stopped\|started] [--page N] [--page-size N]` | 样本任务列表，默认旧任务管理；`--source new` 查询新版，重复 `--type` 筛选，`--status` 仅旧版可用 | | |
 | `ml sample-task period list TASK_ID [--start-time TIME] [--end-time TIME] [--state STATE] [--page N] [--page-size N]` | 新旧任务共用，支持分页、北京时间范围及重复 `--state` | | |
@@ -62,7 +62,7 @@
 | `ml train clone TASK_ID --name NAME` | 复制任务 | 是 | 写：创建任务 |
 | `ml train config export TASK_ID [--file PATH]` | 导出 YAML 配置 | | 本地文件 |
 | `ml train config update TASK_ID --customize-config VALUE` | 更新自定义参数 | | 写（无内置确认）：修改任务 |
-| `ml algorithm list [--name NAME] [--bucket-name BUCKET] [--page N] [--page-size N]` | 算法仓；列表支持 `-A`，支持 `--name 'NAME,NAME'` 精确查 | | |
+| `ml algorithm list [--name NAME] [--exact] [--bucket-name BUCKET] [--page N] [--page-size N]` | 算法仓；列表支持 `-A`，`--exact` 精确查 | | |
 | `ml algorithm download ALGORITHM_ID [--file PATH]` | 下载算法仓 ZIP | | 本地文件 |
 | `ml algorithm clone ALGORITHM_ID --name NAME --version VERSION` | 克隆算法仓 | 是 | 创建算法仓 |
 
@@ -72,13 +72,13 @@
 
 | 命令 | 用途 | 确认 | 副作用 |
 | --- | --- | --- | --- |
-| `ml model list [--name NAME] [--type TYPE] [--owner USER] [--team-id ID] [--page N] [--page-size N]` | 当前业务的模型；列表支持 `-A`，支持 `--name 'NAME,NAME'` 精确查 | | |
+| `ml model list [--name NAME] [--exact] [--type TYPE] [--owner USER] [--team-id ID] [--page N] [--page-size N]` | 当前业务的模型；列表支持 `-A`，`--exact` 精确查 | | |
 | `ml model detail MODEL_ID` | 模型详情 | | |
 | `ml model source MODEL_ID [--train-task]` | 模型溯源，或关联训练任务 | | |
 | `ml model deploy MODEL_ID --template DEPLOY_TEMPLATE_ID [--dry-run] [--service-timeout MS] [--execute-limit N]` | 部署为服务，先 `--dry-run` 预览 | 是 | 创建服务 |
 | `ml resource template list [--name NAME] [--env ENV] [--page N] [--page-size N]` / `detail RESOURCE_TEMPLATE_ID` | 资源模板；列表支持 `-A` | | |
 | `ml deployment template list [--name NAME] [--env ENV] [--page N] [--page-size N]` / `detail DEPLOY_TEMPLATE_ID` | 部署模板；列表支持 `-A` | | |
-| `ml service list [--name NAME] [--model-name NAME] [--model-version VER] [--page N] [--page-size N]` | 服务；列表支持 `-A`，支持 `--name 'NAME,NAME'` 精确查 | | |
+| `ml service list [--name NAME] [--exact] [--model-name NAME] [--model-version VER] [--page N] [--page-size N]` | 服务；列表支持 `-A`，`--exact` 精确查 | | |
 | `ml service mock SERVICE_ID [--request-sample-file PATH] [--transmission-tag 0\|1]` | 使用文档或 JSON 文件样例测试服务，默认不调用透传接口 | | 写（无内置确认）：调用一次服务 |
 | `ml service host list SERVICE_ID [--pod-ip IP]` | 主机视图，可按 Pod IP 筛选 | | |
 | `ml service host mock SERVICE_ID --pod-ip POD_IP [--request-sample-file PATH] [--transmission-tag 0\|1]` | 先按 Pod IP 查询主机，再使用文档或文件样例测试 | | 写（无内置确认）：调用一次服务 |
@@ -93,10 +93,10 @@
 
 | 命令 | 用途 | 确认 | 副作用 |
 | --- | --- | --- | --- |
-| `ml dataset list [--name NAME] [--create-user USER] [--update-user USER] [--bucket-name BUCKET] [--page N] [--page-size N]` / `ml dataset detail DATASET_ID` | 数据集列表 / 详情；列表支持 `-A`，支持 `--name 'NAME,NAME'` 精确查 | | |
+| `ml dataset list [--name NAME] [--exact] [--create-user USER] [--update-user USER] [--bucket-name BUCKET] [--page N] [--page-size N]` / `ml dataset detail DATASET_ID` | 数据集列表 / 详情；列表支持 `-A`，`--exact` 精确查 | | |
 | `ml dataset files list DATASET_ID [--dir /]` | 数据集内部目录 | | |
 | `ml dataset files upload DATASET_ID LOCAL_FILE [--dir /]` | 追加单个文件 | | 写（无内置确认）：上传文件 |
-| `ml feature-task list [--name NAME] [--category CAT] [--create-user USER] [--page N] [--page-size N]` | 当前业务的特征任务列表，支持 `--name 'NAME,NAME'` 精确查，默认 `--category dpp-all` | | |
+| `ml feature-task list [--name NAME] [--exact] [--category CAT] [--create-user USER] [--page N] [--page-size N]` | 当前业务的特征任务列表，`--exact` 精确查，默认 `--category dpp-all` | | |
 | `ml feature-task detail TASK_ID` | 查询特征任务详情 | | |
 | `ml feature-task execution list TASK_ID [--include-history] [--page N] [--page-size N]` | 分页查询执行记录 | | |
 | `ml feature-task execution logs search JOB_ID [--start-line 1] [--end-line 2000] [--keyword KEY] [--scope A\|B\|C] [--scope-lines N]` | 日志搜索（加 `--agent` 返回紧凑 JSON，默认原样文本） | | |

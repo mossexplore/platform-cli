@@ -33,7 +33,7 @@ train delete	shared	--yes -y
 train clone	shared	--name --customize-config --yes -y
 train start	shared
 train detail	shared	--output -o
-train list	shared	--name --page --page-size --output -o
+train list	shared	--name --exact --page --page-size --output -o
 train instance list	shared	--page --page-size --output -o
 train instance logs download	shared	--select --directory --output -o
 train history list	shared	--page --page-size --output -o --latest-flag
@@ -44,7 +44,7 @@ train config update	shared	--customize-config
 sample-task list	wiserec	--source --page --page-size --name --creator --updater --type --status --sort --output -o
 sample-task period list	wiserec	--page --page-size --start-time --end-time --state --output -o
 sample-task execution list	wiserec	--page --page-size --include-history --output -o
-model list	shared	--page --page-size --name --type --owner --team-id --output -o
+model list	shared	--page --page-size --name --exact --type --owner --team-id --output -o
 model detail	shared	--output -o
 model source	shared	--train-task --output -o
 model deploy	shared	--template --service-timeout --execute-limit --qps --update-mode --health-check-mode --health-port --description --request-file --response-file --dry-run --yes --output -o
@@ -52,14 +52,14 @@ resource template list	shared	--page --page-size --name --env --framework-name -
 resource template detail	shared	--output -o
 deployment template list	shared	--page --page-size --name --framework-name --env --framework-type --output -o
 deployment template detail	shared	--output -o
-algorithm list	wiserec	--page --page-size --name --algorithm-name --bucket-name --output -o
+algorithm list	wiserec	--page --page-size --name --algorithm-name --exact --bucket-name --output -o
 algorithm download	wiserec	--file
 algorithm clone	wiserec	--name --version --yes -y
-dataset list	shared	--page --page-size --name --dataset-name --create-user --update-user --bucket-name --output -o
+dataset list	shared	--page --page-size --name --dataset-name --exact --create-user --update-user --bucket-name --output -o
 dataset detail	shared	--output -o
 dataset files list	shared	--dir --output -o
 dataset files upload	shared	--dir --timeout --output -o
-service list	shared	--page --page-size --name --service-name --model-name --model-version --output -o
+service list	shared	--page --page-size --name --service-name --exact --model-name --model-version --output -o
 service mock	shared	--transmission-tag --request-sample-file --output -o
 service host list	shared	--pod-ip --output -o
 service host log-search	shared	--pod --cluster-name --type --file --keyword -k --lines -n --list --no-input --search-order --grep-scope --grep-line
@@ -73,7 +73,7 @@ featureset wide export	wiserec	--lang --file --output -o
 featureset model list	wiserec	--name --page --page-size --output -o
 featureset model config	wiserec
 featureset model export	wiserec	--lang --file --output -o
-feature-task list	shared	--name --category --create-user --page --page-size --output -o
+feature-task list	shared	--name --exact --category --create-user --page --page-size --output -o
 feature-task detail	shared	--output -o
 feature-task execution list	shared	--page --page-size --include-history --output -o
 feature-task execution logs search	shared	--start-line --end-line --keyword --scope --scope-lines --output -o

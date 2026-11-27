@@ -23,6 +23,7 @@ type catalogQuery struct {
 	args                 int
 	paged                bool
 	allowAllBusiness     bool
+	allowExactName       bool
 	appendBusinessColumn bool
 	maxPage              int
 	nameHelp             string
@@ -55,6 +56,9 @@ func (q catalogQuery) build(options Options, load loadConfig) *cobra.Command {
 	outputFlag(cmd)
 	if q.allowAllBusiness {
 		addAllBusinessFlag(cmd)
+	}
+	if q.allowExactName {
+		addExactFlag(cmd)
 	}
 	if q.paged {
 		pagination(cmd)
@@ -98,6 +102,17 @@ func (q catalogQuery) build(options Options, load loadConfig) *cobra.Command {
 			request, err = q.body(body, cmd, args, api)
 			if err != nil {
 				return err
+			}
+		}
+		if q.allowExactName {
+			field := q.assign["name"]
+			current, _ := body[field].(string)
+			next, err := applyExactName(cmd, current)
+			if err != nil {
+				return err
+			}
+			if exact, _ := cmd.Flags().GetBool("exact"); exact {
+				body[field] = next
 			}
 		}
 		payload, err := api.JSON(cmd.Context(), http.MethodPost, q.route, nil, request)
@@ -239,6 +254,25 @@ func (q catalogQuery) render(out io.Writer, record platform.Record, raw json.Raw
 		return err
 	}
 	return nil
+}
+
+func addExactFlag(cmd *cobra.Command) {
+	cmd.Flags().Bool("exact", false, "按名称精确查询，需配合 --name 使用")
+}
+
+func applyExactName(cmd *cobra.Command, value string) (string, error) {
+	exact, _ := cmd.Flags().GetBool("exact")
+	if !exact {
+		return value, nil
+	}
+	trimmed := strings.TrimSpace(value)
+	if trimmed == "" {
+		return "", usageError{errors.New("使用 --exact 时必须提供名称")}
+	}
+	if strings.Contains(trimmed, ",") {
+		return "", usageError{errors.New("--exact 不支持包含英文逗号的名称")}
+	}
+	return trimmed + "," + trimmed, nil
 }
 
 func withBusiness(body map[string]any, cmd *cobra.Command, _ []string, api *platform.API) (any, error) {

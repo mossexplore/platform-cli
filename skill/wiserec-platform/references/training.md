@@ -3,7 +3,7 @@
 以下查询与操作默认使用 `--agent`（不与 `-o json` 同传），无需预先执行 `--help`。
 
 **高频最短链路**：
-- **查任务并下日志**：`ml train list --name 'NAME,NAME' --agent` → `ml train history list TASK_ID --latest-flag all --agent`（普通看 `plogReady`，分布式看 `roleJobInfo[].roleJobId`/`plogReady`）→ `ml train history logs download TASK_ID JOB_ID [--role-job-id ID] [--type plog] --directory DIR --agent`
+- **查任务并下日志**：`ml train list --name NAME --exact --agent` → `ml train history list TASK_ID --latest-flag all --agent`（普通看 `plogReady`，分布式看 `roleJobInfo[].roleJobId`/`plogReady`）→ `ml train history logs download TASK_ID JOB_ID [--role-job-id ID] [--type plog] --directory DIR --agent`
 - **训练看板**：`project list` → `project namespace list PROJECT_ID` → `project experiment list PROJECT_ID NAMESPACE_ID` → `experiment metrics EXPERIMENT_ID`
 
 ## 训练任务
@@ -11,7 +11,7 @@
 WiseRec / MLOps 均支持；MLOps `train list --page-size` 最大 200，`instance list` / `history list` 为 1–200（默认第 1 页 10 条）。
 
 ```powershell
-ml train list --name 'NAME,NAME' --agent
+ml train list --name NAME --exact --agent
 ml train detail TASK_ID --agent
 ml train instance list TASK_ID --page 1 --page-size 20 --agent
 ml train history list TASK_ID --latest-flag all --page 1 --page-size 20 --agent
@@ -56,7 +56,7 @@ ml sample-task execution list TASK_ID --include-history --page 1 --page-size 20 
 仅 WiseRec 支持。
 
 ```powershell
-ml algorithm list --name 'NAME,NAME' --agent
+ml algorithm list --name NAME --exact --agent
 ml algorithm download ALGORITHM_ID --file 'D:\download\algo.zip' --agent
 ml algorithm clone ALGORITHM_ID --name NEW_NAME --version VERSION --yes --agent
 ```

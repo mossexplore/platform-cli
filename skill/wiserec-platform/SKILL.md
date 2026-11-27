@@ -27,7 +27,7 @@ metadata:
    - **写操作 / 长任务 / 跨租户（`-A`）前**：补执行 `ml auth status --agent`，确认 `status=valid`、`profile` 一致、`businessId` 有效及剩余有效期/权限角色。
 2. **未绑定或需切换环境**（DeepSeek Harness 会话隔离模式下新会话默认 `未绑定`，绝不回退全局配置；**同一环境的登录凭据跨会话共享**）：
    - 已知环境标识直接 `ml env use NAME --agent`；未指定或给的是中文显示名时先 `ml env list --agent` 查候选，唯一匹配或经用户确认后用 `环境标识` 切换。
-   - `ml env use NAME --agent` 会直接返回该环境的 `loginStatus` 与 `businessId`：若 `loginStatus` 为 `有效`，**直接复用已有登录态，不要执行 `ml login`**（除非用户明确要求重新登录或切换账号）。
+   - `ml env use NAME --agent` 会直接返回该环境的 `loginStatus`、`businessId` 与 `tenant`：若 `loginStatus` 为 `有效`，**直接复用已有登录态，不要执行 `ml login`**（除非用户明确要求重新登录或切换账号）；若 `businessId` 已有有效值（非空且非 `未绑定`/`未获取`）且符合用户目标（或用户未指定），**直接使用该 `businessId` 继续任务，不要要求用户重新绑定租户**；仅当 `businessId` 为 `未绑定`/`未获取` 或与目标不符时，才进入第 4 步绑定业务。
 3. **仅当未登录或已过期时才执行登录**：
    - 确认已绑定目标环境且 `loginStatus` / `登录状态` 为 `未登录` 或 `已过期`（或用户明确要求重登/换号）时，运行 `ml login --agent`（**务必为执行工具预留至少 10 分钟 / 600 秒超时**，等待用户在 Edge 完成 SSO 或验证码；不靠跑业务命令触发登录）。
    - 登录返回 JSON 若 `businessId` 有效（非空且非 `未获取`）且符合用户目标，直接继续任务；若为 `未获取` 或与目标不符，进入第 4 步绑定业务。
@@ -38,9 +38,9 @@ metadata:
 - **默认统一 `--agent`**：所有查询与业务命令**默认加 `--agent`** 获取紧凑 JSON（**严禁与 `-o`/`--output`/`--json` 同传**，否则退出码 2）。列表顶层 `fields` 说明各字段含义与单位。仅在明确需要原始全量字段或未截断长描述时，才去掉 `--agent` 改用 `-o json`。宿主设 `ML_AGENT=1` 时可省略 `--agent`。
 - **禁止无故前置 `--help`**：直接按下方速查卡片与 [commands.md](references/commands.md) 的签名调用，**不要先跑 `--help` 或 `ml tree`**。若返回退出码 2 且 stderr 含 `[用法]`/`[选项]`（确认非 `jupyter` 的 `status=LOST`），直接按提示修正，勿将 `LOST` 当作参数错重跑。
 - **按名称查询与跨租户兜底（必须严格按顺序）**：
-  1. **必须首选精确查**：对 `train` / `model` / `algorithm` / `dataset` / `service` / `feature-task` 6 个列表，只要用户给出名称（不含英文逗号），**首次查询必须使用 `--name 'NAME,NAME' --agent`**（PowerShell 含逗号或空格须用单引号），**禁止跳过精确查直接模糊查**。
-  2. **当前租户查不到 → 超管自动 `-A` 兜底**：若上述查询返回 0 条（或不支持 `'NAME,NAME'` 但支持 `-A` 的列表在当前租户查不到），先核对账号角色（未知时查 `ml auth status --agent` 的 `role`）；**若为超级管理员或超级管理员只读，直接加 `-A` 跨租户查询**（支持精确查的先 `-A --name 'NAME,NAME' --agent`）。命中其他租户资源时，回复中明确标出其 `businessId`（后续对其做单租户详情或写操作前须先核对/切换业务）。
-  3. **仍为 0 条再回退模糊查**：依次回退当前租户 `--name 'NAME' --agent`（超管仍无结果可再 `-A --name 'NAME' --agent`）。
+  1. **必须首选精确查**：对 `train` / `model` / `algorithm` / `dataset` / `service` / `feature-task` 6 个列表，只要用户给出名称（不含英文逗号），**首次查询必须加 `--exact`**（即 `--name NAME --exact --agent`），**禁止跳过 `--exact` 直接模糊查**。
+  2. **当前租户查不到 → 超管自动 `-A` 兜底**：若上述查询返回 0 条（或不支持 `--exact` 但支持 `-A` 的列表在当前租户查不到），先核对账号角色（未知时查 `ml auth status --agent` 的 `role`）；**若为超级管理员或超级管理员只读，直接加 `-A` 跨租户查询**（支持精确查的先 `-A --name NAME --exact --agent`）。命中其他租户资源时，回复中明确标出其 `businessId`（后续对其做单租户详情或写操作前须先核对/切换业务）。
+  3. **仍为 0 条再回退模糊查**：去掉 `--exact` 查当前租户 `--name NAME --agent`（超管仍无结果可再 `-A --name NAME --agent`）。
 - **回复规范**：写明环境、业务、目标 ID、实际命令与可观察结果，时间统一北京时间 `YYYY-MM-DD HH:mm:ss`。
 
 ## 高频命令直达卡片
@@ -58,13 +58,13 @@ ml business list --agent
 ml business TENANT_ID --agent
 
 # 高频只读查询（除 service host list 为固定首页外，其余列表均支持 --page N --page-size N）
-ml train list --name 'NAME,NAME' --agent
+ml train list --name NAME --exact --agent
 ml train history list TASK_ID --latest-flag all --agent
-ml model list --name 'NAME,NAME' --agent
-ml service list --name 'NAME,NAME' --agent
+ml model list --name NAME --exact --agent
+ml service list --name NAME --exact --agent
 ml service host list SERVICE_ID --agent
-ml dataset list --name 'NAME,NAME' --agent
-ml feature-task list --name 'NAME,NAME' --agent
+ml dataset list --name NAME --exact --agent
+ml feature-task list --name NAME --exact --agent
 ml webstudio list --status online --agent
 
 # 高频日志下载（条件性写：未就绪时自动触发远端归档，低风险免二次确认）

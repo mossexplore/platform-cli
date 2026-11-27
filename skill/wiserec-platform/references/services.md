@@ -3,13 +3,13 @@
 以下查询与操作默认使用 `--agent`（不与 `-o json` 同传）；仅在需要原始完整字段（如 `nodeId`、`deployId`、`mockResponseRaw`）时去掉 `--agent` 改用 `-o json`。
 
 **高频最短链路**：
-- **查服务与 Pod 诊断**：`ml service list --name 'NAME,NAME' --agent` → `ml service host list SERVICE_ID --agent`（取 `nodeName`、`clusterName`，`fixedFirstPage` 仅返回首页 10 条）→ `ml service host pod-event --pod POD_NAME --cluster-name CLUSTER_NAME --agent` / `ml service host log-stdout --pod POD_NAME --agent`
+- **查服务与 Pod 诊断**：`ml service list --name NAME --exact --agent` → `ml service host list SERVICE_ID --agent`（取 `nodeName`、`clusterName`，`fixedFirstPage` 仅返回首页 10 条）→ `ml service host pod-event --pod POD_NAME --cluster-name CLUSTER_NAME --agent` / `ml service host log-stdout --pod POD_NAME --agent`
 - **业务日志检索**：先 `--type TYPE --list --no-input --agent` 取文件名 → 再 `--type TYPE --file FILE_NAME -k KEY -n 200 --no-input --agent` 查正文
 
 ## 定位服务与主机
 
 ```powershell
-ml service list --name 'SERVICE_NAME,SERVICE_NAME' --agent
+ml service list --name SERVICE_NAME --exact --agent
 ml service host list SERVICE_ID --agent
 ml service host list SERVICE_ID --pod-ip POD_IP --agent
 ml service deployment list SERVICE_ID --agent

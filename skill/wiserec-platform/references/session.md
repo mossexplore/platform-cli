@@ -18,4 +18,4 @@
   ```powershell
   & "$env:LOCALAPPDATA\Programs\WiseRecCLIGo\ml.exe" context --agent
   ```
-- **引号规范**：含空格、反斜杠或英文逗号的值（如 `--name 'NAME,NAME'`、`--select '1,3'`）**必须用单引号包住**。旧版 PowerShell（5.1 / <7.3）会剥离参数中的双引号：有文件参数时（`--from-file`、`--request-sample-file`）优先写文件传入；必须直接传 JSON 字符串（如 `--customize-config`）时把 `"` 转义为 `\"`，更新后核对平台实际值。
+- **引号规范**：含空格、反斜杠或英文逗号的值（如 `--select '1,3'`、`--directory 'D:\logs'`）**必须用单引号包住**。旧版 PowerShell（5.1 / <7.3）会剥离参数中的双引号：有文件参数时（`--from-file`、`--request-sample-file`）优先写文件传入；必须直接传 JSON 字符串（如 `--customize-config`）时把 `"` 转义为 `\"`，更新后核对平台实际值。

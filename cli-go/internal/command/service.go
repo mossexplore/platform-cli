@@ -25,8 +25,8 @@ func newService(options Options, load loadConfig) *cobra.Command {
 	deploy := &cobra.Command{Use: "deployment", Short: "服务部署视图查询"}
 	const prefix = "/ai/backend/mep/services/"
 	fixed := defaultFields("teamId", "inferenceType env selectService selectModelName infraType owner status isAccess noAccessDays isLowLoad lowLoadDays clusterId isCluster dailTestTaskStatus scaleFlag", "tags noticeTime")
-	list := catalogQuery{route: prefix + "queryList", command: "list", summary: "分页查询当前业务的服务", paged: true, allowAllBusiness: true, appendBusinessColumn: true,
-		nameHelp: "按服务名称筛选，也可使用 --service-name（模糊查询；传入 '名称,名称' 可精确查询）", nullable: []string{"name", "model-name", "model-version"}, fixed: fixed,
+	list := catalogQuery{route: prefix + "queryList", command: "list", summary: "分页查询当前业务的服务", paged: true, allowAllBusiness: true, allowExactName: true, appendBusinessColumn: true,
+		nameHelp: "按服务名称筛选，也可使用 --service-name；配合 --exact 可精确查询", nullable: []string{"name", "model-name", "model-version"}, fixed: fixed,
 		assign: map[string]string{"name": "serviceName", "model-name": "modelName", "model-version": "modelVersion"},
 		body: func(body map[string]any, cmd *cobra.Command, _ []string, api *platform.API) (any, error) {
 			if cmd.Flags().Changed("service-name") {

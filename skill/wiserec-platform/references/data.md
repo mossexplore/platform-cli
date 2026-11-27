@@ -3,14 +3,14 @@
 以下查询与操作默认使用 `--agent`（不与 `-o json` 同传）；仅在需要完整原始响应（如被截断的超长数据集描述）时改用 `-o json`。
 
 **高频最短链路**：
-- **数据集查文件/上传**：`ml dataset list --name 'NAME,NAME' --agent`（跨租户按每条 `businessId` 区分）→ `ml dataset files list DATASET_ID --dir / --agent` / `ml dataset files upload DATASET_ID LOCAL_FILE --dir / --agent`（返回 `accepted` 后用 `files list` 核验）
-- **特征任务查日志**：`ml feature-task list --name 'NAME,NAME' --agent` → `ml feature-task execution list TASK_ID --agent`（取 `jobId`）→ `ml feature-task execution logs search JOB_ID --agent`
+- **数据集查文件/上传**：`ml dataset list --name NAME --exact --agent`（跨租户按每条 `businessId` 区分）→ `ml dataset files list DATASET_ID --dir / --agent` / `ml dataset files upload DATASET_ID LOCAL_FILE --dir / --agent`（返回 `accepted` 后用 `files list` 核验）
+- **特征任务查日志**：`ml feature-task list --name NAME --exact --agent` → `ml feature-task execution list TASK_ID --agent`（取 `jobId`）→ `ml feature-task execution logs search JOB_ID --agent`
 - **质量监控装配**：`ml quality wide-featureset list --agent`（取 `setId`）→ `feature-assemble list --set-id SET_ID --agent`（取 `definitionId`）→ `feature-assemble feature list --set-id SET_ID --definition-id DEFINITION_ID --agent`
 
 ## 数据集
 
 ```powershell
-ml dataset list --name 'DATASET_NAME,DATASET_NAME' --page 1 --page-size 10 --agent
+ml dataset list --name DATASET_NAME --exact --page 1 --page-size 10 --agent
 ml dataset detail DATASET_ID --agent
 ml dataset files list DATASET_ID --dir / --agent
 ml dataset files upload DATASET_ID 'D:\data\sample.csv' --dir / --agent
@@ -24,7 +24,7 @@ ml dataset files upload DATASET_ID 'D:\data\sample.csv' --dir / --agent
 WiseRec / MLOps 均支持。
 
 ```powershell
-ml feature-task list --name 'NAME,NAME' --category dpp-all --page 1 --page-size 10 --agent
+ml feature-task list --name NAME --exact --category dpp-all --page 1 --page-size 10 --agent
 ml feature-task detail TASK_ID --agent
 ml feature-task execution list TASK_ID --include-history --page 1 --page-size 10 --agent
 ml feature-task execution logs search JOB_ID --start-line 1 --end-line 2000 --keyword ERROR --scope C --scope-lines 10 --agent
