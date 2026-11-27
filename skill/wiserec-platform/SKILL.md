@@ -22,7 +22,7 @@ metadata:
 
 ## 上下文检查与登录（高频最短闭环）
 
-1. **一步预检**：先执行 `ml context --agent`（核对标准用户配置路径：Windows 为 `%APPDATA%\ml-go-preview\config.json`）。
+1. **一步预检**：先执行 `ml context --agent`（查看当前环境、业务与登录状态）。
    - **普通只读查询**：若 `当前环境`、`当前业务` 均已绑定且 `登录状态` 为 `有效`，**直接执行业务查询**，无需再跑 `ml auth status`。
    - **写操作 / 长任务 / 跨租户（`-A`）前**：补执行 `ml auth status --agent`，确认 `status=valid`、`profile` 一致、`businessId` 有效及剩余有效期/权限角色。
 2. **未绑定环境**（DeepSeek Harness 会话隔离模式下新会话默认 `未绑定`，绝不回退全局配置）：

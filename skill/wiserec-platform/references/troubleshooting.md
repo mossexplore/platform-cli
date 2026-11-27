@@ -19,7 +19,7 @@
 | 现象 | 下一步 |
 | --- | --- |
 | `ml` 不在 PATH 中 | 用默认路径 `& "$env:LOCALAPPDATA\Programs\WiseRecCLIGo\ml.exe"` |
-| `配置文件不存在` 或路径不符 | 告知用户实际配置路径并停止 |
+| `配置文件不存在` | 告知用户报错信息并停止，由用户检查安装或配置 |
 | `安装包中缺少 config.json` / 内置配置无效 | 查 `Get-Command ml` 与 `ml --version`，请用户用完整安装包重装 |
 | 认证过期或缺失 | 引导并执行 `ml login --agent`（预留 ≥ 600 秒） |
 | 当前会话未绑定环境 | 确认目标环境后执行 `ml env use NAME --agent` |
