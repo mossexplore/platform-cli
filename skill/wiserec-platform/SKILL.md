@@ -59,7 +59,8 @@ ml business TENANT_ID --agent
 
 # 高频只读查询（除 service host list 为固定首页外，其余列表均支持 --page N --page-size N）
 ml train list --name NAME --exact --agent
-ml train history list TASK_ID --latest-flag all --agent
+ml train instance list TASK_ID --agent                   # 执行实例：当前运行中/排队中的作业
+ml train history list TASK_ID --latest-flag all --agent  # 执行记录：历史已执行（完成/失败/取消）的作业
 ml model list --name NAME --exact --agent
 ml service list --name NAME --exact --agent
 ml service host list SERVICE_ID --agent

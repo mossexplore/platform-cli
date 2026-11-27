@@ -49,8 +49,8 @@
 | `ml sample-task list [--source legacy\|new] [--name NAME] [--creator USER] [--updater USER] [--type TYPE] [--status all\|stopped\|started] [--page N] [--page-size N]` | 样本任务列表，默认旧任务管理；`--source new` 查询新版，重复 `--type` 筛选，`--status` 仅旧版可用 | {{confirm}} | |
 | `ml sample-task period list TASK_ID [--start-time TIME] [--end-time TIME] [--state STATE] [--page N] [--page-size N]` | 新旧任务共用，支持分页、北京时间范围及重复 `--state` | {{confirm}} | |
 | `ml sample-task execution list TASK_ID [--include-history] [--page N] [--page-size N]` | 新旧样本任务共用执行记录查询，无需 `--source` | {{confirm}} | |
-| `ml train instance list TASK_ID [--page N] [--page-size N]` | 分页查询执行实例（`runningTime` 单位为分钟） | {{confirm}} | |
-| `ml train history list TASK_ID [--latest-flag true\|all] [--page N] [--page-size N]` | 分页查询执行记录；默认仅查最新实例，`all` 包含历史实例 | {{confirm}} | |
+| `ml train instance list TASK_ID [--page N] [--page-size N]` | 分页查询当前运行中/排队中的执行实例（`runningTime` 单位为分钟） | {{confirm}} | |
+| `ml train history list TASK_ID [--latest-flag true\|all] [--page N] [--page-size N]` | 分页查询历史已执行的执行记录；默认仅查最新实例，`all` 包含历史实例 | {{confirm}} | |
 | `ml train history detail TASK_ID JOB_ID` | 在最新实例的执行记录中查询作业及分布式角色详情 | {{confirm}} | |
 | `ml train history logs download TASK_ID JOB_ID [--type log\|plog] [--directory DIR] [--role-job-id ROLE_JOB_ID]` | 按任务和作业 ID 下载执行记录日志，普通日志未就绪时自动提交归档；仅分布式训练传 `--role-job-id`（必填） | {{confirm}} | 条件性写：平台日志归档及本地文件 |
 | `ml train instance logs download TASK_ID JOB_ID [--select SELECTION] [--directory DIR]` | 先请求归档，仅下载归档成功的日志，`--select` 传编号或 `all` | {{confirm}} | 写：平台归档及本地 ZIP 文件 |

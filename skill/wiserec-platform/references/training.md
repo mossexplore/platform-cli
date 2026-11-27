@@ -8,7 +8,8 @@
 
 ## 训练任务
 
-WiseRec / MLOps 均支持；MLOps `train list --page-size` 最大 200，`instance list` / `history list` 为 1–200（默认第 1 页 10 条）。
+- **概念区分**：**执行实例（`train instance`）**代表当前**正在运行/排队中**的作业；**执行记录（`train history`）**代表**历史已执行过**（完成/失败/取消/超时等）的作业。查运行中状态/日志用 `instance`，查历史结果/日志用 `history`；用户笼统问“当前状态”时先查 `instance list`，无运行中实例再查 `history list`。
+- WiseRec / MLOps 均支持；MLOps `train list --page-size` 最大 200，`instance list` / `history list` 为 1–200（默认第 1 页 10 条）。
 
 ```powershell
 ml train list --name NAME --exact --agent
