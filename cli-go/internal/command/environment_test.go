@@ -105,3 +105,41 @@ func TestEnvironmentListVisibility(t *testing.T) {
 		})
 	}
 }
+
+func TestEnvUseAgentReturnsSharedLoginStatus(t *testing.T) {
+	paths, err := localstate.NewPaths(t.TempDir(), []byte(`{"current":"uat","profiles":[
+		{"name":"dev","platform_type":"wiserec","api_endpoint":"https://dev.example.com/api","base_url":"https://dev.example.com"},
+		{"name":"uat","platform_type":"wiserec","api_endpoint":"https://uat.example.com/api","base_url":"https://uat.example.com"}
+	],"auth":{"auto_ping":false}}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	expiry, err := json.Marshal(time.Now().Add(time.Hour))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := paths.SaveLogin(localstate.Credentials{
+		Origin:    "https://dev.example.com",
+		Profile:   "dev",
+		Username:  "alice",
+		Cookie:    "c=1",
+		CSRFToken: "t=1",
+		ExpiresAt: expiry,
+	}, nil, "", ""); err != nil {
+		t.Fatal(err)
+	}
+	sess := paths
+	sess.Session = localstate.SessionScope{Mode: localstate.SessionModeDSH, ID: "dsh-new-session"}
+
+	code, out, stderr := run(t, sess, "env", "use", "dev", "--agent")
+	if code != 0 {
+		t.Fatalf("env use dev --agent failed: code=%d stderr=%s", code, stderr)
+	}
+	var got map[string]string
+	if err := json.Unmarshal([]byte(out), &got); err != nil {
+		t.Fatalf("invalid json: %v\nout=%s", err, out)
+	}
+	if got["environment"] != "dev" || got["loginStatus"] != "有效" || got["businessId"] != "未绑定" {
+		t.Fatalf("unexpected env use --agent result: %+v", got)
+	}
+}

@@ -124,7 +124,13 @@ func newEnv(options Options, load loadConfig) *cobra.Command {
 		fmt.Fprintln(cmd.ErrOrStderr(), "[成功] 当前环境已切换为: "+profile.Name)
 		finish := func() error {
 			if agentMode(cmd) {
-				return agentResult(cmd, map[string]string{"environment": profile.Name})
+				business, tenant, loginStatus := contextBusiness(paths, cfg)
+				return agentResult(cmd, map[string]string{
+					"environment": profile.Name,
+					"loginStatus": loginStatus,
+					"businessId":  business,
+					"tenant":      tenant,
+				})
 			}
 			return nil
 		}

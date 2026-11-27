@@ -4,7 +4,7 @@
 
 本表列出全部命令、常用选项与副作用。**业务与查询命令直接按签名加 `--agent` 调用，不要预先执行 `--help`**（宿主协议 `auth ping tick` 与禁止的交互终端除外；`jupyter exec` 须把 `--agent` 放在 `--` 之前；严禁 `--agent` 与 `-o`/`--json` 同传；仅需原始全量字段时改用 `-o json`）。遇到用法错误（退出码 2 且 stderr 含 `[用法]`/`[选项]`）时按提示直接修正；`jupyter exec` 的退出码 2 也可能表示 `LOST`，不可当参数错重跑。
 
-- **平台与跨租户**：WiseRec/MLOps 均支持 `train` 和 `feature-task`，`algorithm` 仅 WiseRec 支持；标有 `-A` 的列表支持 `--all-business`（需超管权限，查到其他租户先核对业务编码）。
+- **平台与跨租户**：WiseRec/MLOps 均支持 `train` 和 `feature-task`，`algorithm` 仅 WiseRec 支持；标有 `-A` 的列表支持 `--all-business`（需超管或超管只读权限；用户要求查全租户，或当前租户查不到且确认为超管角色时均可自动加 `-A` 兜底，命中其他租户须标出 `businessId` 并在后续操作前核对业务）。
 - **确认与副作用**：“确认”列为“是”表示 CLI 内置确认（用户授权后传 `--yes`）。**只要有远端副作用，即使无内置确认也须先核对授权、执行后核验。**
 
 ## 会话、业务与本地记录
