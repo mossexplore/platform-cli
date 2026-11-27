@@ -24,12 +24,17 @@ ml train instance logs download TASK_ID JOB_ID --select '1,3' --directory 'D:\lo
 - 参数齐全直接执行（普通日志未就绪时自动触发远端归档，属低风险豁免，含 `product` 环境均无需二次确认）；**下载流程中禁止调用 `ml train history detail`**。
 - **分布式训练（`jobType=dps-train`）**：`--role-job-id` 必填（从 `history list` 的 `roleJobInfo` 取），普通训练不要传。
 - **plog**：仅在 `plogReady=true` 时传 `--type plog`，无 plog 直接报错且不触发归档。
-- **结果判读**：普通日志未就绪时自动提交归档并退出 `1`（普通作业 `status=not_ready`，分布式作业顶层 `status=failed` 且 `items[].status=not_ready`），均属已触发归档，稍后重跑即可，勿误判为异常。前置校验失败仅在 stderr 报错；单条下载失败结合 `stage`/`error` 排查。
+- **结果判读**：普通日志未就绪时自动提交归档并退出 `1`（普通作业 `status=not_ready`，分布式作业顶层 `status=failed` 且 `items[].status=not_ready`），均属已触发归档，按下方「归档中重试规则」处理，勿误判为异常。前置校验失败仅在 stderr 报错；单条下载失败结合 `stage`/`error` 排查。
 - **目录**：`--directory DIR` 须为已存在目录（默认当前目录，不接受 `--file`），同名自动编号不覆盖；回复只给保存路径和结果，不复述签名链接。
 
 ### 执行实例日志下载（`train instance logs download`）
 - 先用 `train instance list` 查运行/排队实例（若运行中实例未返回 `runningTime`，可结合 `createTime` 推算）。
-- 下载前需归档，仅“归档成功”可下载（“归档中”稍后重试，“归档失败”报告原因）。非交互必传 `--select`（指定编号如 `'1,3'`，全部时传 `all` 自动跳过未成功项），核对摘要中的逐条结果与失败数。
+- 下载前需归档，仅“归档成功”可下载（返回 `status=archiving` 或状态为“归档中”按下方重试规则处理，“归档失败”立即停止并报告原因）。非交互必传 `--select`（指定编号如 `'1,3'`，全部时传 `all` 自动跳过未成功项），核对摘要中的逐条结果与失败数。
+
+### 归档中重试规则（适用于执行记录与执行实例日志下载）
+- **触发条件**：仅当返回 `not_ready`、`archiving` 或状态为“归档中”时才自动重试；遇到归档失败、无 plog、权限拒绝、参数错或下载阶段报错时**立即停止，不重试**。
+- **间隔与上限**：每次等待 **30 秒**后重跑同一条下载命令（PowerShell 用 `Start-Sleep -Seconds 30`，POSIX 用 `sleep 30`），**最多自动重试 4 次（总等待 120 秒）**。
+- **单步执行与超限兜底**：每次“等待 30 秒 → 重跑 1 次”单独执行（工具超时预留 ≥ 90 秒，不写长循环脚本）；重试 4 次后仍未就绪则停止，告知用户归档已触发且仍在进行中，请稍后再试或确认是否继续等待。
 
 ### 写操作与配置
 - `ml train start TASK_ID --agent` 返回 `jobId` 仅表示已受理，之后用 `history list` 确认状态。
