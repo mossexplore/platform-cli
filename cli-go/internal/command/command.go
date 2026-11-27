@@ -79,7 +79,11 @@ func Run(ctx context.Context, options Options) (code int) {
 		}
 		var usage usageError
 		if errors.As(err, &usage) {
+			writeUsageHint(options.Stderr, executed, err)
 			return 2
+		}
+		if strings.Contains(err.Error(), `unknown command "`) {
+			writeUsageHint(options.Stderr, executed, err)
 		}
 		return 1
 	}

@@ -1,8 +1,10 @@
 # 训练任务、样本任务、离线实验、算法仓与训练看板
 
-以下查询与操作默认使用 `--agent` 获取紧凑精简 JSON（不要与 `-o json` 同传）；仅在需要完整原始响应时去掉 `--agent` 改用 `-o json`。具体筛选和分页参数查 `--help`。
+以下查询与操作默认使用 `--agent` 获取紧凑精简 JSON（不要与 `-o json` 同传）；仅在需要完整原始响应时去掉 `--agent` 改用 `-o json`。直接按下方与 [命令速查](commands.md) 的参数签名调用，无需预先执行 `--help`。
 
-使用 `ml train history list TASK_ID --agent` 时，普通作业检查记录的 `plogReady`，分布式作业检查所选 `roleJobInfo` 条目的 `plogReady` 和完整 `roleJobId`。
+**高频最短链路**：
+- **查任务并下日志**：`ml train list --name 'NAME,NAME' --agent` → `ml train history list TASK_ID --latest-flag all --agent`（普通看 `plogReady`，分布式看 `roleJobInfo[].roleJobId`/`plogReady`）→ `ml train history logs download TASK_ID JOB_ID [--role-job-id ID] [--type plog] --directory DIR --agent`
+- **训练看板**：`project list` → `project namespace list PROJECT_ID` → `project experiment list PROJECT_ID NAMESPACE_ID` → `experiment metrics EXPERIMENT_ID`
 
 ## 下载训练执行记录日志
 
@@ -86,7 +88,7 @@ ml sample-task list --source new --type FEATURE_ASSEMBLE --type FEATURE_SYNC --a
 ```
 
 - 默认 `--source legacy` 查询旧“任务管理”，`--source new` 查询“任务管理（新）”；两者默认第 1 页、每页 10 条。
-- 旧版默认查询特征预处理实时、特征预处理离线、特征装配和标签装配四种类型，并非全部类型。重复 `--type` 替换默认范围；新版未指定类型时不限类型。两套类型枚举不同，见 `ml sample-task list --help`。
+- 旧版默认查询特征预处理实时、特征预处理离线、特征装配和标签装配四种类型，并非全部类型。重复 `--type` 替换默认范围；新版未指定类型时不限类型。旧版 `--type` 可选：`feature_preprocess_realtime`、`feature_preprocess_offline`、`feature_assemble`、`label_assemble`、`feature_monitor`、`new_feature_assemble`、`spark_jar`；新版 `--type` 可选：`FEATURE_ASSEMBLE`、`LABEL_ASSEMBLE`、`FEATURE_SYNC`、`FEATURE_IMPORT_OFFLINE`、`FEATURE_IMPORT_REALTIME`、`OFFLINE_FEATURE_SYNC`、`FEATURE_PREPROCESS_OFFLINE`、`FEATURE_QUALITY_MONITOR`、`OFFLINE_FEEDBACK`、`REAL_TIME_FEEDBACK`、`REALTIME_LABEL_CALC`、`SAMPLE_GENERATION_OFFLINE`、`SAMPLE_GENERATION_REALTIME`。
 - `--status all|stopped|started` 仅旧版支持，默认全部；`--sort desc` 仅新版支持，新版默认降序。不要跨来源传筛选项。
 - `--agent` 输出含 `source`、`pagination`、`pageIndex`、`pageSize`、`returnedCount`、`total`、`fields`、`items`。
 
@@ -100,11 +102,9 @@ ml sample-task execution list TASK_ID --agent
 ml sample-task execution list TASK_ID --include-history --page 2 --page-size 20 --agent
 ```
 
-- `period list` 默认第 1 页、每页 20 条。起止时间按北京时间输入 `YYYY-MM-DD HH:mm:ss`，可只指定一端，开始时间不得晚于结束时间。`--state` 可重复指定，未指定不限状态；状态枚举见命令帮助。
-- 周期表格采用无表头四列网格，每格显示页内编号、周期和中文状态。按返回顺序从左往右填充，编号每页从 1 开始，末行未填满的单元格留空。空列表提示「暂无执行周期」。
+- `period list` 默认第 1 页、每页 20 条。起止时间按北京时间输入 `YYYY-MM-DD HH:mm:ss`，可只指定一端，开始时间不得晚于结束时间。`--state` 可重复指定（未指定不限状态），可选：`INIT`、`CANCELED`、`QUEUE`、`APPLY_FOR_RESOURCE`、`WAIT_FOR_QUOTA_QUEUE`、`RUNNING`、`COMPLETED`、`FAILED`、`LACK_RESOURCE`、`TIMEOUT`。
 - `execution list` 默认第 1 页、每页 10 条，不包含历史实例；`--include-history` 开启后包含历史实例。任务 ID 和记录中的 JOB ID 不互换。
-- 执行记录表格展示 JOB ID、算法名称、中文状态、文件大小、周期时间、执行时长、最新实例及检查、开始、结束时间。大小按 1024 进制，执行时长按分钟转换，时间戳按北京时间展示。
-- 两种执行查询在 `--agent` 下均返回 `taskId`、`pagination`、`pageIndex`、`pageSize`、`returnedCount`、`total`、`fields`、`items`，不加入网格编号。每次只查询指定页，不把第一页当成全部结果。
+- 两种执行查询在 `--agent` 下均返回 `taskId`、`pagination`、`pageIndex`、`pageSize`、`returnedCount`、`total`、`fields`、`items`。每次只查询指定页，不把第一页当成全部结果。
 
 ## 算法仓
 

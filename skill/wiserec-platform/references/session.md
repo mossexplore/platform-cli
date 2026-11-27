@@ -1,111 +1,53 @@
-# 会话、Windows shell 与故障处理
+# 会话、登录与 Windows PowerShell 规范
 
-## 首次确认与上下文复用
-
-当前聊天尚无已确认上下文时，先运行 `ml context --agent` 核对实际配置路径。确认它是当前平台的标准用户配置（Windows 上为 `%APPDATA%\ml-go-preview\config.json`）后，再运行 `ml auth status --agent`。
+## 1. 登录与会话最短流程
 
 ```powershell
-ml context --agent
-ml auth status --agent
+ml context --agent                  # 一步核对路径、环境、业务与登录状态
+ml env list --agent                 # 未绑定环境时查候选
+ml env use NAME --agent             # 切换环境（传入环境标识）
+ml login --agent                    # 未登录/过期时打开 Edge 登录（工具超时 ≥ 600s）
+ml auth status --agent              # 写操作/长任务/跨租户前核对角色与剩余有效期
+ml business list --agent            # 未绑定业务时查候选
+ml business TENANT_ID --agent       # 绑定租户（选团队加 use --tenant ID --team ID）
 ```
 
-- `context` 无需登录，也不访问网络。用 `--agent` 获取单行紧凑 JSON，查看“上下文模式”“会话 ID”“当前环境”“当前业务”“登录状态”“当前租户”“CLI 版本”“CLI 路径”“配置路径”“会话文件”等。登录有效且已选业务时，“当前租户”提供租户名称，团队场景显示所属租户。只查看报告的路径，不读取配置、凭据、会话或业务文件。将“当前环境”与 `auth status` 的 `profile` 对照，无需另外运行 `ml --version`、`ml env show`。
-- **多会话自动隔离**：在 DeepSeek Harness（自动注入 `DSH_SHELL=1` 与 `DSH_SESSION_ID`）或设置了 `ML_SESSION_ID` 时，CLI 自动进入会话隔离模式，每个会话独立保存所选环境与租户/团队，互不覆盖全局配置或其他会话，但共享同一环境的登录凭据与业务目录。新会话默认“未绑定环境、未绑定业务”且绝不静默回退全局配置；若 `当前环境` 为 `未绑定`，先按用户要求执行 `ml env use NAME --agent`（未指定时向用户确认，不猜测默认环境），再核对 `ml auth status --agent` 并按需执行 `ml business TENANT_ID --agent`，团队选择用 `ml business use --tenant TENANT_ID --team TEAM_ID --agent`。严禁在命令中手工覆写 `DSH_SESSION_ID`、`DSH_SHELL` 或 `ML_SESSION_ID`。
-- `auth status` 默认输出表格，统一使用 `ml auth status --agent` 获取单行 JSON 和数值型剩余分钟数；不续期，显示 `profile`、`username`、`status`、`remaining_minutes`、`expires_at`、`role` 和 `businessId`。必须检查 `status=valid`，不能只看退出码；`profile` 应与 `context` 的环境一致。`businessId` 读取当前生效上下文的业务 ID（会话隔离模式读取当前会话绑定，普通终端读取全局 `selected.businessId`），可用于确认业务 ID；不使用其他来源或旧字段代替。全租户查询使用超级管理员或超级管理员只读角色，旧凭据的角色可以在首次跨租户查询时补全。
-- `remaining_minutes` 为当前登录剩余分钟数。确认平台是否已续期，用 `ml auth ping status --agent` 查看最近平台确认时间。
-- `businessId` 缺失、为空或为 `-` 时，先看 `context` 是否为“未绑定”，需要核对当前已选租户/团队名称时运行 `ml business show --agent`。未选业务再进入选择流程，不在每次查询前列出全部业务。
-- 在当前聊天内可复用已确认的 CLI 路径、配置来源和命令语法。会话隔离模式下与其他并行会话互不干扰；普通非隔离终端仍共用本地 CLI 状态，此时其他会话的切换可能改变生效环境或业务。
-- 用户要求切换到另一环境时，运行对应的 `ml env use NAME --agent`，再用上述两条命令更新上下文。与已确认环境相同时不重复切换；未指定环境且当前已绑定时沿用当前环境，不擅自切换。若用户给的是显示名，用 `ml env list --agent` 从 `items` 中匹配“环境名”，取唯一匹配行的“环境标识”用于切换。未找到或匹配多行时，请用户确认环境标识。开启自动保活时，目标环境未登录或登录过期会提示运行 `ml login`。
-- **Harness 自动保活**：安装并启用宿主保活插件后，插件只调度当前会话绑定的环境，前提是已登录并选定业务。`ml auth ping status --agent` 显示插件报到时间及最近平台确认结果。同一环境有符合条件的 Harness 会话时，交互终端显示「DSH 托管，终端待命」并保留进程 ID。会话关闭、插件报到过期或失去保活资格后，符合条件的终端自动接手。使用 `ml auth ping stop --agent` 停止当前环境的终端和插件保活；插件登记后用 `ml auth ping start --agent` 恢复。如需对照单次确认，插件日志与状态输出使用相同的请求 ID。Agent 不调用插件接口 `tick --json`。
-- **Harness 会话行标识**：绿色表示保活正常，红色表示 WiseRec 登录过期，黄色表示暂未确认，灰色表示待检查或暂停等状态。悬浮会话行可查看最近检查时间和已知的环境。切换环境或重新登录后，以后续检查为准。
-- `ml env list --agent` 返回带 `fields` 与 `items` 的紧凑 JSON，无可展示环境时 `items` 为 `[]`。未保存账号或权限查询失败时，只显示打包配置指定的默认可见环境。查询成功后还会列出该账号获授权的环境。优先查询当前环境的账号；当前环境没有账号时，可查询其他环境保存的唯一账号。默认可见只表示允许查看该环境的信息，执行环境中的业务命令仍需登录并获得相应权限。管理台类型显示为「搜推广工程平台」或「WiseMLOps平台」。
-- 核对当前平台标准用户配置路径：Windows 为 `%APPDATA%\ml-go-preview\config.json`，macOS 为 `~/Library/Application Support/ml-go-preview/config.json`，Linux 为 `${XDG_CONFIG_HOME:-~/.config}/ml-go-preview/config.json`。首次加载内置配置时会初始化环境选择。若 `context` 报错或路径不符，停止后续操作并告知用户。
+### 核心规则
+- **标准配置路径核对**：Windows 为 `%APPDATA%\ml-go-preview\config.json`，macOS 为 `~/Library/Application Support/ml-go-preview/config.json`，Linux 为 `${XDG_CONFIG_HOME:-~/.config}/ml-go-preview/config.json`。若 `context` 报错或路径不符，立即停止并告知用户。
+- **多会话自动隔离**：DeepSeek Harness（自动注入 `DSH_SHELL=1` 与 `DSH_SESSION_ID`）或 `ML_SESSION_ID` 下，每个会话独立维护环境与业务，新会话默认 `未绑定` 且绝不回退全局配置，但共享同环境的登录凭据与业务目录。严禁篡改上述环境变量。
+- **只读与写操作分流**：
+  - 普通只读查询：`ml context --agent` 已显示环境/业务已绑定且 `登录状态=有效` 时直接查询，省去 `auth status`。
+  - 写操作、长任务、跨租户（`-A`）：必查 `ml auth status --agent`，核对 `status=valid`、`profile` 与 `context` 一致、`remaining_minutes` 充足、`role` 满足跨租户要求。
+- **登录细节（`ml login --agent`）**：
+  - 会打开专用 Edge 由用户完成 SSO/验证码，**执行工具超时至少设为 10 分钟（600 秒）**。
+  - 每次登录自动优先恢复同账号在同环境/同平台仍有效的上次业务选择；无有效选择时依次回退 Edge 缓存 `ai-businessId` 或 `scopePermissions` 首个租户。
+  - 登录返回 JSON 已含环境、账号、角色和 `businessId`，有效时直接继续业务操作，不必再查 `business list`。
+  - 禁止 `--show-secrets`；禁止靠运行业务命令触发登录；禁止代替用户输入凭据。
+- **环境切换**：与当前环境相同时不重复切换；用户给中文显示名时从 `ml env list --agent` 的 `items` 匹配“环境名”取“环境标识”（未找到或多匹配时请用户确认）。`env list` 未登录时仅显示默认可见环境，登录后额外显示获授权环境。
+- **业务切换与刷新**：
+  - 仅按租户切换：`ml business TENANT_ID --agent` 或 `ml business use TENANT_ID --agent`。
+  - 指定团队/部门：`ml business use --tenant TENANT_ID [--team TEAM_ID] [--department DEPARTMENT_ID] --agent`。
+  - 核对当前租户/团队名：`ml business show --agent`。
+  - 业务目录缺失或提示与目录不一致：`ml business refresh --agent`（同样打开 Edge，超时 ≥ 600 秒）。
+- **退出登录**：仅在用户明确要求或排障需要时执行 `ml logout --agent`（清除登录态，保留上次业务选择）。
 
-## 何时重新检查
+## 2. 何时重新检查
 
-| 场景 | 处理 |
+| 场景 | 动作 |
 | --- | --- |
-| 用户未指定租户或团队的普通查询 | 按 CLI 当前选择执行，汇报时以能核实的实际业务为准 |
-| 用户指定租户或团队 | 先用 `ml business show` 核对。当前选择不匹配时，按用户明确要求切换或请用户确认 |
-| 登录、退出、切换账号或业务 | 按对应命令结果更新上下文；必要时只补查认证或业务 |
-| 切换环境、CLI 路径或配置来源，上下文丢失 | 重新运行 `ml context --agent` 与 `ml auth status --agent` |
-| 长任务前、长时间中断后无法确认认证状态 | 只查 `ml auth status --agent`；长任务核对剩余时间是否足够，不重查版本和业务列表 |
-| 认证、业务或权限失败 | 进入下方对应处理，不重新执行完整检查清单 |
-| 不熟悉的命令、用法错误、文档不一致 | 查该命令 `--help`；涉及安装或版本异常再查版本和路径 |
-| 提交写操作前 | 重新用 `ml context --agent` 与 `ml auth status --agent` 核对上下文模式、会话 ID、环境、账号和业务，并核对目标 ID。业务与已确认目标不一致时，停止提交并重新确认 |
+| 未指定租户/团队的只读查询 | 沿用当前会话已确认上下文，无需重复预检 |
+| 用户指定了租户或团队 | 用 `ml business show --agent` 核对；不匹配时按授权切换或确认 |
+| 切换环境或上下文丢失 | 重新执行 `ml context --agent`（写操作前补 `ml auth status --agent`） |
+| 长任务前、长时间中断后 | 仅查 `ml auth status --agent` 核对 `remaining_minutes` |
+| 提交写操作前 | 核对 `ml context --agent` 与 `ml auth status --agent` 的环境、账号、业务及目标 ID |
+| 报错或权限/证书/保活异常 | 按需查阅 [troubleshooting.md](troubleshooting.md) |
 
-聊天记录只保留本聊天的操作上下文。当前业务以 CLI 生效状态为准，其他会话或终端的切换可能使旧记录失效。CLI 每次业务调用仍执行认证、业务选择和权限检查。
+## 3. Windows PowerShell 调用规范
 
-## Windows shell
-
-实际使用的 shell 以工具说明为准，不根据 Agent 名称或版本推断。以下仅提供现有 Windows 安装的调用示例，不改变工具权限或加载配置。
-
-- **找不到 `ml`**：刚安装后请完全退出并重新打开 Agent，让它继承新 PATH。用 `where.exe ml` 核对实际入口。仍找不到时，按安装方式使用下面的绝对路径。便携包使用解压目录中的 `ml.exe`。
-- **引号**：PowerShell 中含空格、反斜杠或英文逗号（如 `--name 'NAME,NAME'`、`--select '1,3'`）的参数值须用单引号包住。Windows PowerShell 5.1 和 PowerShell 7.3 之前的版本会去掉参数里嵌入的双引号；有文件参数时（如 `--from-file`、`--request-file`、`--request-sample-file`）先把文本写入本地文件再传入，必须直接传含双引号的值（如 JSON 形式的 `--customize-config`）时，在这些版本中把每个 `"` 写成 `\"`，执行后核对平台上的实际值。
-- **中文乱码**：CLI 对 Windows 重定向输出使用 UTF-8；接收端仍需使用一致的解码方式。仅在发生乱码时核对实际 shell 和输出接收方式。在 PowerShell 中可按需要设置 `[Console]::OutputEncoding = [System.Text.Encoding]::UTF8;` 并验证结果，不为每条命令固定添加前缀，不修改 CLI 代码解决编码问题。
-
-Windows Git Bash 可用 `cygpath -u` 转换 `LOCALAPPDATA` 后拼接安装路径。PowerShell 中可直接调用默认安装路径：
-
-```powershell
-& "$env:LOCALAPPDATA\Programs\WiseRecCLIGo\ml.exe" context --agent
-```
-
-确认配置路径后，用同一个 `ml.exe` 执行 `auth status` 和后续命令。在不同 shell 调用之间复用已确认的绝对路径。WSL 中请切换到 Windows shell 使用这套安装。
-
-## 登录与业务选择
-
-- **无缓存或已过期**：运行 `ml login`，为执行工具至少预留 10 分钟，工具参数名和单位以其说明为准。命令会打开 Edge，由用户完成 SSO 或验证码。每次登录优先恢复同一账号在同一环境和平台下仍有效的上次业务选择。没有有效选择时，使用 Edge 缓存中的 `ai-businessId`；缓存中也没有该 ID 时，使用 `ai-userInfo.roles.scopePermissions` 的第一个键作为租户 ID。登录后用 `ml auth status` 核对。不能代替用户输入凭据，也不要靠运行业务命令来触发登录。
-- **未选业务**：用 `ml business list` 取得当前环境的候选，按用户明确的选择运行 `ml business use TENANT_ID`，也可使用 `ml business use --tenant TENANT_ID` 或 `ml business TENANT_ID`。需要指定团队或部门时，运行 `ml business use --tenant TENANT_ID [--team TEAM_ID] [--department DEPARTMENT_ID]`。按命令结果更新当前业务，必要时用 `ml business show` 核对。业务 ID 不从其他环境复制。
-- **业务目录缺失或失效**：`ml business refresh` 会打开 Edge 刷新目录，同样预留至少 10 分钟，刷新后重新核对选择。
-- **Edge 兼容性日志**：旧版 CLI 若输出 `unknown IPAddressSpace value: Private`，以命令最终结果判断登录或刷新是否成功。失败时查看末尾错误和退出状态。
-- **Edge 提示还原页面**：CLI 启动的专用 Edge 会尝试隐藏提示。若仍看到提示，用户可关闭提示并继续登录或刷新。
-- **权限调用日志**：排查授权请求时，在权限管理系统的「完整命令」核对选项、参数和顺序。Go 客户端上报全部参数值，包括敏感值与内联脚本；本地历史仍脱敏。报告日志时只摘录排查所需的内容。
-- **退出登录**：`ml logout` 仅在用户要求或排障需要时运行。退出会清除登录状态，保留上次业务选择。
-
-## 环境禁用排查
-
-正常执行命令，遇到权限拒绝后不重试。
-
-- 若提示「当前环境 `<环境名>` 禁止执行」或「已由管理员禁止执行」，直接告知用户环境名和完整命令路径。
-- 若提示「服务端拒绝命令」或「当前账号或命令未获授权」，且原因不明确，在同一环境运行一次 `ml tree --all`。目标命令标记为 `[当前环境禁用]` 时，告知用户该命令在此环境被禁用；标记为 `[不支持]` 时，说明当前管理台不支持该命令。
-- 若命令树没有明确标记，或提示策略尚未同步，告知用户 CLI 的原始错误，并说明「暂无法确认该命令是否被当前环境禁用」。
-
-禁用命令分组会覆盖其子命令。命令树使用已同步的策略，实际执行以实时鉴权为准。
-
-## 失败分类
-
-| 现象 | 下一步 |
-| --- | --- |
-| `ml` 不在 PATH 中 | 直接调用默认安装目录的 `ml.exe`，路径见上方示例 |
-| 默认路径缺少 `ml.exe` 或版本异常 | 向用户核对安装目录和实际调用的版本 |
-| `配置文件不存在` | 按上方列出的当前平台用户配置路径核对。路径不符或文件缺失时，告知用户实际路径并停止操作 |
-| `安装包中缺少 config.json` 或内置配置无效 | 在报错的 Agent 终端运行 `Get-Command ml` 和 `ml --version`，核对实际调用的 CLI。若该安装缺少包内配置，用完整安装包重新安装 |
-| 认证过期或缺失 | 请用户登录后复查 |
-| 当前会话尚未绑定环境 | 确认用户目标环境后执行 `ml env use NAME`，再核对认证与业务 |
-| `ml env use` 报“本地状态正在使用”并返回非零退出码 | 在同一个会话运行 `ml context --agent`；仍在原环境时稍后重试 |
-| “插件尚未登记”或“插件调度已过期” | 检查宿主是否安装并启用保活插件，恢复当前会话。运行 `ml auth ping status` 核对插件报到与平台确认 |
-| “自动保活未能确认启动” | 在交互终端用 `ml auth ping status` 核对进程状态；显示“未运行”且环境已登录、业务已绑定时使用 `ml auth ping start` |
-| 当前会话在环境下尚未选择业务或业务绑定已失效 | 用 `ml business list` 核对候选，按用户选择执行 `ml business TENANT_ID` 或 `ml business use --tenant TENANT_ID --team TEAM_ID` |
-| `缺少有效的 DSH_SESSION_ID` 或 `ML_SESSION_ID 无效` | 停止操作并报告实际错误，不尝试绕过或回退全局配置 |
-| 未选业务 | 列候选并按用户选择设置；空结果不等于平台无数据 |
-| `当前环境 selected.businessId 与业务目录不一致，请运行 ml business refresh` | 刷新当前环境的业务目录，再用 `ml business show` 核对所选业务。需要重新选择时请用户确认目标 |
-| 权限拒绝 | 停止当前操作，按[环境禁用排查](#环境禁用排查)处理 |
-| `CLI_VERSION_TOO_OLD` | 转告终端显示的版本要求，请用户在交互终端确认升级，或联系管理员获取安装包。开始下载时显示 MSI 地址，检查安装包后按包内版本显示文件名。终端提示无法自动升级时，按提示核对 MSI 地址、代理、权限服务或安装路径。Agent 调用不代替用户确认 |
-| 权限服务证书校验失败 | 使用 `ml access status --diagnose` 核对 CA 来源；公共证书请用户或管理员在实际配置的 `access_control` 中选择 `ca_source: certifi`；私有 CA 使用 `env` 或 `custom`，不反复重试或关闭校验 |
-| 拒绝确认或在默认拒绝的提示中直接回车 | 训练、克隆和部署等命令会显示对应的取消提示。交互拒绝 `history clear` 时显示“已清理 0 条历史记录”。用户仍要求执行且已授权具体目标时才传 `--yes` |
-| `history clear` 提示“非交互清理必须传入 --yes” | 有记录匹配时，非交互清理需要显式确认。先核对清理范围，得到用户授权后才传 `--yes` |
-| 显示“已取消操作”且退出码为 1 或 130 | 分别对应命令入口捕获的中止和键盘中断。若无法确定写请求是否已经提交，先查远端状态再决定是否重试 |
-| 用法错误（退出码 2） | 查 `ml <子命令> --help` 修正调用参数，不按网络问题重试；缺失能力或程序缺陷交维护人员处理，不改码 |
-| 工具超时 | 只读查询延长执行等待时间后有限重试；写操作先查远端是否已生效 |
-| 网络超时 | 只读查询可有限重试；写操作先查远端状态 |
-| 结果为空 | 核对环境、业务、筛选条件和分页，如实报告 |
-
-通常退出码 0 表示命令正常退出，1 表示执行错误，2 表示参数用法错误。`jupyter exec` 和 `jupyter notebook run` 另有超时、丢失和中断状态，退出码 2 也可能表示结果未知，见 [jupyter.md](jupyter.md)。认证进度提示写入 stderr。自动登录成功会打印用户信息表，未重定向该表的命令可能将它写入 stdout。若 stdout 混有登录表格，先核对认证状态，再重新执行只读查询。
-
-## 权限服务 CA 排障
-
-代理与 CA 来源独立。`use_env_proxy: false` 不代表忽略证书环境变量。部分 Agent 会向子进程注入 `SSL_CERT_FILE` 或 `SSL_CERT_DIR`，导致普通 CMD 成功但 Agent 证书校验失败；不要仅凭连接错误认定是代理或权限拒绝。
-
-`ca_source` 支持 `certifi`、`env`、`custom`：随包配置显式使用 `certifi`，忽略环境 CA 并保留 HTTPS 校验；旧外部配置省略该字段仍按 `env` 行为处理，优先 `SSL_CERT_FILE` 再 `SSL_CERT_DIR`。`custom` 需同时指定绝对路径 `ca_file`，其他模式不得带此字段。所有模式验证证书及主机名，校验失败不会切换其他信任库。
-
-只通过诊断核对当前来源并向用户报告；配置由用户或管理员维护，不擅自修改配置、系统证书、Agent 自带证书或全局环境变量。无需给所有 ml 命令固定添加清空 CA 的 shell 前缀，不关闭证书校验或权限检查。该设置仅适用于权限服务，不承诺修复平台业务接口自身的 TLS 问题。
+- **找不到 `ml`**：刚安装后重启 Agent 继承新 PATH；用 `where.exe ml` 核对，或直接调用默认绝对路径并在后续调用中复用：
+  ```powershell
+  & "$env:LOCALAPPDATA\Programs\WiseRecCLIGo\ml.exe" context --agent
+  ```
+  便携包使用解压目录中的 `ml.exe`。WSL 中请切换到 Windows shell。
+- **引号规范**：PowerShell 中含空格、反斜杠或英文逗号（如 `--name 'NAME,NAME'`、`--select '1,3'`）的值**必须用单引号包住**。旧版 PowerShell（5.1 / <7.3）会剥离参数中的双引号：有文件参数时（`--from-file`、`--request-sample-file`）优先写文件传入；必须直接传 JSON 字符串（如 `--customize-config`）时将 `"` 转义为 `\"`，更新后核对平台实际值。
+- **UTF-8 编码**：CLI 重定向输出为 UTF-8，仅实际出现中文乱码时核对 shell 编码，不为每条命令固定加编码前缀。

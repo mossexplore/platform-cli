@@ -2,7 +2,10 @@
 
 以下查询与操作默认使用 `--agent` 获取紧凑精简 JSON（不要与 `-o json` 同传）；仅在需要完整原始响应（如被截断的超长数据集描述）时去掉 `--agent` 改用 `-o json`。
 
-使用 `ml dataset list --name DATASET_NAME --agent` 获取本页数据集 ID；跨租户查询按每条记录的 `businessId` 区分同名数据集。数据集文件上传的 Agent 输出包含受理状态 `accepted`、数据集标识、目标目录和文件名。用目录列表确认平台处理结果。
+**高频最短链路**：
+- **数据集查文件/上传**：`ml dataset list --name 'NAME,NAME' --agent`（跨租户按每条 `businessId` 区分）→ `ml dataset files list DATASET_ID --dir / --agent` / `ml dataset files upload DATASET_ID LOCAL_FILE --dir / --agent`（返回 `accepted` 后用 `files list` 核验）
+- **特征任务查日志**：`ml feature-task list --name 'NAME,NAME' --agent` → `ml feature-task execution list TASK_ID --agent`（取 `jobId`）→ `ml feature-task execution logs search JOB_ID --agent`
+- **质量监控装配**：`ml quality wide-featureset list --agent`（取 `setId`）→ `feature-assemble list --set-id SET_ID --agent`（取 `definitionId`）→ `feature-assemble feature list --set-id SET_ID --definition-id DEFINITION_ID --agent`
 
 - 从特征任务定位上游数据时，先用 `ml feature-task detail TASK_ID --agent` 查关联信息。详情可能只给出名称或引用。缺少 ID 时，在当前环境支持的列表中按名称查找并核对，或请用户提供 ID。
 - 质量监控宽表查询（`ml quality wide-featureset`）与特征集配置查询（`ml featureset wide`）为不同入口，ID 与筛选字段不混用。
@@ -38,7 +41,7 @@ ml feature-task execution logs search JOB_ID --agent
 ml feature-task execution logs search JOB_ID --start-line 1 --end-line 2000 --keyword ERROR --keyword timeout --scope C --scope-lines 10 --agent
 ```
 
-- 特征任务列表默认 `--category dpp-all`，第 1 页、每页 10 条；类型枚举见 `ml feature-task list --help`。该命令与 `ml sample-task list` 是不同的任务入口，不混用筛选参数。
+- 特征任务列表默认 `--category dpp-all`，第 1 页、每页 10 条；`--category` 可选：`dpp-all`、`feature_preprocess_realtime`、`train_fi`、`data_sync`、`data-preproc`、`feature_generate`、`feature_evaluation`、`feature_improve`、`work_flow`、`feature-push`、`train_spark`、`train_fi_sync_hdfs`、`train_fi_data_monitor`、`generate_samples`。该命令与 `ml sample-task list` 是不同的任务入口，不混用筛选参数。
 - 从 `ml feature-task list --agent` 获取 `taskId`，再用 `ml feature-task detail TASK_ID --agent` 查询算法、数据集、特征集引用或参数。无需提供团队 ID。时间已转为北京时间；需要完整原始 `result` 时改用 `-o json`。
 - 执行记录默认第 1 页、每页 10 条，不包含历史实例；使用 `--include-history` 包含历史实例。`--agent` 返回 `pagination`、`pageIndex`、`pageSize`、`returnedCount`、`total`、`fields`、`items`。
 - 日志查询使用执行记录中的 `jobId`，不能传任务 ID。默认行范围为 1 到 2000；起止行均为正整数，结束行不得小于起始行。
@@ -91,5 +94,4 @@ ml quality wide-featureset label-assemble feature list --set-id SET_ID --definit
 
 - 先用 `ml quality wide-featureset list --agent` 定位特征集，再查询对应装配的样本定义，最后使用该分组下的样本定义 ID 查询特征。不传 `--type`，由命令分组决定装配类型。
 - 样本定义列表不分页，`--agent` 返回 `pagination: "unpaged"`、`returnedCount`、`featureSetId`、`fields`、`items`。若返回 ID 与请求 ID 不同，先核对，不擅自推断两者可互换；后续查询显式传入经确认的 `--set-id`。
-- 装配特征列表默认第 1 页、每页 10 条，最大 100 条，每次只取一页。请求必须同时指定特征集 ID 和样本定义 ID，不混用特征 ID。
-- `--agent` 输出保留原始数值（表格模式会对装配比例取整展示，周期保留编码原值）。
+- 装配特征列表默认第 1 页、每页 10 条，最大 100 条，每次只取一页。请求必须同时指定特征集 ID 和样本定义 ID，不混用特征 ID。`--agent` 输出保留原始数值与周期编码。

@@ -2,11 +2,13 @@
 
 以下查询与操作默认使用 `--agent` 获取紧凑 JSON（不要与 `-o json` 同传）；仅在需要原始完整字段（如 `nodeId`、`deployId`、`mockResponseRaw`）时去掉 `--agent` 改用 `-o json`。
 
-使用 `ml service host list SERVICE_ID --agent` 时，`fixedFirstPage` 表示只返回第一页；`returnedCount` 可小于 `total`。用同一条记录中的 `nodeName` 和 `clusterName` 查询 Pod 事件。
+**高频最短链路**：
+- **查服务与 Pod 诊断**：`ml service list --name 'NAME,NAME' --agent` → `ml service host list SERVICE_ID --agent`（取 `nodeName`、`clusterName`，注意 `fixedFirstPage` 仅返回首页）→ `ml service host pod-event --pod POD_NAME --cluster-name CLUSTER_NAME --agent` / `ml service host log-stdout --pod POD_NAME --agent`
+- **业务日志检索**：先 `--type TYPE --list --no-input --agent` 取文件名 → 再 `--type TYPE --file FILE_NAME -k KEY -n 200 --no-input --agent` 查正文
 
 ## 定位服务与主机
 
-用 `ml service --help` 在 `Commands` 面板找到子命令，再用对应子命令的 `--help` 核对用法、参数和必填项。服务 ID 示例需换成当前业务中实际查询到的 ID。
+直接按以下签名加 `--agent` 调用（无需先查 `--help`）。服务 ID 示例需换成当前业务中实际查询到的 ID。
 
 ```powershell
 ml service list --name 'SERVICE_NAME,SERVICE_NAME' --agent
@@ -82,7 +84,7 @@ ml service host log-search SERVICE_ID --pod POD_NAME --cluster-name CLUSTER_NAME
 
 - 该命令不支持 `-o json`；使用 `--agent` 时，`--list` 返回紧凑文件列表 JSON，正文检索返回 `{"content": "..."}`，提示信息在 stderr。
 - `--pod` 与 `--cluster-name` 必须成对提供。显式指定时，CLI 仍查询该服务的主机列表第一页，从首条记录读取 `infraType`，不核验指定 Pod 的归属。第一页为空时会报“主机列表为空，无法获取 infraType”。未指定 Pod 时，只有唯一主机才会自动选择。文件选择同理，有多个候选时补充参数或请用户选择。
-- `--list` 不能与 `--file`、关键词、行数等正文检索选项同时使用。`-k` 可重复；`-n` 默认 200 行。高级选项 `--search-order`、`--grep-scope`、`--grep-line` 见 `--help`。
+- `--list` 不能与 `--file`、关键词、行数等正文检索选项同时使用。`-k` 可重复；`-n` 默认 200 行。高级选项：`--search-order tail|head`（默认 `tail`）、`--grep-scope A|B|C`、`--grep-line N`。
 - 日志不会持续刷新。空文件列表不会检索正文；指定的主机或文件不存在会失败。
 
 ## 日志类别

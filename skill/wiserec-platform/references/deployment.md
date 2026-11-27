@@ -1,6 +1,6 @@
 # 模型查询、模板与模型部署
 
-只用 CLI，不自行调用发布接口；查询与操作默认使用 `--agent` 获取紧凑 JSON（不要与 `-o json` 同传）。完整选项以 `ml model deploy --help` 为准。
+只用 CLI，不自行调用发布接口；查询与操作默认使用 `--agent` 获取紧凑 JSON（不要与 `-o json` 同传），无需预先执行 `--help`。`ml model deploy` 常用选项：`--template DEPLOY_TEMPLATE_ID`（必填）、`--dry-run`、`--yes`、`--service-timeout MS`、`--execute-limit COUNT`、`--qps COUNT`。
 
 ## 标准部署流程
 
