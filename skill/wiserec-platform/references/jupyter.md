@@ -1,107 +1,66 @@
 # Web Studio 与 Jupyter
 
-使用 `ml jupyter files read REMOTE_PATH --agent` 可从 `content` 读取请求行范围内的正文。执行命令时将 `--agent` 放在传给远端程序的 `--` 之前；同时检查退出码与执行状态。Agent 模式透传子进程退出码，使用 `status` 区分子进程失败、超时和中断。
+所有写入和执行均受 [SKILL.md](../SKILL.md) 禁止改码约束：仅处理已授权非代码文件，或执行已确认不改码的既有程序/Notebook。默认使用 `--agent`（不与 `-o` 同传）。
 
-本节所有写入和执行均受 [SKILL.md](../SKILL.md) 的禁止改码规则约束。只处理已授权的非代码文件，或执行已确认不会改码的既有程序与 Notebook；无法确认副作用时停止。
+**禁止 `ml jupyter terminal open|attach` 及分配 TTY/PTY**（失败也不能退回交互终端）。`ml jupyter terminal list --agent` 只读；`ml jupyter terminal close NAME --agent` 无确认且会杀进程，仅用户明确要求时执行。CLI 无 Cell/后台任务/Kernel 管理命令。
 
-## 选择入口
-
-| 用户任务 | 命令 |
-| --- | --- |
-| 查目录、读取文件、读写或传输非代码数据 | `ml jupyter files` |
-| 执行已确认不改码的既有程序或只读命令 | `ml jupyter exec` |
-| 执行既有、代码单元不变且不改码的本地 Notebook | `ml jupyter notebook run` |
-| 多步命令 | 分别调用已有 CLI 命令并逐步核验，不生成或上传新脚本 |
-| 需要交互输入的程序 | 改用程序的非交互参数或配置；做不到时向用户报告限制 |
-
-**禁止 `ml jupyter terminal open`、`ml jupyter terminal attach`，禁止分配 TTY/PTY、模拟按键或维持交互 Shell**，失败时也不能退回交互终端。`ml jupyter terminal list` 可以只读查看；`ml jupyter terminal close NAME` 会结束其中的进程且无确认，仅在用户明确要求时使用。CLI 没有 Cell、后台任务或 Kernel 管理命令，不要构造这些命令。
-
-## 连接实例
-
-先按 [session.md](session.md) 完成环境、认证和业务检查，然后：
+## 连接与选择实例
 
 ```powershell
-ml webstudio show --agent
-ml webstudio list --status online --agent
-ml webstudio list -A --status online --agent
-ml webstudio login ENV_ID --agent
-ml jupyter files list --agent
+ml webstudio show --agent                      # 查看默认实例缓存（不代表实时状态）
+ml webstudio list --status online --agent      # 查在线实例，取 envId（支持 -A）
+ml webstudio login ENV_ID [--refresh] --agent  # 建立/刷新连接并设为默认实例
+ml webstudio start ENV_ID --agent              # 启动实例（约 15 秒返回，需用户授权）
 ```
 
-- `ml webstudio show --agent` 显示当前环境、账号和业务绑定的默认实例及缓存状态，不代表实例实时状态；已有合适的默认实例时无需重复登录。
-- ENV_ID 必须来自用户指定或查询结果。`login` 重新建立并验证连接，并保存为默认实例；`--refresh` 强制重新获取凭据和会话。单次命令可用 `--studio-id ENV_ID` 临时指定实例。
-- 实例未运行时，经用户授权运行 `ml webstudio start ENV_ID --agent`（接口可能约 15 秒才返回），再用 `ml webstudio list --env-id ENV_ID --agent` 确认状态。`stop` 可能中断运行中的 Notebook 或终端，先核对目标。start 和 stop 不改变默认实例。
-- `ml jupyter doctor --agent` 同时检查 Kernel 与终端管理接口，它失败不一定代表文件接口不可用；文件任务直接用 `files list` 验证。
+- 已有合适默认实例时无需重复 `login`；单次命令可用 `--studio-id ENV_ID` 临时指定。
+- `start` / `stop` 不改默认实例（`stop` 会中断运行中的 Notebook/终端，先核对目标）；启动后用 `ml webstudio list --env-id ENV_ID --agent` 确认状态。
+- `ml jupyter doctor --agent` 同时检查 Kernel 与终端接口，其失败不代表文件接口不可用，文件任务直接用 `files list` 验证。
 
-## 远端路径
+## 远端文件操作（`ml jupyter files`）
 
-- 路径相对 Jupyter 文件浏览器的根目录。先省略路径运行 `files list --agent` 查看根目录，再使用返回条目的 `path`，不要假设存在 `projects`。
-- 远端路径不能以 `/` 开头或包含 `..`，不能使用 Windows 本地路径。LOCAL 是本机文件，REMOTE 是远端文件，两者不可互换。
-- 不要用本地文件工具修改同名本地路径来冒充远端修改。
+均支持 `--studio-id ENV_ID` 与 `--agent`。路径相对 Jupyter 根目录（先省略路径 `files list --agent` 取实际 `path`，勿假设 `projects`），**禁止 `/` 开头、`..` 或 Windows 路径**；`LOCAL` 与 `REMOTE` 不可互换。
 
-## 文件命令
-
-均支持 `--studio-id ENV_ID`，Agent 默认使用 `--agent`（不要与 `-o` 同传）。
-
-| 命令（接在 `ml jupyter` 后） | 行为 |
+| 子命令 | 行为与关键选项 |
 | --- | --- |
-| `files list [PATH]` | 只列一层，不递归 |
-| `files stat PATH` | 类型、大小、时间和可写性，不含正文 |
-| `files read PATH [--start-line N] [--end-line N]` | UTF-8 文本，行号从 1 开始且含首尾 |
-| `files write PATH --from-file LOCAL` | 从本地 UTF-8 文件写入；也可 `--stdin`，二选一 |
-| `files mkdir PATH` | 创建一层目录，父目录必须存在 |
-| `files upload LOCAL REMOTE` | 上传单文件，含二进制；REMOTE 包含目标文件名 |
-| `files download REMOTE LOCAL` | 下载单文件；LOCAL 含文件名，本地父目录须存在 |
-| `files move SOURCE TARGET` | 移动或重命名，不覆盖 |
-| `files copy SOURCE TARGET_DIR` | 复制单文件到已有目录，新文件名由服务端决定，从返回的 path 读取 |
-| `files delete PATH` | 立即删除文件或空目录，无确认、不递归 |
+| `files list [PATH]` | 列一层目录（不递归）；返回 `path`、`fields`、`items` |
+| `files stat PATH` | 类型、大小、时间、可写性（不含正文） |
+| `files read PATH [--start-line N] [--end-line N]` | 读 UTF-8 文本（行号从 1 起含首尾），正文在顶层 `content` |
+| `files write PATH --from-file LOCAL [--overwrite]` | 从本地 UTF-8 文件写入（Windows 优先 `--from-file`，避免 `--stdin` 编码问题） |
+| `files mkdir PATH` | 建一层目录，父目录须存在 |
+| `files upload LOCAL REMOTE [--overwrite]` | 上传单文件（含二进制），`REMOTE` 含目标文件名 |
+| `files download REMOTE LOCAL [--overwrite]` | 下载单文件，`LOCAL` 含文件名且本地父目录须存在 |
+| `files move SOURCE TARGET` | 移动/重命名，不覆盖 |
+| `files copy SOURCE TARGET_DIR` | 复制单文件至已有目录，新路径以返回 `path` 为准 |
+| `files delete PATH` | 立即删除文件或空目录，**无确认**、不递归 |
 
-- write、upload、download 默认不覆盖已有文件；覆盖非代码文件须加 `--overwrite` 且符合用户意图；不得覆盖代码。命令不递归处理目录，也不展开通配符。
-- 编辑已授权的远端非代码文件：先 read，确认内容与路径不是代码或用于改码的程序，在本地准备完整数据，用 `write --from-file --overwrite` 写回，再 read 核验。Windows 上优先 `--from-file`，避免 `--stdin` 的编码问题。避免与用户在浏览器中同时编辑同一文件。
-- read 和传输会把整个文件读入内存，不适合超大文件。
-- `--agent` 模式下：`files list` 返回带 `path`、`fields`、`items` 的紧凑列表 JSON；`files read` 及其他文件命令直接返回顶层对象（正文在 `content`）。失败退出 1 并返回 `{status: "FAILED", error: ...}`；参数错误退出 2，可能只有用法文本。
+- 默认不覆盖（覆盖已授权非代码文件须加 `--overwrite`）；不递归、不展开通配符；大文件不适合 `read`/传输（整文件进内存）。
+- 编辑非代码文件：先 `read` 确认非代码 → 本地准备 → `write --from-file --overwrite` → 再 `read` 核验。失败退出 `1` 返回 `{status:"FAILED",error:...}`。
 
-```powershell
-ml jupyter files list workspace --agent
-ml jupyter files write workspace/report.txt --from-file '.\report.txt' --overwrite --agent
-ml jupyter files read workspace/report.txt --agent
-ml jupyter files download workspace/data.csv '.\data.csv' --agent
-```
-
-## 非交互执行
+## 非交互执行（`ml jupyter exec`）
 
 ```powershell
 ml jupyter exec --cwd workspace --agent -- sh -c 'pwd && ls -la'
 ```
 
-- 远端须是 POSIX 系统且有 Python Kernel，本地 Windows 可以连接。每次调用使用独立 Kernel，不继承 Notebook 变量或上一次 exec 的 `cd`、`export`，每次都显式传 `--cwd`。程序按远端 PATH 查找，Kernel 可用不代表某个命令或虚拟环境可用。
-- PROGRAM 与 ARGS 放在 `--` 之后，CLI 不隐式使用 Shell；需要管道或重定向时显式用 `sh -c`。注意本地 PowerShell 和远端 sh 两层引号；不能用管道、重定向或脚本生成来修改代码。复杂任务无法通过已有程序安全完成时报告限制。
-- 标准输入关闭，不能用于密码提示或交互程序。stdout、stderr 在结束后一次返回；各自默认最多保留 1 MiB（`--max-output`），超出截断并标记 `truncated`；`output_incomplete=true` 表示输出未收齐。
-- 时限：`--startup-timeout`（Kernel 就绪，默认 60 秒）加 `--timeout`（程序执行，默认 60 秒）。执行工具的等待时限按两者之和再加至少 60 秒设置，具体参数名和单位以工具说明为准。
-- exec 结束或超时会清理同一进程组，不适合启动后台常驻服务。
+- **语法**：CLI 选项（含 `--agent`、`--cwd`）必须放在 `--` 之前，`PROGRAM [ARGS...]` 在 `--` 之后；需管道/重定向时显式 `sh -c`（注意 PowerShell 与远端 sh 两层引号）。
+- **隔离与限制**：每次使用独立 Kernel（不继承上次 `cd`/`export` 或 Notebook 变量），标准输入关闭；stdout/stderr 各自默认上限 1 MiB（`--max-output`），超出标 `truncated`；结束/超时清理进程组，不用于常驻后台服务。
+- **工具等待超时**：`--startup-timeout`（默认 60s）+ `--timeout`（默认 60s）+ 至少 60s 余量。
+- **状态与退出码**（`--agent` 结果字段在顶层；`exit_code` 可能为空，以 `status`/`remote_state` 为准；`cleanup_errors` 非空时报告 `kernel_id`）：
 
-`--agent` 模式下执行结果字段直接位于顶层（`-o json` 包在 `result` 中）：
-
-| `status` | CLI 退出码 | 处理 |
+| `status` | 退出码 | 处理 |
 | --- | --- | --- |
-| `SUCCEEDED` | 0 | 核对 stdout、stderr 和预期产物 |
-| `FAILED` | `--agent` 透传 1–255（`-o json` 透传 1–123），其余为 1 | 查看 error、stderr 和 `exit_code`；仅可修正调用参数，需改码则停止交维护人员处理 |
-| `TIMED_OUT` | 124 | 远端已终止进程组，仍需核对副作用 |
-| `LOST` | 2 | 结果未知，不当作参数错误，不自动重跑 |
-| `INTERRUPTED` | 130 | 本地中断，不能断言远端已停止 |
+| `SUCCEEDED` | `0` | 核对 stdout、stderr 与产物 |
+| `FAILED` | `--agent` 透传 `1–255`（`-o json` 透传 `1–123`），其余 `1` | 看 `error`/`stderr`/`exit_code`；需改码则停止 |
+| `TIMED_OUT` | `124` | 远端已终止进程组，仍需核对副作用 |
+| `LOST` | `2` | 结果未知，不按参数错处理、不自动重跑 |
+| `INTERRUPTED` | `130` | 本地中断，不能断言远端已停止 |
 
-`exit_code` 可能为空，以 `status` 和 `remote_state` 为准。`cleanup_errors` 非空时说明 Kernel 可能遗留，按 `kernel_id` 报告，不要声称已释放。
-
-## Notebook
+## Notebook 执行
 
 ```powershell
 ml jupyter notebook run '.\analysis.ipynb' --download '.\results' --agent
 ```
 
-- 仅执行既有且已确认不修改代码的 `.ipynb`，不得新增或改写代码单元。CLI 上传并按顺序执行全部单元格，失败也保存部分结果；结果写入 `--download` 目录下每次新建的子目录（默认相对当前目录的 `results`）。
-- 时限为 `--startup-timeout`（默认 60 秒）加 `--timeout`（全部单元格，默认 600 秒），执行工具相应预留两者之和再加至少 60 秒。
-- 失败或超时检查摘要和远端状态，不自动重跑。
-
-## 凭据
-
-files 和 exec 不输出带 Token 的连接地址；Go CLI 的 Web Studio 列表 JSON 原样输出平台响应，普通查询和全租户查询都可能包含凭据或访问链接。仅向用户返回任务所需的非敏感字段。其他异常诊断、远端文件和程序输出仍可能含秘密，只报告任务需要的内容。认证失败时先处理会话，不在混合输出中猜测 JSON。
+- 仅执行既有且不改码的 `.ipynb`；按顺序跑全部单元格，失败亦保存部分结果至 `--download` 下新建子目录（默认 `results`）。
+- **工具等待超时**：`--startup-timeout`（默认 60s）+ `--timeout`（默认 600s）+ 至少 60s 余量；失败或超时查摘要与远端状态，不自动重跑。

@@ -1,101 +1,58 @@
 # 服务与服务日志
 
-以下查询与操作默认使用 `--agent` 获取紧凑 JSON（不要与 `-o json` 同传）；仅在需要原始完整字段（如 `nodeId`、`deployId`、`mockResponseRaw`）时去掉 `--agent` 改用 `-o json`。
+以下查询与操作默认使用 `--agent`（不与 `-o json` 同传）；仅在需要原始完整字段（如 `nodeId`、`deployId`、`mockResponseRaw`）时去掉 `--agent` 改用 `-o json`。
 
 **高频最短链路**：
-- **查服务与 Pod 诊断**：`ml service list --name 'NAME,NAME' --agent` → `ml service host list SERVICE_ID --agent`（取 `nodeName`、`clusterName`，注意 `fixedFirstPage` 仅返回首页）→ `ml service host pod-event --pod POD_NAME --cluster-name CLUSTER_NAME --agent` / `ml service host log-stdout --pod POD_NAME --agent`
+- **查服务与 Pod 诊断**：`ml service list --name 'NAME,NAME' --agent` → `ml service host list SERVICE_ID --agent`（取 `nodeName`、`clusterName`，`fixedFirstPage` 仅返回首页 10 条）→ `ml service host pod-event --pod POD_NAME --cluster-name CLUSTER_NAME --agent` / `ml service host log-stdout --pod POD_NAME --agent`
 - **业务日志检索**：先 `--type TYPE --list --no-input --agent` 取文件名 → 再 `--type TYPE --file FILE_NAME -k KEY -n 200 --no-input --agent` 查正文
 
 ## 定位服务与主机
 
-直接按以下签名加 `--agent` 调用（无需先查 `--help`）。服务 ID 示例需换成当前业务中实际查询到的 ID。
-
 ```powershell
 ml service list --name 'SERVICE_NAME,SERVICE_NAME' --agent
-ml service list --name SERVICE_NAME --agent
-ml service list -A --name SERVICE_NAME --agent
-ml service host list SERVICE_ID --agent
-ml service host list SERVICE_ID --pod-ip POD_IP --agent
+ml service host list SERVICE_ID [--pod-ip POD_IP] --agent
 ml service deployment list SERVICE_ID --agent
 ```
 
-- 主机视图和部署视图只返回第一页 10 条，不能当作完整集合。主机视图中的 `nodeName` 是 Pod 名称。
-- 主机视图不展示主机ID列与部署ID列；podIP 按 `nodeHost` 原值完整显示。需要 `nodeId` 与 `deployId` 时改用 `-o json`。
-- `host list --pod-ip IP` 按 Pod IP 筛选，传入值用于接口的 `hostIp`，无需端口；不传时不按 IP 筛选，空值会报错。主机测试也按所传 `--pod-ip` 查询主机视图。
-- 部署视图首列为 `blockId`。
+- `host list` 和 `deployment list` 仅返回首页 10 条，不能当作全量；`nodeName` 为 Pod 名称，`nodeHost` 为 Pod IP。
+- `--pod-ip` 仅传 IP（不带端口），空值会报错。
 
-## 测试服务
+## 服务与主机 Mock 测试
 
 ```powershell
-ml service mock SERVICE_ID --agent
-ml service mock SERVICE_ID --request-sample-file '.\sample.json' --agent
-ml service mock SERVICE_ID --request-sample-file '.\sample.json' --transmission-tag 1 --agent
+ml service mock SERVICE_ID [--request-sample-file '.\sample.json'] [--transmission-tag 0|1] --agent
+ml service host mock SERVICE_ID --pod-ip POD_IP [--request-sample-file '.\sample.json'] [--transmission-tag 0|1] --agent
 ```
 
-- **前置与授权**：命令会实际调用一次服务（无 `--dry-run` 或 `--yes`），执行前先核对服务 ID、样例和用户测试意图。超时、断连或认证失败不盲目重试。
-- **样例来源**：默认查询服务文档并使用其中的请求样例；指定 `--request-sample-file PATH` 时读取本地 UTF-8 JSON 文件（兼容 BOM，不修改原文件）并跳过文档查询。自定义报文只通过文件传入，勿构造 `--request-file` 等未定义参数；非法 JSON（“样例报文不是标准的JSON格式，请检查！”）、文件不可读或默认文档样例缺失时停止。
-- **文档输入报文为空**：提示「[错误] 服务文档输入报文为空，请在该服务中补充相关信息后再次调用！」。文档样例支持 JSON 文本、对象和数组，文本可带 UTF-8 BOM。
-- **透传控制**：`--transmission-tag` 默认 `0`（不调用透传接口），仅支持 `0` 或 `1`。
-- **结果与退出码**：`--agent` 返回顶层 `nodeList`（含 `hostName`、`scope`、`domain`、`retCode`、`mockResponse`、`cost`；需要 `mockResponseRaw` 时改用 `-o json` 读取 `result.nodeList`）。全部节点结果码为 0 且报文有效时退出 `0`；存在失败节点、无效报文或无节点时退出 `1`（即使退出 `1`，stdout 仍可能包含节点结果，需结合 stderr 一起核对，内部业务结果仍须查看报文）。
+- **真实调用且无内置确认**：无 `--dry-run` / `--yes`，执行前核对服务 ID、样例与用户意图；超时或断连不盲目重试。
+- **参数规则**：不传 `--request-sample-file` 时自动读取服务文档样例；自定义报文只通过 `--request-sample-file` 传本地 UTF-8 JSON 文件（勿构造 `--request-file`）。`--transmission-tag` 默认 `0`，仅支持 `0|1`。`host mock` 仅需 `--pod-ip`（不带端口），无匹配或多台匹配时停止。
+- **结果与退出码**：`--agent` 返回顶层 `nodeList`；全节点 `retCode=0` 且报文有效退出 `0`，否则退出 `1`（退出 `1` 时 stdout 仍可能含节点结果，须结合 stderr 与报文核对）。
 
-## 测试指定主机
-
-```powershell
-ml service host mock SERVICE_ID --pod-ip POD_IP --agent
-ml service host mock SERVICE_ID --pod-ip POD_IP --request-sample-file '.\sample.json' --agent
-ml service host mock SERVICE_ID --pod-ip POD_IP --transmission-tag 1 --agent
-ml service host mock SERVICE_ID --pod-ip POD_IP --request-sample-file '.\sample.json' --transmission-tag 1 --agent
-```
-
-- **参数定位**：除 `SERVICE_ID` 外仅需 `--pod-ip`（无需手工填写主机 ID 或端口）。CLI 会先查询主机视图，若查无主机（“目前主机不存在，请检查！”）、匹配多台或必要字段缺失则停止。
-- **其余规则**：请求样例、透传选项、`nodeList`、退出码及错误处理与 `ml service mock` 相同；Pod IP 提示写入 stderr，stdout 保持 JSON 结果。
-
-## 查询 Pod 事件
+## Pod 事件与标准输出日志
 
 ```powershell
 ml service host pod-event --pod POD_NAME --cluster-name CLUSTER_NAME --agent
-ml service host pod-event SERVICE_ID --pod POD_NAME --agent
 ml service host pod-event SERVICE_ID --no-input --agent
-```
-
-- **双模式寻址**：已知 `POD_NAME` 和 `CLUSTER_NAME`（来自 `ml service host list SERVICE_ID --agent`）时可直接传 `--pod` 和 `--cluster-name`，无需 `SERVICE_ID`；传 `SERVICE_ID --pod POD_NAME` 时自动从主机列表补全集群名称；仅传 `SERVICE_ID` 且多台主机时，非交互模式需传 `--no-input` 并补齐参数。
-- **输出**：`--agent` 返回无分页列表 JSON（`items` 含 `type`、`reason`、`message`、`lastTimestamp` 北京时间、`count`）；需要完整 `result` 时改用 `-o json`。
-
-## 查询标准输出日志
-
-```powershell
-ml service host log-stdout --pod POD_NAME --agent
-ml service host log-stdout --pod POD_NAME -c filebeat --no-input --agent
+ml service host log-stdout --pod POD_NAME [-c CONTAINER] --agent
 ml service host log-stdout SERVICE_ID --no-input --agent
 ```
 
-- **双模式寻址**：已知 `POD_NAME` 时可直接 `--pod POD_NAME` 免 `SERVICE_ID` 查询；仅传 `SERVICE_ID` 时，仅单台主机自动选中，多台主机在非交互环境下需指定 `--pod`。
-- **动态容器校验**：`-c` / `--container` 默认 `appcontainer`，容器集合动态取自接口返回的 `containerStates`（非固定 4 个）。若指定容器不在实际列表中，会停止查询并提示“该容器没有<容器类型>类型日志，请确认容器类型是否正确！”。
-- **输出**：`--agent` 返回紧凑 JSON（顶层包含 `containerStates` 与 `data`）；需要原始文本或完整 `result` 时改用 `-o text` 或 `-o json`。
+- **双模式寻址**：已知 `--pod`（`pod-event` 需配 `--cluster-name`）时可省 `SERVICE_ID`；仅传 `SERVICE_ID` 时仅单台主机自动选中，多台主机在非交互下须传 `--no-input` 并补齐参数。
+- **`pod-event`**：返回无分页列表 JSON（`items` 含 `type`、`reason`、`message`、`lastTimestamp`、`count`）。
+- **`log-stdout`**：`-c` / `--container` 默认 `appcontainer`，合法容器名动态取自返回中的 `containerStates`（顶层含 `containerStates` 与 `data`）。
 
-## 日志检索
+## 业务日志检索（`service host log-search`）
 
-在 shell 工具中必须加 `--no-input`，并明确传入 `--type`：
+非交互环境必加 `--no-input` 并显式指定 `--type`（该命令不支持 `-o json`，加 `--agent` 时 `--list` 返回文件列表 JSON，正文返回 `{"content":"..."}`）：
 
 ```powershell
 ml service host log-search SERVICE_ID --pod POD_NAME --cluster-name CLUSTER_NAME --type interface --list --no-input --agent
 ml service host log-search SERVICE_ID --pod POD_NAME --cluster-name CLUSTER_NAME --type interface --file FILE_NAME -k error -n 200 --no-input --agent
 ```
 
-- 该命令不支持 `-o json`；使用 `--agent` 时，`--list` 返回紧凑文件列表 JSON，正文检索返回 `{"content": "..."}`，提示信息在 stderr。
-- `--pod` 与 `--cluster-name` 必须成对提供。显式指定时，CLI 仍查询该服务的主机列表第一页，从首条记录读取 `infraType`，不核验指定 Pod 的归属。第一页为空时会报“主机列表为空，无法获取 infraType”。未指定 Pod 时，只有唯一主机才会自动选择。文件选择同理，有多个候选时补充参数或请用户选择。
-- `--list` 不能与 `--file`、关键词、行数等正文检索选项同时使用。`-k` 可重复；`-n` 默认 200 行。高级选项：`--search-order tail|head`（默认 `tail`）、`--grep-scope A|B|C`、`--grep-line N`。
-- 日志不会持续刷新。空文件列表不会检索正文；指定的主机或文件不存在会失败。
-
-## 日志类别
-
-日志类别没有默认值，取决于主机的 infraType：
-
-| 主机 infraType | 可用 `--type` |
-| --- | --- |
-| `infer-python` | run、interface、metrics、engine、ascend、mslite、alarm |
-| `rtc` | rtc、run、interface、dcs、metrics、gc、interface_manager、interface_extend、engine、monitor、catalina、dmq |
-
-`rtc_python` 是 CLI 内部使用的请求类型，不要传给 `--type`。主机类型未知时 CLI 会报错，不要绕过。
-
-日志内容可能包含敏感信息，只摘录任务需要的部分。
+- `--pod` 与 `--cluster-name` 必须成对提供（CLI 从主机列表首条读取 `infraType`）；未指定时仅唯一主机自动选中，多文件同理需补 `--file`。
+- `--list` 与正文选项互斥；`-k` 可重复，`-n` 默认 `200`；高级选项：`--search-order tail|head`（默认 `tail`）、`--grep-scope A|B|C`、`--grep-line N`。
+- **`--type` 类别**（无默认值，取决于主机 `infraType`，**禁传 `rtc_python`**）：
+  - `infer-python`：`run`、`interface`、`metrics`、`engine`、`ascend`、`mslite`、`alarm`
+  - `rtc`：`rtc`、`run`、`interface`、`dcs`、`metrics`、`gc`、`interface_manager`、`interface_extend`、`engine`、`monitor`、`catalina`、`dmq`
+- 日志可能含敏感信息，仅摘录任务所需片段。

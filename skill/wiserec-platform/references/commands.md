@@ -2,28 +2,21 @@
 
 # `ml` 命令速查
 
-本表列出全部命令、常用选项与副作用，用于直接构造命令和判断风险。**直接按本表及对应参考文档的签名加 `--agent` 调用，不要预先执行 `--help`**；若遇到退出码 2（用法错误），CLI 会在 stderr 自动输出 `[提示]`、`[用法]` 与 `[选项]`，直接按提示修正即可。
+本表列出全部命令、常用选项与副作用。**直接按签名加 `--agent` 调用，不要预先执行 `--help`**；退出码 2 时按 stderr 自动输出的 `[提示]`/`[用法]`/`[选项]` 修正（严禁 `--agent` 与 `-o`/`--json` 同传；仅需原始全量字段时改用 `-o json`）。
 
-WiseRec 和 MLOps 均支持 `train` 和 `feature-task` 命令，`algorithm` 仅在 WiseRec 环境可用；用 `ml tree --all` 查看当前环境的支持与禁用标记。
-
-标有 `-A` 的列表可用 `--all-business` 查询当前环境的全部租户。需已登录、已选业务并具备超级管理员或超级管理员只读权限。跨租户选项仅用于列表，查到其他租户的资源后应先核对业务编码。
-
-所有查询与业务命令**默认加全局 `--agent`** 获取紧凑精简 JSON（严禁与 `-o` / `--output` / `--json` 同传，否则以退出码 2 报错）。列表顶层 `fields` 说明 `items` 的字段含义和适用单位，空列表也会返回。宿主设置 `ML_AGENT=1` 时可省略 `--agent`，显式格式或 `--agent=false` 可覆盖。检查退出码及逐项结果，尤其是部分成功的批量操作。
-
-仅在明确需要完整原始响应（如未截断长描述）且命令 `--help` 声明支持时，去掉 `--agent` 改用 `-o json`（`context` 用 `--json`）。常见不支持 `-o/--output` 但支持 `--agent` 的命令：`env show`、`access status`、`auth status`、`auth ping status`、`business list/show`、`service host log-search`、`jupyter doctor`、`jupyter terminal list`、`train start/cancel/delete/clone`、`train config export/update`、`algorithm download/clone`。
-
-“确认”列为“是”表示 CLI 内置确认，可用 `--yes` 跳过提示。非交互调用在用户授权后传 `--yes`。**命令可能产生平台或远端副作用时，即使“确认”列为空，也须在执行前核对目标与用户授权，执行后核验结果。**
+- **平台与跨租户**：WiseRec/MLOps 均支持 `train` 和 `feature-task`，`algorithm` 仅 WiseRec 支持；标有 `-A` 的列表支持 `--all-business`（需超管权限，查到其他租户先核对业务编码）。
+- **确认与副作用**：“确认”列为“是”表示 CLI 内置确认（用户授权后传 `--yes`）。**只要有远端副作用，即使无内置确认也须先核对授权、执行后核验。**
 
 ## 会话、业务与本地记录
 
 | 命令 | 用途 | 确认 | 副作用 |
 | --- | --- | --- | --- |
 | `ml --version` | 查看实际调用的 CLI 版本 | | |
-| `ml context` | 查看运行模式、环境、本地登录状态、租户及配置路径，无需登录 | | |
+| `ml context` | 查看运行模式、环境、业务、租户及登录状态，无需登录 | | |
 | `ml tree [--all]` | 查看当前环境可用命令，无需登录。加 `--all` 显示全部命令及限制标记 | | |
 | `ml env list` / `ml env show` | 列出默认可见和已授权的环境 / 查看当前环境 | | |
 | `ml env use NAME` | 切换当前环境；插件在后续调度读取新环境 | | 本地配置或会话状态 |
-| `ml login` | 打开 Edge 登录，优先保留仍有效的上次业务选择，缺失时按页面缓存选业务；禁止 `--show-secrets` | | 本地凭据和业务选择 |
+| `ml login` | 打开 Edge 登录（超时 ≥600s），自动恢复上次有效业务；禁止 `--show-secrets` | | 本地凭据和业务选择 |
 | `ml logout [--all] [--forget-browser]` | 清除当前或全部环境的认证，保留上次业务选择 | | 本地凭据 |
 | `ml auth status` | 本地认证状态、剩余有效时长和保活提示 | | |
 | `ml auth ping start` / `stop` / `status` | 启动终端保活或恢复已登记的 Harness 插件；同一环境插件优先，终端待命；停止作用于当前环境，查看状态只读 | | 本地进程与会话登记 |
@@ -39,8 +32,6 @@ WiseRec 和 MLOps 均支持 `train` 和 `feature-task` 命令，`algorithm` 仅�
 ## 训练与实验
 
 详见 [training.md](training.md)。
-
-训练日志的下载步骤、失败阶段和代理设置见 [训练任务](training.md#训练任务)。
 
 | 命令 | 用途 | 确认 | 副作用 |
 | --- | --- | --- | --- |
@@ -63,7 +54,7 @@ WiseRec 和 MLOps 均支持 `train` 和 `feature-task` 命令，`algorithm` 仅�
 | `ml train instance list TASK_ID [--page N] [--page-size N]` | 分页查询执行实例（`runningTime` 单位为分钟） | | |
 | `ml train history list TASK_ID [--latest-flag true\|all] [--page N] [--page-size N]` | 分页查询执行记录；默认仅查最新实例，`all` 包含历史实例 | | |
 | `ml train history detail TASK_ID JOB_ID` | 在最新实例的执行记录中查询作业及分布式角色详情 | | |
-| `ml train history logs download TASK_ID JOB_ID [--type log\|plog] [--directory DIR] [--role-job-id ROLE_JOB_ID]` | 按任务和作业 ID 下载最新或历史实例的执行记录日志，普通日志未就绪时提交归档；仅分布式训练支持 `--role-job-id`（非交互必填，交互表格可按编号选角色） | | 条件性写：平台日志归档及本地文件 |
+| `ml train history logs download TASK_ID JOB_ID [--type log\|plog] [--directory DIR] [--role-job-id ROLE_JOB_ID]` | 按任务和作业 ID 下载执行记录日志，普通日志未就绪时自动提交归档；仅分布式训练传 `--role-job-id`（必填） | | 条件性写：平台日志归档及本地文件 |
 | `ml train instance logs download TASK_ID JOB_ID [--select SELECTION] [--directory DIR]` | 先请求归档，仅下载归档成功的日志，`--select` 传编号或 `all` | | 写：平台归档及本地 ZIP 文件 |
 | `ml train start TASK_ID` | 立即启动任务 | | 写（无内置确认）：启动作业 |
 | `ml train cancel TASK_ID` | 逐个取消全部执行实例 | 是 | 写：取消作业 |
@@ -72,7 +63,7 @@ WiseRec 和 MLOps 均支持 `train` 和 `feature-task` 命令，`algorithm` 仅�
 | `ml train config export TASK_ID [--file PATH]` | 导出 YAML 配置 | | 本地文件 |
 | `ml train config update TASK_ID --customize-config VALUE` | 更新自定义参数 | | 写（无内置确认）：修改任务 |
 | `ml algorithm list [--name NAME] [--bucket-name BUCKET] [--page N] [--page-size N]` | 算法仓；列表支持 `-A`，支持 `--name 'NAME,NAME'` 精确查 | | |
-| `ml algorithm download ALGORITHM_ID [--file PATH]` | 下载算法仓 ZIP，沿用训练日志下载的代理设置 | | 本地文件 |
+| `ml algorithm download ALGORITHM_ID [--file PATH]` | 下载算法仓 ZIP | | 本地文件 |
 | `ml algorithm clone ALGORITHM_ID --name NAME --version VERSION` | 克隆算法仓 | 是 | 创建算法仓 |
 
 ## 模型、模板与服务
