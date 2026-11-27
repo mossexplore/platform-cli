@@ -120,9 +120,9 @@ ml context --json
 ml tree --all
 ```
 
-升级或卸载前，结束仍在执行的 Go 命令，并对正在保活的环境运行 `ml auth ping stop`。直接运行更高版本 MSI 即可升级。修复可在 Windows“已安装的应用”中操作，或执行 `msiexec /fa "PATH_TO_INSTALLED_MSI"`。卸载可在同一界面执行，或运行 `msiexec /x "PATH_TO_INSTALLED_MSI"`。静默执行可加 `/qn /norestart /l*v "PATH_TO_LOG"`。Skill 或快捷命令安装失败时，交互安装会提示「Skill 未安装成功，请手动安装」，CLI 仍可使用。可使用上述修复命令重试，也可解压同批便携 ZIP，按下方目录说明手动复制 `agent/` 中的 Skill 和快捷命令。静默安装可从 MSI 日志查看 Skill 安装结果。升级拒绝降级覆盖。卸载移除 MSI 安装的程序、PATH 条目、Skill 和快捷命令，保留两套客户端的配置和登录数据。恢复使用 Python 时先卸载 Go MSI，再恢复 Python PATH 或重跑 Python 安装包。
+升级或卸载前，结束仍在执行的 Go 命令，并对正在保活的环境运行 `ml auth ping stop`。直接运行更高版本 MSI 即可升级。修复可在 Windows“已安装的应用”中操作，或执行 `msiexec /fa "PATH_TO_INSTALLED_MSI"`。卸载可在同一界面执行，或运行 `msiexec /x "PATH_TO_INSTALLED_MSI"`。静默执行可加 `/qn /norestart /l*v "PATH_TO_LOG"`。CLI 安装完成后才处理 Skill 和快捷命令。OpenCode 自定义路径无效、盘符不可访问或文件无法写入时，交互安装会提示「Skill 未安装成功，请手动安装」，已安装的 CLI 和 PATH 入口可继续使用。可使用上述修复命令重试，也可解压同批便携 ZIP，按下方目录说明手动复制 `agent/` 中的 Skill 和快捷命令。静默安装可从 MSI 日志查看 Skill 安装结果。升级拒绝降级覆盖。卸载移除 MSI 安装的程序、PATH 条目、Skill 和快捷命令，保留两套客户端的配置和登录数据。恢复使用 Python 时先卸载 Go MSI，再恢复 Python PATH 或重跑 Python 安装包。
 
-MSI 自动将正式 Skill 放入 `~/.agents/skills/wiserec-platform` 和 `~/.cac/skills/wiserec-platform`，并将 `ml.md` 放入 OpenCode 配置目录的 `commands/` 和 `~/.cac/commands/`。OpenCode 默认目录为 `~/.config/opencode`。如需自定义，安装前设置用户环境变量 `OPENCODE_CONFIG_DIR` 为绝对路径。修复、升级和卸载沿用首次安装选定的位置，切换目录时卸载后重装。MSI 停用历史 `ml-lab.md` 和旧 Skill 的 `SKILL.md` 入口，保留其余用户文件。
+MSI 自动将正式 Skill 放入 `~/.agents/skills/wiserec-platform` 和 `~/.cac/skills/wiserec-platform`，并将 `ml.md` 放入 OpenCode 配置目录的 `commands/` 和 `~/.cac/commands/`。OpenCode 默认目录为 `~/.config/opencode`。如需自定义，安装前设置用户环境变量 `OPENCODE_CONFIG_DIR` 为绝对路径。修复、升级和卸载沿用已记录的位置，切换目录时卸载后重装。初次安装的路径无效且尚未记录位置时，可修正环境变量后运行修复。MSI 停用历史 `ml-lab.md` 和旧 Skill 的 `SKILL.md` 入口，保留其余用户文件。
 
 ### 版本拒绝时从终端升级
 

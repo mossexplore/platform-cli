@@ -348,6 +348,8 @@ try {
     }
 
     # Block only the shortcut, leaving the CLI's installation location writable.
+    # Exercise the forward-slash spelling of a valid custom path as well.
+    [Environment]::SetEnvironmentVariable('OPENCODE_CONFIG_DIR', $openCode.Replace('\', '//'), 'User')
     $blockedSkillPath = Join-Path $openCode 'commands/ml.md'
     New-Item -ItemType Directory -Path $blockedSkillPath | Out-Null
     $log = Invoke-Msi '/i' $baseline 'install-with-skill-failure'
@@ -458,6 +460,27 @@ try {
     Assert-Installed $portable
     Invoke-Msi '/x' $baseline 'uninstall-default-opencode' | Out-Null
     $installedMsi = $null
+
+    # An invalid optional path must not reach MSI directory costing or roll back the CLI.
+    $invalidOpenCode = $Work.Replace('\', '//') + '//invalid<OpenCode'
+    [Environment]::SetEnvironmentVariable('OPENCODE_CONFIG_DIR', $invalidOpenCode, 'User')
+    $log = Invoke-Msi '/i' $baseline 'install-with-invalid-opencode-path'
+    $installedMsi = $baseline
+    Refresh-Path
+    if (-not (Select-String -LiteralPath $log -SimpleMatch 'CustomAction InstallAgentResources returned actual error code 1') -or
+        (Get-Command ml -ErrorAction Stop).Source -ne $installedExe -or (ml --version) -ne "ml $currentVersion") {
+        throw 'An invalid OpenCode path must warn while keeping the CLI available on PATH.'
+    }
+    foreach ($path in @((Join-Path $agents 'skills/wiserec-platform/SKILL.md'),
+        (Join-Path $cac 'skills/wiserec-platform/SKILL.md'), (Join-Path $cac 'commands/ml.md'))) {
+        if (-not (Test-Path -LiteralPath $path -PathType Leaf)) { throw "Invalid OpenCode path prevented installation of $path" }
+    }
+    [Environment]::SetEnvironmentVariable('OPENCODE_CONFIG_DIR', $null, 'User')
+    Invoke-Msi '/fa' $baseline 'repair-invalid-opencode-path' | Out-Null
+    Assert-Installed $portable
+    Invoke-Msi '/x' $baseline 'uninstall-repaired-opencode-path' | Out-Null
+    $installedMsi = $null
+
     if ($PreviousPackages) {
         $previous = Get-Package $PreviousPackages 'msi'
         if ((Get-MsiValues $previous $versionQuery) -ne '1.1.0') { throw 'Wrong Go upgrade baseline' }

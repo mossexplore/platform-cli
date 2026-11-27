@@ -39,29 +39,12 @@
       </Directory>
     </StandardDirectory>
 
-    <Directory Id="USERPROFILEDIR" Name=".">
-      <Directory Id="UserDotConfig" Name=".config">
-        <Directory Id="OPENCODEDIR" Name="opencode" />
-      </Directory>
-    </Directory>
-    <SetProperty Id="USERPROFILEDIR" Value="[%USERPROFILE]" Before="CostInitialize" />
-    <!-- Remember the effective location for repair, upgrade and uninstall. -->
-    <Property Id="OPENCODEDIR" Secure="yes">
+    <!-- Capture the previous location before an upgrade removes the old MSI.
+         This plain property is never used as an MSI directory. -->
+    <Property Id="SAVEDOPENCODEPATH" Secure="yes">
       <RegistrySearch Id="FindInstalledOpenCode" Root="HKCU" Key="Software\WiseRec\CLIGo"
                       Name="OpenCodeDirectory" Type="raw" />
     </Property>
-    <Property Id="USEROPENCODEDIR">
-      <RegistrySearch Id="FindUserOpenCode" Root="HKCU" Key="Environment"
-                      Name="OPENCODE_CONFIG_DIR" Type="raw" />
-    </Property>
-    <SetProperty Id="OPENCODEDIR" Value="[USEROPENCODEDIR]" After="AppSearch"
-                 Condition="NOT OPENCODEDIR AND USEROPENCODEDIR" />
-    <SetProperty Id="OPENCODEDIR" Action="SetOpenCodeFromEnvironment" Value="[%OPENCODE_CONFIG_DIR]"
-                 After="SetOPENCODEDIR" Condition="NOT OPENCODEDIR" />
-    <Component Id="OpenCodeLocation" Directory="INSTALLFOLDER" Guid="*">
-      <RegistryValue Root="HKCU" Key="Software\WiseRec\CLIGo" Name="OpenCodeDirectory"
-                     Value="[OPENCODEDIR]" Type="string" KeyPath="yes" />
-    </Component>
 
     <Binary Id="InstallerHelper" SourceFile="$(var.Work)\msi-helper.exe" />
     <CustomAction Id="RestorePreviousMlPath" BinaryRef="InstallerHelper" Execute="rollback" Impersonate="yes" Return="ignore"
@@ -73,9 +56,9 @@
     <CustomAction Id="FinishMlPathSwitch" BinaryRef="InstallerHelper" Execute="commit" Impersonate="yes" Return="ignore"
                   ExeCommand="commit &quot;[LocalAppDataFolder]WiseRecCLI-PATH-[ProductCode].json&quot;" />
     <CustomAction Id="InstallAgentResources" BinaryRef="InstallerHelper" Return="ignore"
-                  ExeCommand="install-agent &quot;[OPENCODEDIR].&quot; &quot;[UILevel]&quot;" />
+                  ExeCommand="install-agent &quot;[SAVEDOPENCODEPATH].&quot; &quot;[UILevel]&quot;" />
     <CustomAction Id="RemoveAgentResources" BinaryRef="InstallerHelper" Return="ignore"
-                  ExeCommand="remove-agent &quot;[OPENCODEDIR].&quot;" />
+                  ExeCommand="remove-agent &quot;[SAVEDOPENCODEPATH].&quot;" />
     <InstallExecuteSequence>
       <Custom Action="CheckForExistingMl" Before="ProcessComponents" Condition="NOT Installed" />
       <!-- Roll back the user PATH edit before MSI reverses its own PATH registration. -->
@@ -236,7 +219,6 @@
 
     <Feature Id="Complete" Title="WiseRec CLI" Level="1">
       <ComponentRef Id="CliFiles" />
-      <ComponentRef Id="OpenCodeLocation" />
     </Feature>
   </Package>
 </Wix>

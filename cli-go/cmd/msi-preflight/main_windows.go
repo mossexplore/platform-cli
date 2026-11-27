@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"strings"
 
 	"golang.org/x/sys/windows"
 )
@@ -24,7 +25,7 @@ func main() {
 	case len(os.Args) == 3 && os.Args[1] == "commit":
 		err = removePathJournal(os.Args[2])
 	case len(os.Args) == 4 && os.Args[1] == "install-agent":
-		if err := manageAgentResources(os.Args[2], true); err != nil {
+		if err := manageAgentResources(strings.TrimSuffix(os.Args[2], "."), true); err != nil {
 			fmt.Fprintln(os.Stderr, err)
 			uiLevel, _ := strconv.Atoi(os.Args[3])
 			if uiLevel >= 4 {
@@ -33,7 +34,7 @@ func main() {
 			os.Exit(1)
 		}
 	case len(os.Args) == 3 && os.Args[1] == "remove-agent":
-		err = manageAgentResources(os.Args[2], false)
+		err = manageAgentResources(strings.TrimSuffix(os.Args[2], "."), false)
 	default:
 		err = errors.New("Invalid MSI helper arguments.")
 	}
