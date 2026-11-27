@@ -7,10 +7,10 @@
 ## 连接与选择实例
 
 ```powershell
-ml webstudio show --agent                      # 查看默认实例缓存（不代表实时状态）
-ml webstudio list --status online --agent      # 查在线实例，取 envId（支持 -A）
-ml webstudio login ENV_ID [--refresh] --agent  # 建立/刷新连接并设为默认实例
-ml webstudio start ENV_ID --agent              # 启动实例（约 15 秒返回，需用户授权）
+ml webstudio show --agent                  # 查看默认实例缓存（不代表实时状态）
+ml webstudio list --status online --agent  # 查在线实例，取 envId（支持 -A）
+ml webstudio login ENV_ID --agent          # 建立连接并设为默认实例（强制刷新加 --refresh）
+ml webstudio start ENV_ID --agent          # 启动实例（约 15 秒返回，需用户授权）
 ```
 
 - 已有合适默认实例时无需重复 `login`；单次命令可用 `--studio-id ENV_ID` 临时指定。

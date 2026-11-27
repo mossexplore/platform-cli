@@ -18,25 +18,25 @@ metadata:
 4. **先核对副作用，超时不盲目重放**：执行既有程序或 Notebook 前须确认其不改码。写操作、exec、Notebook 超时或中断后，先查远端状态再决定是否重试；只读查询可有限重试。
 5. **非交互参数与写操作确认**：
    - 有确认提示的命令仅在用户授权具体目标后加 `--yes`；`service host log-search` 及仅传 `SERVICE_ID` 的 `pod-event` / `log-stdout` 必加 `--no-input`；实例日志下载必传 `--select`（全部时传 `all`）；分布式执行记录日志传 `--role-job-id`；不使用无子命令的 `ml history`。
-   - **提交写操作前**必须核对环境、账号、业务和目标 ID（与确认目标不一致时停止）；**`product` 环境写操作须先复述环境、目标和参数并获得明确确认，笼统授权不算**。
+   - **提交写操作前**必须核对环境、账号、业务和目标 ID（与确认目标不一致时停止）；**`product` 环境写操作须先复述环境、目标和参数并获得明确确认，笼统授权不算**（唯一豁免：`train history logs download` 在普通日志未就绪时自动触发归档属低风险条件性写操作，含 `product` 环境在内均无需二次确认）。
 
 ## 上下文检查与登录（高频最短闭环）
 
-1. **一步预检**：先执行 `ml context --agent`（查看当前环境、业务与登录状态）。
-   - **普通只读查询**：若 `当前环境`、`当前业务` 均已绑定且 `登录状态` 为 `有效`，**直接执行业务查询**，无需再跑 `ml auth status`。
+1. **一步预检**：先执行 `ml context --agent`（查看当前环境、业务与登录状态），并与用户指定的环境、租户/团队比对。
+   - **普通只读查询**：若 `当前环境`、`当前业务` 均已绑定、**与用户指定目标一致（或用户未指定）**且 `登录状态` 为 `有效`，**直接执行业务查询**，无需再跑 `ml auth status`；若与用户指定目标不同，先按第 2/4 步切换（核对当前租户/团队名称用 `ml business show --agent`）。
    - **写操作 / 长任务 / 跨租户（`-A`）前**：补执行 `ml auth status --agent`，确认 `status=valid`、`profile` 一致、`businessId` 有效及剩余有效期/权限角色。
-2. **未绑定环境**（DeepSeek Harness 会话隔离模式下新会话默认 `未绑定`，绝不回退全局配置）：
-   - 用户已指定环境：直接 `ml env use NAME --agent`。
+2. **未绑定或需切换环境**（DeepSeek Harness 会话隔离模式下新会话默认 `未绑定`，绝不回退全局配置）：
+   - 用户已指定环境标识：直接 `ml env use NAME --agent`。
    - 用户未指定或给的是中文显示名：先 `ml env list --agent` 查候选，唯一匹配或经用户确认后用 `环境标识` 切换。
 3. **未登录 / 登录已过期**：
    - 确认已绑定目标环境后，直接运行 `ml login --agent`（**务必为执行工具预留至少 10 分钟 / 600 秒超时**，等待用户在 Edge 完成 SSO 或验证码；不靠跑业务命令触发登录）。
-   - 登录返回的 JSON 已含 `businessId`（CLI 自动恢复上次有效业务）；**无需再额外查业务列表**，直接继续任务。
-4. **未绑定业务**：仅当 `当前业务` 为 `未绑定` 或 `businessId` 为 `未获取` 时，运行 `ml business list --agent`，按用户选择执行 `ml business TENANT_ID --agent` 或 `ml business use --tenant TENANT_ID --team TEAM_ID --agent`。
+   - 登录返回 JSON 若 `businessId` 有效（非空且非 `未获取`）且符合用户目标，直接继续任务；若为 `未获取` 或与目标不符，进入第 4 步绑定业务。
+4. **未绑定或需切换业务**：当 `当前业务` 为 `未绑定`、`businessId` 为 `未获取` 或与用户指定目标不同时，运行 `ml business list --agent`，按用户选择执行 `ml business TENANT_ID --agent` 或 `ml business use --tenant TENANT_ID --team TEAM_ID --agent`。
 
 ## 调用铁律
 
 - **默认统一 `--agent`**：所有查询与业务命令**默认加 `--agent`** 获取紧凑 JSON（**严禁与 `-o`/`--output`/`--json` 同传**，否则退出码 2）。列表顶层 `fields` 说明各字段含义与单位。仅在明确需要原始全量字段或未截断长描述时，才去掉 `--agent` 改用 `-o json`。宿主设 `ML_AGENT=1` 时可省略 `--agent`。
-- **禁止无故前置 `--help`**：直接按下方速查卡片与 [commands.md](references/commands.md) 的签名调用，**不要先跑 `--help` 或 `ml tree`**。若返回退出码 2，CLI 会在 stderr 自动输出 `[提示]`、`[用法]`、`[选项]`，直接按提示修正。
+- **禁止无故前置 `--help`**：直接按下方速查卡片与 [commands.md](references/commands.md) 的签名调用，**不要先跑 `--help` 或 `ml tree`**。若返回退出码 2 且 stderr 含 `[用法]`/`[选项]`（确认非 `jupyter` 的 `status=LOST`），直接按提示修正，勿将 `LOST` 当作参数错重跑。
 - **精确名称查询**：`train` / `model` / `algorithm` / `dataset` / `service` / `feature-task` 6 个列表支持 `--name 'NAME,NAME'` 精确查询（PowerShell 含逗号或空格须用单引号）；0 条再回退 `--name 'NAME'` 模糊查询。
 - **跨租户与回复**：仅用户明确要求查全租户且具备超管权限时才传 `-A`。回复写明环境、业务、目标 ID、实际命令与可观察结果，时间统一北京时间 `YYYY-MM-DD HH:mm:ss`。
 
@@ -54,16 +54,18 @@ ml login --agent
 ml business list --agent
 ml business TENANT_ID --agent
 
-# 高频只读查询（列表均支持 --page N --page-size N）
+# 高频只读查询（除 service host list 为固定首页外，其余列表均支持 --page N --page-size N）
 ml train list --name 'NAME,NAME' --agent
 ml train history list TASK_ID --latest-flag all --agent
-ml train history logs download TASK_ID JOB_ID --directory 'D:\logs' --agent
 ml model list --name 'NAME,NAME' --agent
 ml service list --name 'NAME,NAME' --agent
 ml service host list SERVICE_ID --agent
 ml dataset list --name 'NAME,NAME' --agent
 ml feature-task list --name 'NAME,NAME' --agent
 ml webstudio list --status online --agent
+
+# 高频日志下载（条件性写：未就绪时自动触发远端归档，低风险免二次确认）
+ml train history logs download TASK_ID JOB_ID --directory 'D:\logs' --agent
 ```
 
 ## 按任务按需读取参考

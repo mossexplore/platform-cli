@@ -17,7 +17,8 @@ ml service deployment list SERVICE_ID --agent
 
 ```powershell
 ml model detail MODEL_ID --agent
-ml model source MODEL_ID [--train-task] --agent
+ml model source MODEL_ID --agent
+ml model source MODEL_ID --train-task --agent
 ```
 
 - `model source --agent` 返回输出版本核心字段（版本读 `modelVersion`，非详情中的 `modelTag`）；加 `--train-task` 直接返回关联训练任务核心字段（`jobId` / `taskId`）。来源标识缺失会停止溯源；`--train-task` 缺少 `jobId` 会报错。需要完整原始接口响应时改用 `-o json`。
@@ -25,9 +26,9 @@ ml model source MODEL_ID [--train-task] --agent
 ## 定位资源与部署模板
 
 ```powershell
-ml deployment template list [-A] --name TEMPLATE_NAME --agent
+ml deployment template list --name TEMPLATE_NAME --agent
 ml deployment template detail DEPLOY_TEMPLATE_ID --agent
-ml resource template list [-A] --name TEMPLATE_NAME --agent
+ml resource template list --name TEMPLATE_NAME --agent
 ml resource template detail RESOURCE_TEMPLATE_ID --agent
 ```
 

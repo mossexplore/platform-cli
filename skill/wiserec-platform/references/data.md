@@ -10,7 +10,7 @@
 ## 数据集
 
 ```powershell
-ml dataset list --name 'DATASET_NAME,DATASET_NAME' [--page 1 --page-size 10] --agent
+ml dataset list --name 'DATASET_NAME,DATASET_NAME' --page 1 --page-size 10 --agent
 ml dataset detail DATASET_ID --agent
 ml dataset files list DATASET_ID --dir / --agent
 ml dataset files upload DATASET_ID 'D:\data\sample.csv' --dir / --agent
@@ -24,10 +24,10 @@ ml dataset files upload DATASET_ID 'D:\data\sample.csv' --dir / --agent
 WiseRec / MLOps 均支持。
 
 ```powershell
-ml feature-task list --name 'NAME,NAME' [--category dpp-all] [--create-user USER] [--page 1 --page-size 10] --agent
+ml feature-task list --name 'NAME,NAME' --category dpp-all --page 1 --page-size 10 --agent
 ml feature-task detail TASK_ID --agent
-ml feature-task execution list TASK_ID [--include-history] [--page 1 --page-size 10] --agent
-ml feature-task execution logs search JOB_ID [--start-line 1 --end-line 2000] [--keyword KEY] [--scope A|B|C --scope-lines N] --agent
+ml feature-task execution list TASK_ID --include-history --page 1 --page-size 10 --agent
+ml feature-task execution logs search JOB_ID --start-line 1 --end-line 2000 --keyword ERROR --scope C --scope-lines 10 --agent
 ```
 
 - **`--category` 枚举**（默认 `dpp-all`）：`dpp-all`、`feature_preprocess_realtime`、`train_fi`、`data_sync`、`data-preproc`、`feature_generate`、`feature_evaluation`、`feature_improve`、`work_flow`、`feature-push`、`train_spark`、`train_fi_sync_hdfs`、`train_fi_data_monitor`、`generate_samples`（与 `sample-task list` 不同入口，勿混用参数）。
@@ -40,20 +40,20 @@ ml feature-task execution logs search JOB_ID [--start-line 1 --end-line 2000] [-
 ml featureset wide list --name NAME --agent
 ml featureset model list --name NAME --agent
 ml featureset wide config SET_ID --agent
-ml featureset wide export SET_ID [--lang zh_cn|en_us] [--file 'D:\data\wide.csv'] --agent
+ml featureset wide export SET_ID --lang zh_cn --file 'D:\data\wide.csv' --agent
 ```
 
 - 宽表（`wide`）与模型（`model`）特征集 ID 不互换，且与 `ml quality wide-featureset` 为不同入口。
 - `config` 固定输出 JSON（`--agent` 为紧凑单行并完整保留嵌套、空集合与 null，不加 `-o`）。
-- `export` 默认 `zh_cn`，`--file` 可省且重名自动编号，按返回的实际路径读取导出文件。
+- `export` 支持 `--lang zh_cn|en_us`（默认 `zh_cn`），`--file` 可省且重名自动编号，按返回的实际路径读取导出文件。
 
 ## 质量监控报告
 
 ```powershell
-ml quality feature list [--name NAME] [--table-name TBL] [--feature-value-type TYPE] [--indicator-type TYPE] [--page 1 --page-size 100] --agent
-ml quality wide-featureset list [--name SET_NAME] [--page 1 --page-size 10] --agent
+ml quality feature list --name NAME --table-name TBL --feature-value-type DISCRETE --indicator-type VECTOR --page 1 --page-size 100 --agent
+ml quality wide-featureset list --name SET_NAME --page 1 --page-size 10 --agent
 ml quality wide-featureset feature-assemble list --set-id SET_ID --agent
-ml quality wide-featureset feature-assemble feature list --set-id SET_ID --definition-id DEFINITION_ID [--page 1 --page-size 10] --agent
+ml quality wide-featureset feature-assemble feature list --set-id SET_ID --definition-id DEFINITION_ID --page 1 --page-size 10 --agent
 ```
 
 - 分页列表默认每页 10 条、最大 100 条；`--feature-value-type` 与 `--indicator-type` 独立筛选，均接受 `连续/CONTINUOUS`、`离散/DISCRETE`、`有序/ORDINAL`、`分类/CATEGORICAL`、`序列/SEQUENCE`、`长序列/LONG_SEQUENCE`、`向量/VECTOR`（忽略大小写）。

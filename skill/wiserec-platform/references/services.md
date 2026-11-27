@@ -10,7 +10,8 @@
 
 ```powershell
 ml service list --name 'SERVICE_NAME,SERVICE_NAME' --agent
-ml service host list SERVICE_ID [--pod-ip POD_IP] --agent
+ml service host list SERVICE_ID --agent
+ml service host list SERVICE_ID --pod-ip POD_IP --agent
 ml service deployment list SERVICE_ID --agent
 ```
 
@@ -20,8 +21,10 @@ ml service deployment list SERVICE_ID --agent
 ## 服务与主机 Mock 测试
 
 ```powershell
-ml service mock SERVICE_ID [--request-sample-file '.\sample.json'] [--transmission-tag 0|1] --agent
-ml service host mock SERVICE_ID --pod-ip POD_IP [--request-sample-file '.\sample.json'] [--transmission-tag 0|1] --agent
+ml service mock SERVICE_ID --agent
+ml service mock SERVICE_ID --request-sample-file '.\sample.json' --transmission-tag 1 --agent
+ml service host mock SERVICE_ID --pod-ip POD_IP --agent
+ml service host mock SERVICE_ID --pod-ip POD_IP --request-sample-file '.\sample.json' --transmission-tag 1 --agent
 ```
 
 - **真实调用且无内置确认**：无 `--dry-run` / `--yes`，执行前核对服务 ID、样例与用户意图；超时或断连不盲目重试。
@@ -33,7 +36,8 @@ ml service host mock SERVICE_ID --pod-ip POD_IP [--request-sample-file '.\sample
 ```powershell
 ml service host pod-event --pod POD_NAME --cluster-name CLUSTER_NAME --agent
 ml service host pod-event SERVICE_ID --no-input --agent
-ml service host log-stdout --pod POD_NAME [-c CONTAINER] --agent
+ml service host log-stdout --pod POD_NAME --agent
+ml service host log-stdout --pod POD_NAME -c filebeat --agent
 ml service host log-stdout SERVICE_ID --no-input --agent
 ```
 

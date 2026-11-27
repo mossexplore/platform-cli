@@ -15,12 +15,13 @@ ml train list --name 'NAME,NAME' --agent
 ml train detail TASK_ID --agent
 ml train instance list TASK_ID --page 1 --page-size 20 --agent
 ml train history list TASK_ID --latest-flag all --page 1 --page-size 20 --agent
-ml train history logs download TASK_ID JOB_ID [--role-job-id ROLE_JOB_ID] [--type log|plog] --directory 'D:\logs' --agent
+ml train history logs download TASK_ID JOB_ID --directory 'D:\logs' --agent
+ml train history logs download TASK_ID JOB_ID --role-job-id ROLE_JOB_ID --type plog --directory 'D:\logs' --agent
 ml train instance logs download TASK_ID JOB_ID --select '1,3' --directory 'D:\logs' --agent
 ```
 
-### 执行记录日志下载（`train history logs download`）
-- 参数齐全直接执行（未就绪自动触发归档属低风险，含 `product` 环境均无需二次确认）；**下载流程中禁止调用 `ml train history detail`**。
+### 执行记录日志下载（`train history logs download`，条件性写操作）
+- 参数齐全直接执行（普通日志未就绪时自动触发远端归档，属低风险豁免，含 `product` 环境均无需二次确认）；**下载流程中禁止调用 `ml train history detail`**。
 - **分布式训练（`jobType=dps-train`）**：`--role-job-id` 必填（从 `history list` 的 `roleJobInfo` 取），普通训练不要传。
 - **plog**：仅在 `plogReady=true` 时传 `--type plog`，无 plog 直接报错且不触发归档。
 - **结果判读**：普通日志未就绪时自动提交归档并退出 `1`（普通作业 `status=not_ready`，分布式作业顶层 `status=failed` 且 `items[].status=not_ready`），均属已触发归档，稍后重跑即可，勿误判为异常。前置校验失败仅在 stderr 报错；单条下载失败结合 `stage`/`error` 排查。
