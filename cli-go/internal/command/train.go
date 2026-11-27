@@ -85,7 +85,7 @@ func newTrain(options Options, load loadConfig) *cobra.Command {
 	history.AddCommand(historyList, historyDetail, newTrainLogs(options, load, true))
 	instance.AddCommand(instanceList, newTrainLogs(options, load, false))
 	config.AddCommand(newTrainUpdate(options, load), newTrainExport(options, load))
-	group.AddCommand(instance, history, config, list, detail)
+	group.AddCommand(instance, history, config, list, detail, newUnifiedTrainLogs(options, load))
 	group.AddCommand(newTrainStart(options, load), newTrainDelete(options, load), newTrainCancel(options, load), newTrainClone(options, load))
 	return group
 }

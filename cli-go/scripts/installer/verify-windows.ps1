@@ -178,6 +178,10 @@ function Assert-Installed($Payload) {
     if ((& ml --version) -ne "ml $($release.version)" -or $LASTEXITCODE -ne 0) {
         throw 'Installed ml reports the wrong version'
     }
+    $logHelp = & ml train logs download --help
+    if ($LASTEXITCODE -ne 0 -or ($logHelp -join ' ') -notmatch '--retry') {
+        throw 'Installed CLI is missing job-level training log retry'
+    }
     if ((Get-FileHash $installedExe).Hash -ne (Get-FileHash (Join-Path $Payload 'ml.exe')).Hash) {
         throw 'ZIP and MSI have different executables'
     }

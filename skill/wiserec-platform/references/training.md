@@ -3,7 +3,7 @@
 以下查询与操作默认使用 `--agent`（不与 `-o json` 同传），无需预先执行 `--help`。
 
 **高频最短链路**：
-- **查任务并下日志**：`ml train list --name NAME --exact --agent` → `ml train history list TASK_ID --latest-flag all --agent`（普通看 `plogReady`，分布式看 `roleJobInfo[].roleJobId`/`plogReady`）→ `ml train history logs download TASK_ID JOB_ID [--role-job-id ID] [--type plog] --directory DIR --agent`
+- **查任务并下日志**：`ml train list --name NAME --exact --agent` → `ml train logs download TASK_ID --directory DIR --agent`。用户已给作业 ID 时同时传入。
 - **训练看板**：`project list` → `project namespace list PROJECT_ID` → `project experiment list PROJECT_ID NAMESPACE_ID` → `experiment metrics EXPERIMENT_ID`
 
 ## 训练任务
@@ -16,26 +16,17 @@ ml train list --name NAME --exact --agent
 ml train detail TASK_ID --agent
 ml train instance list TASK_ID --page 1 --page-size 20 --agent
 ml train history list TASK_ID --latest-flag all --page 1 --page-size 20 --agent
-ml train history logs download TASK_ID JOB_ID --directory 'D:\logs' --agent
-ml train history logs download TASK_ID JOB_ID --role-job-id ROLE_JOB_ID --type plog --directory 'D:\logs' --agent
-ml train instance logs download TASK_ID JOB_ID --select '1,3' --directory 'D:\logs' --agent
+ml train logs download TASK_ID JOB_ID --directory 'D:\logs' --agent
+ml train logs download TASK_ID JOB_ID --role-job-id ROLE_JOB_ID --type plog --directory 'D:\logs' --agent
 ```
 
-### 执行记录日志下载（`train history logs download`，条件性写操作）
-- 参数齐全直接执行（普通日志未就绪时自动触发远端归档，属低风险豁免，含 `product` 环境均无需二次确认）；**下载流程中禁止调用 `ml train history detail`**。
-- **分布式训练（`jobType=dps-train`）**：`--role-job-id` 必填（从 `history list` 的 `roleJobInfo` 取），普通训练不要传。
-- **plog**：仅在 `plogReady=true` 时传 `--type plog`，无 plog 直接报错且不触发归档。
-- **结果判读**：普通日志未就绪时自动提交归档并退出 `1`（普通作业 `status=not_ready`，分布式作业顶层 `status=failed` 且 `items[].status=not_ready`），均属已触发归档，按下方「归档中重试规则」处理，勿误判为异常。前置校验失败仅在 stderr 报错；单条下载失败结合 `stage`/`error` 排查。
-- **目录**：`--directory DIR` 须为已存在目录（默认当前目录，不接受 `--file`），同名自动编号不覆盖；回复只给保存路径和结果，不复述签名链接。
+### 训练日志统一下载
 
-### 执行实例日志下载（`train instance logs download`）
-- 先用 `train instance list` 查运行/排队实例（若运行中实例未返回 `runningTime`，可结合 `createTime` 推算）。
-- 下载前需归档，仅“归档成功”可下载（返回 `status=archiving` 或状态为“归档中”按下方重试规则处理，“归档失败”立即停止并报告原因）。非交互必传 `--select`（指定编号如 `'1,3'`，全部时传 `all` 自动跳过未成功项），核对摘要中的逐条结果与失败数。
-
-### 归档中重试规则（适用于执行记录与执行实例日志下载）
-- **触发条件**：仅当返回 `not_ready`、`archiving` 或状态为“归档中”时才自动重试；遇到归档失败、无 plog、权限拒绝、参数错或下载阶段报错时**立即停止，不重试**。
-- **间隔与上限**：每次等待 **30 秒**后重跑同一条下载命令（PowerShell 用 `Start-Sleep -Seconds 30`，POSIX 用 `sleep 30`），**最多自动重试 4 次（总等待 120 秒）**。
-- **单步执行与超限兜底**：每次“等待 30 秒 → 重跑 1 次”单独执行（工具超时预留 ≥ 90 秒，不写长循环脚本）；重试 4 次后仍未就绪则停止，告知用户归档已触发且仍在进行中，请稍后再试或确认是否继续等待。
+- WiseRec 和 MLOps 均需先登录并选择业务。保存目录须已存在。省略作业 ID 时优先选最新执行实例，其次选最新历史记录，选定后锁定作业。多角色时按目标传可重复的 `--role-job-id` 或 `--all`。
+- 历史普通日志默认每 30 秒只读重查，最多等待 120 秒，可调整 `--poll-interval` 和 `--wait-timeout`。单轮检查用 `--no-wait`。工具超时需覆盖等待、查询和文件传输。历史 plog 直接检查并取址。
+- 执行实例首次请求作业归档，`archiving` 表示仍在处理中，此时向用户报告状态。归档失败时报告作业 ID 和失败原因，询问是否重新下载**该作业的全部日志**。仅在用户针对整个作业明确同意后执行一次 `ml train logs download TASK_ID JOB_ID --retry --directory DIR --agent`，由服务端决定是否重新归档。禁止自动重跑、逐角色重试或在重试失败后沿用上次确认。
+- `succeeded` 表示已保存全部文件；`not_ready` 表示单轮检查后历史日志暂不可用，`wait_timeout` 表示等待到期。遇到 `partial` 或 `failed` 时检查逐项结果及错误阶段，报告已保存路径，不展示签名链接。
+- 旧入口仍支持原参数。脚本显式调用 `instance logs download` 时使用 `--select`；旧 `history logs download` 的普通日志未就绪时会提交手动归档。新流程使用统一入口。
 
 ### 写操作与配置
 - `ml train start TASK_ID --agent` 返回 `jobId` 仅表示已受理，之后用 `history list` 确认状态。

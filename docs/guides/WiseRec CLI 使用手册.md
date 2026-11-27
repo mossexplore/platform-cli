@@ -70,6 +70,8 @@ ml                                              WiseRec 命令行工具
 ├── train                                       训练任务
 │   ├── list                                    查看任务列表
 │   ├── detail                                  查询训练任务详情
+│   ├── logs                                    训练日志查询与下载
+│   │   └── download                            按作业状态下载训练日志
 │   ├── instance                                执行实例
 │   │   ├── list                                分页查看实例列表及配额等待时间
 │   │   └── logs                                执行实例日志归档与下载
@@ -661,6 +663,7 @@ ml train history list TASK_ID [--latest-flag true|all] [--page PAGE] [--page-siz
 ml train history detail TASK_ID JOB_ID [-o table|json]
 ml train start TASK_ID
 ml train config export TASK_ID [--file PATH]
+ml train logs download TASK_ID [JOB_ID] [--type log|plog] [--role-job-id ID | --all] [--retry] [--directory DIR] [--wait | --no-wait] [--poll-interval SECONDS] [--wait-timeout SECONDS] [-o table|json]
 ml train history logs download TASK_ID JOB_ID [--type log|plog] [--role-job-id ROLE_JOB_ID] [--directory DIR] [-o table|json]
 ml train instance logs download TASK_ID JOB_ID [--select SELECTION] [--directory DIR] [-o table|json]
 ml train cancel TASK_ID [--yes]
@@ -680,6 +683,7 @@ ml train config update TASK_ID --customize-config VALUE
 | `history detail` | 必填 `TASK_ID`、`JOB_ID`；可选 `--output` / `-o` |
 | `start` | 必填 `TASK_ID`；执行后显示作业 ID |
 | `config export` | 必填 `TASK_ID`；可选 `--file PATH` 指定保存位置 |
+| `logs download` | 默认下载普通日志到当前目录。`--type plog` 仅用于历史作业；`--role-job-id` 可重复，与 `--all` 互斥。历史普通日志默认等待，每 30 秒只读查询，最多 120 秒。用 `--poll-interval` 和 `--wait-timeout` 调整；`--no-wait` 或等待上限 0 只查一轮。`--retry` 需显式指定原作业 ID，覆盖整个执行实例作业 |
 | `history logs download` | 必填 `TASK_ID`、`JOB_ID`；`--type` 默认 `log`，也可选 `plog`；`--role-job-id ROLE_JOB_ID` 仅用于 `jobType=dps-train` 的分布式训练，非交互下载和 JSON 模式必填；可选 `--directory DIR`、`--output` / `-o` |
 | `instance logs download` | 必填 `TASK_ID`、`JOB_ID`；可选 `--select SELECTION`、`--directory DIR`、`--output` / `-o` |
 | `cancel`、`delete` | 必填 `TASK_ID`；可选 `--yes` / `-y` 跳过确认 |
@@ -711,6 +715,8 @@ WiseRec 和 MLOps 的 `history list` 表格的最后三列依次是“执行时�
 `cancel` 取消查询到的执行实例；`delete` 软删除任务；`clone` 创建副本；`config update` 更新自定义参数。操作结果不明时先查询状态。
 
 `history detail` 查询指定执行记录，自动翻页查找作业。普通训练展示该记录；分布式训练（`jobType=dps-train`）展示角色列表，依次为角色作业 ID、名称、算法名称、状态、节点数、CPU、GPU、内存、执行节点和开始时间。首列角色作业 ID 完整显示，时间按北京时间展示，空值显示 `-`，零值保留。JSON 保留该执行记录及角色的完整原始字段。
+
+优先用 `logs download`。省略作业 ID 时，命令从当前任务跨页选择最新的运行中作业，无执行实例时选择最新历史作业。历史日志只读查询。执行实例首次提交作业归档，成功项直接下载，归档中返回 `archiving`。出现归档失败时，由用户确认是否重新下载整个作业，再传 `--retry`；服务端决定是否实际重新归档。保存目录须已存在，同名文件自动编号。结果给出来源、作业 ID 和各文件状态及路径；`succeeded` 表示全部成功，`partial` 表示部分成功，`failed` 表示失败。`not_ready` 表示历史日志暂不可用，`wait_timeout` 表示等待到期。部分成功、失败及等待到期返回退出码 1。
 
 `history logs download` 需先登录并选择业务。已有任务 ID 和作业 ID 时可直接下载最新或历史实例的日志。WiseRec 和 MLOps 的普通训练、分布式训练下载普通日志前，均先检查日志是否存在；日志存在时获取下载链接。日志未就绪，或下载链接接口返回需要归档（`failedUploadSwitch=false`）时，按作业提交手动归档。提交成功后立即提示“手动归档中，请稍后再次下载日志！”。稍后重新运行下载命令。批量下载仍处理其他选中角色，同一次命令内每个作业只提交一次归档请求。
 
@@ -744,6 +750,10 @@ ml train history detail TASK_ID JOB_ID
 ml train history detail TASK_ID JOB_ID -o json
 ml train start TASK_ID
 ml train config export TASK_ID --file ./task.yaml
+ml train logs download TASK_ID --directory ./logs --agent
+ml train logs download TASK_ID JOB_ID --all --no-wait --directory ./logs --agent
+# 仅在用户确认重新下载该执行实例作业的全部日志后执行
+ml train logs download TASK_ID JOB_ID --retry --directory ./logs --agent
 ml train history logs download TASK_ID JOB_ID --directory ./logs
 ml train history logs download TASK_ID JOB_ID --role-job-id ROLE_JOB_ID --directory ./logs
 ml train history logs download TASK_ID JOB_ID --type plog --directory ./logs

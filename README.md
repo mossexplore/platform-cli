@@ -86,7 +86,7 @@ ml access status
 
 | 组件 | 目录 | 当前源码版本 | 说明 | 文档入口 |
 | --- | --- | --- | --- | --- |
-| **WiseRec CLI（Go）** | `cli-go/` | `1.1.2` | 当前维护的命令行工具（`ml`），提供 Windows x64 便携 ZIP 和每用户 MSI | [构建与安装](cli-go/README.md) |
+| **WiseRec CLI（Go）** | `cli-go/` | `1.1.3` | 当前维护的命令行工具（`ml`），提供 Windows x64 便携 ZIP 和每用户 MSI | [构建与安装](cli-go/README.md) |
 | **WiseRec CLI（Python，已废弃）** | `cli-python/` | `1.0.9.6` | 只读历史实现 | [历史安装文档](cli-python/scripts/windows/INSTALL.md) |
 | **知识库只读网关** | `kb-gateway/` | `0.1.1` | 按动作票据和名单读取已发布 Wiki 页面及获授权的原始文件 | [配置与调试](kb-gateway/README.md) |
 | **权限管理系统** | `access-service/` | `1.1.3` | 授权、版本准入与审计管理台 | [README](access-service/README.md) · [Docker 部署指南](docs/deployment/权限管理系统Docker安装部署与调试指南.md) |
@@ -127,7 +127,7 @@ ml access status
   - [CLI 演示环境使用指南](docs/guides/CLI演示环境使用指南.md)
 - **版本与发布说明**
   - [版本号管理说明](docs/maintenance/版本号管理说明.md)
-  - 近期变更：[知识库原始文件源码变更](docs/releases/RELEASE_NOTES_1.1.3.md) · [共享 Wiki 源码变更](docs/releases/RELEASE_NOTES_1.1.2.md) · [1.1.1](docs/releases/RELEASE_NOTES_1.1.1.md) · [1.0.9.6](docs/releases/RELEASE_NOTES_1.0.9.6.md) · [1.0.9.5](docs/releases/RELEASE_NOTES_1.0.9.5.md)
+  - 近期变更：[Go CLI 训练日志统一下载](docs/releases/CLI_GO_RELEASE_NOTES_1.1.3.md) · [知识库原始文件源码变更](docs/releases/RELEASE_NOTES_1.1.3.md) · [共享 Wiki 源码变更](docs/releases/RELEASE_NOTES_1.1.2.md) · [1.1.1](docs/releases/RELEASE_NOTES_1.1.1.md) · [1.0.9.6](docs/releases/RELEASE_NOTES_1.0.9.6.md) · [1.0.9.5](docs/releases/RELEASE_NOTES_1.0.9.5.md)
 
 ---
 

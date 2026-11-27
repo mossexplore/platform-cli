@@ -163,4 +163,4 @@ DeepSeek Harness 的自动保活由 [Windows Desktop 宿主插件](../dsh-plugin
 
 在 `cli-go` 下运行 `go test ./...` 和 `go vet ./...`。独立的 [Windows 打包工作流](../.github/workflows/cli-go-windows.yml) 使用示例配置构建测试产物，验证 ZIP 和 MSI 的二进制一致性，以及旧 PATH 自动清理、失败回滚、版本、修复、升级、降级拒绝和卸载。真实平台登录、在线权限和 Jupyter 需在获准环境另行验收。
 
-当前源码保持 1.1.2，支持可选共享 Wiki 命令和获授权知识库的原始文件列表与下载。请使用包含本次改动的新构建，旧的同版本安装包只有原有 Wiki 命令。文件操作需要配套的权限服务和网关，具体授权见 [知识库网关说明](../kb-gateway/README.md)。使用 `cli-go/config.example.json` 作为启用知识库的打包配置模板，将两个 HTTPS 地址和环境配置替换为实际部署值。将该文件作为 `build-release.ps1 -ConfigPath` 的输入。未配置 knowledge_base 的旧包配置继续隐藏命令。知识库地址在构建时锁定；本机 kb.json 可设置默认库或关闭命令。
+当前源码版本为 1.1.3，新增 [训练日志统一下载](../docs/releases/CLI_GO_RELEASE_NOTES_1.1.3.md)，支持可选共享 Wiki 命令和获授权知识库的原始文件列表与下载。文件操作需要配套的权限服务和网关，具体授权见 [知识库网关说明](../kb-gateway/README.md)。使用 `cli-go/config.example.json` 作为启用知识库的打包配置模板，将两个 HTTPS 地址和环境配置替换为实际部署值。将该文件作为 `build-release.ps1 -ConfigPath` 的输入。未配置 knowledge_base 的旧包配置继续隐藏命令。知识库地址在构建时锁定；本机 kb.json 可设置默认库或关闭命令。

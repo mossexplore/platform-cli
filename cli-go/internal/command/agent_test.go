@@ -139,6 +139,11 @@ func TestAgentRegisteredInvocations(t *testing.T) {
 				var result, diagnostic bytes.Buffer
 				code = Run(context.Background(), Options{Args: args, Version: "test", Stdout: &result, Stderr: &diagnostic, KBSettings: paths.KBSettings, Paths: func() (localstate.Paths, error) { return localstate.Paths{}, errors.New("fixture unavailable") }})
 				switch cmd.CommandPath() {
+				case "ml train logs download":
+					var failure struct{ Status, Stage, Error string }
+					if code != 1 || json.Unmarshal(result.Bytes(), &failure) != nil || failure.Status != "failed" || failure.Stage != "authorize" || failure.Error != "fixture unavailable" {
+						t.Fatal(args, code, result.String(), diagnostic.String())
+					}
 				case "ml jupyter terminal open", "ml jupyter terminal attach":
 					if code != 1 || result.Len() != 0 || !strings.Contains(diagnostic.String(), "交互式终端") {
 						t.Fatal(args, code, result.String(), diagnostic.String())

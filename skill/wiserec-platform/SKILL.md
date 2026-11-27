@@ -17,8 +17,8 @@ metadata:
 3. **禁止交互终端与凭据泄露**：不运行 `ml jupyter terminal open|attach` 或 `ml login --show-secrets`，不索取密码/验证码/Cookie/Token，不在回复或文件中输出 Secret 或签名下载链接。
 4. **先核对副作用，超时不盲目重放**：执行既有程序或 Notebook 前须确认其不改码。写操作、exec、Notebook 超时或中断后，先查远端状态再决定是否重试；只读查询可有限重试。
 5. **非交互参数与写操作确认**：
-   - 有确认提示的命令仅在用户授权具体目标后加 `--yes`；`service host log-search` 及仅传 `SERVICE_ID` 的 `pod-event` / `log-stdout` 必加 `--no-input`；实例日志下载必传 `--select`（全部时传 `all`）；分布式执行记录日志传 `--role-job-id`；不使用无子命令的 `ml history`。
-   - **提交写操作前**必须核对环境、账号、业务和目标 ID（与确认目标不一致时停止）；**`product` 环境写操作须先复述环境、目标和参数并获得明确确认，笼统授权不算**（唯一豁免：`train history logs download` 在普通日志未就绪时自动触发归档属低风险条件性写操作，含 `product` 环境在内均无需二次确认）。
+   - 有确认提示的命令仅在用户授权具体目标后加 `--yes`；`service host log-search` 及仅传 `SERVICE_ID` 的 `pod-event` / `log-stdout` 必加 `--no-input`；统一日志下载遇到多个角色时按用户目标传 `--role-job-id` 或 `--all`；不使用无子命令的 `ml history`。
+   - **提交写操作前**必须核对环境、账号、业务和目标 ID（与确认目标不一致时停止）；**`product` 环境写操作须先复述环境、目标和参数并获得明确确认，笼统授权不算**（日志下载和执行实例首次归档直接使用当前业务，含 `product` 均免环境确认。遇到归档失败，先报告原因并询问是否重新下载该作业的全部日志；仅在用户明确确认该作业后执行一次 `--retry`）。
 
 ## 上下文检查与登录（高频最短闭环）
 
@@ -68,8 +68,8 @@ ml dataset list --name NAME --exact --agent
 ml feature-task list --name NAME --exact --agent
 ml webstudio list --status online --agent
 
-# 高频日志下载（条件性写：未就绪时自动触发远端归档，低风险免二次确认）
-ml train history logs download TASK_ID JOB_ID --directory 'D:\logs' --agent
+# 高频日志下载（历史普通日志只读等待，执行实例首次请求归档）
+ml train logs download TASK_ID JOB_ID --directory 'D:\logs' --agent
 ```
 
 ## 按任务按需读取参考

@@ -105,3 +105,4 @@ webstudio login	shared	--refresh
 webstudio start	shared
 webstudio stop	shared
 webstudio show	shared
+train logs download	shared	--type --role-job-id --all --retry --directory --wait --no-wait --poll-interval --wait-timeout --output -o

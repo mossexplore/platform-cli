@@ -12,10 +12,15 @@ import (
 
 var ErrLogNotReady = errors.New("日志未就绪")
 
+var ErrRunningInstanceGone = errors.New("当前执行实例已消失")
+
 func (a *API) RunningLogArchives(ctx context.Context, taskID, jobID string, startArchive func()) ([]Record, error) {
 	task, err := a.TrainTask(ctx, taskID)
 	if err != nil {
 		return nil, err
+	}
+	if task.Text("businessId") != a.BusinessID() {
+		return nil, errors.New("任务与当前业务不一致")
 	}
 	instances, err := a.AllTrainInstances(ctx, task)
 	if err != nil {
@@ -28,7 +33,10 @@ func (a *API) RunningLogArchives(ctx context.Context, taskID, jobID string, star
 			break
 		}
 	}
-	if job == nil || job.Text("taskId") != taskID || job.Text("businessId") != a.BusinessID() {
+	if job == nil {
+		return nil, ErrRunningInstanceGone
+	}
+	if job.Text("taskId") != taskID || job.Text("businessId") != a.BusinessID() {
 		return nil, errors.New("执行实例不存在或与当前任务及业务不一致")
 	}
 	startArchive()
@@ -58,13 +66,29 @@ func (a *API) RunningLogURL(ctx context.Context, item Record) (string, error) {
 	if !RunningLogArchiveReady(item) {
 		return "", errors.New("日志尚未归档成功")
 	}
-	result, err := a.runningLog(ctx, "getRunningJobLogUrl", item,
-		[]string{"businessId", "taskId", "jobId", "roleJobId", "archiveId", "createUser"},
-		map[string]any{"isApplicantPromise": true, "isUpload": false}, false)
+	result, err := a.runningDownloadAddress(ctx, item)
+	return result.Text("downloadUrl"), err
+}
+
+// RunningDownloadURL accepts failed records only during a confirmed whole-job retry.
+func (a *API) RunningDownloadURL(ctx context.Context, item Record, retry bool) (string, error) {
+	if !RunningLogArchiveReady(item) && !(retry && string(item["status"]) == "2") {
+		return "", errors.New("日志尚未归档成功")
+	}
+	result, err := a.runningDownloadAddress(ctx, item)
 	if err != nil {
 		return "", err
 	}
+	if string(result["status"]) == "0" {
+		return "", ErrLogNotReady
+	}
 	return result.Text("downloadUrl"), nil
+}
+
+func (a *API) runningDownloadAddress(ctx context.Context, item Record) (Record, error) {
+	return a.runningLog(ctx, "getRunningJobLogUrl", item,
+		[]string{"businessId", "taskId", "jobId", "roleJobId", "archiveId", "createUser"},
+		map[string]any{"isApplicantPromise": true, "isUpload": false}, false)
 }
 
 func (a *API) runningLog(ctx context.Context, route string, record Record, keys []string, extra map[string]any, archive bool) (Record, error) {
