@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"path/filepath"
 	"strings"
 	"time"
 
@@ -93,13 +92,14 @@ func newUnifiedTrainLogs(options Options, load loadConfig) *cobra.Command {
 func logUsage(message string) error { return usageError{errors.New(message)} }
 
 type trainLogRun struct {
-	options                   trainLogOptions
-	api                       *platform.API
-	cmd                       *cobra.Command
-	format, task, job, source string
-	steps                     logDownloadSteps
-	items                     []*trainLogItem
-	waited                    time.Duration
+	options                     trainLogOptions
+	api                         *platform.API
+	cmd                         *cobra.Command
+	format, task, job, source   string
+	steps                       logDownloadSteps
+	items                       []*trainLogItem
+	waited                      time.Duration
+	distributed, retrySuggested bool
 }
 
 type trainLogItem struct {
@@ -132,7 +132,7 @@ func (r *trainLogRun) save(i *trainLogItem, link string) {
 		}
 	}
 	name := platform.LogDownloadName(strings.Join(append(parts, r.options.kind), "-") + ".zip")
-	file, size, err := r.steps.download(r.cmd.Context(), r.api, link, filepath.Join(r.options.directory, name), r.options.directory, name, "日志")
+	file, size, err := r.downloadFile(i, link, name)
 	if err != nil {
 		i.fail(r.steps.stage, err)
 		return
@@ -141,6 +141,10 @@ func (r *trainLogRun) save(i *trainLogItem, link string) {
 }
 
 func (r *trainLogRun) result(err error) error {
+	if errors.Is(err, errLogSelectionCancelled) {
+		_, writeErr := fmt.Fprintln(r.cmd.OutOrStdout(), "已取消选择，本次未下载文件。")
+		return writeErr
+	}
 	status := "succeeded"
 	counts := map[string]int{}
 	for _, i := range r.items {
@@ -169,22 +173,18 @@ func (r *trainLogRun) result(err error) error {
 		if err := output.JSON(r.cmd.OutOrStdout(), result); err != nil {
 			return err
 		}
-	} else {
+	}
+	if r.format != "json" || agentMode(r.cmd) {
 		out := r.cmd.OutOrStdout()
-		fmt.Fprintf(out, "任务 %s · 作业 %s · %s · %s\n", r.task, r.job, r.source, status)
-		if len(r.items) > 0 {
-			rows := make([][]string, 0, len(r.items))
-			for _, item := range r.items {
-				detail := item.File
-				if item.Error != "" {
-					detail = item.Error
-				}
-				rows = append(rows, []string{item.RoleID, item.RoleType, item.Status, detail})
-			}
-			if err := output.Table(out, []string{"角色作业 ID", "角色", "状态", "文件或原因"}, rows); err != nil {
-				return err
-			}
+		if agentMode(r.cmd) {
+			out = r.cmd.ErrOrStderr()
 		}
+		if displayErr := r.renderResult(out, status, counts["succeeded"]); displayErr != nil {
+			return displayErr
+		}
+	}
+	if r.retrySuggested && err == nil {
+		fmt.Fprintln(r.cmd.ErrOrStderr(), "用户确认后可重新下载整个作业的全部日志：", r.retryCommand())
 	}
 	if err != nil {
 		// Preserve global handling of usage errors, interrupts and version denials.

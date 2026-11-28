@@ -5,7 +5,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -22,6 +21,7 @@ import (
 
 func TestUnifiedTrainLogRoutes(t *testing.T) {
 	t.Setenv("ML_HISTORY", "0")
+	t.Setenv("COLUMNS", "350")
 	for _, tc := range []struct {
 		name, manager, source, status string
 		flags                         []string
@@ -33,13 +33,18 @@ func TestUnifiedTrainLogRoutes(t *testing.T) {
 		{"changed business", "mlops", "running", "failed", []string{"job", "--retry"}, 1, 0, 0, 0},
 		{"denied archive", "wiserec", "running", "failed", []string{"job", "--retry"}, 1, 1, 0, 0},
 		{"missing selection", "mlops", "running", "", []string{"job"}, 2, 1, 0, 0},
+		{"history table", "mlops", "history", "not_ready", []string{"job", "--no-wait"}, 0, 0, 0, 0},
+		{"history roles", "mlops", "history", "", []string{"job"}, 2, 0, 0, 0},
 		{"latest history", "mlops", "history", "not_ready", []string{"--no-wait"}, 0, 0, 0, 0},
 		{"transition", "wiserec", "history", "not_ready", []string{"job", "--wait-timeout", "0"}, 0, 0, 0, 0},
 		{"plog", "mlops", "history", "succeeded", []string{"job", "--type", "plog"}, 0, 0, 1, 1},
 		{"history retry", "wiserec", "history", "failed", []string{"job", "--retry"}, 1, 0, 0, 0},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			dir := t.TempDir()
+			dir := t.TempDir() + "/log files"
+			if err := os.Mkdir(dir, 0700); err != nil {
+				t.Fatal(err)
+			}
 			archiveCount, linkCount, instances, historyPages := 0, 0, 0, 0
 			storage := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				for _, h := range []string{"businessid", "Cookie", "Authorization", "csrftoken"} {
@@ -99,6 +104,10 @@ func TestUnifiedTrainLogRoutes(t *testing.T) {
 						t.Error("unexpected switch to history")
 					}
 					historyPages++
+					if tc.name == "history roles" {
+						fmt.Fprint(w, `{"result":{"code":0,"count":1,"jobs":[{"jobId":"job","jobType":"dps-train","roleJobInfo":[{"roleJobId":"server-id","roleType":"server"},{"roleJobId":"worker-id","roleType":"worker"}]}]}}`)
+						return
+					}
 					if tc.name == "latest history" {
 						id, stamp := "old", 1
 						if historyPages == 2 {
@@ -125,12 +134,29 @@ func TestUnifiedTrainLogRoutes(t *testing.T) {
 			paths := fixtureConfig(t, t.TempDir(), server.URL, server.URL, false, tc.manager, "")
 			saveState(t, paths, server.URL)
 			args := append([]string{"train", "logs", "download", "task"}, tc.flags...)
-			code, out, stderr := run(t, paths, append(args, "--agent", "--directory", dir)...)
+			if tc.name == "history table" || tc.name == "history roles" {
+				args = append(args, "-o", "table")
+			} else {
+				args = append(args, "--agent")
+			}
+			code, out, stderr := run(t, paths, append(args, "--directory", dir)...)
+			if tc.name == "history table" || tc.name == "history roles" {
+				if code != tc.code || !strings.Contains(stderr, "配额等待时间") || !strings.Contains(stderr, "作业ID") || !strings.Contains(stderr, "┏") {
+					t.Fatalf("history query output: %s", stderr)
+				}
+				if tc.name == "history roles" && (!strings.Contains(stderr, "编号") || !strings.Contains(stderr, "worker-id") || strings.Contains(stderr, "roleJobId=")) {
+					t.Fatalf("role candidates: %s", stderr)
+				}
+				return
+			}
 			if code != tc.code || archiveCount != tc.archives || linkCount != tc.links {
 				t.Fatalf("exit %d, archives %d, links %d: %s %s", code, archiveCount, linkCount, out, stderr)
 			}
+			if !json.Valid([]byte(out)) {
+				t.Fatalf("invalid agent JSON: %s", out)
+			}
 			if tc.code == 2 {
-				if !strings.Contains(stderr, "roleJobId=failed") {
+				if !strings.Contains(stderr, "归档失败") {
 					t.Fatal(stderr)
 				}
 				return
@@ -145,7 +171,7 @@ func TestUnifiedTrainLogRoutes(t *testing.T) {
 			if tc.name != "history retry" && result.Source != tc.source {
 				t.Fatal(result.Source)
 			}
-			if tc.name == "no automatic retry" && strings.Count(stderr, "--retry") != 1 {
+			if tc.name == "no automatic retry" && (strings.Count(stderr, "--retry") != 1 || strings.Index(stderr, "下载结果") > strings.Index(stderr, "--retry") || !strings.Contains(stderr, dir) || !strings.Contains(stderr, "已下载 1/3")) {
 				t.Fatal(stderr)
 			}
 			files, err := os.ReadDir(dir)
@@ -203,7 +229,8 @@ func TestUnifiedHistoryWait(t *testing.T) {
 				ctx, cancel := context.WithCancel(context.Background())
 				defer cancel()
 				cmd.SetContext(ctx)
-				r := trainLogRun{cmd: cmd, steps: logDownloadSteps{out: io.Discard}, options: trainLogOptions{wait: true, interval: 30, timeout: 120}, items: []*trainLogItem{{RoleID: "ready"}, {RoleID: "pending"}}}
+				var progress bytes.Buffer
+				r := trainLogRun{cmd: cmd, steps: logDownloadSteps{out: &progress}, options: trainLogOptions{wait: true, interval: 30, timeout: 120}, items: []*trainLogItem{{RoleID: "ready"}, {RoleID: "pending"}}}
 				checks := 0
 				err := r.pollHistory(func(query context.Context, i *trainLogItem) (string, error) {
 					if i.RoleID == "ready" {
@@ -233,6 +260,9 @@ func TestUnifiedHistoryWait(t *testing.T) {
 					}
 					i.Status = "succeeded"
 				})
+				if progress.String() != "已下载 1/2 · 等待 pending · 30 秒后重查 · 剩余 120 秒\n" {
+					t.Fatal(progress.String())
+				}
 				if checks != 2 {
 					t.Fatal(checks)
 				}

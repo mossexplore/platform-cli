@@ -35,6 +35,11 @@ func (r *trainLogRun) selectRoles(rows []platform.Record, distributed bool) ([]p
 		}
 		byRole[id] = append(byRole[id], row)
 	}
+	if distributed && r.source == "running" {
+		if err := renderRunningLogRoles(r.steps.out, order, byRole); err != nil {
+			return nil, err
+		}
+	}
 	if o.all {
 		return rows, nil
 	}
@@ -42,10 +47,6 @@ func (r *trainLogRun) selectRoles(rows []platform.Record, distributed bool) ([]p
 	if len(ids) == 0 {
 		if len(order) == 1 {
 			return rows, nil
-		}
-		for n, id := range order {
-			row := byRole[id][0]
-			fmt.Fprintf(r.cmd.ErrOrStderr(), "%d. roleJobId=%s roleType=%s status=%s\n", n+1, id, row.Text("roleType"), fieldText(row["status"]))
 		}
 		input, ok := r.cmd.InOrStdin().(*os.File)
 		if r.format == "json" || !ok || !term.IsTerminal(int(input.Fd())) {
@@ -56,7 +57,7 @@ func (r *trainLogRun) selectRoles(rows []platform.Record, distributed bool) ([]p
 			return nil, err
 		}
 		if len(indices) == 0 {
-			return nil, logUsage("已取消选择")
+			return nil, errLogSelectionCancelled
 		}
 		for _, idx := range indices {
 			ids = append(ids, order[idx])
@@ -110,11 +111,11 @@ func (r *trainLogRun) running(rows []platform.Record, distributed bool) error {
 		id := row.Text("roleJobId")
 		groups[id] = append(groups[id], row)
 	}
-	selected, err := r.selectRoles(rows, distributed || len(groups) > 1)
+	r.distributed = distributed || len(groups) > 1
+	selected, err := r.selectRoles(rows, r.distributed)
 	if err != nil {
 		return err
 	}
-	suggestRetry := false
 	for _, row := range selected {
 		if err := r.cmd.Context().Err(); err != nil {
 			return err
@@ -144,7 +145,7 @@ func (r *trainLogRun) running(rows []platform.Record, distributed bool) error {
 		case "2":
 			if !r.options.retry {
 				i.fail("archive_log", fmt.Errorf("归档失败：%s", fieldText(row["statusReason"])))
-				suggestRetry = true
+				r.retrySuggested = true
 				continue
 			}
 		default:
@@ -162,15 +163,16 @@ func (r *trainLogRun) running(rows []platform.Record, distributed bool) error {
 		}
 		r.save(i, link)
 	}
-	if suggestRetry {
-		fmt.Fprintf(r.cmd.ErrOrStderr(), "用户确认后可重新下载整个作业的全部日志：ml train logs download %s %s --retry\n", r.task, r.job)
-	}
 	return nil
 }
 
 func (r *trainLogRun) history(job platform.Record) error {
 	rows := []platform.Record{job}
 	distributed := job.Text("jobType") == "dps-train"
+	r.distributed = distributed
+	if err := renderRecordTable(r.steps.out, trainHistoryColumns, rows, trainHistoryValue); err != nil {
+		return err
+	}
 	if distributed {
 		var err error
 		rows, err = responseRecords(job, "roleJobInfo")
@@ -179,6 +181,9 @@ func (r *trainLogRun) history(job platform.Record) error {
 		}
 		if len(rows) == 0 {
 			return errors.New("作业没有可下载的角色日志")
+		}
+		if err := renderTrainHistoryLogRoles(r.steps.out, rows); err != nil {
+			return err
 		}
 	}
 	rows, err := r.selectRoles(rows, distributed)
@@ -195,7 +200,7 @@ func (r *trainLogRun) history(job platform.Record) error {
 		r.item(row)
 	}
 	return r.pollHistory(func(ctx context.Context, item *trainLogItem) (string, error) {
-		return r.api.HistoryLogURL(ctx, r.task, r.job, item.RoleID, r.options.kind == "plog", r.steps.start)
+		return r.api.HistoryLogURL(ctx, r.task, r.job, item.RoleID, r.options.kind == "plog", func(stage, _ string) { r.steps.stage = stage })
 	}, r.save)
 }
 
@@ -253,12 +258,15 @@ func (r *trainLogRun) pollHistory(lookup func(context.Context, *trainLogItem) (s
 		if !pending || !wait {
 			return nil
 		}
-		r.steps.note("等待历史普通日志可用")
-		timer := time.NewTimer(time.Duration(r.options.interval) * time.Second)
+		remaining := max(0, time.Until(deadline))
+		delay := min(time.Duration(r.options.interval)*time.Second, remaining)
+		r.showWait(delay, remaining)
+		timer := time.NewTimer(delay)
 		select {
 		case <-timer.C:
 		case <-queryCtx.Done():
 			timer.Stop()
 		}
+		r.clearProgress()
 	}
 }

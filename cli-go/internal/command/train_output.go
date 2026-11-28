@@ -156,15 +156,22 @@ func renderTrainHistoryLogRoles(out io.Writer, roles []platform.Record) error {
 	return output.Table(out, headers, rows, 1, len(headers)-1)
 }
 
+func trainHistoryValue(item platform.Record, key string) string {
+	if key == "status" {
+		if label := trainStatus[item.Text(key)]; label != "" {
+			return label
+		}
+	}
+	return trainValue(item, key)
+}
+
 func renderTrainPage(out io.Writer, page platform.Page, heading string, columns []recordColumn, empty string) error {
 	if heading != "" {
 		fmt.Fprintln(out, heading)
 	}
 	format := func(item platform.Record, key string) string {
-		if key == "status" && empty == "暂无执行记录" {
-			if label := trainStatus[item.Text(key)]; label != "" {
-				return label
-			}
+		if empty == "暂无执行记录" {
+			return trainHistoryValue(item, key)
 		}
 		if key == "runningTime" && empty == "暂无执行实例" {
 			if value, err := strconv.ParseFloat(fieldText(item["createTime"]), 64); err == nil {
