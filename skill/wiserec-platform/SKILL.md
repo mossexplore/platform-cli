@@ -68,7 +68,7 @@ ml dataset list --name NAME --exact --agent
 ml feature-task list --name NAME --exact --agent
 ml webstudio list --status online --agent
 
-# 高频日志下载（历史普通日志只读等待，执行实例首次请求归档）
+# 高频日志下载（历史日志只查一轮，执行实例由 CLI 等待归档）
 ml train logs download TASK_ID JOB_ID --directory 'D:\logs' --agent
 ```
 

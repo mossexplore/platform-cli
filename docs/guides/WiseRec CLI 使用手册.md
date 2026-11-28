@@ -683,7 +683,7 @@ ml train config update TASK_ID --customize-config VALUE
 | `history detail` | 必填 `TASK_ID`、`JOB_ID`；可选 `--output` / `-o` |
 | `start` | 必填 `TASK_ID`；执行后显示作业 ID |
 | `config export` | 必填 `TASK_ID`；可选 `--file PATH` 指定保存位置 |
-| `logs download` | 默认下载普通日志到当前目录。`--type plog` 仅用于历史作业；`--role-job-id` 可重复，与 `--all` 互斥。历史普通日志默认等待，每 30 秒只读查询，最多 120 秒。用 `--poll-interval` 和 `--wait-timeout` 调整；`--no-wait` 或等待上限 0 只查一轮。`--retry` 需显式指定原作业 ID，覆盖整个执行实例作业 |
+| `logs download` | 默认下载普通日志到当前目录。`--type plog` 仅用于历史作业；`--role-job-id` 可重复，与 `--all` 互斥。历史日志只查一轮。执行实例默认每 30 秒复查仍在归档的角色，到第 120 秒做最后一次检查，含首次最多 5 轮。用 `--poll-interval` 和 `--wait-timeout` 调整；`--no-wait` 或等待上限 0 只查一轮。`--retry` 需显式指定原作业 ID，覆盖整个执行实例作业 |
 | `history logs download` | 必填 `TASK_ID`、`JOB_ID`；`--type` 默认 `log`，也可选 `plog`；`--role-job-id ROLE_JOB_ID` 仅用于 `jobType=dps-train` 的分布式训练，非交互下载和 JSON 模式必填；可选 `--directory DIR`、`--output` / `-o` |
 | `instance logs download` | 必填 `TASK_ID`、`JOB_ID`；可选 `--select SELECTION`、`--directory DIR`、`--output` / `-o` |
 | `cancel`、`delete` | 必填 `TASK_ID`；可选 `--yes` / `-y` 跳过确认 |
@@ -716,9 +716,9 @@ WiseRec 和 MLOps 的 `history list` 表格的最后三列依次是“执行时�
 
 `history detail` 查询指定执行记录，自动翻页查找作业。普通训练展示该记录；分布式训练（`jobType=dps-train`）展示角色列表，依次为角色作业 ID、名称、算法名称、状态、节点数、CPU、GPU、内存、执行节点和开始时间。首列角色作业 ID 完整显示，时间按北京时间展示，空值显示 `-`，零值保留。JSON 保留该执行记录及角色的完整原始字段。
 
-优先用 `logs download`。省略作业 ID 时，命令从当前任务跨页选择最新的运行中作业，无执行实例时选择最新历史作业。历史日志只读查询。执行实例首次提交作业归档，成功项直接下载，归档中返回 `archiving`。出现归档失败时，由用户确认是否重新下载整个作业，再传 `--retry`；服务端决定是否实际重新归档。保存目录须已存在，同名文件自动编号。结果给出来源、作业 ID 和各文件状态及路径；`succeeded` 表示全部成功，`partial` 表示部分成功，`failed` 表示失败。`not_ready` 表示历史日志暂不可用，`wait_timeout` 表示等待到期。部分成功、失败及等待到期返回退出码 1。
+优先用 `logs download`。省略作业 ID 时，命令从当前任务跨页选择最新的运行中作业，无执行实例时选择最新历史作业。历史日志只读查询。执行实例首次提交作业归档，成功项直接下载，已下载的角色跳过后续复查。单轮查询仍在归档或服务端尚未返回任何归档记录时，返回 `archiving`。出现归档失败时，由用户确认是否重新下载整个作业，再传 `--retry`；服务端决定是否实际重新归档。保存目录须已存在，同名文件自动编号。结果给出来源、作业 ID 和各文件状态及路径；`succeeded` 表示全部成功，`partial` 表示部分成功，`failed` 表示失败。`not_ready` 表示历史日志暂不可用，`wait_timeout` 表示执行实例等待到期仍在归档，结果中列出对应角色。部分成功、失败及等待到期返回退出码 1。
 
-`logs download` 查询历史作业时，先展示与 `history list` 相同的作业表，再列出分布式角色。执行实例的角色选择表显示归档状态和原因。交互选择时输入 `q` 正常退出。等待期间显示待下载角色和剩余时间，完成后按文件列出大小、路径或失败原因。使用 `--agent` 时表格和进度写入标准错误，标准输出保留单个 JSON 结果。
+`logs download` 查询历史作业时，先展示与 `history list` 相同的作业表，再列出分布式角色。执行实例的角色选择表显示归档状态和原因。交互选择时输入 `q` 正常退出。等待期间显示待下载角色和剩余时间。每次复查开始时打印一行，列出复查次数、已等待秒数和本轮目标。完成后按文件列出大小、路径或失败原因。使用 `--agent` 时表格和进度写入标准错误，标准输出保留单个 JSON 结果。
 
 `history logs download` 需先登录并选择业务。已有任务 ID 和作业 ID 时可直接下载最新或历史实例的日志。WiseRec 和 MLOps 的普通训练、分布式训练下载普通日志前，均先检查日志是否存在；日志存在时获取下载链接。日志未就绪，或下载链接接口返回需要归档（`failedUploadSwitch=false`）时，按作业提交手动归档。提交成功后立即提示“手动归档中，请稍后再次下载日志！”。稍后重新运行下载命令。批量下载仍处理其他选中角色，同一次命令内每个作业只提交一次归档请求。
 

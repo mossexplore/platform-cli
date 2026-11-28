@@ -24,9 +24,9 @@ ml train logs download TASK_ID JOB_ID --role-job-id ROLE_JOB_ID --type plog --di
 
 - WiseRec 和 MLOps 均需先登录并选择业务。保存目录须已存在。省略作业 ID 时优先选最新执行实例，其次选最新历史记录，选定后锁定作业。多角色时按目标传可重复的 `--role-job-id` 或 `--all`。
 - `--agent` 的标准输出是单个 JSON 结果，标准错误展示作业、角色、下载结果表和进度。选择多个候选角色时，从角色表读取完整的 roleJobId，再按用户选择传参。
-- 历史普通日志默认每 30 秒只读重查，最多等待 120 秒，可调整 `--poll-interval` 和 `--wait-timeout`。单轮检查用 `--no-wait`。工具超时需覆盖等待、查询和文件传输。历史 plog 直接检查并取址。
+- 历史普通日志和 plog 各只查一轮，直接报告结果。执行实例由 CLI 默认每 30 秒复查仍在归档的目标，等待上限 120 秒，到期做最后一次检查。每次复查开始时，stderr 单独打印复查次数、已等待秒数和本轮目标。Agent 调用一次命令并等待其结束，不使用 `Start-Sleep` 或循环重跑。工具超时需覆盖等待、接口查询和文件传输。可用 `--poll-interval`、`--wait-timeout` 调整，或用 `--no-wait` 只查一轮。
 - 执行实例首次请求作业归档，`archiving` 表示仍在处理中，此时向用户报告状态。归档失败时报告作业 ID 和失败原因，询问是否重新下载**该作业的全部日志**。仅在用户针对整个作业明确同意后执行一次 `ml train logs download TASK_ID JOB_ID --retry --directory DIR --agent`，由服务端决定是否重新归档。禁止自动重跑、逐角色重试或在重试失败后沿用上次确认。
-- `succeeded` 表示已保存全部文件；`not_ready` 表示单轮检查后历史日志暂不可用，`wait_timeout` 表示等待到期。遇到 `partial` 或 `failed` 时检查逐项结果及错误阶段，报告已保存路径，不展示签名链接。
+- `succeeded` 表示已保存全部文件；`not_ready` 表示单轮检查后历史日志暂不可用，`wait_timeout` 表示执行实例到期仍在归档，报告已保存和仍在归档的角色即可。遇到 `partial` 或 `failed` 时检查逐项结果及错误阶段，报告已保存路径，不展示签名链接。
 - 旧入口仍支持原参数。脚本显式调用 `instance logs download` 时使用 `--select`；旧 `history logs download` 的普通日志未就绪时会提交手动归档。新流程使用统一入口。
 
 ### 写操作与配置

@@ -30,10 +30,10 @@ func newUnifiedTrainLogs(options Options, load loadConfig) *cobra.Command {
 	f.StringArrayVar(&o.roles, "role-job-id", nil, "角色作业 ID，可重复指定")
 	f.BoolVar(&o.all, "all", false, "下载全部角色")
 	f.BoolVar(&o.retry, "retry", false, "确认对指定运行中作业的全部日志重新下载")
-	f.BoolVar(&o.wait, "wait", true, "等待历史普通日志可用")
+	f.BoolVar(&o.wait, "wait", true, "等待执行实例日志归档完成")
 	f.BoolVar(&o.noWait, "no-wait", false, "仅查询一轮")
-	f.IntVar(&o.interval, "poll-interval", 30, "轮询间隔秒数")
-	f.IntVar(&o.timeout, "wait-timeout", 120, "等待上限秒数，0 表示仅查询一轮")
+	f.IntVar(&o.interval, "poll-interval", 30, "执行实例归档复查间隔秒数")
+	f.IntVar(&o.timeout, "wait-timeout", 120, "执行实例归档等待上限秒数，0 表示仅查询一轮")
 	outputFlag(cmd)
 	cmd.Args = func(cmd *cobra.Command, args []string) error {
 		if len(args) < 1 || len(args) > 2 {

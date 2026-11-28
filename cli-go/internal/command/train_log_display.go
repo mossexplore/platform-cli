@@ -79,7 +79,11 @@ func (r *trainLogRun) renderResult(out io.Writer, status string, succeeded int) 
 		if detail == "" {
 			detail = "-"
 		}
-		rows = append(rows, append(row, logResultLabels[i.Status], size, detail))
+		label := logResultLabels[i.Status]
+		if i.Status == "failed" && i.Stage == "archive_log" {
+			label = "归档失败"
+		}
+		rows = append(rows, append(row, label, size, detail))
 	}
 	return output.Table(out, headers, rows)
 }
@@ -119,18 +123,14 @@ func (r *trainLogRun) clearProgress() {
 	}
 }
 
-func (r *trainLogRun) showWait(delay, remaining time.Duration) {
-	var pending []string
+func (r *trainLogRun) showWait(delay, remaining time.Duration, targets string) {
 	downloaded := 0
 	for _, i := range r.items {
-		switch i.Status {
-		case "not_ready":
-			pending = append(pending, r.logLabel(i))
-		case "succeeded":
+		if i.Status == "succeeded" {
 			downloaded++
 		}
 	}
-	r.progress(fmt.Sprintf("已下载 %d/%d · 等待 %s · %.0f 秒后重查 · 剩余 %.0f 秒", downloaded, len(r.items), strings.Join(pending, "、"), math.Ceil(delay.Seconds()), math.Ceil(remaining.Seconds())))
+	r.progress(fmt.Sprintf("已下载 %d/%d · 等待 %s · %.0f 秒后重查 · 剩余 %.0f 秒", downloaded, len(r.items), targets, math.Ceil(delay.Seconds()), math.Ceil(remaining.Seconds())))
 }
 
 func (r *trainLogRun) logLabel(i *trainLogItem) string {

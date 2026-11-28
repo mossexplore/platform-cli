@@ -12,6 +12,8 @@ import (
 
 var ErrLogNotReady = errors.New("日志未就绪")
 
+var ErrArchiveFailed = errors.New("归档失败")
+
 var ErrRunningInstanceGone = errors.New("当前执行实例已消失")
 
 func (a *API) RunningLogArchives(ctx context.Context, taskID, jobID string, startArchive func()) ([]Record, error) {
@@ -72,15 +74,24 @@ func (a *API) RunningLogURL(ctx context.Context, item Record) (string, error) {
 
 // RunningDownloadURL accepts failed records only during a confirmed whole-job retry.
 func (a *API) RunningDownloadURL(ctx context.Context, item Record, retry bool) (string, error) {
-	if !RunningLogArchiveReady(item) && !(retry && string(item["status"]) == "2") {
+	if string(item["status"]) != "0" && !RunningLogArchiveReady(item) && !(retry && string(item["status"]) == "2") {
 		return "", errors.New("日志尚未归档成功")
 	}
 	result, err := a.runningDownloadAddress(ctx, item)
 	if err != nil {
 		return "", err
 	}
-	if string(result["status"]) == "0" {
+	switch string(result["status"]) {
+	case "0":
 		return "", ErrLogNotReady
+	case "2":
+		if reason := result.Text("statusReason"); reason != "" {
+			return "", fmt.Errorf("%w：%s", ErrArchiveFailed, reason)
+		}
+		return "", ErrArchiveFailed
+	case "", "1": // Some ready responses contain only the signed URL.
+	default:
+		return "", errors.New("无法识别归档状态")
 	}
 	return result.Text("downloadUrl"), nil
 }

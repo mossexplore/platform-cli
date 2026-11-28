@@ -54,7 +54,7 @@
 | `ml train instance list TASK_ID [--page N] [--page-size N]` | 分页查询当前运行中/排队中的执行实例（`runningTime` 单位为分钟） | | |
 | `ml train history list TASK_ID [--latest-flag true\|all] [--page N] [--page-size N]` | 分页查询历史已执行的执行记录；默认仅查最新实例，`all` 包含历史实例 | | |
 | `ml train history detail TASK_ID JOB_ID` | 在最新实例的执行记录中查询作业及分布式角色详情 | | |
-| `ml train logs download TASK_ID [JOB_ID] [--type log\|plog] [--directory DIR] [--role-job-id ID] [--all] [--wait\|--no-wait] [--poll-interval SECONDS] [--wait-timeout SECONDS] [--retry]` | 最新或指定作业日志；历史只读等待，执行实例首次归档。归档失败后经用户确认，显式 JOB_ID 配合 --retry 重新下载整个作业 | | 本地文件；执行实例按作业提交一次归档请求 |
+| `ml train logs download TASK_ID [JOB_ID] [--type log\|plog] [--directory DIR] [--role-job-id ID] [--all] [--wait\|--no-wait] [--poll-interval SECONDS] [--wait-timeout SECONDS] [--retry]` | 最新或指定作业日志；历史只读查询一轮，执行实例提交一次归档并默认每 30 秒复查。归档失败后经用户确认，显式 JOB_ID 配合 --retry 重新下载整个作业 | | 本地文件；执行实例按作业提交一次归档请求 |
 | `ml train history logs download TASK_ID JOB_ID [--type log\|plog] [--directory DIR] [--role-job-id ROLE_JOB_ID]` | 按任务和作业 ID 下载执行记录日志，普通日志未就绪时自动提交归档；仅分布式训练传 `--role-job-id`（必填） | | 条件性写：平台日志归档及本地文件 |
 | `ml train instance logs download TASK_ID JOB_ID [--select SELECTION] [--directory DIR]` | 先请求归档，仅下载归档成功的日志，`--select` 传编号或 `all` | | 写：平台归档及本地 ZIP 文件 |
 | `ml train start TASK_ID` | 立即启动任务 | | 写（无内置确认）：启动作业 |

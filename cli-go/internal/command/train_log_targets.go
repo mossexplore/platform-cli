@@ -1,7 +1,6 @@
 package command
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"os"
@@ -152,18 +151,9 @@ func (r *trainLogRun) running(rows []platform.Record, distributed bool) error {
 			i.fail("archive_log", errors.New("无法识别归档状态"))
 			continue
 		}
-		link, err := r.api.RunningDownloadURL(r.cmd.Context(), row, r.options.retry)
-		if errors.Is(err, platform.ErrLogNotReady) {
-			i.Status = "archiving"
-			continue
-		}
-		if err != nil {
-			i.fail("get_download_url", err)
-			continue
-		}
-		r.save(i, link)
+		r.checkRunningItem(i)
 	}
-	return nil
+	return r.waitRunning(r.checkRunningItem)
 }
 
 func (r *trainLogRun) history(job platform.Record) error {
@@ -199,74 +189,25 @@ func (r *trainLogRun) history(job platform.Record) error {
 		seen[id] = true
 		r.item(row)
 	}
-	return r.pollHistory(func(ctx context.Context, item *trainLogItem) (string, error) {
-		return r.api.HistoryLogURL(ctx, r.task, r.job, item.RoleID, r.options.kind == "plog", func(stage, _ string) { r.steps.stage = stage })
-	}, r.save)
-}
-
-func (r *trainLogRun) pollHistory(lookup func(context.Context, *trainLogItem) (string, error), save func(*trainLogItem, string)) error {
-	ctx := r.cmd.Context()
-	queryCtx := ctx
-	var start, deadline time.Time
-	defer func() {
-		if !start.IsZero() {
-			r.waited = min(time.Since(start), deadline.Sub(start))
+	for _, i := range r.items {
+		ctx := r.cmd.Context()
+		if err := ctx.Err(); err != nil {
+			return err
 		}
-	}()
-	wait := r.options.wait && !r.options.noWait && r.options.timeout > 0
-	for {
-		pending := false
-		for _, i := range r.items {
-			if err := ctx.Err(); err != nil {
-				return err
-			}
-			if i.Status != "" && i.Status != "not_ready" {
-				continue
-			}
-			if queryCtx.Err() != nil {
-				i.Status, i.Stage, i.Error = "wait_timeout", "check_log", "等待日志可用超时"
-				continue
-			}
-			plog := r.options.kind == "plog"
-			if plog && !platform.HasPlog(i.row) {
-				i.fail("validate_role", errors.New("该记录没有 plog 日志"))
-				continue
-			}
-			link, err := lookup(queryCtx, i)
-			switch {
-			case queryCtx.Err() != nil:
-				if ctx.Err() != nil {
-					return ctx.Err()
-				}
-				i.Status, i.Stage, i.Error = "wait_timeout", r.steps.stage, "等待日志可用超时"
-			case errors.Is(err, platform.ErrLogNotReady):
-				i.Status, i.Stage = "not_ready", r.steps.stage
-				pending = true
-				if wait && start.IsZero() {
-					start = time.Now()
-					deadline = start.Add(time.Duration(r.options.timeout) * time.Second)
-					var cancel context.CancelFunc
-					queryCtx, cancel = context.WithDeadline(ctx, deadline)
-					defer cancel()
-				}
-			case err != nil:
-				i.fail(r.steps.stage, err)
-			default:
-				save(i, link)
-			}
+		plog := r.options.kind == "plog"
+		if plog && !platform.HasPlog(i.row) {
+			i.fail("validate_role", errors.New("该记录没有 plog 日志"))
+			continue
 		}
-		if !pending || !wait {
-			return nil
+		link, err := r.api.HistoryLogURL(ctx, r.task, r.job, i.RoleID, plog, func(stage, _ string) { r.steps.stage = stage })
+		switch {
+		case errors.Is(err, platform.ErrLogNotReady):
+			i.Status, i.Stage = "not_ready", r.steps.stage
+		case err != nil:
+			i.fail(r.steps.stage, err)
+		default:
+			r.save(i, link)
 		}
-		remaining := max(0, time.Until(deadline))
-		delay := min(time.Duration(r.options.interval)*time.Second, remaining)
-		r.showWait(delay, remaining)
-		timer := time.NewTimer(delay)
-		select {
-		case <-timer.C:
-		case <-queryCtx.Done():
-			timer.Stop()
-		}
-		r.clearProgress()
 	}
+	return nil
 }

@@ -27,15 +27,19 @@ func TestUnifiedTrainLogRoutes(t *testing.T) {
 		flags                         []string
 		code, archives, links, files  int
 	}{
-		{"explicit whole job", "mlops", "running", "partial", []string{"job", "--retry"}, 1, 1, 3, 3},
-		{"no automatic retry", "wiserec", "running", "partial", []string{"job", "--all"}, 1, 1, 1, 1},
+		{"explicit whole job", "mlops", "running", "partial", []string{"job", "--retry", "--no-wait"}, 1, 1, 3, 3},
+		{"no automatic retry", "wiserec", "running", "partial", []string{"job", "--all", "--no-wait"}, 1, 1, 1, 1},
+		{"final ready", "mlops", "running", "succeeded", []string{"job", "--role-job-id", "pending", "--wait-timeout", "1"}, 0, 1, 1, 1},
+		{"all pending", "mlops", "running", "wait_timeout", []string{"job", "--role-job-id", "pending", "--wait-timeout", "1"}, 1, 1, 1, 0},
+		{"final failed", "mlops", "running", "failed", []string{"job", "--role-job-id", "pending", "--wait-timeout", "1"}, 1, 1, 1, 0},
+		{"final pending", "mlops", "running", "partial", []string{"job", "--role-job-id", "ready", "--role-job-id", "pending", "--wait-timeout", "1"}, 1, 1, 2, 1},
 		{"one role", "mlops", "running", "failed", []string{"job", "--role-job-id", "failed"}, 1, 1, 0, 0},
 		{"changed business", "mlops", "running", "failed", []string{"job", "--retry"}, 1, 0, 0, 0},
 		{"denied archive", "wiserec", "running", "failed", []string{"job", "--retry"}, 1, 1, 0, 0},
 		{"missing selection", "mlops", "running", "", []string{"job"}, 2, 1, 0, 0},
 		{"history table", "mlops", "history", "not_ready", []string{"job", "--no-wait"}, 0, 0, 0, 0},
 		{"history roles", "mlops", "history", "", []string{"job"}, 2, 0, 0, 0},
-		{"latest history", "mlops", "history", "not_ready", []string{"--no-wait"}, 0, 0, 0, 0},
+		{"latest history", "mlops", "history", "not_ready", nil, 0, 0, 0, 0},
 		{"transition", "wiserec", "history", "not_ready", []string{"job", "--wait-timeout", "0"}, 0, 0, 0, 0},
 		{"plog", "mlops", "history", "succeeded", []string{"job", "--type", "plog"}, 0, 0, 1, 1},
 		{"history retry", "wiserec", "history", "failed", []string{"job", "--retry"}, 1, 0, 0, 0},
@@ -46,6 +50,7 @@ func TestUnifiedTrainLogRoutes(t *testing.T) {
 				t.Fatal(err)
 			}
 			archiveCount, linkCount, instances, historyPages := 0, 0, 0, 0
+			historyChecks := 0
 			storage := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				for _, h := range []string{"businessid", "Cookie", "Authorization", "csrftoken"} {
 					if r.Header.Get(h) != "" {
@@ -94,6 +99,18 @@ func TestUnifiedTrainLogRoutes(t *testing.T) {
 					json.NewEncoder(w).Encode(map[string]any{"result": map[string]any{"code": 0, "count": 4, "logInfoList": entries}})
 				case "getRunningJobLogUrl":
 					id := readRequest(t, r)["data"].(map[string]any)["archiveId"]
+					if id == "3" && (strings.HasPrefix(tc.name, "final ") || tc.name == "all pending") {
+						linkCount++
+						switch tc.name {
+						case "final pending", "all pending":
+							fmt.Fprint(w, `{"result":{"code":0,"status":0}}`)
+						case "final failed":
+							fmt.Fprint(w, `{"result":{"code":0,"status":2,"statusReason":"disk quota"}}`)
+						default:
+							fmt.Fprintf(w, `{"result":{"code":0,"status":1,"downloadUrl":%q}}`, storage.URL)
+						}
+						return
+					}
 					if id == "3" || tc.name != "explicit whole job" && id != "0" {
 						t.Errorf("unexpected archive %v", id)
 					}
@@ -118,6 +135,7 @@ func TestUnifiedTrainLogRoutes(t *testing.T) {
 						fmt.Fprint(w, `{"result":{"code":0,"count":1,"jobs":[{"jobId":"job","sysParam":"{\"plogUploadSuccess\":\"1\"}"}]}}`)
 					}
 				case "queryJobLogIsExist":
+					historyChecks++
 					if r.URL.Query().Get("jobId") != "job" {
 						t.Error("wrong job")
 					}
@@ -152,6 +170,9 @@ func TestUnifiedTrainLogRoutes(t *testing.T) {
 			if code != tc.code || archiveCount != tc.archives || linkCount != tc.links {
 				t.Fatalf("exit %d, archives %d, links %d: %s %s", code, archiveCount, linkCount, out, stderr)
 			}
+			if tc.name == "latest history" && historyChecks != 1 {
+				t.Fatalf("history queried %d times", historyChecks)
+			}
 			if !json.Valid([]byte(out)) {
 				t.Fatalf("invalid agent JSON: %s", out)
 			}
@@ -167,6 +188,12 @@ func TestUnifiedTrainLogRoutes(t *testing.T) {
 			}
 			if json.Unmarshal([]byte(out), &result) != nil || result.Status != tc.status || result.JobID != "job" {
 				t.Fatal(out, stderr)
+			}
+			if tc.name == "final failed" && (!strings.Contains(stderr, "--retry") || result.Items[0].Stage != "archive_log" || !strings.Contains(result.Items[0].Error, "disk quota")) {
+				t.Fatal(stderr, out)
+			}
+			if tc.name == "final pending" && (strings.Contains(stderr, "--retry") || result.Items[1].Status != "wait_timeout" || !strings.Contains(result.Items[1].Error, "服务端仍在归档")) {
+				t.Fatal(stderr, out)
 			}
 			if tc.name != "history retry" && result.Source != tc.source {
 				t.Fatal(result.Source)
@@ -221,64 +248,46 @@ func TestChooseLatestArchiveAndJob(t *testing.T) {
 	}
 }
 
-func TestUnifiedHistoryWait(t *testing.T) {
-	for _, scenario := range []string{"ready", "deadline", "interrupt"} {
+func TestRunningWaitSchedule(t *testing.T) {
+	for _, scenario := range []string{"ready", "timeout", "interrupt"} {
 		t.Run(scenario, func(t *testing.T) {
 			synctest.Test(t, func(t *testing.T) {
-				cmd := &cobra.Command{}
 				ctx, cancel := context.WithCancel(context.Background())
 				defer cancel()
+				cmd := &cobra.Command{}
 				cmd.SetContext(ctx)
 				var progress bytes.Buffer
-				r := trainLogRun{cmd: cmd, steps: logDownloadSteps{out: &progress}, options: trainLogOptions{wait: true, interval: 30, timeout: 120}, items: []*trainLogItem{{RoleID: "ready"}, {RoleID: "pending"}}}
+				target := &trainLogItem{RoleType: "server", Status: "archiving"}
+				r := trainLogRun{cmd: cmd, steps: logDownloadSteps{out: &progress}, options: trainLogOptions{wait: true, interval: 30, timeout: 120}, items: []*trainLogItem{{Status: "succeeded"}, target}}
+				if scenario == "interrupt" {
+					time.AfterFunc(15*time.Second, cancel)
+				}
+				start := time.Now()
 				checks := 0
-				err := r.pollHistory(func(query context.Context, i *trainLogItem) (string, error) {
-					if i.RoleID == "ready" {
-						return "ready", nil
-					}
+				err := r.waitRunning(func(i *trainLogItem) {
 					checks++
-					if checks == 1 {
-						return "", platform.ErrLogNotReady
+					line := fmt.Sprintf("日志归档中，第 %d 次复查状态 · 已等待 %d 秒 · 正在查询 server 的归档状态\n", checks, checks*30)
+					if !strings.HasSuffix(progress.String(), line) || strings.Count(progress.String(), "次复查") != checks {
+						t.Fatal(progress.String())
 					}
-					switch scenario {
-					case "ready":
-						time.Sleep(89 * time.Second)
-						return "ready", nil
-					case "interrupt":
-						cancel()
-						return "", context.Canceled
-					default:
-						<-query.Done()
-						return "", query.Err()
+					if time.Since(start) != time.Duration(checks)*30*time.Second || i != target {
+						t.Fatalf("unexpected check %d at %s for %v", checks, time.Since(start), i)
 					}
-				}, func(i *trainLogItem, _ string) {
-					if i.Status == "succeeded" {
-						t.Error("repeated download")
+					if scenario == "ready" && checks == 4 {
+						i.Status = "succeeded"
 					}
-					if i.RoleID == "pending" {
-						time.Sleep(2 * time.Second)
-					}
-					i.Status = "succeeded"
 				})
-				if progress.String() != "已下载 1/2 · 等待 pending · 30 秒后重查 · 剩余 120 秒\n" {
-					t.Fatal(progress.String())
+				if scenario == "interrupt" {
+					if err != context.Canceled || checks != 0 || strings.Contains(progress.String(), "次复查") {
+						t.Fatal(err, checks)
+					}
+					return
 				}
-				if checks != 2 {
-					t.Fatal(checks)
+				if err != nil || checks != 4 || r.waited != 120*time.Second || !strings.Contains(progress.String(), "已下载 1/2 · 等待 server") {
+					t.Fatal(err, checks, r.waited, progress.String())
 				}
-				switch scenario {
-				case "ready":
-					if err != nil || r.items[1].Status != "succeeded" {
-						t.Fatal(err, r.items)
-					}
-				case "interrupt":
-					if err != context.Canceled {
-						t.Fatal(err)
-					}
-				case "deadline":
-					if err != nil || r.items[1].Status != "wait_timeout" || r.waited != 120*time.Second {
-						t.Fatal(err, r.waited, r.items)
-					}
+				if scenario == "ready" && target.Status != "succeeded" || scenario == "timeout" && target.Status != "wait_timeout" {
+					t.Fatal(target)
 				}
 			})
 		})
